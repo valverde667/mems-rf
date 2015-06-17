@@ -60,10 +60,10 @@ top.pboundnz = absorb
 top.prwall = np.sqrt(2)*1.5*mm/2.0
 
 # --- Set field grid size
-w3d.xmmin = -0.0015
-w3d.xmmax = +0.0015
-w3d.ymmin = -0.0015
-w3d.ymmax = +0.0015
+w3d.xmmin = -0.0015/2.
+w3d.xmmax = +0.0015/2.
+w3d.ymmin = -0.0015/2.
+w3d.ymmax = +0.0015/2.
 w3d.zmmin = 0.0
 w3d.zmmax = 0.01
 
@@ -75,7 +75,7 @@ if w3d.l2symtry or w3d.l4symtry:
 # set grid spacing
 w3d.dx = (w3d.xmmax-w3d.xmmin)/100.
 w3d.dy = (w3d.ymmax-w3d.ymmin)/100.
-w3d.dz = (w3d.zmmax-w3d.zmmin)/100.
+w3d.dz = (w3d.zmmax-w3d.zmmin)/1000.
 
 # --- Field grid dimensions - note that nx and ny must be even.
 w3d.nx = 2*int((w3d.xmmax - w3d.xmmin)/w3d.dx/2.)
@@ -147,11 +147,17 @@ fma()
 pfzx(fill=1, filled=1, plotphi=1)
 
 fma()
-pfxy(fill=0, filled=1, plotphi=0, iz=10)
+pfxy(fill=0, filled=1, plotphi=0, iz=50)
 fma()
-pfxy(fill=0, filled=1, plotphi=1, iz=10)
+pfxy(fill=0, filled=1, plotphi=1, iz=74)
+fma()
+pfxy(fill=0, filled=1, plotphi=1, iz=123)
+fma()
+pfxy(fill=0, filled=1, plotphi=1, iz=124)
+fma()
+pfxy(fill=0, filled=1, plotphi=1, iz=125)
 
-for i in range(9):
+for i in range(2):
     gun(1, ipstep=1, lvariabletimestep=1, ipsave=300000)
     fma()
     pfzx(fill=1, filled=1, plotselfe=2, comp='E')
