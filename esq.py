@@ -1,10 +1,12 @@
 """
 Simplfied ESQ model
 """
+from __future__ import print_function
+
 from warp import *
-from egun_like import *
-from ionization import *
-from timedependentvoltage import TimeVoltage
+from warp.egun_like import *
+from warp.ionization import *
+from warp.timedependentvoltage import TimeVoltage
 
 import numpy as np
 
@@ -136,7 +138,7 @@ conductors += ESQ(voltage=Vesq, condid=[112, 113])
 Gap(500*um)
 conductors += ESQ(voltage=-Vesq, condid=[114, 115])
 Gap(500*um)
-print "total length", getpos()
+print("total length", getpos())
 
 velo = np.sqrt(2*ekininit*ions.charge/ions.mass)
 length = getpos()

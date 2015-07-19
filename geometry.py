@@ -1,4 +1,5 @@
 """Module to keep track of different geometries used in our project"""
+from __future__ import print_function
 
 from warp import *
 
@@ -66,7 +67,7 @@ def ESQ(voltage, condid):
             xcent2, ycent2 = -Y, X
             xcent3, ycent3 = 0, XX
         else:
-            print "wrong rotation value"
+            print("wrong rotation value")
 
         electrode1 = ZCylinder(radius=R2, length=wafer_length, voltage=voltage,
                                 xcent=xcent1, ycent=ycent1, zcent=zcenter,
