@@ -193,6 +193,8 @@ while (top.time < tmax and zmax < zrunmax):
 
     # create some plots
     ppzke(color=green)
+    fma()
+    ppzke(color=green)
     old = limits()
     limits(old[0], old[1], 19e3, 35e3)
     fma()
