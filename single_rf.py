@@ -137,9 +137,12 @@ zrunmax = length
 toffset = 7.0e-9
 Vmax = 5e3
 
-freq1 = 1/4./(522e-6/velo)
-velo2 = np.sqrt(2*(ekininit+11e3)*ions.charge/ions.mass)
-freq2 = 1/4./(522e-6/velo2)
+#freq1 = 1/4./(522e-6/velo)
+#velo2 = np.sqrt(2*(ekininit+11e3)*ions.charge/ions.mass)
+#freq2 = 1/4./(522e-6/velo2)
+
+freq1 = 100e6
+freq2 = 100e6
 
 def RFvoltage1(time):
     return Vmax*np.cos(2*np.pi*freq1*(time-toffset))
