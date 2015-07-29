@@ -161,3 +161,21 @@ def RF_stack(voltage, condid, rfgap=200*um):
     pos += wafer_si
 
     return SOI1 + body1 + body2 + SOI2
+
+
+def Aperture(voltage, condid, width=10*um):
+    """A simple thin wafer with a whole for the beam"""
+
+    global pos
+
+    r_beam = 90*um
+    bodycenter = pos + 0.5*width
+
+    Frame = Box(framelength, framelength, width,
+                zcent=bodycenter, voltage=voltage, condid=condid)
+    Beam = ZCylinder(r_beam, 2*width, zcent=bodycenter, voltage=voltage, condid=condid)
+    body = Frame-Beam
+
+    pos += width
+
+    return body
