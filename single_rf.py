@@ -28,7 +28,7 @@ setup()
 # --- Set basic beam parameters
 emittingradius = 25*um
 ibeaminit = 20e-6
-ekininit = 20e3
+ekininit = 100e3
 
 ions = Species(type=Xenon, charge_state=1, name='Xe')
 
@@ -135,6 +135,7 @@ zrunmax = length
 
 # set up time varying fields on the RF electrodes
 toffset = 7.0e-9
+toffset = tmax*0.5
 Vmax = 5e3
 
 #freq1 = 1/4./(522e-6/velo)
