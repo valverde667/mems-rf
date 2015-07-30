@@ -1,5 +1,5 @@
 """
-Simplfied ESQ model
+RF-gap model
 """
 from __future__ import print_function
 
@@ -10,7 +10,7 @@ from warp.timedependentvoltage import TimeVoltage
 
 import numpy as np
 
-from geometry import ESQ, RF_stack, Aperture, Gap, getpos
+from geometry import RF_stack, Aperture, Gap, getpos
 from helper import gitversion
 
 # which geometry to use 2d or 3d
@@ -18,7 +18,7 @@ from helper import gitversion
 w3d.solvergeom = w3d.XYZgeom
 
 # define some strings that go into the output file
-top.pline1 = "ESQ model"
+top.pline1 = "RF-gap model"
 top.pline2 = " " + gitversion()
 top.runmaker = "Arun Persaud (apersaud@lbl.gov)"
 
@@ -118,7 +118,6 @@ generate()
 
 # --- define voltages
 Vground = 0.0e3
-Vesq = 100.0
 VRF = 0.0
 
 conductors = Aperture(0, 101, width=50*um)
@@ -160,8 +159,6 @@ installconductors(conductors)
 # --- Recalculate the fields
 fieldsol(-1)
 
-# I want contour plots for levels between 0 and 1kV
-contours = range(0, int(Vesq), int(Vesq/10))
 
 winon()
 
@@ -200,7 +197,7 @@ while (top.time < tmax and zmax < zrunmax):
     fma()
     ppzke(color=green)
     old = limits()
-    limits(old[0], old[1], 19e3, 35e3)
+    limits(old[0], old[1], 100e3, 120e3)
     fma()
     pfzx(fill=1, filled=1, plotphi=1, titles=0, cmin=-Vmax, cmax=Vmax)
     ions.ppzx(color=red, titles=0)
