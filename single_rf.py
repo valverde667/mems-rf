@@ -36,7 +36,7 @@ ekininit = 20e3   # change these below iff needed
 velo = np.sqrt(2*ekininit*ions.charge/ions.mass)
 L = velo*beampulse
 
-ekininit = 20e3
+ekininit = 100e3  
 velo = np.sqrt(2*ekininit*ions.charge/ions.mass)
 Lnew = velo*beampulse
 
