@@ -28,7 +28,7 @@ setup()
 # --- Set basic beam parameters
 emittingradius = 25*um
 ibeaminit = 20e-6
-ekininit = 100e3
+ekininit = 20e3
 
 ions = Species(type=Xenon, charge_state=1, name='Xe')
 
@@ -37,7 +37,7 @@ top.b0 = emittingradius
 top.ap0 = .0e0
 top.bp0 = .0e0
 top.vbeam = .0e0
-top.emit = .0e0
+top.emit = 8.0e-6*(emittingradius/846e-6)   # 846e-6 from Peter's simulations
 top.ibeam = ibeaminit
 top.ekin = ekininit
 top.aion = ions.type.A
@@ -133,16 +133,12 @@ tmax = length/velo
 zrunmax = length
 
 # set up time varying fields on the RF electrodes
-toffset = 7.0e-9
 toffset = tmax*0.5
 Vmax = 5e3
 
-#freq1 = 1/4./(522e-6/velo)
-#velo2 = np.sqrt(2*(ekininit+11e3)*ions.charge/ions.mass)
-#freq2 = 1/4./(522e-6/velo2)
-
-freq1 = 100e6
-freq2 = 100e6
+freq1 = 1/4./(522e-6/velo)
+velo2 = np.sqrt(2*(ekininit+11e3)*ions.charge/ions.mass)
+freq2 = 1/4./(522e-6/velo2)
 
 def RFvoltage1(time):
     return Vmax*np.cos(2*np.pi*freq1*(time-toffset))
