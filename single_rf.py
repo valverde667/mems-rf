@@ -25,12 +25,24 @@ top.runmaker = "Arun Persaud (apersaud@lbl.gov)"
 # --- Invoke setup routine for the plotting
 setup()
 
+ions = Species(type=Xenon, charge_state=1, name='Xe')
+
 # --- Set basic beam parameters
 emittingradius = 25*um
-ibeaminit = 20e-6
-ekininit = 20e3
+# use 20uA at 20keV and then keep the current and beamlength constant
+beampulse = 1*ns
+ibeaminit = 20e-6  # change these below iff needed
+ekininit = 20e3   # change these below iff needed
+velo = np.sqrt(2*ekininit*ions.charge/ions.mass)
+L = velo*beampulse
 
-ions = Species(type=Xenon, charge_state=1, name='Xe')
+ekininit = 20e3
+velo = np.sqrt(2*ekininit*ions.charge/ions.mass)
+Lnew = velo*beampulse
+
+# update to new values
+beampulse *= L/Lnew
+ibeaminit *= Lnew/L
 
 top.a0 = emittingradius
 top.b0 = emittingradius
@@ -133,18 +145,21 @@ tmax = length/velo
 zrunmax = length
 
 # set up time varying fields on the RF electrodes
-toffset = tmax*0.5
+toffset = tmax*0.5+0.5*beampulse  # offset so that maximum would be when beam
+                    # arrives in the gap
 Vmax = 5e3
+offset = 30./360.  # we don't want to actually be at the maximum, but
+                   # 30 degree off for some focusing
 
-freq1 = 1/4./(522e-6/velo)
-velo2 = np.sqrt(2*(ekininit+11e3)*ions.charge/ions.mass)
-freq2 = 1/4./(522e-6/velo2)
+freq1 = (1/4.-offset)/(522e-6/velo)
+velo2 = np.sqrt(2*(ekininit+2*Vmax*np.cos(offset))*ions.charge/ions.mass)
+freq2 = (1/4.+offset)/(522e-6/velo2)
 
 def RFvoltage1(time):
-    return Vmax*np.cos(2*np.pi*freq1*(time-toffset))
+    return Vmax*np.cos(2*np.pi*freq1*(time-toffset)-2*np.pi*offset)
 
 def RFvoltage2(time):
-    return -Vmax*np.cos(2*np.pi*freq2*(time-toffset))
+    return -Vmax*np.cos(2*np.pi*freq2*(time-toffset)-2*np.pi*offset)
 
 RF1 = TimeVoltage(202, voltfunc=RFvoltage1)
 RF2 = TimeVoltage(203, voltfunc=RFvoltage2)
@@ -154,7 +169,6 @@ installconductors(conductors)
 
 # --- Recalculate the fields
 fieldsol(-1)
-
 
 winon()
 
@@ -168,15 +182,24 @@ zmin = w3d.zmmin
 zmax = w3d.zmmax
 zmid = 0.5*(zmax+zmin)
 
+# save data to plot the bunch length
+blength = []
+@callfromafterstep
+def myhist():
+    global blength
+    Z = ions.getz()
+    if len(Z) >0:
+        blength.append([top.time, Z.ptp()])
+
 while (top.time < tmax and zmax < zrunmax):
     step(10)
 
-    tmp = " Voltages: {} {}\n".format(RF1.getvolt(top.time), RF2.getvolt(top.time))
-    tmp = " Freq: {} {}\n".format(freq1, freq2)
+    tmp = " Voltages: {:.0f} V  {:.0f} V\n".format(RF1.getvolt(top.time), RF2.getvolt(top.time))
+    tmp += " Freq: {:.2f} MHz  {:.2f} MHz\n".format(freq1*1e-6, freq2*1e-6)
     top.pline1 = tmp
 
     # inject only for 1 ns, so that we can get onto the rising edge of the RF
-    if 0 < top.time < 1e-9:
+    if 0 < top.time < beampulse:
         top.inject = 1
     else:
         top.inject = 0
@@ -193,7 +216,7 @@ while (top.time < tmax and zmax < zrunmax):
     fma()
     ppzke(color=green)
     old = limits()
-    limits(old[0], old[1], 100e3, 120e3)
+    limits(old[0], old[1], ekininit*0.95, (ekininit+12e3)*1.05)
     fma()
     pfzx(fill=1, filled=1, plotphi=1, titles=0, cmin=-Vmax, cmax=Vmax)
     ions.ppzx(color=red, titles=0)
@@ -203,6 +226,12 @@ while (top.time < tmax and zmax < zrunmax):
     refresh()
 
 #plot particle vs time
+blength = np.array(blength)
+T = blength[:, 0]
+L = blength[:, 1]
+plg(L, T)
+ptitles("Bunch length","time","L","")
+fma()
 hzpnum(color=red)
 fma()
 hpepsz(color=blue)
