@@ -36,7 +36,7 @@ ekininit = 20e3   # change these below iff needed
 velo = np.sqrt(2*ekininit*ions.charge/ions.mass)
 L = velo*beampulse
 
-ekininit = 100e3  
+ekininit = 500e3
 velo = np.sqrt(2*ekininit*ions.charge/ions.mass)
 Lnew = velo*beampulse
 
@@ -59,7 +59,7 @@ top.lrelativ = False
 derivqty()
 
 # --- Set input parameters describing the 3d simulation
-top.dt = 5e-11
+top.dt = 5e-11/5.
 w3d.l4symtry = False
 w3d.l2symtry = True
 
