@@ -10,7 +10,7 @@ from warp.timedependentvoltage import TimeVoltage
 
 import numpy as np
 
-from geometry import RF_stack, Aperture, Gap, getpos
+from geometry import RF_stack2, Aperture, Gap, getpos
 from helper import gitversion
 
 # which geometry to use 2d or 3d
@@ -36,7 +36,7 @@ ekininit = 20e3   # change these below iff needed
 velo = np.sqrt(2*ekininit*ions.charge/ions.mass)
 L = velo*beampulse
 
-ekininit = 500e3
+ekininit = 20e3
 velo = np.sqrt(2*ekininit*ions.charge/ions.mass)
 Lnew = velo*beampulse
 
@@ -59,7 +59,7 @@ top.lrelativ = False
 derivqty()
 
 # --- Set input parameters describing the 3d simulation
-top.dt = 5e-11/5.
+top.dt = 5e-11
 w3d.l4symtry = False
 w3d.l2symtry = True
 
@@ -81,7 +81,7 @@ w3d.xmmax = +0.0015/2.
 w3d.ymmin = -0.0015/2.
 w3d.ymmax = +0.0015/2.
 w3d.zmmin = 0.0
-w3d.zmmax = 0.00232
+w3d.zmmax = 0.0026
 
 # set grid spacing
 w3d.nx = 100.
@@ -132,37 +132,41 @@ generate()
 Vground = 0.0e3
 VRF = 0.0
 
-conductors = Aperture(0, 101, width=50*um)
-Gap(500*um)
-conductors += RF_stack(voltage=VRF, condid=[201, 202, 203, 204])
-Gap(500*um)
-conductors += Aperture(0, 101, width=50*um)
-print("total length", getpos())
-
-velo = np.sqrt(2*ekininit*ions.charge/ions.mass)
-length = getpos()
-tmax = length/velo
-zrunmax = length
-
 # set up time varying fields on the RF electrodes
-toffset = tmax*0.5+0.5*beampulse  # offset so that maximum would be when beam
-                    # arrives in the gap
+velo = np.sqrt(2*ekininit*ions.charge/ions.mass)
+
 Vmax = 5e3
 offset = 30./360.  # we don't want to actually be at the maximum, but
                    # 30 degree off for some focusing
 
-freq1 = (1/4.-offset)/(522e-6/velo)
-velo2 = np.sqrt(2*(ekininit+2*Vmax*np.cos(offset))*ions.charge/ions.mass)
-freq2 = (1/4.+offset)/(522e-6/velo2)
+freq = 100e6
+wafer_length = 504*um  # wafer + 2 * 2um layer
 
-def RFvoltage1(time):
-    return Vmax*np.cos(2*np.pi*freq1*(time-toffset)-2*np.pi*offset)
+velo2 = np.sqrt(2*(ekininit+Vmax*np.cos(2*np.pi*offset))*ions.charge/ions.mass)
 
-def RFvoltage2(time):
-    return -Vmax*np.cos(2*np.pi*freq2*(time-toffset)-2*np.pi*offset)
+rfgap = 0.5*velo2/freq - wafer_length
+while rfgap<0:
+    print("rfgap too small *******************")
+    rfgap += velo2/freq
 
-RF1 = TimeVoltage(202, voltfunc=RFvoltage1)
-RF2 = TimeVoltage(203, voltfunc=RFvoltage2)
+conductors = Aperture(0, 101, width=50*um)
+Gap(500*um)
+conductors += RF_stack2(voltage=VRF, condid=[201, 202, 202, 204], rfgap=rfgap)
+Gap(500*um)
+conductors += Aperture(0, 101, width=50*um)
+print("total length", getpos())
+
+length = getpos()
+tmax = length/velo
+zrunmax = length
+
+toffset = tmax*0.5+0.5*beampulse-0.5*rfgap/velo2-0.5*wafer_length/velo  # offset so that maximum would be when beam
+                                                                        # arrives in the first gap
+
+def RFvoltage(time):
+    return -Vmax*np.cos(2*np.pi*freq*(time-toffset)-2*np.pi*offset)
+
+RF = TimeVoltage(202, voltfunc=RFvoltage)
 
 # define the electrodes
 installconductors(conductors)
@@ -191,11 +195,10 @@ def myhist():
     if len(Z) >0:
         blength.append([top.time, Z.ptp()])
 
-while (top.time < tmax and zmax < zrunmax):
+while (top.time < tmax):
     step(10)
 
-    tmp = " Voltages: {:.0f} V  {:.0f} V\n".format(RF1.getvolt(top.time), RF2.getvolt(top.time))
-    tmp += " Freq: {:.2f} MHz  {:.2f} MHz\n".format(freq1*1e-6, freq2*1e-6)
+    tmp = " Voltages: {:.0f} V rfgap: {} um\n".format(RF.getvolt(top.time), rfgap*1e6)
     top.pline1 = tmp
 
     # inject only for 1 ns, so that we can get onto the rising edge of the RF

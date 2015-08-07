@@ -162,6 +162,51 @@ def RF_stack(voltage, condid, rfgap=200*um):
 
     return SOI1 + body1 + body2 + SOI2
 
+def RF_stack2(voltage, condid, rfgap=200*um):
+    """two wafers with a gap of rfgap between them. Both wafers are
+    insulating with conducting layers on both sides"""
+
+    global pos
+    condidA, condidB, condidC, condidD = condid
+
+    r_beam = 90*um
+    thickness = 2*um
+
+    zcenter = pos + wafer_length + 0.5*rfgap
+
+    SOIcenter = pos + 0.5*thickness
+    Frame = Box(framelength, framelength, thickness,
+                zcent=SOIcenter, voltage=-voltage, condid=condidA)
+    Beam = ZCylinder(r_beam, 5*um, zcent=SOIcenter, voltage=voltage, condid=condidA)
+    SOI1 = Frame-Beam
+    pos += thickness + 500*um
+
+    bodycenter = pos + 0.5*thickness
+    Frame = Box(framelength, framelength, thickness,
+                zcent=bodycenter, voltage=0, condid=condidB)
+    Beam = ZCylinder(r_beam, 5*um, zcent=bodycenter, voltage=0, condid=condidB)
+    body1 = Frame-Beam
+    pos += thickness
+
+    pos += rfgap
+
+    bodycenter =  pos + 0.5*thickness
+    Frame = Box(framelength, framelength, thickness,
+                zcent=bodycenter, voltage=0, condid=condidC)
+    Beam = ZCylinder(r_beam, 5*um, zcent=bodycenter, voltage=0, condid=condidC)
+    body2 = Frame-Beam
+    pos += thickness + 500*um
+
+    SOIcenter = pos + 0.5*thickness
+    Frame = Box(framelength, framelength, thickness,
+                zcent=SOIcenter, voltage=voltage, condid=condidD)
+    Beam = ZCylinder(r_beam, 5*um, zcent=SOIcenter, voltage=voltage, condid=condidD)
+    SOI2 = Frame-Beam
+    pos += thickness
+
+    return SOI1 + body1 + body2 + SOI2
+
+
 
 def Aperture(voltage, condid, width=10*um):
     """A simple thin wafer with a whole for the beam"""
