@@ -36,7 +36,7 @@ ekininit = 20e3   # change these below iff needed
 velo = np.sqrt(2*ekininit*ions.charge/ions.mass)
 L = velo*beampulse
 
-ekininit = 20e3
+ekininit = 100e3
 velo = np.sqrt(2*ekininit*ions.charge/ions.mass)
 Lnew = velo*beampulse
 
@@ -81,12 +81,12 @@ w3d.xmmax = +0.0015/2.
 w3d.ymmin = -0.0015/2.
 w3d.ymmax = +0.0015/2.
 w3d.zmmin = 0.0
-w3d.zmmax = 0.0026
+w3d.zmmax = 0.0036
 
 # set grid spacing
 w3d.nx = 100.
 w3d.ny = 100.
-w3d.nz = 100.
+w3d.nz = 140.
 
 if w3d.l4symtry:
     w3d.xmmin = 0.
