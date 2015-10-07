@@ -79,8 +79,8 @@ w3d.zmmin = 0.0
 w3d.zmmax = 0.002
 
 # set grid spacing
-w3d.nx = 300.
-w3d.ny = 300.
+w3d.nx = 100.
+w3d.ny = 100.
 w3d.nz = 100.
 
 if w3d.l4symtry:
@@ -114,7 +114,7 @@ top.lhvzrmsz = True
 # --- Set up fieldsolver - 7 means the multigrid solver
 solver = MRBlock3D()
 registersolver(solver)
-solver.mgtol = 1.0  # Poisson solver tolerance, in volts
+solver.mgtol = 1.0e-2  # Poisson solver tolerance, in volts
 solver.mgparam = 1.5
 solver.downpasses = 2
 solver.uppasses = 2
