@@ -19,10 +19,6 @@ wafer_length = wafer_body + wafer_box + wafer_si
 ### globals
 pos = 0
 
-def getpos():
-    global pos
-    return pos
-
 def Gap(dist=500*um):
     """Vacuum gap, e.g. between wafers"""
     global pos
@@ -126,8 +122,6 @@ def RF_stack(voltage, condid, rfgap=200*um):
 
     r_beam = 90*um
 
-    zcenter = pos + wafer_length + 0.5*rfgap
-
     SOIcenter = pos + 0.5*wafer_si
     Frame = Box(framelength, framelength, 20*um,
                 zcent=SOIcenter, voltage=-voltage, condid=condidA)
@@ -169,10 +163,9 @@ def RF_stack2(voltage, condid, rfgap=200*um):
     global pos
     condidA, condidB, condidC, condidD = condid
 
+    print("pos=",pos)
     r_beam = 90*um
     thickness = 2*um
-
-    zcenter = pos + wafer_length + 0.5*rfgap
 
     SOIcenter = pos + 0.5*thickness
     Frame = Box(framelength, framelength, thickness,

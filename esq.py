@@ -3,6 +3,9 @@ Simplfied ESQ model
 """
 from __future__ import print_function
 
+import warpoptions
+warpoptions.parser.add_argument('--Vesq', dest='Vesq', type=float, default=548.)
+
 from warp import *
 from warp.egun_like import *
 from warp.ionization import *
@@ -10,7 +13,8 @@ from warp.timedependentvoltage import TimeVoltage
 
 import numpy as np
 
-from geometry import ESQ, RF_stack, Gap, getpos
+import geometry
+from geometry import Aperture, ESQ, RF_stack2, Gap
 from helper import gitversion
 
 # which geometry to use 2d or 3d
@@ -23,26 +27,28 @@ top.pline2 = " " + gitversion()
 top.runmaker = "Arun Persaud (apersaud@lbl.gov)"
 
 # --- Invoke setup routine for the plotting
-setup()
+gap = 500*um
+Vesq = warpoptions.options.Vesq
+setup(prefix="esq-V{} gap {}um".format(int(Vesq), int(gap*1e6)))
 
 # --- Set basic beam parameters
-emittingradius = 25*um
+emittingradius = 48.113*um
 ibeaminit = 20e-6
-ekininit = 20e3
+ekininit = 40e3
 
 ions = Species(type=Xenon, charge_state=1, name='Xe')
 
 top.a0 = emittingradius
 top.b0 = emittingradius
-top.ap0 = .0e0
-top.bp0 = .0e0
+top.ap0 = 14.913e-3
+top.bp0 = -14.913e-3
 top.vbeam = .0e0
-top.emit = .0e0
+top.emit = 0.77782e-6
 top.ibeam = ibeaminit
 top.ekin = ekininit
 top.aion = ions.type.A
 top.zion = ions.charge_state
-top.vthz = 0.0
+#top.vthz = 0.0
 top.lrelativ = False
 derivqty()
 
@@ -62,12 +68,13 @@ w3d.boundxy = neumann
 top.pbound0 = absorb
 top.pboundnz = absorb
 top.prwall = np.sqrt(2)*1.5*mm/2.0
+top.prwall = 90*um
 
 # --- Set field grid size
-w3d.xmmin = -0.0015/2.
-w3d.xmmax = +0.0015/2.
-w3d.ymmin = -0.0015/2.
-w3d.ymmax = +0.0015/2.
+w3d.xmmin = -0.0005/2.
+w3d.xmmax = +0.0005/2.
+w3d.ymmin = -0.0005/2.
+w3d.ymmax = +0.0005/2.
 w3d.zmmin = 0.0
 w3d.zmmax = 0.002
 
@@ -118,48 +125,67 @@ generate()
 
 # --- define voltages
 Vground = 0.0e3
-Vesq = 100.0
-VRF = 1000.0
+VRF = 0.0
 
-Gap(500*um)
-conductors  = ESQ(voltage=Vesq, condid=[100, 101])
-Gap(500*um)
-conductors += ESQ(voltage=-Vesq, condid=[102, 103])
-Gap(500*um)
-conductors += RF_stack(voltage=VRF, condid=[201, 202, 203, 204])
-Gap(500*um)
-conductors += ESQ(voltage=Vesq, condid=[106, 107])
-Gap(500*um)
-conductors += ESQ(voltage=-Vesq, condid=[108, 109])
-Gap(500*um)
-conductors += RF_stack(voltage=VRF, condid=[205, 206, 207, 208])
-Gap(500*um)
-conductors += ESQ(voltage=Vesq, condid=[112, 113])
-Gap(500*um)
-conductors += ESQ(voltage=-Vesq, condid=[114, 115])
-Gap(500*um)
-print("total length", getpos())
+ESQs = []
+RFs = []
+ID_ESQ = 100
+ID_RF = 201
+geometry.pos = -0.5*gap-(2*um+500*um+2*um)-50*um
+print("starting pos:", geometry.pos)
+A1 = Aperture(0, 95, width=50*um)
+for i in range(6):
+    RF = RF_stack2(voltage=VRF, condid=list(range(ID_RF, ID_RF+4)), rfgap=gap)
+    Gap(gap)
+    E1 = ESQ(voltage=Vesq, condid=[ID_ESQ, ID_ESQ+1])
+    Gap(gap)
+    E2 = ESQ(voltage=-Vesq, condid=[ID_ESQ+2, ID_ESQ+3])
+    Gap(gap)
+
+    ESQs.append(E1)
+    ESQs.append(E2)
+    RFs.append(RF)
+    ID_ESQ += 4
+    ID_RF += 4
+Gap(gap)
+E1 = ESQ(voltage=Vesq, condid=[ID_ESQ, ID_ESQ+1])
+Gap(gap)
+E2 = ESQ(voltage=-Vesq, condid=[ID_ESQ+2, ID_ESQ+3])
+Gap(gap)
+A2 = Aperture(0, 95, width=50*um)
+
+Apertures = [A1, A2]
+
+print("total length", geometry.pos)
+
+#scraper = ParticleScraper(ESQs +  RFs)
+conductors = sum(ESQs) + sum(RFs) + sum(Apertures)
 
 velo = np.sqrt(2*ekininit*ions.charge/ions.mass)
-length = getpos()
+length = geometry.pos
 tmax = length/velo
 zrunmax = length
-
 
 # set up time varying fields on the RF electrodes
 toffset = 2.5e-9
 Vmax = 0.5*10e3
 freq = 100e6
 def RFvoltage1(time):
+    return 0
     return -Vmax*np.sin(2*np.pi*freq*(time-toffset))
 
 def RFvoltage2(time):
     return -RFvoltage1(time)
 
-RF1 = TimeVoltage(202, voltfunc=RFvoltage1)
-RF2 = TimeVoltage(203, voltfunc=RFvoltage2)
-RF3 = TimeVoltage(206, voltfunc=RFvoltage1)
-RF4 = TimeVoltage(207, voltfunc=RFvoltage2)
+def RFvoltage3(time):
+    return -RFvoltage1(time)
+
+RF1a = TimeVoltage(202, voltfunc=RFvoltage1)
+RF1b = TimeVoltage(203, voltfunc=RFvoltage1)
+RF2a = TimeVoltage(206, voltfunc=RFvoltage2)
+RF2b = TimeVoltage(207, voltfunc=RFvoltage2)
+RF3a = TimeVoltage(210, voltfunc=RFvoltage3)
+RF3b = TimeVoltage(211, voltfunc=RFvoltage3)
 
 # define the electrodes
 installconductors(conductors)
@@ -170,7 +196,7 @@ fieldsol(-1)
 # I want contour plots for levels between 0 and 1kV
 contours = range(0, int(Vesq), int(Vesq/10))
 
-winon()
+winon(xon=1)
 
 # some plots of the geometry
 pfzx(fill=1, filled=1, plotphi=0)
@@ -182,10 +208,38 @@ zmin = w3d.zmmin
 zmax = w3d.zmmax
 zmid = 0.5*(zmax+zmin)
 
+# make a circle to show the beam pipe
+R = 90*um
+t = np.linspace(0, 2*np.pi, 100)
+X = R*np.sin(t)
+Y = R*np.cos(t)
+
+# check the fields in one ESQ
+
+#for i in range(100):
+#    fma()
+#    pfxy(iz=i,fill=0, filled=1, plotselfe=2, comp='E', cmin=-5e6, cmax=5e6)
+#    limits(-w3d.xmmax, w3d.xmmax)
+#    ylimits(-w3d.ymmax, w3d.ymmax)
+#for i in range(100):
+#    fma()
+#    pfzx(iy=i,fill=0, filled=1, plotselfe=2, comp='x', cmin=-5e6, cmax=5e6)
+#    limits(w3d.zmmin, w3d.zmmax)
+#    ylimits(-w3d.xmmax, w3d.xmmax)
+#for i in range(100):
+#    fma()
+#    pfzy(ix=i,fill=0, filled=1, plotselfe=2, comp='y', cmin=-5e6, cmax=5e6)
+#    limits(w3d.zmmin, w3d.zmmax)
+#    ylimits(-w3d.ymmax, w3d.ymmax)
+#
+#import sys
+#sys.exit()
+
 while (top.time < tmax and zmax < zrunmax):
     step(10)
 
-    tmp = " Voltages: {} {} {} {}".format(RF1.getvolt(top.time), RF2.getvolt(top.time), RF3.getvolt(top.time), RF4.getvolt(top.time))
+#    tmp = " Voltages: {} {} {}".format(RF1a.getvolt(top.time), RF2a.getvolt(top.time), RF3a.getvolt(top.time))
+    tmp = " Voltages: {}".format(Vesq)
     top.pline1 = tmp
 
     # inject only for 1 ns, so that we can get onto the rising edge of the RF
@@ -194,7 +248,8 @@ while (top.time < tmax and zmax < zrunmax):
     else:
         top.inject = 0
 
-    if top.time > 2.e-9:
+    Z = ions.getz()
+    if Z.mean() > zmid:
         top.vbeamfrm = velo
         solver.gridmode = 0
 
@@ -203,26 +258,44 @@ while (top.time < tmax and zmax < zrunmax):
 
     # create some plots
     ions.ppzvz(color=red)
+    ylimits(1.47e5,1.5e5)
     fma()
-    pfzx(fill=1, filled=1, plotselfe=2, comp='E', titles=0)
+    pfxy(iz=w3d.nz//2, fill=0, filled=1, plotselfe=2, comp='E', titles=0, cmin=0, cmax=5e6)
+    limits(-w3d.xmmax, w3d.xmmax)
+    ylimits(-w3d.ymmax, w3d.ymmax)
+    ptitles("Geometry and Fields","X [m]", "Y [m]", "")
+    fma()
+    pfzx(fill=1, filled=1, plotselfe=2, comp='E', titles=0, cmin=0, cmax=5e6)
     ions.ppzx(color=red, titles=0)
     ptitles("Particles and Fields","Z [m]", "X [m]", "")
     limits(zmin, zmax)
     fma()
+    ions.ppxy(color=red, titles=0)
+    limits(-R, R)
+    ylimits(-R, R)
+    plg(Y,X,type="dash")
+    fma()
     refresh()
 
 #plot particle vs time
-hzpnum()
-fma()
 #hzepsnxz()
+#fma()
 #hzepsnyz()
 #hzepsnx()
+#fma()
 #hzepsny()
 #hzepsnz()
 #hzeps6d()
 #hztotalke()
 #hztotale()
-#hzxrms()
-#hzyrms()
-#hzrrms()
+hzxrms(color=red, titles=0)
+hzyrms(color=blue, titles=0)
+hzrrms(color=green, titles=0)
+ptitles("X(red), Y(blue), R(green)", "Z [m]", "X/Y/R [m]", "")
+
+fma()
+hzpnum()
+
+fma()
 #hzlinechg()
+#fma()
