@@ -29,7 +29,7 @@ top.runmaker = "Arun Persaud (apersaud@lbl.gov)"
 # --- Invoke setup routine for the plotting
 gap = 500*um
 Vesq = warpoptions.options.Vesq
-setup(prefix="esq-V{} gap {}um".format(int(Vesq), int(gap*1e6)))
+setup(prefix="esq-V{}-gap-{}um".format(int(Vesq), int(gap*1e6)))
 
 # --- Set basic beam parameters
 emittingradius = 48.113*um
@@ -79,8 +79,8 @@ w3d.zmmin = 0.0
 w3d.zmmax = 0.002
 
 # set grid spacing
-w3d.nx = 100.
-w3d.ny = 100.
+w3d.nx = 300.
+w3d.ny = 300.
 w3d.nz = 100.
 
 if w3d.l4symtry:
@@ -235,11 +235,13 @@ Y = R*np.cos(t)
 #import sys
 #sys.exit()
 
+zrunmax = 5*mm
+
 while (top.time < tmax and zmax < zrunmax):
     step(10)
 
 #    tmp = " Voltages: {} {} {}".format(RF1a.getvolt(top.time), RF2a.getvolt(top.time), RF3a.getvolt(top.time))
-    tmp = " Voltages: {}".format(Vesq)
+    tmp = " Voltage: {}V gap: {}um".format(int(Vesq), int(1e6*gap))
     top.pline1 = tmp
 
     # inject only for 1 ns, so that we can get onto the rising edge of the RF
@@ -258,9 +260,9 @@ while (top.time < tmax and zmax < zrunmax):
 
     # create some plots
     ions.ppzvz(color=red)
-    ylimits(1.47e5,1.5e5)
+    ylimits(0.95*ekininit, 1.05*ekininit)
     fma()
-    pfxy(iz=w3d.nz//2, fill=0, filled=1, plotselfe=2, comp='E', titles=0, cmin=0, cmax=5e6)
+    pfxy(iz=w3d.nz//2, fill=0, filled=1, plotselfe=2, comp='E', titles=0, cmin=0, cmax=5e6*Vesq/125)
     limits(-w3d.xmmax, w3d.xmmax)
     ylimits(-w3d.ymmax, w3d.ymmax)
     ptitles("Geometry and Fields","X [m]", "Y [m]", "")
