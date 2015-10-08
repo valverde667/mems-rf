@@ -26,6 +26,7 @@ top.runmaker = "Arun Persaud (apersaud@lbl.gov)"
 # Parameters available for scans
 gap = 500*um
 Vesq = 548.0
+top.dt = 10e-11
 
 # --- Invoke setup routine for the plotting
 setup(prefix="esq-V{}-gap-{}um".format(int(Vesq), int(gap*1e6)))
@@ -52,7 +53,6 @@ top.lrelativ = False
 derivqty()
 
 # --- Set input parameters describing the 3d simulation
-top.dt = 5e-11
 w3d.l4symtry = True
 w3d.l2symtry = False
 
@@ -195,7 +195,7 @@ fieldsol(-1)
 # I want contour plots for levels between 0 and 1kV
 contours = range(0, int(Vesq), int(Vesq/10))
 
-winon(xon=1)
+winon(xon=0)
 
 # some plots of the geometry
 pfzx(fill=1, filled=1, plotphi=0)
