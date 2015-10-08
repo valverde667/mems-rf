@@ -113,7 +113,7 @@ top.lhvzrmsz = True
 # --- Set up fieldsolver - 7 means the multigrid solver
 solver = MRBlock3D()
 registersolver(solver)
-solver.mgtol = 1.0e-2  # Poisson solver tolerance, in volts
+solver.mgtol = 1.0  # Poisson solver tolerance, in volts
 solver.mgparam = 1.5
 solver.downpasses = 2
 solver.uppasses = 2
