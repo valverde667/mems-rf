@@ -26,7 +26,7 @@ top.runmaker = "Arun Persaud (apersaud@lbl.gov)"
 # Parameters available for scans
 gap = 500*um
 Vesq = 548.0
-top.dt = 50e-11
+top.dt = 5e-11
 
 # --- Invoke setup routine for the plotting
 setup(prefix="esq-V{}-gap-{}um".format(int(Vesq), int(gap*1e6)))
@@ -78,8 +78,8 @@ w3d.zmmin = 0.0
 w3d.zmmax = 0.002
 
 # set grid spacing
-w3d.nx = 100.
-w3d.ny = 100.
+w3d.nx = 50.
+w3d.ny = 50.
 w3d.nz = 100.
 
 if w3d.l4symtry:
