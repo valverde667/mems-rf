@@ -26,7 +26,7 @@ top.runmaker = "Arun Persaud (apersaud@lbl.gov)"
 # Parameters available for scans
 gap = 500*um
 Vesq = 548.0
-top.dt = 10e-11
+top.dt = 50e-11
 
 # --- Invoke setup routine for the plotting
 setup(prefix="esq-V{}-gap-{}um".format(int(Vesq), int(gap*1e6)))
