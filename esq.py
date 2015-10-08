@@ -3,9 +3,6 @@ Simplfied ESQ model
 """
 from __future__ import print_function
 
-import warpoptions
-warpoptions.parser.add_argument('--Vesq', dest='Vesq', type=float, default=548.)
-
 from warp import *
 from warp.egun_like import *
 from warp.ionization import *
@@ -26,9 +23,11 @@ top.pline1 = "ESQ model"
 top.pline2 = " " + gitversion()
 top.runmaker = "Arun Persaud (apersaud@lbl.gov)"
 
-# --- Invoke setup routine for the plotting
+# Parameters available for scans
 gap = 500*um
-Vesq = warpoptions.options.Vesq
+Vesq = 548.0
+
+# --- Invoke setup routine for the plotting
 setup(prefix="esq-V{}-gap-{}um".format(int(Vesq), int(gap*1e6)))
 
 # --- Set basic beam parameters
@@ -54,8 +53,8 @@ derivqty()
 
 # --- Set input parameters describing the 3d simulation
 top.dt = 5e-11
-w3d.l4symtry = False
-w3d.l2symtry = True
+w3d.l4symtry = True
+w3d.l2symtry = False
 
 # --- Set boundary conditions
 
@@ -234,8 +233,6 @@ Y = R*np.cos(t)
 #
 #import sys
 #sys.exit()
-
-zrunmax = 5*mm
 
 while (top.time < tmax and zmax < zrunmax):
     step(10)

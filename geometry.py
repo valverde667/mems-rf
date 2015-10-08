@@ -163,7 +163,6 @@ def RF_stack2(voltage, condid, rfgap=200*um):
     global pos
     condidA, condidB, condidC, condidD = condid
 
-    print("pos=",pos)
     r_beam = 90*um
     thickness = 2*um
 
