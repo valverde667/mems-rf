@@ -40,7 +40,7 @@ else:
     raise SystemExit
 
 # get commit list
-output = subprocess.check_output("cd {} && git log ..{}".format(path, branch), shell=True).decode('ascii')
+output = subprocess.check_output("cd {} && git log master..{}".format(path, branch), shell=True).decode('ascii')
 output = output.split('\n')
 commits = [x[7:] for x in output if x.startswith('commit ')]
 
@@ -53,10 +53,10 @@ RunResult = namedtuple('RunResult', 'runtime tmpdir pythonruntime')
 def run(commit):
     pdt = 0
     start = time.time()
-    if not os.path.exists(os.path.join('/tmp','warptmp-'+commit)):
+    if not os.path.exists(os.path.join('/tmp','warptmp-'+branch+'-'+commit)):
         # create temp dir and delete it later again... no contect manager
         # available for python 2.7, so we do it by hand
-        d = os.path.join('/tmp','warptmp-'+commit)
+        d = os.path.join('/tmp','warptmp-'+branch+'-'+commit)
         os.mkdir(d)
         subprocess.call("cd {} && git clone --shared {} && cd {} && git checkout {}".
                         format(d, path, reponame, commit), shell=True,
@@ -66,15 +66,15 @@ def run(commit):
                         format(d, reponame), shell=True,
                         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     else:
-        d = os.path.join('/tmp','warptmp-'+commit)
+        d = os.path.join('/tmp','warptmp-'+branch+'-'+commit)
     if os.path.exists(os.path.join(d, reponame, myfile)):
         cgmfile = glob.glob('{}/*.cgm'.format(os.path.join(d, reponame)))
         # run simulations only, if no results exists
         if not len(cgmfile):
             pstart = time.time()
             subprocess.call("cd {} && python {}".
-                            format(os.path.join(d, reponame), myfile), shell=True)#,
-#                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                            format(os.path.join(d, reponame), myfile), shell=True,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             pdt = time.time()-pstart
         # find gist file
         cgmfile = glob.glob('{}/*.cgm'.format(os.path.join(d, reponame)))[-1]
@@ -110,31 +110,31 @@ if __name__ == '__main__':
     for i, p in enumerate(pages):
         print("in ",p)
         tmpdir = tempfile.mkdtemp()
-        files = glob.glob(os.path.join('/tmp','warptmp-'+commits[0], reponame, 'image{:02d}-*.jpg'.format(i)))
+        files = glob.glob(os.path.join('/tmp','warptmp-'+branch+'-'+commits[0], reponame, 'image{:02d}-*.jpg'.format(i)))
         files = [os.path.basename(f) for f in files]
         if len(files) == 1:
             f = files[0]
             images = []
             for c in commits:
-                images.append("{}/{}".format(os.path.join('/tmp','warptmp-'+c, reponame), f))
+                images.append("{}/{}".format(os.path.join('/tmp','warptmp-'+branch+'-'+c, reponame), f))
             images = " ".join(images)
-            subprocess.call("convert "+images+" {}/result{}.pdf".format(pwd, i),
+            subprocess.call("convert "+images+" {}/result-{}-{}.pdf".format(pwd, branch, p),
                             shell=True,
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         else:
             for f in files:
                 images = []
                 for c in commits:
-                    images.append("-label {} {}/{}".format(c[0:7], os.path.join('/tmp','warptmp-'+c, reponame), f))
+                    label = subprocess.check_output("git log --format='%s' {}^..{}".format(c, c),
+                                                    shell=True).decode('ascii').strip()
+                    images.append("-label {} {}/{}".format(label, os.path.join('/tmp','warptmp-'+branch+'-'+c, reponame), f))
                 images = " ".join(images)
 
                 subprocess.call("montage "+images+" {}/{}".format(tmpdir, f),
                                 shell=True,
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                subprocess.call("mencoder \"mf://{}/*.jpg\" -mf fps=5 -o output.avi -ovc x264".format(tmpdir),
-                                shell=True,
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                subprocess.call("mv {}/output.avi {}/movie{:02d}.mp4".format(tmpdir, pwd, i),
+                subprocess.call("mencoder \"mf://{}/*.jpg\" -mf fps=5 -o {}/output-{}-{}.avi -ovc x264".
+                                format(tmpdir, pwd, branch, p),
                                 shell=True,
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         shutil.rmtree(tmpdir)
