@@ -11,6 +11,7 @@ Options:
 
 import concurrent.futures
 import subprocess
+from subprocess import DEVNULL
 import time
 import os
 import glob
@@ -47,7 +48,7 @@ commits = [x[7:] for x in output if x.startswith('commit ')]
 # remaining command line arguments
 myfile = commands['<file>']
 pages = commands['--pagenumber']
-pages = pages.split(':')
+pages = pages.split('@')
 
 RunResult = namedtuple('RunResult', 'runtime tmpdir pythonruntime')
 def run(commit):
@@ -60,11 +61,11 @@ def run(commit):
         os.mkdir(d)
         subprocess.call("cd {} && git clone --shared {} && cd {} && git checkout {}".
                         format(d, path, reponame, commit), shell=True,
-                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                        stdout=DEVNULL, stderr=DEVNULL)
         # remove all previous results
         subprocess.call("cd {} && cd {} && rm *cgm*".
                         format(d, reponame), shell=True,
-                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                        stdout=DEVNULL, stderr=DEVNULL)
     else:
         d = os.path.join('/tmp','warptmp-'+branch+'-'+commit)
     if os.path.exists(os.path.join(d, reponame, myfile)):
@@ -74,17 +75,17 @@ def run(commit):
             pstart = time.time()
             subprocess.call("cd {} && python {}".
                             format(os.path.join(d, reponame), myfile), shell=True,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                            stdout=DEVNULL, stderr=DEVNULL)
             pdt = time.time()-pstart
         # find gist file
         cgmfile = glob.glob('{}/*.cgm'.format(os.path.join(d, reponame)))[-1]
         for i, p in enumerate(pages):
             subprocess.call("cd {} && gist {} -b -ps tmp.ps && ps2pdf tmp.ps".
                             format(os.path.join(d, reponame), cgmfile), shell=True,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                            stdout=DEVNULL, stderr=DEVNULL)
             subprocess.call("cd {} && convert tmp.pdf image%04d.jpg".
                             format(os.path.join(d, reponame)), shell=True,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                            stdout=DEVNULL, stderr=DEVNULL)
     else:
         print("can't find file", myfile, " in commit:", commit)
     dt = time.time()-start
@@ -95,7 +96,7 @@ if __name__ == '__main__':
 
     pwd = os.path.abspath(os.path.curdir)
 
-    with open("{}-timeresult.txt".format(reponame), "a+") as tf:
+    with open("{}-{}-timeresult.txt".format(reponame, branch), "a+") as tf:
         with concurrent.futures.ProcessPoolExecutor() as executor:
             for c, r in zip(commits, executor.map(run, commits)):
                 print("finished", c,"runtime:", r.runtime)
@@ -104,7 +105,7 @@ if __name__ == '__main__':
                 tmpdirs.append(r.tmpdir)
 
     for i, p in enumerate(pages):
-        pp = p.split("-")
+        pp = p.split(":")
         if len(pp) == 3:
             s, e, ds  = pp
         elif len(pp) == 2:
@@ -133,7 +134,7 @@ if __name__ == '__main__':
             images = " ".join(images)
             subprocess.call("convert "+images+" {}/result-{}-{}.pdf".format(pwd, branch, p),
                             shell=True,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                            stdout=DEVNULL, stderr=DEVNULL)
         else:
             for nr in range(s, e, ds):
                 images = []
@@ -141,18 +142,18 @@ if __name__ == '__main__':
                     label = subprocess.check_output("git log --format='%s' {}^..{}".format(c, c),
                                                     shell=True).decode('ascii').strip()
                     f = os.path.join('/tmp','warptmp-'+branch+'-'+c, reponame, "image{:04d}.jpg".format(nr))
-                    if os.path.exist(f):
+                    if os.path.exists(f):
                         images.append("-label {} {}".format(label, f))
                 images = " ".join(images)
 
-                subprocess.call("montage "+images+" {}/image{:04d}.jpg".format(tmpdir, nr),
+                subprocess.call("montage "+images+" -geometry +20+20 {}/image{:04d}.jpg".format(tmpdir, nr),
                                 shell=True,
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                subprocess.call("mencoder \"mf://{}/*.jpg\" -mf fps=5 -o {}/output-{}-{}.avi -ovc x264".
-                                format(tmpdir, pwd, branch, p),
-                                shell=True,
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                                stdout=DEVNULL, stderr=DEVNULL)
+            subprocess.call("mencoder \"mf://{}/*.jpg\" -mf fps=5 -o {}/output-{}-{}.avi -ovc x264".
+                            format(tmpdir, pwd, branch, p),
+                            shell=True,
+                            stdout=DEVNULL, stderr=DEVNULL)
         shutil.rmtree(tmpdir)
-#    print("cleanup")
-#    for d in tmpdirs:
-#        shutil.rmtree(d)
+    print("cleanup")
+    for d in tmpdirs:
+        shutil.rmtree(d)
