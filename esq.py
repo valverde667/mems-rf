@@ -26,6 +26,7 @@ top.runmaker = "Arun Persaud (apersaud@lbl.gov)"
 # Parameters available for scans
 gap = 500*um
 Vesq = 548.0
+top.dt = 5e-11
 
 # --- Invoke setup routine for the plotting
 setup(prefix="esq-V{}-gap-{}um".format(int(Vesq), int(gap*1e6)))
@@ -52,7 +53,6 @@ top.lrelativ = False
 derivqty()
 
 # --- Set input parameters describing the 3d simulation
-top.dt = 5e-11
 w3d.l4symtry = True
 w3d.l2symtry = False
 
@@ -78,8 +78,8 @@ w3d.zmmin = 0.0
 w3d.zmmax = 0.002
 
 # set grid spacing
-w3d.nx = 100.
-w3d.ny = 100.
+w3d.nx = 50.
+w3d.ny = 50.
 w3d.nz = 100.
 
 if w3d.l4symtry:
@@ -113,7 +113,7 @@ top.lhvzrmsz = True
 # --- Set up fieldsolver - 7 means the multigrid solver
 solver = MRBlock3D()
 registersolver(solver)
-solver.mgtol = 1.0e-2  # Poisson solver tolerance, in volts
+solver.mgtol = 1.0  # Poisson solver tolerance, in volts
 solver.mgparam = 1.5
 solver.downpasses = 2
 solver.uppasses = 2
@@ -195,7 +195,7 @@ fieldsol(-1)
 # I want contour plots for levels between 0 and 1kV
 contours = range(0, int(Vesq), int(Vesq/10))
 
-winon(xon=1)
+winon(xon=0)
 
 # some plots of the geometry
 pfzx(fill=1, filled=1, plotphi=0)
