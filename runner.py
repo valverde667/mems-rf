@@ -14,8 +14,8 @@ import subprocess
 import time
 import os
 import glob
-import shutil
 import tempfile
+import shutil
 from collections import namedtuple
 import docopt
 
@@ -40,22 +40,24 @@ else:
     raise SystemExit
 
 # get commit list
-output = subprocess.check_output("cd {} && git log {}...".format(path, branch), shell=True).decode('ascii')
+output = subprocess.check_output("cd {} && git log ..{}".format(path, branch), shell=True).decode('ascii')
 output = output.split('\n')
 commits = [x[7:] for x in output if x.startswith('commit ')]
 
 # remaining command line arguments
 myfile = commands['<file>']
 pages = commands['--pagenumber']
-pages = pages.split(';')
+pages = pages.split(':')
 
-RunResult = namedtuple('RunResult', 'runtime tmpdir')
+RunResult = namedtuple('RunResult', 'runtime tmpdir pythonruntime')
 def run(commit):
+    pdt = 0
     start = time.time()
     if not os.path.exists(os.path.join('/tmp','warptmp-'+commit)):
         # create temp dir and delete it later again... no contect manager
         # available for python 2.7, so we do it by hand
-        d = tempfile.mkdtemp(commit, prefix='warptmp-')
+        d = os.path.join('/tmp','warptmp-'+commit)
+        os.mkdir(d)
         subprocess.call("cd {} && git clone --shared {} && cd {} && git checkout {}".
                         format(d, path, reponame, commit), shell=True,
                         stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -69,28 +71,73 @@ def run(commit):
         cgmfile = glob.glob('{}/*.cgm'.format(os.path.join(d, reponame)))
         # run simulations only, if no results exists
         if not len(cgmfile):
+            pstart = time.time()
             subprocess.call("cd {} && python {}".
-                            format(os.path.join(d, reponame), myfile), shell=True,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                            format(os.path.join(d, reponame), myfile), shell=True)#,
+#                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            pdt = time.time()-pstart
         # find gist file
         cgmfile = glob.glob('{}/*.cgm'.format(os.path.join(d, reponame)))[-1]
         for i, p in enumerate(pages):
-            subprocess.call("cd {} && echo gist {} -b -ps tmp{:02d}.ps {}".
+            subprocess.call("cd {} && gist {} -b -ps tmp{:02d}.ps {}".
                             format(os.path.join(d, reponame), cgmfile, i, p), shell=True,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.call("cd {} && ps2pdf tmp{:02d}.ps ".
+                            format(os.path.join(d, reponame), i), shell=True,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.call("cd {} && convert tmp{:02d}.pdf image{:02d}-%03d.jpg".
+                            format(os.path.join(d, reponame), i, i), shell=True,
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     else:
         print("can't find file", myfile, " in commit:", commit)
     dt = time.time()-start
-    return RunResult(dt, d)
+    return RunResult(dt, d, pdt)
 
 if __name__ == '__main__':
     tmpdirs = []
 
-    with concurrent.futures.ProcessPoolExecutor() as executor:
-        for c, r in zip(commits, executor.map(run, commits)):
-            print("finished", c,"runtime:", r.runtime)
-            tmpdirs.append(r.tmpdir)
+    pwd = os.path.abspath(os.path.curdir)
 
+    with open("{}-timeresult.txt".format(reponame), "a+") as tf:
+        with concurrent.futures.ProcessPoolExecutor() as executor:
+            for c, r in zip(commits, executor.map(run, commits)):
+                print("finished", c,"runtime:", r.runtime)
+                if r.pythonruntime > 0:
+                    tf.write("{} {}\n".format(c[0:7], r.runtime))
+                tmpdirs.append(r.tmpdir)
+
+    print(pages)
+    for i, p in enumerate(pages):
+        print("in ",p)
+        tmpdir = tempfile.mkdtemp()
+        files = glob.glob(os.path.join('/tmp','warptmp-'+commits[0], reponame, 'image{:02d}-*.jpg'.format(i)))
+        files = [os.path.basename(f) for f in files]
+        if len(files) == 1:
+            f = files[0]
+            images = []
+            for c in commits:
+                images.append("{}/{}".format(os.path.join('/tmp','warptmp-'+c, reponame), f))
+            images = " ".join(images)
+            subprocess.call("convert "+images+" {}/result{}.pdf".format(pwd, i),
+                            shell=True,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        else:
+            for f in files:
+                images = []
+                for c in commits:
+                    images.append("-label {} {}/{}".format(c[0:7], os.path.join('/tmp','warptmp-'+c, reponame), f))
+                images = " ".join(images)
+
+                subprocess.call("montage "+images+" {}/{}".format(tmpdir, f),
+                                shell=True,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                subprocess.call("mencoder \"mf://{}/*.jpg\" -mf fps=5 -o output.avi -ovc x264".format(tmpdir),
+                                shell=True,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                subprocess.call("mv {}/output.avi {}/movie{:02d}.mp4".format(tmpdir, pwd, i),
+                                shell=True,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        shutil.rmtree(tmpdir)
 #    print("cleanup")
 #    for d in tmpdirs:
 #        shutil.rmtree(d)
