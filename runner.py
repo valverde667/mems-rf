@@ -143,7 +143,7 @@ if __name__ == '__main__':
                                                     shell=True).decode('ascii').strip()
                     f = os.path.join('/tmp','warptmp-'+branch+'-'+c, reponame, "image{:04d}.jpg".format(nr))
                     if os.path.exists(f):
-                        images.append("-label {} {}".format(label, f))
+                        images.append("-label '{}' {}".format(label, f))
                 images = " ".join(images)
 
                 subprocess.call("montage "+images+" -geometry +20+20 {}/image{:04d}.jpg".format(tmpdir, nr),
