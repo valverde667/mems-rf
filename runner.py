@@ -79,14 +79,11 @@ def run(commit):
         # find gist file
         cgmfile = glob.glob('{}/*.cgm'.format(os.path.join(d, reponame)))[-1]
         for i, p in enumerate(pages):
-            subprocess.call("cd {} && gist {} -b -ps tmp{:02d}.ps {}".
-                            format(os.path.join(d, reponame), cgmfile, i, p), shell=True,
+            subprocess.call("cd {} && gist {} -b -ps tmp.ps && ps2pdf tmp.ps".
+                            format(os.path.join(d, reponame), cgmfile), shell=True,
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            subprocess.call("cd {} && ps2pdf tmp{:02d}.ps ".
-                            format(os.path.join(d, reponame), i), shell=True,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            subprocess.call("cd {} && convert tmp{:02d}.pdf image{:02d}-%03d.jpg".
-                            format(os.path.join(d, reponame), i, i), shell=True,
+            subprocess.call("cd {} && convert tmp.pdf image%04d.jpg".
+                            format(os.path.join(d, reponame)), shell=True,
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     else:
         print("can't find file", myfile, " in commit:", commit)
@@ -106,31 +103,49 @@ if __name__ == '__main__':
                     tf.write("{} {}\n".format(c[0:7], r.runtime))
                 tmpdirs.append(r.tmpdir)
 
-    print(pages)
     for i, p in enumerate(pages):
-        print("in ",p)
+        pp = p.split("-")
+        if len(pp) == 3:
+            s, e, ds  = pp
+        elif len(pp) == 2:
+            s, e == pp
+            ds = 1
+        else:
+            s = pp[0]
+            e = s
+            ds = 1
+        s = int(s)
+        e = int(e)
+        ds= int(ds)
+
+        # correct page number, images start at 0 not 1
+        if s > 0:
+            s = s-1
+        if e > e:
+            s = s-1
+
         tmpdir = tempfile.mkdtemp()
-        files = glob.glob(os.path.join('/tmp','warptmp-'+branch+'-'+commits[0], reponame, 'image{:02d}-*.jpg'.format(i)))
+        files = glob.glob(os.path.join('/tmp','warptmp-'+branch+'-'+commits[0], reponame, 'image*.jpg'))
         files = [os.path.basename(f) for f in files]
-        if len(files) == 1:
-            f = files[0]
-            images = []
-            for c in commits:
-                images.append("{}/{}".format(os.path.join('/tmp','warptmp-'+branch+'-'+c, reponame), f))
+        if len(pp) == 1:
+            f = files[s]
+            images = [os.path.join('/tmp','warptmp-'+branch+'-'+c, reponame, f) for c in commits]
             images = " ".join(images)
             subprocess.call("convert "+images+" {}/result-{}-{}.pdf".format(pwd, branch, p),
                             shell=True,
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         else:
-            for f in files:
+            for nr in range(s, e, ds):
                 images = []
                 for c in commits:
                     label = subprocess.check_output("git log --format='%s' {}^..{}".format(c, c),
                                                     shell=True).decode('ascii').strip()
-                    images.append("-label {} {}/{}".format(label, os.path.join('/tmp','warptmp-'+branch+'-'+c, reponame), f))
+                    f = os.path.join('/tmp','warptmp-'+branch+'-'+c, reponame, "image{:04d}.jpg".format(nr))
+                    if os.path.exist(f):
+                        images.append("-label {} {}".format(label, f))
                 images = " ".join(images)
 
-                subprocess.call("montage "+images+" {}/{}".format(tmpdir, f),
+                subprocess.call("montage "+images+" {}/image{:04d}.jpg".format(tmpdir, nr),
                                 shell=True,
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 subprocess.call("mencoder \"mf://{}/*.jpg\" -mf fps=5 -o {}/output-{}-{}.avi -ovc x264".
