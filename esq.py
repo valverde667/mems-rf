@@ -257,7 +257,8 @@ while (top.time < tmax and zmax < zrunmax):
 
     # create some plots
     ions.ppzvz(color=red)
-    ylimits(0.95*ekininit, 1.05*ekininit)
+    velo = np.sqrt(2*ekininit*ions.charge/ions.mass)
+    ylimits(0.95*velo, 1.05*velo)
     fma()
     pfxy(iz=w3d.nz//2, fill=0, filled=1, plotselfe=2, comp='E', titles=0, cmin=0, cmax=5e6*Vesq/125)
     limits(-w3d.xmmax, w3d.xmmax)
