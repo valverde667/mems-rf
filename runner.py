@@ -1,11 +1,12 @@
 """
 
 Usage:
-  runner <repopath> <branch> <file> [--pagenumber=<page>]
+  runner <repopath> <branch> <file> [--pagenumber=<page>] [--no-cleanup]
 
 Options:
   -h --help                      this text
   -v --version                   version information
+  --no-cleanup                   don't remove temp files (for debugging)
   -p <page> --pagenumber=<page>  slice for pages, e.g. 2:200:2 or 2:200 or 2, [default: last]
 """
 
@@ -154,6 +155,7 @@ if __name__ == '__main__':
                             shell=True,
                             stdout=DEVNULL, stderr=DEVNULL)
         shutil.rmtree(tmpdir)
-    print("cleanup")
-    for d in tmpdirs:
-        shutil.rmtree(d)
+    if not commands['--no-cleanup']:
+        print("cleanup")
+        for d in tmpdirs:
+            shutil.rmtree(d)
