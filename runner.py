@@ -56,8 +56,6 @@ def run(commit):
     pdt = 0
     start = time.time()
     if not os.path.exists(os.path.join('/tmp','warptmp-'+branch+'-'+commit)):
-        # create temp dir and delete it later again... no contect manager
-        # available for python 2.7, so we do it by hand
         d = os.path.join('/tmp','warptmp-'+branch+'-'+commit)
         os.mkdir(d)
         subprocess.call("cd {} && git clone --shared {} && cd {} && git checkout {}".
@@ -74,7 +72,7 @@ def run(commit):
         # run simulations only, if no results exists
         if not len(cgmfile):
             pstart = time.time()
-            subprocess.call("cd {} && python {}".
+            subprocess.call("cd {} && python3 {}".
                             format(os.path.join(d, reponame), myfile), shell=True,
                             stdout=DEVNULL, stderr=DEVNULL)
             pdt = time.time()-pstart
