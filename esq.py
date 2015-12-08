@@ -9,6 +9,7 @@ from warp.ionization import *
 from warp.timedependentvoltage import TimeVoltage
 
 import numpy as np
+from functools import partial
 
 import geometry
 from geometry import Aperture, ESQ, RF_stack2, Gap
@@ -166,25 +167,30 @@ tmax = length/velo
 zrunmax = length
 
 # set up time varying fields on the RF electrodes
-toffset = 2.5e-9
-Vmax = 0.5*10e3
+Vmax = 2e3
 freq = 100e6
-def RFvoltage1(time):
+
+def RFvoltage1(time, toffset=0):
     return 0
     return -Vmax*np.sin(2*np.pi*freq*(time-toffset))
 
-def RFvoltage2(time):
-    return -RFvoltage1(time)
+def RFvoltage2(time, toffset):
+    return -RFvoltage1(time, toffset=toffset)
 
-def RFvoltage3(time):
-    return -RFvoltage1(time)
+def RFvoltage3(time, toffset):
+    return -RFvoltage1(time, toffset=toffset)
 
-RF1a = TimeVoltage(202, voltfunc=RFvoltage1)
-RF1b = TimeVoltage(203, voltfunc=RFvoltage1)
-RF2a = TimeVoltage(206, voltfunc=RFvoltage2)
-RF2b = TimeVoltage(207, voltfunc=RFvoltage2)
-RF3a = TimeVoltage(210, voltfunc=RFvoltage3)
-RF3b = TimeVoltage(211, voltfunc=RFvoltage3)
+toffset = 2.5e-9
+RF1a = TimeVoltage(202, voltfunc=partial(RFvoltage1, toffset=toffset))
+RF1b = TimeVoltage(203, voltfunc=partial(RFvoltage1, toffset=toffset))
+
+toffset = 2.5e-9
+RF2a = TimeVoltage(206, voltfunc=partial(RFvoltage2, toffset=toffset))
+RF2b = TimeVoltage(207, voltfunc=partial(RFvoltage2, toffset=toffset))
+
+toffset = 2.5e-9
+RF3a = TimeVoltage(210, voltfunc=partial(RFvoltage3, toffset=toffset))
+RF3b = TimeVoltage(211, voltfunc=partial(RFvoltage3, toffset=toffset))
 
 # define the electrodes
 installconductors(conductors)
