@@ -136,6 +136,7 @@ print("starting pos:", geometry.pos)
 Vmax = 5e3
 freq = 100e6
 
+
 def gen_volt(toffset=0):
     def RFvoltage(time):
         return Vmax*np.sin(2*np.pi*freq*(time-toffset))
@@ -148,7 +149,8 @@ rfgaps = [rfgap, rfgap-0.5*mm, rfgap, rfgap, rfgap, rfgap]
 
 for i, toffset, rfgap in zip(range(6), toffsets, rfgaps):
     Ekin += 2 * 0.8 * Vmax
-    RF = RF_stack2(condid=[ID_RF, ID_RF+1, ID_RF+2, ID_RF+3], rfgap=rfgap, voltage=gen_volt(toffset))
+    RF = RF_stack2(condid=[ID_RF, ID_RF+1, ID_RF+2, ID_RF+3],
+                   rfgap=rfgap, voltage=gen_volt(toffset))
     Gap(gap)
     E1 = ESQ(voltage=Vesq, condid=[ID_ESQ, ID_ESQ+1])
     Gap(gap)
@@ -241,26 +243,26 @@ while (top.time < tmax and zmax < zrunmax):
     pfxy(iz=w3d.nz//2, fill=0, filled=1, plotselfe=2, comp='E', titles=0, cmin=0, cmax=5e6*Vesq/125)
     limits(-w3d.xmmax, w3d.xmmax)
     ylimits(-w3d.ymmax, w3d.ymmax)
-    ptitles("Geometry and Fields","X [m]", "Y [m]", "")
+    ptitles("Geometry and Fields", "X [m]", "Y [m]", "")
     fma()
     pfzx(fill=1, filled=1, plotselfe=2, comp='E', titles=0, cmin=0, cmax=5e6)
     ions.ppzx(color=red, titles=0)
-    ptitles("Particles and Fields","Z [m]", "X [m]", "")
+    ptitles("Particles and Fields", "Z [m]", "X [m]", "")
     limits(zmin, zmax)
     fma()
     ions.ppxy(color=red, titles=0)
     limits(-R, R)
     ylimits(-R, R)
-    plg(Y,X,type="dash")
+    plg(Y, X, type="dash")
     fma()
     refresh()
 
-#plot particle vs time
-#hzepsnxz()
-#fma()
-#hzepsnyz()
-#hzepsnx()
-#fma()
+# plot particle vs time
+# hzepsnxz()
+# fma()
+# hzepsnyz()
+# hzepsnx()
+# fma()
 hzepsny()
 fma()
 hzepsnz()
@@ -282,5 +284,5 @@ fma()
 hzpnum()
 
 fma()
-#hzlinechg()
-#fma()
+# hzlinechg()
+# fma()

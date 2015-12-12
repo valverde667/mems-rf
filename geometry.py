@@ -4,7 +4,7 @@ from __future__ import print_function
 from warp import *
 
 
-### universial dimensions
+# universial dimensions
 
 # unit cell frame
 framelength = 1500*um
@@ -16,13 +16,15 @@ wafer_box = 2*um
 wafer_si = 20*um
 wafer_length = wafer_body + wafer_box + wafer_si
 
-### globals
+# globals
 pos = 0
+
 
 def Gap(dist=500*um):
     """Vacuum gap, e.g. between wafers"""
     global pos
     pos += dist
+
 
 def ESQ(voltage, condid):
     """Simple ESQ wafer
@@ -66,15 +68,15 @@ def ESQ(voltage, condid):
             print("wrong rotation value")
 
         electrode1 = ZCylinder(radius=R2, length=wafer_length, voltage=voltage,
-                                xcent=xcent1, ycent=ycent1, zcent=zcenter,
-                                condid=condid)
+                               xcent=xcent1, ycent=ycent1, zcent=zcenter,
+                               condid=condid)
         electrode2 = ZCylinder(radius=R2, length=wafer_length, voltage=voltage,
-                                xcent=xcent2, ycent=ycent2, zcent=zcenter,
-                                condid=condid)
+                               xcent=xcent2, ycent=ycent2, zcent=zcenter,
+                               condid=condid)
         electrode3 = ZCylinder(radius=R1, length=wafer_length, voltage=voltage,
-                                xcent=xcent3, ycent=ycent3, zcent=zcenter,
-                                condid=condid)
-        return  electrode1 + electrode2 + electrode3
+                               xcent=xcent3, ycent=ycent3, zcent=zcenter,
+                               condid=condid)
+        return electrode1 + electrode2 + electrode3
 
     condidA, condidB = condid
 
@@ -138,7 +140,7 @@ def RF_stack(voltage, condid, rfgap=200*um):
 
     pos += rfgap
 
-    bodycenter =  pos + 0.5*wafer_body
+    bodycenter = pos + 0.5*wafer_body
     Frame = Box(framelength, framelength, 500*um,
                 zcent=bodycenter, voltage=0, condid=condidC)
     Beam = ZCylinder(r_beam, 510*um, zcent=bodycenter, voltage=0, condid=condidC)
@@ -155,6 +157,7 @@ def RF_stack(voltage, condid, rfgap=200*um):
     pos += wafer_si
 
     return SOI1 + body1 + body2 + SOI2
+
 
 def RF_stack2(condid, rfgap=200*um, voltage=0):
     """two wafers with a gap of rfgap between them. Both wafers are
@@ -182,7 +185,7 @@ def RF_stack2(condid, rfgap=200*um, voltage=0):
 
     pos += rfgap
 
-    bodycenter =  pos + 0.5*thickness
+    bodycenter = pos + 0.5*thickness
     Frame = Box(framelength, framelength, thickness, voltage=voltage,
                 zcent=bodycenter, condid=condidC)
     Beam = ZCylinder(r_beam, 5*um, zcent=bodycenter, voltage=voltage, condid=condidC)
@@ -197,7 +200,6 @@ def RF_stack2(condid, rfgap=200*um, voltage=0):
     pos += thickness
 
     return SOI1 + body1 + body2 + SOI2
-
 
 
 def Aperture(voltage, condid, width=10*um):
