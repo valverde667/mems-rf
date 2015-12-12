@@ -6,10 +6,8 @@ from __future__ import print_function
 from warp import *
 from warp.egun_like import *
 from warp.ionization import *
-from warp.timedependentvoltage import TimeVoltage
 
 import numpy as np
-from functools import partial
 
 import geometry
 from geometry import Aperture, ESQ, RF_stack2, Gap
@@ -133,9 +131,24 @@ ID_ESQ = 100
 ID_RF = 201
 geometry.pos = -0.5*gap-(2*um+500*um+2*um)-50*um
 print("starting pos:", geometry.pos)
-A1 = Aperture(0, 95, width=50*um)
-for i in range(6):
-    RF = RF_stack2(voltage=VRF, condid=list(range(ID_RF, ID_RF+4)), rfgap=gap)
+
+# set up time varying fields on the RF electrodes
+Vmax = 5e3
+freq = 100e6
+
+def gen_volt(toffset=0):
+    def RFvoltage(time):
+        return Vmax*np.sin(2*np.pi*freq*(time-toffset))
+    return RFvoltage
+
+toffsets = [3.5e-9, 0.5e-9, 6.5e-9, 3.5e-9, 0.5e-9, 6.5e-9]
+Ekin = ekininit
+rfgap = np.sqrt(2*Ekin*ions.charge/ions.mass)/freq/2
+rfgaps = [rfgap, rfgap-0.5*mm, rfgap, rfgap, rfgap, rfgap]
+
+for i, toffset, rfgap in zip(range(6), toffsets, rfgaps):
+    Ekin += 2 * 0.8 * Vmax
+    RF = RF_stack2(condid=[ID_RF, ID_RF+1, ID_RF+2, ID_RF+3], rfgap=rfgap, voltage=gen_volt(toffset))
     Gap(gap)
     E1 = ESQ(voltage=Vesq, condid=[ID_ESQ, ID_ESQ+1])
     Gap(gap)
@@ -152,45 +165,16 @@ E1 = ESQ(voltage=Vesq, condid=[ID_ESQ, ID_ESQ+1])
 Gap(gap)
 E2 = ESQ(voltage=-Vesq, condid=[ID_ESQ+2, ID_ESQ+3])
 Gap(gap)
-A2 = Aperture(0, 95, width=50*um)
-
-Apertures = [A1, A2]
 
 print("total length", geometry.pos)
 
 #scraper = ParticleScraper(ESQs +  RFs)
-conductors = sum(ESQs) + sum(RFs) + sum(Apertures)
+conductors = sum(ESQs) + sum(RFs)
 
 velo = np.sqrt(2*ekininit*ions.charge/ions.mass)
 length = geometry.pos
 tmax = length/velo
 zrunmax = length
-
-# set up time varying fields on the RF electrodes
-Vmax = 2e3
-freq = 100e6
-
-def RFvoltage1(time, toffset=0):
-    return 0
-    return -Vmax*np.sin(2*np.pi*freq*(time-toffset))
-
-def RFvoltage2(time, toffset):
-    return -RFvoltage1(time, toffset=toffset)
-
-def RFvoltage3(time, toffset):
-    return -RFvoltage1(time, toffset=toffset)
-
-toffset = 2.5e-9
-RF1a = TimeVoltage(202, voltfunc=partial(RFvoltage1, toffset=toffset))
-RF1b = TimeVoltage(203, voltfunc=partial(RFvoltage1, toffset=toffset))
-
-toffset = 2.5e-9
-RF2a = TimeVoltage(206, voltfunc=partial(RFvoltage2, toffset=toffset))
-RF2b = TimeVoltage(207, voltfunc=partial(RFvoltage2, toffset=toffset))
-
-toffset = 2.5e-9
-RF3a = TimeVoltage(210, voltfunc=partial(RFvoltage3, toffset=toffset))
-RF3b = TimeVoltage(211, voltfunc=partial(RFvoltage3, toffset=toffset))
 
 # define the electrodes
 installconductors(conductors)
@@ -218,33 +202,17 @@ R = 90*um
 t = np.linspace(0, 2*np.pi, 100)
 X = R*np.sin(t)
 Y = R*np.cos(t)
-
-# check the fields in one ESQ
-
-#for i in range(100):
-#    fma()
-#    pfxy(iz=i,fill=0, filled=1, plotselfe=2, comp='E', cmin=-5e6, cmax=5e6)
-#    limits(-w3d.xmmax, w3d.xmmax)
-#    ylimits(-w3d.ymmax, w3d.ymmax)
-#for i in range(100):
-#    fma()
-#    pfzx(iy=i,fill=0, filled=1, plotselfe=2, comp='x', cmin=-5e6, cmax=5e6)
-#    limits(w3d.zmmin, w3d.zmmax)
-#    ylimits(-w3d.xmmax, w3d.xmmax)
-#for i in range(100):
-#    fma()
-#    pfzy(ix=i,fill=0, filled=1, plotselfe=2, comp='y', cmin=-5e6, cmax=5e6)
-#    limits(w3d.zmmin, w3d.zmmax)
-#    ylimits(-w3d.ymmax, w3d.ymmax)
-#
-#import sys
-#sys.exit()
-
+deltaKE = 10e3
 while (top.time < tmax and zmax < zrunmax):
     step(10)
 
-#    tmp = " Voltages: {} {} {}".format(RF1a.getvolt(top.time), RF2a.getvolt(top.time), RF3a.getvolt(top.time))
-    tmp = " Voltage: {}V gap: {}um".format(int(Vesq), int(1e6*gap))
+    Volts = []
+    for i, t in zip(range(3), toffsets):
+        func = gen_volt(t)
+        Volts.append(func(top.time))
+
+    tmp = " Voltages: {:.0f} {:.0f} {:.0f}".format(Volts[0], Volts[1], Volts[2])
+##    tmp = " Voltage: {}V gap: {}um".format(int(Vesq), int(1e6*gap))
     top.pline1 = tmp
 
     # inject only for 1 ns, so that we can get onto the rising edge of the RF
@@ -255,17 +223,21 @@ while (top.time < tmax and zmax < zrunmax):
 
     Z = ions.getz()
     if Z.mean() > zmid:
-        top.vbeamfrm = velo
+        top.vbeamfrm = ions.getvz().mean()
         solver.gridmode = 0
 
     zmin = top.zbeam+w3d.zmmin
     zmax = top.zbeam+w3d.zmmax
 
     # create some plots
-    ions.ppzvz(color=red)
-    velo = np.sqrt(2*ekininit*ions.charge/ions.mass)
-    ylimits(0.95*velo, 1.05*velo)
-    fma()
+    KE = ions.getke()
+    if len(KE) > 0:
+        ions.ppzke(color=red)
+        KEmin, KEmax = KE.min(), KE.max()
+        while KEmax-KEmin > deltaKE:
+            deltaKE += 10e3
+        ylimits(0.95*KEmin, 0.95*KEmin+deltaKE)
+        fma()
     pfxy(iz=w3d.nz//2, fill=0, filled=1, plotselfe=2, comp='E', titles=0, cmin=0, cmax=5e6*Vesq/125)
     limits(-w3d.xmmax, w3d.xmmax)
     ylimits(-w3d.ymmax, w3d.ymmax)
@@ -284,16 +256,22 @@ while (top.time < tmax and zmax < zrunmax):
     refresh()
 
 #plot particle vs time
-hzepsnxz()
-fma()
-hzepsnyz()
-hzepsnx()
-fma()
+#hzepsnxz()
+#fma()
+#hzepsnyz()
+#hzepsnx()
+#fma()
 hzepsny()
+fma()
 hzepsnz()
+fma()
 hzeps6d()
-hztotalke()
-hztotale()
+fma()
+hzekinz()
+ylimits(35e-3, KEmax*1e-6*1.2)
+fma()
+hzekin()
+ylimits(35e-3, KEmax*1e-6*1.2)
 fma()
 hzxrms(color=red, titles=0)
 hzyrms(color=blue, titles=0)

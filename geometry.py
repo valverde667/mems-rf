@@ -156,7 +156,7 @@ def RF_stack(voltage, condid, rfgap=200*um):
 
     return SOI1 + body1 + body2 + SOI2
 
-def RF_stack2(voltage, condid, rfgap=200*um):
+def RF_stack2(condid, rfgap=200*um, voltage=0):
     """two wafers with a gap of rfgap between them. Both wafers are
     insulating with conducting layers on both sides"""
 
@@ -167,32 +167,32 @@ def RF_stack2(voltage, condid, rfgap=200*um):
     thickness = 2*um
 
     SOIcenter = pos + 0.5*thickness
-    Frame = Box(framelength, framelength, thickness,
-                zcent=SOIcenter, voltage=-voltage, condid=condidA)
-    Beam = ZCylinder(r_beam, 5*um, zcent=SOIcenter, voltage=voltage, condid=condidA)
+    Frame = Box(framelength, framelength, thickness, voltage=0,
+                zcent=SOIcenter, condid=condidA)
+    Beam = ZCylinder(r_beam, 5*um, zcent=SOIcenter, voltage=0, condid=condidA)
     SOI1 = Frame-Beam
     pos += thickness + 500*um
 
     bodycenter = pos + 0.5*thickness
-    Frame = Box(framelength, framelength, thickness,
-                zcent=bodycenter, voltage=0, condid=condidB)
-    Beam = ZCylinder(r_beam, 5*um, zcent=bodycenter, voltage=0, condid=condidB)
+    Frame = Box(framelength, framelength, thickness, voltage=voltage,
+                zcent=bodycenter, condid=condidB)
+    Beam = ZCylinder(r_beam, 5*um, zcent=bodycenter, voltage=voltage, condid=condidB)
     body1 = Frame-Beam
     pos += thickness
 
     pos += rfgap
 
     bodycenter =  pos + 0.5*thickness
-    Frame = Box(framelength, framelength, thickness,
-                zcent=bodycenter, voltage=0, condid=condidC)
-    Beam = ZCylinder(r_beam, 5*um, zcent=bodycenter, voltage=0, condid=condidC)
+    Frame = Box(framelength, framelength, thickness, voltage=voltage,
+                zcent=bodycenter, condid=condidC)
+    Beam = ZCylinder(r_beam, 5*um, zcent=bodycenter, voltage=voltage, condid=condidC)
     body2 = Frame-Beam
     pos += thickness + 500*um
 
     SOIcenter = pos + 0.5*thickness
-    Frame = Box(framelength, framelength, thickness,
-                zcent=SOIcenter, voltage=voltage, condid=condidD)
-    Beam = ZCylinder(r_beam, 5*um, zcent=SOIcenter, voltage=voltage, condid=condidD)
+    Frame = Box(framelength, framelength, thickness, voltage=0,
+                zcent=SOIcenter, condid=condidD)
+    Beam = ZCylinder(r_beam, 5*um, zcent=SOIcenter, voltage=0, condid=condidD)
     SOI2 = Frame-Beam
     pos += thickness
 
