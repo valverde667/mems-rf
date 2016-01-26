@@ -31,7 +31,7 @@ top.dt = 5e-11
 setup(prefix="esq-V{}-gap-{}um".format(int(Vesq), int(gap*1e6)))
 
 # --- Set basic beam parameters
-emittingradius = 48.113*um
+emittingradius = 40*um
 ibeaminit = 20e-6
 ekininit = 40e3
 
@@ -142,20 +142,25 @@ def gen_volt(toffset=0):
         return Vmax*np.sin(2*np.pi*freq*(time-toffset))
     return RFvoltage
 
-toffsets = [3.5e-9, 0.5e-9, 6.5e-9, 3.5e-9, 0.5e-9, 6.5e-9]
+toffsets = [3.5e-9, 0.0e-9, 5.5e-9, 0.5e-9, 4.5e-9, 8.5e-9]
 Ekin = ekininit
-rfgap = np.sqrt(2*Ekin*ions.charge/ions.mass)/freq/2
-rfgaps = [rfgap, rfgap-0.5*mm, rfgap, rfgap, rfgap, rfgap]
+rfgap = np.sqrt(2*Ekin*ions.charge/ions.mass)/freq/2-0.5*mm
+rfgaps = [rfgap+0.5*mm, rfgap+0.144*mm, rfgap+0.146*mm,
+          rfgap+0.375*mm, rfgap+0.2992*mm, rfgap+0.6986*mm]
+Vpos = []
 
 for i, toffset, rfgap in zip(range(6), toffsets, rfgaps):
     Ekin += 2 * 0.8 * Vmax
     RF = RF_stack2(condid=[ID_RF, ID_RF+1, ID_RF+2, ID_RF+3],
                    rfgap=rfgap, voltage=gen_volt(toffset))
+    Vpos.append(geometry.pos)
     Gap(gap)
     E1 = ESQ(voltage=Vesq, condid=[ID_ESQ, ID_ESQ+1])
     Gap(gap)
     E2 = ESQ(voltage=-Vesq, condid=[ID_ESQ+2, ID_ESQ+3])
     Gap(gap)
+
+    Vesq *= 1.02
 
     ESQs.append(E1)
     ESQs.append(E2)
@@ -197,7 +202,7 @@ fma()
 
 zmin = w3d.zmmin
 zmax = w3d.zmmax
-zmid = 0.5*(zmax+zmin)
+zmid = 0.4*(zmax+zmin)
 
 # make a circle to show the beam pipe
 R = 90*um
@@ -209,11 +214,16 @@ while (top.time < tmax and zmax < zrunmax):
     step(10)
 
     Volts = []
-    for i, t in zip(range(3), toffsets):
+    for i, t in zip(range(6), toffsets):
         func = gen_volt(t)
         Volts.append(func(top.time))
 
-    tmp = " Voltages: {:.0f} {:.0f} {:.0f}".format(Volts[0], Volts[1], Volts[2])
+    tmp = "V: {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} {:.0f} ".format(Volts[0],
+                                                                 Volts[1],
+                                                                 Volts[2],
+                                                                 Volts[3],
+                                                                 Volts[4],
+                                                                 Volts[5])
 ##    tmp = " Voltage: {}V gap: {}um".format(int(Vesq), int(1e6*gap))
     top.pline1 = tmp
 
@@ -245,9 +255,9 @@ while (top.time < tmax and zmax < zrunmax):
     ylimits(-w3d.ymmax, w3d.ymmax)
     ptitles("Geometry and Fields", "X [m]", "Y [m]", "")
     fma()
-    pfzx(fill=1, filled=1, plotselfe=2, comp='E', titles=0, cmin=0, cmax=5e6)
+    pfzx(fill=1, filled=1, plotselfe=2, comp='z', titles=0, cmin=0, cmax=5e6)
     ions.ppzx(color=red, titles=0)
-    ptitles("Particles and Fields", "Z [m]", "X [m]", "")
+    ptitles("Partcles and Fields", "Z [m]", "X [m]", "")
     limits(zmin, zmax)
     fma()
     ions.ppxy(color=red, titles=0)
