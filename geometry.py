@@ -202,6 +202,53 @@ def RF_stack2(condid, rfgap=200*um, voltage=0):
     return SOI1 + body1 + body2 + SOI2
 
 
+def RF_stack3(condid, rfgap=200*um, gap=500*um, voltage=0):
+    """4 wafers rf stack with 2 acceleration stages
+
+     The first two form an RF acceleration cell, followed by a drift
+     of length rfgap, followed by a second RF accererlation cell.
+
+    """
+
+    global pos
+    condidA, condidB, condidC, condidD = condid
+
+    r_beam = 90*um
+    thickness = 2*um + 500*um + 2*um
+
+    SOIcenter = pos + 0.5*thickness
+    Frame = Box(framelength, framelength, thickness, voltage=0,
+                zcent=SOIcenter, condid=condidA)
+    Beam = ZCylinder(r_beam, thickness + 50*um, zcent=SOIcenter, voltage=0, condid=condidA)
+    Ground1 = Frame-Beam
+    pos += thickness + gap
+
+    bodycenter = pos + 0.5*thickness
+    Frame = Box(framelength, framelength, thickness, voltage=voltage,
+                zcent=bodycenter, condid=condidB)
+    Beam = ZCylinder(r_beam, thickness + 50*um, zcent=bodycenter, voltage=voltage, condid=condidB)
+    body1 = Frame-Beam
+    pos += thickness
+
+    pos += rfgap
+
+    bodycenter = pos + 0.5*thickness
+    Frame = Box(framelength, framelength, thickness, voltage=voltage,
+                zcent=bodycenter, condid=condidC)
+    Beam = ZCylinder(r_beam, thickness + 50*um, zcent=bodycenter, voltage=voltage, condid=condidC)
+    body2 = Frame-Beam
+    pos += thickness + 500*um
+
+    SOIcenter = pos + 0.5*thickness
+    Frame = Box(framelength, framelength, thickness, voltage=0,
+                zcent=SOIcenter, condid=condidD)
+    Beam = ZCylinder(r_beam, thickness + 50*um, zcent=SOIcenter, voltage=0, condid=condidD)
+    Ground2 = Frame-Beam
+    pos += thickness
+
+    return Ground1 + body1 + body2 + Ground2
+
+
 def Aperture(voltage, condid, width=10*um):
     """A simple thin wafer with a whole for the beam"""
 
