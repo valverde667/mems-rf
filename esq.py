@@ -1,11 +1,8 @@
 """
 Simplfied ESQ model
 """
-from __future__ import print_function
 
 from warp import *
-from warp.egun_like import *
-from warp.ionization import *
 
 import numpy as np
 
