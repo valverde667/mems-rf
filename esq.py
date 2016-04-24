@@ -93,9 +93,10 @@ top.npinject = 300  # needed!!
 top.linj_eperp = True  # Turn on transverse E-fields near emitting surface
 top.zinject = w3d.zmmin
 top.vinject = 1.0
+print("--- Ions start at: ", top.zinject)
 
-top.nhist = 1  # Save history data every time step
-top.itmomnts[0:4] = [0, 1000000, top.nhist, 0]  # Calculate moments every step
+top.nhist = 5  # Save history data every N time step
+top.itmomnts[0:4] = [0, 1000000, top.nhist, 0]  # Calculate moments every N steps
 # --- Save time histories of various quantities versus z.
 top.lhpnumz = True
 top.lhcurrz = True
@@ -207,6 +208,7 @@ t = np.linspace(0, 2*np.pi, 100)
 X = R*np.sin(t)
 Y = R*np.cos(t)
 deltaKE = 10e3
+
 while (top.time < tmax and zmax < zrunmax):
     step(10)
 
@@ -265,31 +267,52 @@ while (top.time < tmax and zmax < zrunmax):
     refresh()
 
 # plot particle vs time
-# hzepsnxz()
+# hpepsnxz()
 # fma()
-# hzepsnyz()
-# hzepsnx()
+# hpepsnyz()
+# hpepsnx()
 # fma()
-hzepsny()
+hpepsny()
 fma()
-hzepsnz()
+hpepsnz()
 fma()
-hzeps6d()
+hpeps6d()
 fma()
-hzekinz()
+hpekinz()
 ylimits(35e-3, KEmax*1e-6*1.2)
 fma()
-hzekin()
+hpekin()
 ylimits(35e-3, KEmax*1e-6*1.2)
 fma()
-hzxrms(color=red, titles=0)
-hzyrms(color=blue, titles=0)
-hzrrms(color=green, titles=0)
+hpxrms(color=red, titles=0)
+hpyrms(color=blue, titles=0)
+hprrms(color=green, titles=0)
 ptitles("X(red), Y(blue), R(green)", "Z [m]", "X/Y/R [m]", "")
 
 fma()
-hzpnum()
+hppnum()
 
 fma()
-# hzlinechg()
+# hplinechg()
 # fma()
+
+# save history information, so that we can plot all cells in one plot
+t = np.trim_zeros(top.thist, 'b')
+hepsny = ions.hepsny[0]
+hepsnz = ions.hepsnz[0]
+hep6d = ions.hepsx[0] * ions.hepsy[0] * ions.hepsz[0]
+hekinz = 1e-6*0.5*top.aion*amu*ions.hvzbar[0]**2/jperev
+
+u = ions.hvxbar[0]**2 + ions.hvybar[0]**2 + ions.hvzbar[0]**2
+hekin = 1e-6 * 0.5*top.aion*amu*u/jperev
+
+hxrms = ions.hxrms[0]
+hyrms = ions.hyrms[0]
+hrrms = ions.hrrms[0]
+hpnum = ions.hpnum[0]
+
+for i in (t, hepsny, hepsnz, hep6d, hekinz, hekin, hxrms, hyrms, hrrms, hpnum):
+    print(len(i))
+
+out = np.stack((t, hepsny, hepsnz, hep6d, hekinz, hekin, hxrms, hyrms, hrrms, hpnum))
+np.save("esqhist.npy", out)
