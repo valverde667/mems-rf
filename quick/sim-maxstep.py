@@ -10,6 +10,8 @@ Cutoff = 15.2e3
 mass = 40*SC.physical_constants['atomic mass constant'][0]  # Argon
 Vmax = 1000.0
 
+I = 60e-6  # Amps
+
 
 def RF(NE, f=20e6):
     x = NE[:, 0]
@@ -22,34 +24,51 @@ def v(E):
     return np.sqrt(2*E/mass*SC.e)
 
 
-N = 1000  # 10000 for high res
-NE = np.zeros(shape=(N, 3))
-
+N = 5000  # 10000 for high res
+NEstart = np.zeros(shape=(N, 3))
 # starting conditions, packages in 1ns time intervals
-dx = v(E) * 1e-9 * 1000
+dt = 1e-9
+dx = v(E) * dt * 1000
+dQ = I*dt
 
-NE[:, 0] = np.linspace(-dx, 0, N)  # x-coordinate
-NE[:, 1] = E  # energy
-NE[:, 2] = 0.0  # time
+NEstart[:, 0] = np.linspace(-dx, 0, N)  # x-coordinate
+NEstart[:, 1] = E  # energy
+NEstart[:, 2] = 0.0  # time
 
 # places where we have an RF cell + FC cup location
 d = [500e-6/2, 0.5]
 
-# do the iteration: calc drift time, add energy and time
-for x in d:
-    tau = (x-NE[:, 0])/v(NE[:, 1])
-    NE[:, 0] = x
-    NE[:, 2] += tau
-    NE[:, 1] += RF(NE)
 
-# make current plot, which is just a history over the time, since all
-# x-coordinates will be at the same location of the F-cup now
-plt.hist(NE[:, 2]*1e6, N//10, lw=0)
+def do_sims(Vgrid):
+    NE = NEstart.copy()
 
-# same, but only for accelerated particles
-mask = NE[:, 1] > Cutoff
-plt.hist(NE[mask, 2]*1e6, N//10, lw=0)
+    # do the iteration: calc drift time, add energy and time
+    for x in d:
+        tau = (x-NE[:, 0])/v(NE[:, 1])
+        NE[:, 0] = x
+        NE[:, 2] += tau
+        NE[:, 1] += RF(NE)
 
-plt.xlabel("Times [$\mu$s]")
-plt.ylabel("Current [a.u.]")
-plt.savefig("output-maxstep.png")
+    mask = NE[:, 1] > Vgrid
+    dt = NE[:, 2].ptp()
+    del NE
+    return mask.sum()*dQ/dt
+
+X = np.linspace(13e3, 17e3, 200)
+Y = np.array([do_sims(V) for V in X])
+
+fig, ax1 = plt.subplots(1, 1)
+
+ax2 = ax1.twinx()
+
+ax1.plot(X*1e-3, Y*1e6)
+
+Edist = -np.diff(Y)
+Edist = Edist/Edist.sum()
+ax2.plot(0.5*(X[1:]+X[:-1])*1e-3, Edist, color="r")
+
+ax1.set_xlabel("Grid Voltage [kV]")
+ax1.set_ylabel("Current [$\mu$A]")
+ax2.set_ylabel("Energy profile [a.u.]", color="r")
+
+plt.savefig("output-grid.png")
