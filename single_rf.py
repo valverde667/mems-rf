@@ -25,7 +25,7 @@ top.runmaker = "Arun Persaud (apersaud@lbl.gov)"
 # --- Invoke setup routine for the plotting
 setup()
 
-ions = Species(type=Xenon, charge_state=1, name='Xe')
+ions = Species(type=Phosphorus, charge_state=1, name='P')
 
 # --- Set basic beam parameters
 emittingradius = 25*um

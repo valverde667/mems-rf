@@ -30,7 +30,7 @@ emittingradius = 846*um
 ibeaminit = 225e-6
 ekininit = 20e3
 
-ions = Species(type=Xenon, charge_state=1, name='Xe')
+ions = Species(type=Phosphorus, charge_state=1, name='P')
 
 top.a0 = emittingradius
 top.b0 = emittingradius

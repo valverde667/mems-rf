@@ -21,7 +21,7 @@ top.runmaker = "Arun Persaud (apersaud@lbl.gov)"
 
 # Parameters available for scans
 gap = 500*um
-Vesq = 548.0
+Vesq = 548.0/2
 top.dt = 5e-11
 
 # --- Invoke setup routine for the plotting
@@ -32,7 +32,7 @@ emittingradius = 40*um
 ibeaminit = 20e-6
 ekininit = 40e3
 
-ions = Species(type=Phosphorus, charge_state=1, name='P')
+ions = Species(type=Xenon, charge_state=1, name='Xe')
 
 top.a0 = emittingradius
 top.b0 = emittingradius
@@ -91,7 +91,7 @@ top.inject = 1  # 2 means space-charge limited injection
 top.rinject = 9999.
 top.npinject = 300  # needed!!
 top.linj_eperp = True  # Turn on transverse E-fields near emitting surface
-top.zinject = w3d.zmmin
+top.zinject = -(-0.5*gap-(2*um+500*um+2*um)-50*um)+5*um #w3d.zmmin
 top.vinject = 1.0
 print("--- Ions start at: ", top.zinject)
 
@@ -127,7 +127,7 @@ ESQs = []
 RFs = []
 ID_ESQ = 100
 ID_RF = 201
-geometry.pos = -0.5*gap-(2*um+500*um+2*um)-50*um
+geometry.pos = 5*um # -0.5*gap-(2*um+500*um+2*um)-50*um
 print("starting pos:", geometry.pos)
 
 # set up time varying fields on the RF electrodes
@@ -137,26 +137,46 @@ freq = 100e6
 
 def gen_volt(toffset=0):
     def RFvoltage(time):
-        return Vmax*np.sin(2*np.pi*freq*(time-toffset))
+        #if time < 2.5*ns:
+        #    return 0*Vmax
+        #else:
+        return Vmax*np.sin(2*np.pi*freq*(time-3.5*ns))
     return RFvoltage
 
-toffsets = [3.5e-9, 0.0e-9, 5.5e-9, 0.5e-9, 4.5e-9, 8.5e-9]
-Ekin = ekininit
-rfgap = np.sqrt(2*Ekin*ions.charge/ions.mass)/freq/2-0.5*mm
-rfgaps = [rfgap+0.5*mm, rfgap+0.144*mm, rfgap+0.146*mm,
-          rfgap+0.375*mm, rfgap+0.2992*mm, rfgap+0.6986*mm]
-Vpos = []
+#toffsets = [3.5e-9, 0.0e-9, 5.5e-9, 0.5e-9, 4.5e-9, 8.5e-9]
+toffsets = [0] * 6
 
-for i, toffset, rfgap in zip(range(6), toffsets, rfgaps):
+Ekin = ekininit
+
+# rfgap = np.sqrt(2*Ekin*ions.charge/ions.mass)/freq/2-0.5*mm
+# rfgaps = [rfgap+0.5*mm, rfgap+0.144*mm, rfgap+0.146*mm,
+#           rfgap+0.375*mm, rfgap+0.2992*mm, rfgap+0.6986*mm]
+
+
+# the unchaned gaps after each acceleration
+allGaps = [0.001270492, 0.001326986, 0.001381171, 0.001433308,
+            0.001483615, 0.001532271, 0.001579429, 0.001625219, 0.001669754,
+             0.001713131, 0.001755437, 0.001796747]
+# the gap within a rf unit
+rfGaps = [0.001270492,0.001381171,0.001483615,0.001579429,0.001669754,0.001755437]
+# the gaps in the esq section
+esqGaps = [5*0.001326986,5*0.001433308,5*0.001532271,0.001625219,0.001713131,0.001796747]
+#esqGaps = [3*0.001326986,3*0.001433308,3*0.001532271,3*0.001625219,3*0.001713131,3*0.001796747]
+
+Vpos = []
+thickness=2*um
+
+for i, toffset, rfgap, gaps in zip(range(6), toffsets, rfGaps, esqGaps):
     Ekin += 2 * 0.8 * Vmax
     RF = RF_stack2(condid=[ID_RF, ID_RF+1, ID_RF+2, ID_RF+3],
-                   rfgap=rfgap, voltage=gen_volt(toffset))
+                   rfgap=rfgap-2*thickness-500*um, voltage=gen_volt(toffset))
     Vpos.append(geometry.pos)
-    Gap(gap)
+    # gap =
+    Gap((gaps-1544*um)/2)
     E1 = ESQ(voltage=Vesq, condid=[ID_ESQ, ID_ESQ+1])
     Gap(gap)
     E2 = ESQ(voltage=-Vesq, condid=[ID_ESQ+2, ID_ESQ+3])
-    Gap(gap)
+    Gap((gaps-1544*um)/2)
 
     Vesq *= 1.02
 

@@ -170,6 +170,7 @@ def RF_stack(voltage, condid, rfgap=200*um):
 def RF_stack2(condid, rfgap=200*um, voltage=0):
     """two wafers with a gap of rfgap between them. Both wafers are
     insulating with conducting layers on both sides"""
+    #rfgap is the acceleration gap
 
     global pos
     print("--- RF starts at: ", pos)

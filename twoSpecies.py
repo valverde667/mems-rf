@@ -145,7 +145,7 @@ freq = 100e6
 
 def gen_volt(toffset=0):
     def RFvoltage(time):
-        return Vmax*np.sin(2*np.pi*freq*(time+toffset))
+        return Vmax*np.sin(2*np.pi*freq*(time+toffset-1.5e-9))
     return RFvoltage
 
 #origional time offsets for Xe
@@ -245,9 +245,9 @@ while (top.time < tmax and zmax < zrunmax):
     top.pline1 = tmp
 
     # inject only for 1 ns, so that we can get onto the rising edge of the RF
-    if 0 < top.time < 10e-9:
+    if 0 < top.time < 1.5e-9:
         top.finject[0,selectedIons.jslist[0]] = 1 #?
-        #top.finject[0,rejectedIons.jslist[0]] = 1 #?
+        top.finject[0,rejectedIons.jslist[0]] = 1 #?
         #top.inject = 1
     else:
         top.inject = 0
