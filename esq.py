@@ -140,7 +140,8 @@ def gen_volt(toffset=0):
         return Vmax*np.sin(2*np.pi*freq*(time-toffset))
     return RFvoltage
 
-toffsets = [3.5e-9, 0.0e-9, 5.5e-9, 0.5e-9, 4.5e-9, 8.5e-9]
+toffsets = [0]*6
+#toffsets = [3.5e-9, 0.0e-9, 5.5e-9, 0.5e-9, 4.5e-9, 8.5e-9]
 Ekin = ekininit
 rfgap = np.sqrt(2*Ekin*ions.charge/ions.mass)/freq/2-0.5*mm
 rfgaps = [rfgap+0.5*mm, rfgap+0.144*mm, rfgap+0.146*mm,
