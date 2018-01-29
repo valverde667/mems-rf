@@ -1,7 +1,7 @@
 .phone: clean
 
 all:
-	python3 run.py
+	./run.py
 
 clean:
 	-rm *cgm*

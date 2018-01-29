@@ -20,6 +20,7 @@ particels and load them
 """
 
 import warpoptions
+warpoptions.parser.add_argument('--run', dest='run', type=int, default=0)
 warpoptions.parser.add_argument('--cell', dest='cellnr', type=int, default=0)
 warpoptions.parser.add_argument('--toffset', dest='toffset', type=float, default=2e-9)
 warpoptions.parser.add_argument('--rfgap', dest='rfgap', type=float, default=3e-3)
@@ -50,24 +51,31 @@ Vesqold = warpoptions.options.Vesqold
 ap = warpoptions.options.ap
 bp = -warpoptions.options.bp
 zt = warpoptions.options.zt
+run = warpoptions.options.run
 mytime = warpoptions.options.time
+
+SKIP_PLOTS = True
+
+
+def abort_if_not_enough_particles(Z):
+    if len(Z) < 10:
+        print("ERROR: not enough particles! STOPPING")
+        with open("results{:03d}-{:04d}.json".format(cellnr, run), "w") as f:
+            json.dump({'Error': 'not enough particles'}, f, sort_keys=True)
+        import sys
+        sys.exit(0)
 
 # which geometry to use 2d or 3d
 # w3d.solvergeom = w3d.RZgeom
 w3d.solvergeom = w3d.XYZgeom
 
 # define some strings that go into the output file
-top.pline1 = "Unit cell {}".format(cellnr)
+top.pline1 = "Unit cell {} -  run {}".format(cellnr, run)
 top.pline2 = " " + gitversion()
 top.runmaker = "Arun Persaud (apersaud@lbl.gov)"
 
-# Parameters available for scans
-gap = 500*um
-top.dt = 5e-11
-
 # --- Invoke setup routine for the plotting
-setup(prefix="unitcell-{:03d}".format(cellnr))
-
+setup(prefix="unitcell-{:03d}-{:04d}".format(cellnr, run))
 
 # --- Set input parameters describing the 3d simulation
 w3d.l4symtry = True
@@ -92,13 +100,16 @@ w3d.xmmax = +0.0005/2.
 w3d.ymmin = -0.0005/2.
 w3d.ymmax = +0.0005/2.
 
+# gap between wafers
+gap = 500*um
+
 # want a step size in Z of 20um
 ESQwaferthickness = 522e-6
 RFwaferthickness = 504e-6
 #Lunit = 6*waferthickness + 4*gap + rfgap
 Lunit = 2*RFwaferthickness + 2*ESQwaferthickness + 3*gap + rfgap
 #L = 2*waferthickness + 2*gap + Lunit
-L = ESQwaferthickness + gap + Lunit + RFwaferthickness
+L = ESQwaferthickness + gap + Lunit + RFwaferthickness + rfgap + RFwaferthickness
 if cellnr == 0:
     L += 2*RFwaferthickness + ESQwaferthickness + 2*gap + rfgap  # use complete ESQ doublet + RFgap
 N = int(L/20e-6)
@@ -138,7 +149,7 @@ if cellnr == 0:
     #    top.bp0 = bp
     #    top.vbeam = .0e0
     #    top.emit = 0
-    #    top.ap0 = 14.913e-3   # for testing
+    top.ap0 = 14.913e-3   # for testing
     top.bp0 = -14.913e-3
     top.vbeam = .0e0
     top.emit = 0.77782e-6  # end for testing
@@ -149,6 +160,7 @@ if cellnr == 0:
     # top.vthz = 0.0
     top.lrelativ = False
     derivqty()
+    vmean = np.sqrt(2*ekininit*1.6e-19/top.aion/amu)
 else:
     fin = PRpickle.PR("save-{:03d}.pkl".format(cellnr-1))
     print("particles X: ", len(fin.x), "minmax", fin.x.min(), fin.x.max())
@@ -158,7 +170,15 @@ else:
                       lallindomain=True, resetrho=False, resetmoments=False)
     fin.close()
     Z = ions.getz()
+    VZ = ions.getvz()
+    abort_if_not_enough_particles(Z)
+
+    vmean = VZ.mean()
     print("NR: ", len(Z), "minmax", Z.min(), Z.max())
+
+# set time, so that each time step takes 50 um
+top.dt = 50*um/vmean
+print("Using timestep of top.dt=", top.dt)
 
 # --- Select plot intervals, etc.
 top.npmax = 300
@@ -169,7 +189,6 @@ if cellnr == 0:
     top.linj_eperp = True  # Turn on transverse E-fields near emitting surface
     top.zinject = 0.0   # start between ESQ wafers
     top.vinject = 1.0
-    print("--- Ions start at: ", top.zinject)
 
 top.nhist = 5  # Save history data every N time step
 top.itmomnts[0:4] = [0, 1000000, top.nhist, 0]  # Calculate moments every N step
@@ -292,14 +311,14 @@ R = 90*um
 t = np.linspace(0, 2*np.pi, 100)
 X = R*np.sin(t)
 Y = R*np.cos(t)
-zmin = w3d.zmmin
+zmean = w3d.zmmin
 
 # start and stop time when the mid of the beam passes the unitcell boundaries.
 # These values are used to save the history data to a file
 Tstart = None
 Tend = None
 
-while (zmin < Zend):
+while (zmean < Zend+100*um):
     # inject only for dt=zt, so that we can get onto the rising edge of the RF
     if cellnr == 0 and 0 <= top.time < zt:
         top.inject = 1
@@ -317,95 +336,125 @@ while (zmin < Zend):
         top.pline1 = ("V = {} V".format(V))
 
     Z = ions.getz()
-    zmin = Z.min()
+    abort_if_not_enough_particles(Z)
+    Zsorted = np.sort(Z)
+    l = len(Z)
     zmean = Z.mean()
     if Tstart is None and zmean >= UnitCellStart:
         Tstart = top.time
     if Tend is None and zmean >= UnitCellEnd:
         Tend = top.time
+    # calculated the mean Z position of 80% of the main beam
+    # use this value to figure out when to stop the simulation
+    zmean = Zsorted[int(0.1*l):int(0.9*l)].mean()
 
-    print("NR: ", len(Z), "minmax", Z.min(), Z.max())
-    # create some plots
-    KE = ions.getke()
-    if len(KE) > 0:
-        ions.ppzke(color=red)
-        KEmin, KEmax = KE.min(), KE.max()
-        while KEmax-KEmin > deltaKE:
-            deltaKE += 10e3
-        ylimits(0.95*KEmin, 0.95*KEmin+deltaKE)
+    if not SKIP_PLOTS:
+        print("NR: ", len(Z), "minmax", Z.min(), Z.max())
+        # create some plots
+        KE = ions.getke()
+        if len(KE) > 0:
+            ions.ppzke(color=red)
+            KEmin, KEmax = KE.min(), KE.max()
+            while KEmax-KEmin > deltaKE:
+                deltaKE += 10e3
+            ylimits(0.95*KEmin, 0.95*KEmin+deltaKE)
+            fma()
+        pfxy(iz=w3d.nz//2, fill=0, filled=1, plotselfe=2,
+             comp='E', titles=0, cmin=0, cmax=5e6*Vesq/125)
+        limits(-w3d.xmmax, w3d.xmmax)
+        ylimits(-w3d.ymmax, w3d.ymmax)
+        ptitles("Geometry and Fields", "X [m]", "Y [m]", "")
         fma()
-    pfxy(iz=w3d.nz//2, fill=0, filled=1, plotselfe=2, comp='E', titles=0, cmin=0, cmax=5e6*Vesq/125)
-    limits(-w3d.xmmax, w3d.xmmax)
-    ylimits(-w3d.ymmax, w3d.ymmax)
-    ptitles("Geometry and Fields", "X [m]", "Y [m]", "")
-    fma()
-    pfzx(fill=1, filled=1, plotselfe=2, comp='E', titles=0, cmin=0, cmax=5e6)
-    ions.ppzx(color=red, titles=0)
-    ptitles("Particles and Fields", "Z [m]", "X [m]", "")
-    limits(w3d.zmmin, w3d.zmmax)
-    fma()
-    ions.ppxy(color=red, titles=0)
-    limits(-R, R)
-    ylimits(-R, R)
-    plg(Y, X, type="dash")
-    fma()
-    refresh()
+        pfzx(fill=1, filled=1, plotselfe=2, comp='E', titles=0, cmin=0, cmax=5e6)
+        ions.ppzx(color=red, titles=0)
+        ptitles("Particles and Fields", "Z [m]", "X [m]", "")
+        limits(w3d.zmmin, w3d.zmmax)
+        fma()
+        ions.ppxy(color=red, titles=0)
+        limits(-R, R)
+        ylimits(-R, R)
+        plg(Y, X, type="dash")
+        fma()
+        refresh()
 
-# plot particle vs time
-# hpepsnxz()
-# fma()
-# hpepsnyz()
-# hpepsnx()
-# fma()
-hpepsny()
-fma()
-hpepsnz()
-fma()
-hpeps6d()
-fma()
-hpekinz()
-ylimits(35e-3, KEmax*1e-6*1.2)
-fma()
-hpekin()
-ylimits(35e-3, KEmax*1e-6*1.2)
-fma()
-hpxrms(color=red, titles=0)
-hpyrms(color=blue, titles=0)
-hprrms(color=green, titles=0)
-ptitles("X(red), Y(blue), R(green)", "Z [m]", "X/Y/R [m]", "")
+if not SKIP_PLOTS:
+    # plot particle vs time
+    # hpepsnxz()
+    # fma()
+    # hpepsnyz()
+    # hpepsnx()
+    # fma()
+    hpepsny()
+    fma()
+    hpepsnz()
+    fma()
+    hpeps6d()
+    fma()
+    hpekinz()
+    ylimits(35e-3, KEmax*1e-6*1.2)
+    fma()
+    hpekin()
+    ylimits(35e-3, KEmax*1e-6*1.2)
+    fma()
+    hpxrms(color=red, titles=0)
+    hpyrms(color=blue, titles=0)
+    hprrms(color=green, titles=0)
+    ptitles("X(red), Y(blue), R(green)", "Z [m]", "X/Y/R [m]", "")
 
-fma()
-hppnum()
+    fma()
+    hppnum()
 
-fma()
+    fma()
+
+WARNING = ""
 
 # make sure that we are not close the the right edge
+abort_if_not_enough_particles(Z)
 zmax = Z.max()
 if zmax > w3d.zmmax - 1.1*RFwaferthickness:
     print("WARNING: too close to edge")
+    WARNING += " - too close to edge\n"
+
+X = ions.getx()
+Y = ions.gety()
+Z = ions.getz()
+VX = ions.getvx()
+VY = ions.getvy()
+VZ = ions.getvz()
+
+if X.mean() > 5e-6:
+    WARNING += " - beam not centered in X: {}\n".format(X.mean())
+if Y.mean() > 5e-6:
+    WARNING += " - beam not centered in Y: {}\n".format(Y.mean())
+
 
 print("saving data")
-fout = PWpickle.PW("save-{:03d}.pkl".format(cellnr))
-fout.x = ions.getx()
-fout.y = ions.gety()
-fout.z = ions.getz()
-fout.vx = ions.getvx()
-fout.vy = ions.getvy()
-fout.vz = ions.getvz()
+fout = PWpickle.PW("save-{:03d}-{:04d}.pkl".format(cellnr, run))
+fout.x = X
+fout.y = Y
+fout.z = Z
+fout.vx = VX
+fout.vy = VY
+fout.vz = VZ
 fout.close()
 
-VZ = ions.getvz()
 EZ = 0.5*ions.mass*VZ**2
 Ekin = EZ.mean()/ions.charge
-zoffsetout
 
 out = {'cell': cellnr,
        'Ekin': Ekin, 'Ekinold': Ekinold,
        'zoffsetout': zoffsetout, 'zoffset': zoffset,
        'Vesq': Vesq, 'Vesqold': Vesqold,
        'rfgap': rfgap, 'toffset': toffset,
-       'time': top.time+mytime}
-with open("results{:03d}.json".format(cellnr), "w") as f:
+       'time': top.time+mytime,
+       'Z.std': Z.std(), 'VZ.std': VZ.std(),
+       'X.std': X.std(), 'Y.std': Y.std(),
+       'XP.std': (VX/VZ).std(),
+       'YP.std': (VY/VZ).std(),
+       'N': len(Z),
+       'Warning': WARNING}
+
+with open("results{:03d}-{:04d}.json".format(cellnr, run), "w") as f:
     json.dump(out, f, sort_keys=True)
 
 # save history information, so that we can plot all cells in one plot
@@ -424,5 +473,5 @@ hrrms = ions.hrrms[0]
 hpnum = ions.hpnum[0]
 
 out = np.stack((t, hepsny, hepsnz, hep6d, hekinz, hekin, hxrms, hyrms, hrrms, hpnum))
-np.save("hist{:03d}.npy".format(cellnr), out)
+np.save("hist{:03d}-{:04d}.npy".format(cellnr, run), out)
 print("done")
