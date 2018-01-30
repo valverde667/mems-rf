@@ -84,32 +84,6 @@ def ESQ(voltage, condid):
 
     condidA, condidB = condid
 
-    bodycenter = zcenter - 0.5*ESQ_wafer_length + ESQ_wafer_body/2  # assume body of SOI is on the left
-    Frame1 = Box(framelength, framelength, ESQ_wafer_body,
-                 zcent=bodycenter, voltage=+voltage, condid=condidA)
-    Frame2 = Box(framelength-2*framewidth, framelength-2*framewidth, ESQ_wafer_body*1.1,
-                 zcent=bodycenter, voltage=+voltage, condid=condidA)
-    InnerBox1 = Box(framelength/2+X, 2*(Y+R2), ESQ_wafer_body,
-                    xcent=-framelength/2.+(framelength/2.+X)/2.,
-                    zcent=bodycenter, voltage=+voltage, condid=condidA)
-    InnerBox2 = Box(framelength/2+X, 2*(Y+R2), ESQ_wafer_body,
-                    xcent=framelength/2.-(framelength/2.+X)/2.,
-                    zcent=bodycenter, voltage=+voltage, condid=condidA)
-    FrameA = (Frame1-Frame2) + InnerBox1 + InnerBox2
-
-    SOIcenter = zcenter + 0.5*ESQ_wafer_length - ESQ_wafer_si/2  # assume body of SOI is on the left
-    Frame1 = Box(framelength, framelength, ESQ_wafer_si,
-                 zcent=SOIcenter, voltage=-voltage, condid=condidB)
-    Frame2 = Box(framelength-2*framewidth, framelength-2*framewidth, 2*ESQ_wafer_si,
-                 zcent=SOIcenter, voltage=-voltage, condid=condidB)
-    InnerBox1 = Box(2*(Y+R2), framelength/2.+X, ESQ_wafer_si,
-                    ycent=-framelength/2.+(framelength/2.+X)/2.,
-                    zcent=SOIcenter, voltage=-voltage, condid=condidB)
-    InnerBox2 = Box(2*(Y+R2), framelength/2.+X, ESQ_wafer_si,
-                    ycent=framelength/2.-(framelength/2.+X)/2.,
-                    zcent=SOIcenter, voltage=-voltage, condid=condidB)
-    FrameB = (Frame1-Frame2) + InnerBox1 + InnerBox2
-
     # cylinders
     if callable(voltage):
         pos_voltage = voltage
@@ -119,6 +93,33 @@ def ESQ(voltage, condid):
     else:
         pos_voltage = voltage
         neg_voltage = -voltage
+
+    bodycenter = zcenter - 0.5*ESQ_wafer_length + ESQ_wafer_body/2  # assume body of SOI is on the left
+    Frame1 = Box(framelength, framelength, ESQ_wafer_body,
+                 zcent=bodycenter, voltage=pos_voltage, condid=condidA)
+    Frame2 = Box(framelength-2*framewidth, framelength-2*framewidth, ESQ_wafer_body*1.1,
+                 zcent=bodycenter, voltage=pos_voltage, condid=condidA)
+    InnerBox1 = Box(framelength/2+X, 2*(Y+R2), ESQ_wafer_body,
+                    xcent=-framelength/2.+(framelength/2.+X)/2.,
+                    zcent=bodycenter, voltage=pos_voltage, condid=condidA)
+    InnerBox2 = Box(framelength/2+X, 2*(Y+R2), ESQ_wafer_body,
+                    xcent=framelength/2.-(framelength/2.+X)/2.,
+                    zcent=bodycenter, voltage=pos_voltage, condid=condidA)
+    FrameA = (Frame1-Frame2) + InnerBox1 + InnerBox2
+
+    SOIcenter = zcenter + 0.5*ESQ_wafer_length - ESQ_wafer_si/2  # assume body of SOI is on the left
+    Frame1 = Box(framelength, framelength, ESQ_wafer_si,
+                 zcent=SOIcenter, voltage=neg_voltage, condid=condidB)
+    Frame2 = Box(framelength-2*framewidth, framelength-2*framewidth, 2*ESQ_wafer_si,
+                 zcent=SOIcenter, voltage=neg_voltage, condid=condidB)
+    InnerBox1 = Box(2*(Y+R2), framelength/2.+X, ESQ_wafer_si,
+                    ycent=-framelength/2.+(framelength/2.+X)/2.,
+                    zcent=SOIcenter, voltage=neg_voltage, condid=condidB)
+    InnerBox2 = Box(2*(Y+R2), framelength/2.+X, ESQ_wafer_si,
+                    ycent=framelength/2.-(framelength/2.+X)/2.,
+                    zcent=SOIcenter, voltage=neg_voltage, condid=condidB)
+    FrameB = (Frame1-Frame2) + InnerBox1 + InnerBox2
+
     electrodeA = element(voltage=pos_voltage, condid=condidA, rotation=0)
     electrodeB = element(voltage=neg_voltage, condid=condidB, rotation=90)
     electrodeC = element(voltage=pos_voltage, condid=condidA, rotation=180)

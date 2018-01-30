@@ -20,34 +20,34 @@ top.pline2 = " " + gitversion()
 # top.runmaker = "Arun Persaud (apersaud@lbl.gov)"
 
 # Parameters available for scans
-geometry.RF_gap = 300*um
-Vesq = 100  # 500 #548.0/2
-top.dt = 5e-10
+geometry.RF_gap = 500*um
+Vesq = 200  # 500 #548.0/2
+top.dt = 5e-11
 
 # --- Invoke setup routine for the plotting
 setup(prefix="esq-V{}-gap-{}um".format(int(Vesq), int(geometry.RF_gap*1e6)))
 
 # --- Set basic beam parameters
 emittingradius = 20*um
-ibeaminit = 20e-6
-ekininit = 10e3
+ibeaminit = 20e-12
+ekininit = 40e3
 
 selectedIons = Species(type=Phosphorus, charge_state=1, name='P', color=green)
 rejectedIons = Species(type=Sulfur, charge_state=1, name='S', color=red)
 
 top.a0 = emittingradius
 top.b0 = emittingradius
-top.ap0 = 0e-3  # 10e-3
-top.bp0 = -10e-3  # -10e-3
-# top.ap0 = 14.913e-3
-# top.bp0 = -14.913e-3
+top.ap0 = 0  # -5e-3#10e-3
+top.bp0 = 0  # -5e-3#-10e-3
+#top.ap0 = 14.913e-3
+#top.bp0 = -14.913e-3
 top.vbeam = .0e0
 top.emit = 0  # 0.77782e-6
 top.ibeam = ibeaminit
 top.ekin = ekininit
-# top.aion = selectedIons.type.A
-# top.zion = selectedIons.charge_state
-# top.vthz = 0.0
+#top.aion = selectedIons.type.A
+top.zion = selectedIons.charge_state
+#top.vthz = 0.0
 top.lrelativ = False
 derivqty()
 
@@ -92,7 +92,7 @@ if w3d.l2symtry or w3d.l4symtry:
 top.npmax = 300
 top.inject = 1  # 2 means space-charge limited injection
 top.rinject = 5000  # 9999.
-top.npinject = 60  # 300  # needed!! macro particles per time step or cell
+top.npinject = 30  # 300  # needed!! macro particles per time step or cell
 top.linj_eperp = False  # Turn on transverse E-fields near emitting surface
 top.zinject = 1*mm  # w3d.zmmin#w3d.zmmin
 top.vinject = 1.0
@@ -145,7 +145,17 @@ def gen_volt(toffset=0):
     return RFvoltage
 
 
-toffset = 8*ns
+def gen_volt_esq(toffset=0, inverse=False):
+    def ESQvoltage(time):
+        if inverse:
+            return -Vesq*np.sin(2*np.pi*freq*(time+toffset))
+        else:
+            return Vesq*np.sin(2*np.pi*freq*(time+toffset))
+    return ESQvoltage
+
+
+RF_toffset = 8*ns
+ESQ_toffset = 13*ns
 numRF = 2*8  # the total number of accelertion gaps (must be a multiple of 2)
 
 # calculate beta*lambda/2 distances
@@ -154,7 +164,7 @@ energies = []
 mass = selectedIons.mass
 energy = ekininit
 for i in range(numRF):
-    energy += 0.9*Vmax  # the .8 coefficent is from the ions arriving at .8 of the maximum
+    energy += 0.8*Vmax  # the .8 coefficent is from the ions arriving at .8 of the maximum
     velocity = np.sqrt(2*energy*selectedIons.charge/mass)
     distance = velocity/(freq*2)
     distances.append(distance)
@@ -184,7 +194,7 @@ for i, bl2s in enumerate(pairwise(zip(distances, energies))):
 
     # use first betalamba_half for the RF unit
     RF = RF_stack3(condid=[ID_RF, ID_RF+1, ID_RF+2],
-                   betalambda_half=rf_bl2, voltage=gen_volt(toffset))
+                   betalambda_half=rf_bl2, voltage=gen_volt(RF_toffset))
     Vpos.append(geometry.pos)
 
     # scale esq voltages
@@ -195,9 +205,9 @@ for i, bl2s in enumerate(pairwise(zip(distances, energies))):
     gaplength = gaplength/2-geometry.RF_gap/2-geometry.ESQ_wafer_length
     assert gaplength > 0
     Gap(gaplength)
-    E1 = ESQ(voltage=voltage, condid=[ID_ESQ, ID_ESQ+1])
+    E1 = ESQ(voltage=gen_volt_esq(ESQ_toffset), condid=[ID_ESQ, ID_ESQ+1])
     Gap(geometry.RF_gap)
-    E2 = ESQ(voltage=-voltage, condid=[ID_ESQ+2, ID_ESQ+3])
+    E2 = ESQ(voltage=gen_volt_esq(ESQ_toffset, inverse=True), condid=[ID_ESQ+2, ID_ESQ+3])
     Gap(gaplength)
 
     ESQs.append(E1)
@@ -248,47 +258,34 @@ numrej = []
 energy_time = []
 dist = 2.5*mm
 distN = 0
-Nsteps = 1
-vfactor = 1.05  # fudge factor for frame speed
-tmpv = []
+
 while (top.time < tmax and zmax < zrunmax):
-    step(Nsteps)
+    step(10)
     time.append(top.time)
     numsel.append(len(selectedIons.getke()))
     numrej.append(len(rejectedIons.getke()))
-    Volts = gen_volt(toffset)(top.time)
-    tmp = "V: {:.0f}".format(Volts)
 
-    top.pline1 = tmp
+    top.pline1 = "V_RF: {:.0f}   V_ESQ: {:.0f}".format(
+        gen_volt(RF_toffset)(top.time), gen_volt_esq(ESQ_toffset)(top.time))
 
     # inject only for 1 ns, so that we can get onto the rising edge of the RF
     if 0 < top.time < 1e-9:
-        top.finject[0, selectedIons.jslist[0]] = 1
-        top.finject[0, rejectedIons.jslist[0]] = 1
+        top.inject = 1
     else:
         top.inject = 0
-        Nsteps = 10
 
     Z = selectedIons.getz()
-    fast = Z.max()
-    slow = Z.min()
-    mask = Z > slow + 0.8*(fast-slow)
-    if Z[mask].mean() > zmid:
-        top.vbeamfrm = vfactor*selectedIons.getvz()[mask].mean()
+    if Z.mean() > zmid:
+        top.vbeamfrm = selectedIons.getvz().mean()
         solver.gridmode = 0
 
     # record time when we cross certain points
-    if Z[mask].mean() > dist + np.cumsum(distances)[distN]:
+    if Z.mean() > dist + np.cumsum(distances)[distN]:
         energy_time.append(top.time)
         distN += 1
 
     zmin = top.zbeam+w3d.zmmin
     zmax = top.zbeam+w3d.zmmax
-    tmpv.append([Z[mask].mean(), 0.5*(zmax+zmin), zmin, zmax, vfactor])
-    if Z[mask].mean() > 0.5*(zmax+zmin):
-        vfactor *= 1.02
-    else:
-        vfactor *= 0.98
 
     # # create some plots
     KE = selectedIons.getke()
@@ -320,12 +317,28 @@ while (top.time < tmax and zmax < zrunmax):
     # if Z.mean() > zmid:
    #	top.vbeamfrm = rejectedIons.getvz().mean()
    # 	solver.gridmode = 0
-    # pfzx(fill=1, filled=1, plotselfe=2, comp='z', titles=0, cmin=0, cmax=5e6)
-    # selectedIons.ppzx(color=green, titles=0)
-    # rejectedIons.ppzx(color=red, titles=0)
-    # ptitles("Partcles and Fields", "Z [m]", "X [m]", "")
-    # limits(zmin, zmax)
-    # fma()
+    pfzx(fill=1, filled=1, plotselfe=2, comp='z', titles=0, cmin=0, cmax=5e6)
+    selectedIons.ppzx(color=green, titles=0)
+    rejectedIons.ppzx(color=red, titles=0)
+    ptitles("Particles and Fields", "Z [m]", "X [m]", "")
+    limits(zmin, zmax)
+    fma()
+
+    Z = rejectedIons.getz()
+    if Z.mean() > zmid:
+        top.vbeamfrm = rejectedIons.getvz().mean()
+        solver.gridmode = 0
+
+    zmin = top.zbeam+w3d.zmmin
+    zmax = top.zbeam+w3d.zmmax
+
+    pfzx(fill=1, filled=1, plotselfe=2, comp='z', titles=0, cmin=0, cmax=5e6)
+    selectedIons.ppzx(color=green, titles=0)
+    rejectedIons.ppzx(color=red, titles=0)
+    ptitles("Particles and Fields", "Z [m]", "X [m]", "")
+    limits(zmin, zmax)
+    fma()
+
 
 # plot particle vs time
 # hpepsnxz()
@@ -337,7 +350,7 @@ hpepsny()
 fma()
 
 
-# plg(numrej,time, color = red)
+plg(numrej, time, color=red)
 plg(numsel, time, color=blue)
 ptitles("Attenuation vs Time", "Time (s)", "Number of Particles")
 fma()
@@ -351,12 +364,12 @@ fma()
 hpekinz(color=red)
 l = min(len(energies), len(energy_time))
 pla(np.array(energies[:l])*1e-6, energy_time[:l], color=green)
-ylimits(0, KEmax*1e-6*1.2)
+ylimits(ekininit*0.8, KEmax*1e-6*1.2)
 fma()
 
 hpekin(color=red)
 pla(np.array(energies[:l])*1e-6, energy_time[:l], color=green)
-ylimits(0, KEmax*1e-6*1.2)
+ylimits(ekininit*0.8, KEmax*1e-6*1.2)
 fma()
 
 hpxrms(color=red, titles=0)
@@ -387,8 +400,6 @@ hyrms = selectedIons.hyrms[0]
 hrrms = selectedIons.hrrms[0]
 hpnum = selectedIons.hpnum[0]
 
-for i in (t, hepsny, hepsnz, hep6d, hekinz, hekin, hxrms, hyrms, hrrms, hpnum):
-    print(len(i))
 
 out = np.stack((t, hepsny, hepsnz, hep6d, hekinz, hekin, hxrms, hyrms, hrrms, hpnum))
 np.save("esqhist.npy", out)
