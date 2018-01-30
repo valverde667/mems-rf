@@ -8,10 +8,14 @@ framelength = 1500*um
 framewidth = 150*um
 
 # wafer dimenions
-wafer_body = 500*um
-wafer_box = 2*um
-wafer_si = 20*um
-wafer_length = wafer_body + wafer_box + wafer_si
+# SOI
+ESQ_wafer_body = 500*um
+ESQ_wafer_box = 2*um
+ESQ_wafer_si = 20*um
+ESQ_wafer_length = ESQ_wafer_body + ESQ_wafer_box + ESQ_wafer_si
+# RF
+RF_thickness = 2*um + 500*um + 2*um
+RF_gap = 200*um
 
 # globals
 pos = 0
@@ -43,7 +47,7 @@ def ESQ(voltage, condid):
 
     print("--- ESQ starts at: ", pos)
     print("--- ESQ voltage: ", voltage)
-    zcenter = pos + 0.5*wafer_length
+    zcenter = pos + 0.5*ESQ_wafer_length
 
     def element(voltage, condid, rotation):
         """create a single element, rotated X degrees"""
@@ -67,52 +71,60 @@ def ESQ(voltage, condid):
         else:
             print("wrong rotation value")
 
-        electrode1 = ZCylinder(radius=R2, length=wafer_length, voltage=voltage,
+        electrode1 = ZCylinder(radius=R2, length=ESQ_wafer_length, voltage=voltage,
                                xcent=xcent1, ycent=ycent1, zcent=zcenter,
                                condid=condid)
-        electrode2 = ZCylinder(radius=R2, length=wafer_length, voltage=voltage,
+        electrode2 = ZCylinder(radius=R2, length=ESQ_wafer_length, voltage=voltage,
                                xcent=xcent2, ycent=ycent2, zcent=zcenter,
                                condid=condid)
-        electrode3 = ZCylinder(radius=R1, length=wafer_length, voltage=voltage,
+        electrode3 = ZCylinder(radius=R1, length=ESQ_wafer_length, voltage=voltage,
                                xcent=xcent3, ycent=ycent3, zcent=zcenter,
                                condid=condid)
         return electrode1 + electrode2 + electrode3
 
     condidA, condidB = condid
 
-    bodycenter = zcenter - 0.5*wafer_length + 250*um  # assume body of SOI is on the left
-    Frame1 = Box(framelength, framelength, 500*um,
+    bodycenter = zcenter - 0.5*ESQ_wafer_length + ESQ_wafer_body/2  # assume body of SOI is on the left
+    Frame1 = Box(framelength, framelength, ESQ_wafer_body,
                  zcent=bodycenter, voltage=+voltage, condid=condidA)
-    Frame2 = Box(framelength-2*framewidth, framelength-2*framewidth, 600*um,
+    Frame2 = Box(framelength-2*framewidth, framelength-2*framewidth, ESQ_wafer_body*1.1,
                  zcent=bodycenter, voltage=+voltage, condid=condidA)
-    InnerBox1 = Box(framelength/2+X, 2*(Y+R2), 500*um,
+    InnerBox1 = Box(framelength/2+X, 2*(Y+R2), ESQ_wafer_body,
                     xcent=-framelength/2.+(framelength/2.+X)/2.,
                     zcent=bodycenter, voltage=+voltage, condid=condidA)
-    InnerBox2 = Box(framelength/2+X, 2*(Y+R2), 500*um,
+    InnerBox2 = Box(framelength/2+X, 2*(Y+R2), ESQ_wafer_body,
                     xcent=framelength/2.-(framelength/2.+X)/2.,
                     zcent=bodycenter, voltage=+voltage, condid=condidA)
     FrameA = (Frame1-Frame2) + InnerBox1 + InnerBox2
 
-    SOIcenter = zcenter + 0.5*wafer_length - 10*um  # assume body of SOI is on the left
-    Frame1 = Box(framelength, framelength, 20*um,
+    SOIcenter = zcenter + 0.5*ESQ_wafer_length - ESQ_wafer_si/2  # assume body of SOI is on the left
+    Frame1 = Box(framelength, framelength, ESQ_wafer_si,
                  zcent=SOIcenter, voltage=-voltage, condid=condidB)
-    Frame2 = Box(framelength-2*framewidth, framelength-2*framewidth, 30*um,
+    Frame2 = Box(framelength-2*framewidth, framelength-2*framewidth, 2*ESQ_wafer_si,
                  zcent=SOIcenter, voltage=-voltage, condid=condidB)
-    InnerBox1 = Box(2*(Y+R2), framelength/2.+X, 20*um,
+    InnerBox1 = Box(2*(Y+R2), framelength/2.+X, ESQ_wafer_si,
                     ycent=-framelength/2.+(framelength/2.+X)/2.,
                     zcent=SOIcenter, voltage=-voltage, condid=condidB)
-    InnerBox2 = Box(2*(Y+R2), framelength/2.+X, 20*um,
+    InnerBox2 = Box(2*(Y+R2), framelength/2.+X, ESQ_wafer_si,
                     ycent=framelength/2.-(framelength/2.+X)/2.,
                     zcent=SOIcenter, voltage=-voltage, condid=condidB)
     FrameB = (Frame1-Frame2) + InnerBox1 + InnerBox2
 
     # cylinders
-    electrodeA = element(voltage=+voltage, condid=condidA, rotation=0)
-    electrodeB = element(voltage=-voltage, condid=condidB, rotation=90)
-    electrodeC = element(voltage=+voltage, condid=condidA, rotation=180)
-    electrodeD = element(voltage=-voltage, condid=condidB, rotation=270)
+    if callable(voltage):
+        pos_voltage = voltage
 
-    pos += wafer_length
+        def neg_voltage(x):
+            return -voltage(x)
+    else:
+        pos_voltage = voltage
+        neg_voltage = -voltage
+    electrodeA = element(voltage=pos_voltage, condid=condidA, rotation=0)
+    electrodeB = element(voltage=neg_voltage, condid=condidB, rotation=90)
+    electrodeC = element(voltage=pos_voltage, condid=condidA, rotation=180)
+    electrodeD = element(voltage=neg_voltage, condid=condidB, rotation=270)
+
+    pos += ESQ_wafer_length
     print("--- ESQ ends at: ", pos)
 
     return electrodeA + electrodeB + electrodeC + electrodeD + FrameA + FrameB
@@ -127,19 +139,19 @@ def RF_stack(voltage, condid, rfgap=200*um):
 
     r_beam = 90*um
 
-    SOIcenter = pos + 0.5*wafer_si
+    SOIcenter = pos + 0.5*ESQ_wafer_si
     Frame = Box(framelength, framelength, 20*um,
                 zcent=SOIcenter, voltage=-voltage, condid=condidA)
     Beam = ZCylinder(r_beam, 25*um, zcent=SOIcenter, voltage=voltage, condid=condidA)
     SOI1 = Frame-Beam
-    pos += wafer_si + wafer_box
+    pos += ESQ_wafer_si + ESQ_wafer_box
 
-    bodycenter = pos + 0.5*wafer_body
+    bodycenter = pos + 0.5*ESQ_wafer_body
     Frame = Box(framelength, framelength, 500*um,
                 zcent=bodycenter, voltage=0, condid=condidB)
     Beam = ZCylinder(r_beam, 510*um, zcent=bodycenter, voltage=0, condid=condidB)
     body1 = Frame-Beam
-    pos += wafer_body
+    pos += ESQ_wafer_body
 
     print("--- RF gap starts at: ", pos)
     print("--- RF gap length: ", rfgap)
@@ -147,77 +159,69 @@ def RF_stack(voltage, condid, rfgap=200*um):
     pos += rfgap
     print("--- RF gap ends at: ", pos)
 
-    bodycenter = pos + 0.5*wafer_body
+    bodycenter = pos + 0.5*ESQ_wafer_body
     Frame = Box(framelength, framelength, 500*um,
                 zcent=bodycenter, voltage=0, condid=condidC)
     Beam = ZCylinder(r_beam, 510*um, zcent=bodycenter, voltage=0, condid=condidC)
     body2 = Frame-Beam
-    pos += wafer_body
+    pos += ESQ_wafer_body
 
-    pos += wafer_box
+    pos += ESQ_wafer_box
 
-    SOIcenter = pos + 0.5*wafer_si
+    SOIcenter = pos + 0.5*ESQ_wafer_si
     Frame = Box(framelength, framelength, 20*um,
                 zcent=SOIcenter, voltage=voltage, condid=condidD)
     Beam = ZCylinder(r_beam, 25*um, zcent=SOIcenter, voltage=voltage, condid=condidD)
     SOI2 = Frame-Beam
-    pos += wafer_si
+    pos += ESQ_wafer_si
     print("--- RF ends at: ", pos)
 
     return SOI1 + body1 + body2 + SOI2
 
 
-def RF_stack2(condid, rfgap=200*um, voltage=0):
+def RF_stack2(condid, rfgap1, rfgap2, rfgap3, voltage=0):
     """two wafers with a gap of rfgap between them. Both wafers are
     insulating with conducting layers on both sides"""
-    #rfgap is the acceleration gap
+    # rfgap is the acceleration gap
 
     global pos
-    print("--- RF starts at: ", pos)
+    print("--- RF1 starts at: ", pos)
 
     condidA, condidB, condidC, condidD = condid
 
     r_beam = 90*um
     thickness = 2*um
 
-    SOIcenter = pos + 0.5*thickness
-    Frame = Box(framelength, framelength, thickness, voltage=0,
+    SOIcenter = pos + 0.5*rfgap1
+    Frame = Box(framelength, framelength, rfgap1, voltage=0,
                 zcent=SOIcenter, condid=condidA)
-    Beam = ZCylinder(r_beam, 5*um, zcent=SOIcenter, voltage=0, condid=condidA)
+    Beam = ZCylinder(r_beam, rfgap1+5*um, zcent=SOIcenter, voltage=0, condid=condidA)
     SOI1 = Frame-Beam
-    pos += thickness + 500*um
+    print("--- RF1 ends at: ", pos)
+    pos += rfgap1 + 500*um
 
-    bodycenter = pos + 0.5*thickness
-    Frame = Box(framelength, framelength, thickness, voltage=voltage,
+    print("--- RF2 starts at: ", pos)
+    bodycenter = pos + 0.5*rfgap2
+    Frame = Box(framelength, framelength, rfgap2, voltage=voltage,
                 zcent=bodycenter, condid=condidB)
-    Beam = ZCylinder(r_beam, 5*um, zcent=bodycenter, voltage=voltage, condid=condidB)
+    Beam = ZCylinder(r_beam, rfgap2+5*um, zcent=bodycenter, voltage=voltage, condid=condidB)
     body1 = Frame-Beam
-    pos += thickness
+    print("--- RF2 ends at: ", pos)
+    pos += rfgap2 + 500*um
 
-    print("--- RF gap starts at: ", pos)
-    print("--- RF gap length: ", rfgap)
-    pos += rfgap
-    print("--- RF gap ends at: ", pos)
-
-    bodycenter = pos + 0.5*thickness
-    Frame = Box(framelength, framelength, thickness, voltage=voltage,
-                zcent=bodycenter, condid=condidC)
-    Beam = ZCylinder(r_beam, 5*um, zcent=bodycenter, voltage=voltage, condid=condidC)
-    body2 = Frame-Beam
-    pos += thickness + 500*um
-
-    SOIcenter = pos + 0.5*thickness
-    Frame = Box(framelength, framelength, thickness, voltage=0,
+    print("--- RF3 starts at: ", pos)
+    SOIcenter = pos + 0.5*rfgap3
+    Frame = Box(framelength, framelength, rfgap3, voltage=0,
                 zcent=SOIcenter, condid=condidD)
-    Beam = ZCylinder(r_beam, 5*um, zcent=SOIcenter, voltage=0, condid=condidD)
+    Beam = ZCylinder(r_beam, rfgap3+5*um, zcent=SOIcenter, voltage=0, condid=condidD)
     SOI2 = Frame-Beam
-    pos += thickness
-    print("--- RF ends at: ", pos)
+    pos += rfgap3
+    print("--- RF3 ends at: ", pos)
 
-    return SOI1 + body1 + body2 + SOI2
+    return SOI1 + body1 + SOI2
 
 
-def RF_stack3(condid, rfgap=200*um, gap=500*um, voltage=0):
+def RF_stack3(condid, betalambda_half=200*um, gap=RF_gap, voltage=0):
     """4 wafers rf stack with 2 acceleration stages
 
      The first two form an RF acceleration cell, followed by a drift
@@ -226,42 +230,34 @@ def RF_stack3(condid, rfgap=200*um, gap=500*um, voltage=0):
     """
 
     global pos
-    condidA, condidB, condidC, condidD = condid
+    condidA, condidB, condidC = condid
 
     r_beam = 90*um
-    thickness = 2*um + 500*um + 2*um
 
-    SOIcenter = pos + 0.5*thickness
-    Frame = Box(framelength, framelength, thickness, voltage=0,
-                zcent=SOIcenter, condid=condidA)
-    Beam = ZCylinder(r_beam, thickness + 50*um, zcent=SOIcenter, voltage=0, condid=condidA)
+    wafercenter = pos + 0.5*RF_thickness
+    Frame = Box(framelength, framelength, RF_thickness, voltage=0,
+                zcent=wafercenter, condid=condidA)
+    Beam = ZCylinder(r_beam, RF_thickness + 50*um, zcent=wafercenter, voltage=0, condid=condidA)
     Ground1 = Frame-Beam
-    pos += thickness + gap
+    pos += RF_thickness + gap
 
-    bodycenter = pos + 0.5*thickness
-    Frame = Box(framelength, framelength, thickness, voltage=voltage,
+    length = betalambda_half-gap
+    assert length > 0
+    bodycenter = pos + 0.5*length
+    Frame = Box(framelength, framelength, length, voltage=voltage,
                 zcent=bodycenter, condid=condidB)
-    Beam = ZCylinder(r_beam, thickness + 50*um, zcent=bodycenter, voltage=voltage, condid=condidB)
+    Beam = ZCylinder(r_beam, length + 500*um, zcent=bodycenter, voltage=voltage, condid=condidB)
     body1 = Frame-Beam
-    pos += thickness
+    pos += length + gap
 
-    pos += rfgap
-
-    bodycenter = pos + 0.5*thickness
-    Frame = Box(framelength, framelength, thickness, voltage=voltage,
-                zcent=bodycenter, condid=condidC)
-    Beam = ZCylinder(r_beam, thickness + 50*um, zcent=bodycenter, voltage=voltage, condid=condidC)
-    body2 = Frame-Beam
-    pos += thickness + 500*um
-
-    SOIcenter = pos + 0.5*thickness
-    Frame = Box(framelength, framelength, thickness, voltage=0,
-                zcent=SOIcenter, condid=condidD)
-    Beam = ZCylinder(r_beam, thickness + 50*um, zcent=SOIcenter, voltage=0, condid=condidD)
+    wafercenter = pos + 0.5*RF_thickness
+    Frame = Box(framelength, framelength, RF_thickness, voltage=0,
+                zcent=wafercenter, condid=condidC)
+    Beam = ZCylinder(r_beam, RF_thickness + 50*um, zcent=wafercenter, voltage=0, condid=condidC)
     Ground2 = Frame-Beam
-    pos += thickness
+    pos += RF_thickness
 
-    return Ground1 + body1 + body2 + Ground2
+    return Ground1 + body1 + Ground2
 
 
 def Aperture(voltage, condid, width=10*um):
