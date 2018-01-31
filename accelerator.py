@@ -402,6 +402,9 @@ hyrms = selectedIons.hyrms[0]
 hrrms = selectedIons.hrrms[0]
 hpnum = selectedIons.hpnum[0]
 
-
 out = np.stack((t, hepsny, hepsnz, hep6d, hekinz, hekin, hxrms, hyrms, hrrms, hpnum))
-np.save("esqhist.npy", out)
+np.save("esqhist-V{}-gap-{}um.{}.npy".format(int(Vesq), int(geometry.RF_gap*1e6), setup.pnumb), out)
+
+l = min(len(energies), len(energy_time))
+np.save("esq-loss-V{}-gap-{}um.{}.npy".format(int(Vesq), int(geometry.RF_gap*1e6), setup.pnumb),
+        np.stack((energies[:l], energy_time[:l])))
