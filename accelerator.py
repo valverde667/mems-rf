@@ -1,6 +1,8 @@
 """
 Simplfied ESQ model
 """
+import warpoptions
+warpoptions.parser.add_argument('--esq_voltage', dest='Vesq', type=float, default='200')
 
 from warp import *
 
@@ -21,7 +23,7 @@ top.pline2 = " " + gitversion()
 
 # Parameters available for scans
 geometry.RF_gap = 500*um
-Vesq = 200  # 500 #548.0/2
+Vesq = warpoptions.options.Vesq
 top.dt = 5e-11
 
 # --- Invoke setup routine for the plotting
