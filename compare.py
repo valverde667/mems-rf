@@ -37,6 +37,6 @@ for ya, yb, in zip(olddata[1:], newdata[1:]):
 
     ax[1].plot(xa, yb-ya)
     ax[1].set_xlabel("Time [s]")
-    plt.title("diff")
+    plt.title("diff: new-old")
     plt.suptitle("Comparing {} and {}".format(oldfile, newfile))
     plt.show()
