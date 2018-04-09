@@ -4,19 +4,20 @@ from warp import *
 # universial dimensions
 
 # unit cell frame
-framelength = 1500*um
+framelength = 0.15#\\1500*um
 framewidth = 150*um
 
 # wafer dimenions
 # SOI
-ESQ_wafer_body = 500*um
+ESQ_wafer_body = 678*um#500*um
 ESQ_wafer_box = 2*um
 ESQ_wafer_si = 20*um
 ESQ_wafer_length = ESQ_wafer_body + ESQ_wafer_box + ESQ_wafer_si
 # RF
-RF_thickness = 2*um + 500*um + 2*um
-RF_gap = 200*um
-
+RF_thickness = 2*um + 696*um + 2*um
+RF_gap = 5000*um
+# esq
+ESQ_gap = .7*mm
 # globals
 pos = 0
 
@@ -38,12 +39,13 @@ def ESQ(voltage, condid):
 
     """
     global pos
-    R1 = 96*um  # center cylinder
-    R2 = 75*um  # outdise cylinders
+    scaling_factor = 10#2
+    R1 = 1*mm#96*um*scaling_factor  # center cylinder
+    R2 = 75*um*scaling_factor  # outdise cylinders
 
-    X = -337*um  # X offset for outer electrodes
-    Y = 125*um  # +-Y offset for outer electrodes
-    XX = -187*um  # X offset for inner electrode
+    X = -337*um*scaling_factor  # X offset for outer electrodes
+    Y = 125*um*scaling_factor  # +-Y offset for outer electrodes
+    XX = 2*mm#-187*um*scaling_factor  # X offset for inner electrode
 
     print("--- ESQ starts at: ", pos)
     print("--- ESQ voltage: ", voltage)
@@ -80,7 +82,7 @@ def ESQ(voltage, condid):
         electrode3 = ZCylinder(radius=R1, length=ESQ_wafer_length, voltage=voltage,
                                xcent=xcent3, ycent=ycent3, zcent=zcenter,
                                condid=condid)
-        return electrode1 + electrode2 + electrode3
+        return electrode3#electrode1 + electrode2 + electrode3
 
     condidA, condidB = condid
 
@@ -128,7 +130,7 @@ def ESQ(voltage, condid):
     pos += ESQ_wafer_length
     print("--- ESQ ends at: ", pos)
 
-    return electrodeA + electrodeB + electrodeC + electrodeD + FrameA + FrameB
+    return electrodeA + electrodeB + electrodeC + electrodeD# + FrameA + FrameB
 
 
 def RF_stack(voltage, condid, rfgap=200*um):
@@ -187,10 +189,10 @@ def RF_stack2(condid, rfgap1, rfgap2, rfgap3, voltage=0):
 
     global pos
     print("--- RF1 starts at: ", pos)
-
+    scaling_factor = 2
     condidA, condidB, condidC, condidD = condid
 
-    r_beam = 90*um
+    r_beam = 90*um*scaling_factor
     thickness = 2*um
 
     SOIcenter = pos + 0.5*rfgap1
@@ -233,7 +235,7 @@ def RF_stack3(condid, betalambda_half=200*um, gap=RF_gap, voltage=0):
     global pos
     condidA, condidB, condidC = condid
 
-    r_beam = 90*um
+    r_beam = 1*mm#90*um*2
 
     wafercenter = pos + 0.5*RF_thickness
     Frame = Box(framelength, framelength, RF_thickness, voltage=0,
@@ -241,6 +243,8 @@ def RF_stack3(condid, betalambda_half=200*um, gap=RF_gap, voltage=0):
     Beam = ZCylinder(r_beam, RF_thickness + 50*um, zcent=wafercenter, voltage=0, condid=condidA)
     Ground1 = Frame-Beam
     pos += RF_thickness + gap
+
+    print("middle of first gap " +str(pos-.5*gap))
 
     length = betalambda_half-gap
     assert length > 0
@@ -250,6 +254,8 @@ def RF_stack3(condid, betalambda_half=200*um, gap=RF_gap, voltage=0):
     Beam = ZCylinder(r_beam, length + 500*um, zcent=bodycenter, voltage=voltage, condid=condidB)
     body1 = Frame-Beam
     pos += length + gap
+
+    print("middle of second gap " +str(pos-.5*gap))
 
     wafercenter = pos + 0.5*RF_thickness
     Frame = Box(framelength, framelength, RF_thickness, voltage=0,

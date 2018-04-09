@@ -2,55 +2,55 @@
 Simplfied ESQ model
 """
 import warpoptions
-warpoptions.parser.add_argument('--esq_voltage', dest='Vesq', type=float, default='200')
+#get input parameters
+warpoptions.parser.add_argument('--esq_voltage', dest='Vesq', type=float, default='813')
+warpoptions.parser.add_argument('--numRF', dest='numRF', type=int, default='6')
+warpoptions.parser.add_argument('--rf_voltage', dest='Vmax', type=float, default='500')
+warpoptions.parser.add_argument('--fraction', dest='V_arrival', type=float, default='.95')
+warpoptions.parser.add_argument('--mass', dest='current_mass', type=int, default='14')
+warpoptions.parser.add_argument('--selected_mass', dest='selectedMass', type=int, default='14')
+warpoptions.parser.add_argument('--ekininit', dest='ekininit', type=float, default='20e3')
+warpoptions.parser.add_argument('--freq', dest='freq', type=float, default='15e6')
 
 from warp import *
-
 import numpy as np
-
 import geometry
 from geometry import Aperture, ESQ, RF_stack3, Gap
 from helper import gitversion
+import matplotlib.pyplot as plt
+import TransitTimeEffectCalculator as tte
 
-# which geometry to use 2d or 3d
-# w3d.solvergeom = w3d.RZgeom
 w3d.solvergeom = w3d.XYZgeom
-
-# define some strings that go into the output file
-top.pline1 = "ESQ model"
-top.pline2 = " " + gitversion()
-# top.runmaker = "Arun Persaud (apersaud@lbl.gov)"
-
-# Parameters available for scans
-geometry.RF_gap = 500*um
-Vesq = warpoptions.options.Vesq
 top.dt = 5e-11
 
+#set input parameters
+selectedMass = warpoptions.options.selectedMass*amu
+selectedIons = Species(charge_state=1, name='C14', mass=warpoptions.options.current_mass*amu, color=green)
+ekininit = warpoptions.options.ekininit
+Vesq = warpoptions.options.Vesq
+numRF = warpoptions.options.numRF
+Vmax = warpoptions.options.Vmax #RF voltage
+freq = warpoptions.options.freq #RF freq #change freq in TTE
+V_arrival = warpoptions.options.V_arrival #the fraction of the total voltage gained across each gap
+
 # --- Invoke setup routine for the plotting
-setup(prefix="esq-V{}-gap-{}um".format(int(Vesq), int(geometry.RF_gap*1e6)))
+setup(prefix="esq-V{}-gap-{}um-{}-{}".format(int(Vesq), int(geometry.RF_gap*1e6), selectedIons.name, numRF),cgmlog=0)
 
 # --- Set basic beam parameters
-emittingradius = 20*um
-ibeaminit = 20e-12
-ekininit = 40e3
-
-selectedIons = Species(type=Phosphorus, charge_state=1, name='P', color=green)
-rejectedIons = Species(type=Sulfur, charge_state=1, name='S', color=red)
+emittingradius = 0.41065e-3
+ibeaminit = 1e-6
 
 top.a0 = emittingradius
 top.b0 = emittingradius
-top.ap0 = 0  # -5e-3#10e-3
-top.bp0 = 0  # -5e-3#-10e-3
-#top.ap0 = 14.913e-3
-#top.bp0 = -14.913e-3
+top.ap0 = .48743e-3
+top.bp0 = -.48743e-3
 top.vbeam = .0e0
-top.emit = 0  # 0.77782e-6
+top.emit = 9.45E-7
 top.ibeam = ibeaminit
 top.ekin = ekininit
-#top.aion = selectedIons.type.A
 top.zion = selectedIons.charge_state
-#top.vthz = 0.0
 top.lrelativ = False
+top.linj_efromgrid = True
 derivqty()
 
 # --- Set input parameters describing the 3d simulation
@@ -67,21 +67,20 @@ w3d.boundxy = neumann
 # ---   for particles
 top.pbound0 = absorb
 top.pboundnz = absorb
-top.prwall = np.sqrt(2)*1.5*mm/2.0
-top.prwall = 90*um
+top.prwall = 1*mm
 
-# --- Set field grid size
-w3d.xmmin = -0.0005/2.
-w3d.xmmax = +0.0005/2.
-w3d.ymmin = -0.0005/2.
-w3d.ymmax = +0.0005/2.
+# --- Set field grid size, this is the width of the window
+w3d.xmmin = -0.02/8.
+w3d.xmmax = +0.02/8.
+w3d.ymmin = -0.02/8.
+w3d.ymmax = +0.02/8.
 w3d.zmmin = 0.0
-w3d.zmmax = 4*mm
+w3d.zmmax = 18*mm
 
-# set grid spacing
+# set grid spacing, this is the number of mesh elements in one window
 w3d.nx = 50.
 w3d.ny = 50.
-w3d.nz = 100.
+w3d.nz = 180.
 
 if w3d.l4symtry:
     w3d.xmmin = 0.
@@ -93,10 +92,10 @@ if w3d.l2symtry or w3d.l4symtry:
 # --- Select plot intervals, etc.
 top.npmax = 300
 top.inject = 1  # 2 means space-charge limited injection
-top.rinject = 5000  # 9999.
+top.rinject = 5000
 top.npinject = 30  # 300  # needed!! macro particles per time step or cell
 top.linj_eperp = False  # Turn on transverse E-fields near emitting surface
-top.zinject = 1*mm  # w3d.zmmin#w3d.zmmin
+top.zinject = w3d.zmmin
 top.vinject = 1.0
 print("--- Ions start at: ", top.zinject)
 
@@ -126,28 +125,22 @@ generate()
 
 # --- define voltages
 Vground = 0.0e3
-VRF = 0.0
+VRF = 1000.0
 
 ESQs = []
 RFs = []
 ID_ESQ = 100
 ID_RF = 201
-geometry.pos = 2*mm
-print("starting pos:", geometry.pos)
 
-# set up time varying fields on the RF electrodes
-Vmax = 5e3
-freq = 50e6
-
-
+# --- generates voltage for the RFs
 def gen_volt(toffset=0):
     """ A sin voltage function with variable offset"""
     def RFvoltage(time):
         return Vmax*np.sin(2*np.pi*freq*(time+toffset))
     return RFvoltage
 
-
-def gen_volt_esq(toffset=0, inverse=False):
+# --- generates voltage for the ESQs
+def gen_volt_esq(Vesq, inverse=False, toffset=0):
     def ESQvoltage(time):
         if inverse:
             return -Vesq*np.sin(2*np.pi*freq*(time+toffset))
@@ -155,30 +148,26 @@ def gen_volt_esq(toffset=0, inverse=False):
             return Vesq*np.sin(2*np.pi*freq*(time+toffset))
     return ESQvoltage
 
+# --- calculate the time ofset for the RFs
+energies = [ekininit + V_arrival*Vmax*i for i in range(numRF)]
+distances = [sqrt(ekininit*selectedIons.charge/(2*selectedMass))*1/freq]
+distances = distances + tte.delta_ts(tte.entry_coefficients(numRF, ekininit, V_arrival, selectedMass/amu, Vmax, freq), energies, selectedMass/amu, Vmax, freq)[1]
+distances = np.array(distances)
+distances += geometry.RF_gap
+geometry.pos = -0.5*distances[0] - .5*geometry.RF_gap - geometry.RF_thickness
+d_mid = distances[0]*.5 - .5*geometry.RF_gap - geometry.RF_thickness
+V_in = tte.optimize_entry_coefficient(ekininit, V_arrival, selectedMass/amu, Vmax, freq)
+RF_toffset = np.arcsin(V_in)/(2*np.pi*freq)-d_mid/np.sqrt(2*ekininit*selectedIons.charge/selectedMass) - .5*ns # .5 ns to hit middle of pulse
 
-RF_toffset = 8*ns
-ESQ_toffset = 13*ns
-numRF = 2*8  # the total number of accelertion gaps (must be a multiple of 2)
-
-# calculate beta*lambda/2 distances
-distances = []
-energies = []
-mass = selectedIons.mass
-energy = ekininit
-for i in range(numRF):
-    energy += 0.8*Vmax  # the .8 coefficent is from the ions arriving at .8 of the maximum
-    velocity = np.sqrt(2*energy*selectedIons.charge/mass)
-    distance = velocity/(freq*2)
-    distances.append(distance)
-    energies.append(energy)
-
-print(distances)
-print(selectedIons.charge)
-print(selectedIons.mass)
+# ---  calculate the time ofset for the ESQs
+d1 = .5*distances[0]
+d2 = .5*distances[1]
+velocity1 = np.sqrt(2*ekininit*selectedIons.charge/selectedMass)
+velocity2 = np.sqrt(2*(ekininit + Vmax * V_arrival)*selectedIons.charge/selectedMass)
+time_to_ESQ1 = (d1/velocity1 + d2/velocity2)
+ESQ_toffset = np.arcsin(1)/(2*np.pi*freq) - time_to_ESQ1 - .5*ns # .5 ns to hit middle of pulse
 
 Vpos = []
-thickness = 2*um
-
 
 def pairwise(it):
     """Return two items from a list per iteration"""
@@ -189,11 +178,9 @@ def pairwise(it):
         except StopIteration:
             return
 
-
 # this loop generates the geometry
 for i, bl2s in enumerate(pairwise(zip(distances, energies))):
     (rf_bl2, E1), (esq_bl2, E2) = bl2s
-
     # use first betalamba_half for the RF unit
     RF = RF_stack3(condid=[ID_RF, ID_RF+1, ID_RF+2],
                    betalambda_half=rf_bl2, voltage=gen_volt(RF_toffset))
@@ -204,12 +191,12 @@ for i, bl2s in enumerate(pairwise(zip(distances, energies))):
 
     # and second betalamba_half for ESQ unit
     gaplength = esq_bl2-geometry.RF_gap-2*geometry.RF_thickness
-    gaplength = gaplength/2-geometry.RF_gap/2-geometry.ESQ_wafer_length
+    gaplength = gaplength/2-geometry.ESQ_gap/2-geometry.ESQ_wafer_length
     assert gaplength > 0
     Gap(gaplength)
-    E1 = ESQ(voltage=gen_volt_esq(ESQ_toffset), condid=[ID_ESQ, ID_ESQ+1])
-    Gap(geometry.RF_gap)
-    E2 = ESQ(voltage=gen_volt_esq(ESQ_toffset, inverse=True), condid=[ID_ESQ+2, ID_ESQ+3])
+    E1 = ESQ(voltage=gen_volt_esq(Vesq, False, ESQ_toffset), condid=[ID_ESQ, ID_ESQ+1])
+    Gap(geometry.ESQ_gap)
+    E2 = ESQ(voltage=gen_volt_esq(Vesq, True, ESQ_toffset), condid=[ID_ESQ+2, ID_ESQ+3])
     Gap(gaplength)
 
     ESQs.append(E1)
@@ -218,8 +205,6 @@ for i, bl2s in enumerate(pairwise(zip(distances, energies))):
     ID_ESQ += 4
     ID_RF += 3
 
-
-# scraper = ParticleScraper(ESQs +  RFs)
 conductors = sum(ESQs) + sum(RFs)
 
 velo = np.sqrt(2*ekininit*selectedIons.charge/selectedIons.mass)
@@ -249,30 +234,36 @@ zmax = w3d.zmmax
 zmid = 0.5*(zmax+zmin)
 
 # make a circle to show the beam pipe
-R = 90*um
+R = 1*mm # beam radius
 t = np.linspace(0, 2*np.pi, 100)
 X = R*np.sin(t)
 Y = R*np.cos(t)
 deltaKE = 10e3
 time = []
 numsel = []
-numrej = []
+KE_select = []
+beamwidth=[]
 energy_time = []
+
 dist = 2.5*mm
 distN = 0
 
-while (top.time < tmax and zmax < zrunmax):
-    step(10)
-    time.append(top.time)
-    numsel.append(len(selectedIons.getke()))
-    numrej.append(len(rejectedIons.getke()))
+sct = [] #when the particles cross the acceleration gaps
+gap_num_select = 0
 
-    top.pline1 = "V_RF: {:.0f}   V_ESQ: {:.0f}".format(
-        gen_volt(RF_toffset)(top.time), gen_volt_esq(ESQ_toffset)(top.time))
+while (top.time < tmax and zmax < zrunmax):
+    step(10) # each plotting step is 10 timesteps
+    time.append(top.time)
+
+    numsel.append(len(selectedIons.getke()))
+    KE_select.append(np.mean(selectedIons.getke()))
+
+    top.pline1 = "V_RF: {:.0f}   V_esq: {:.0f}".format(
+        gen_volt(RF_toffset)(top.time), gen_volt_esq(Vesq, False, ESQ_toffset)(top.time))
 
     # inject only for 1 ns, so that we can get onto the rising edge of the RF
-    if 0 < top.time < 1e-9:
-        top.inject = 1
+    if 0*ns < top.time < 1e-9:
+        top.finject[0,selectedIons.jslist[0]] = 1
     else:
         top.inject = 0
 
@@ -290,8 +281,10 @@ while (top.time < tmax and zmax < zrunmax):
     zmax = top.zbeam+w3d.zmmax
 
     # # create some plots
-    KE = selectedIons.getke()
 
+    # the instantanious kinetic energy plot
+    KE = selectedIons.getke()
+    print(np.mean(KE))
     if len(KE) > 0:
         selectedIons.ppzke(color=blue)
         KEmin, KEmax = KE.min(), KE.max()
@@ -300,92 +293,43 @@ while (top.time < tmax and zmax < zrunmax):
     ylimits(0.95*KEmin, 0.95*KEmin+deltaKE)
     fma()
 
+    # the side view particle and field plot
     pfzx(fill=1, filled=1, plotselfe=True, comp='E', titles=0,
          cmin=0, cmax=1.2*Vmax/geometry.RF_gap)
     selectedIons.ppzx(color=green, titles=0)
-    rejectedIons.ppzx(color=red, titles=0)
-    ptitles("Partcles and Fields", "Z [m]", "X [m]", "")
-    limits(zmin, zmax)
-    fma()
-
-    # geometry and fields
-    pfxy(iz=w3d.nz//2, fill=0, filled=1, plotphi=1, titles=0)
-    limits(-w3d.xmmax, w3d.xmmax)
-    ylimits(-w3d.ymmax, w3d.ymmax)
-    ptitles("Geometry and Potentials", "X [m]", "Y [m]", "")
-    fma()
-
-    # Z = rejectedIons.getz()
-    # if Z.mean() > zmid:
-   #	top.vbeamfrm = rejectedIons.getvz().mean()
-   # 	solver.gridmode = 0
-    pfzx(fill=1, filled=1, plotselfe=2, comp='z', titles=0, cmin=0, cmax=5e6)
-    selectedIons.ppzx(color=green, titles=0)
-    rejectedIons.ppzx(color=red, titles=0)
     ptitles("Particles and Fields", "Z [m]", "X [m]", "")
     limits(zmin, zmax)
     fma()
 
-    Z = rejectedIons.getz()
-    if Z.mean() > zmid:
-        top.vbeamfrm = rejectedIons.getvz().mean()
-        solver.gridmode = 0
+    # keep track of when the beam crosses the gaps (for the phase plot at the end)
+    if gap_num_select < len(distances) and len(selectedIons.getz() > 0):
+        if np.max(selectedIons.getz()) > np.cumsum(distances)[gap_num_select] -0.5*distances[0]:
+            sct.append(top.time)
+            gap_num_select += 1
 
-    zmin = top.zbeam+w3d.zmmin
-    zmax = top.zbeam+w3d.zmmax
-
-    pfzx(fill=1, filled=1, plotselfe=2, comp='z', titles=0, cmin=0, cmax=5e6)
-    selectedIons.ppzx(color=green, titles=0)
-    rejectedIons.ppzx(color=red, titles=0)
-    ptitles("Particles and Fields", "Z [m]", "X [m]", "")
-    limits(zmin, zmax)
+    # the head on particle plot
+    selectedIons.ppxy(color=red, titles=0)
+    limits(-R, R)
+    ylimits(-R, R)
+    plg(Y, X, type="dash")
     fma()
 
-
-# plot particle vs time
-# hpepsnxz()
-# fma()
-# hpepsnyz()
-# hpepsnx()
-# fma()
-hpepsny()
-fma()
-
-
-plg(numrej, time, color=red)
+# particles in beam plot
 plg(numsel, time, color=blue)
-ptitles("Attenuation vs Time", "Time (s)", "Number of Particles")
+ptitles("Particle Count vs Time", "Time (s)", "Number of Particles")
 fma()
 
-hpepsnz()
-fma()
-
-hpeps6d()
-fma()
-
-hpekinz(color=red)
-l = min(len(energies), len(energy_time))
-pla(np.array(energies[:l])*1e-6, energy_time[:l], color=green)
-ylimits(ekininit*0.8, KEmax*1e-6*1.2)
-fma()
-
-hpekin(color=red)
-pla(np.array(energies[:l])*1e-6, energy_time[:l], color=green)
-ylimits(ekininit*0.8, KEmax*1e-6*1.2)
-fma()
-
+# rms envelope plot
 hpxrms(color=red, titles=0)
 hpyrms(color=blue, titles=0)
 hprrms(color=green, titles=0)
 ptitles("X(red), Y(blue), R(green)", "Z [m]", "X/Y/R [m]", "")
-
 fma()
-hppnum(js=selectedIons.js, color=green)
-hppnum(js=rejectedIons.js, color=red)
 
+# kinetic energy plot
+plg(KE_select, time, color=blue)
+ptitles("kinetic energy vs time")
 fma()
-# hplinechg()
-# fma()
 
 # save history information, so that we can plot all cells in one plot
 t = np.trim_zeros(top.thist, 'b')
@@ -403,8 +347,19 @@ hrrms = selectedIons.hrrms[0]
 hpnum = selectedIons.hpnum[0]
 
 out = np.stack((t, hepsny, hepsnz, hep6d, hekinz, hekin, hxrms, hyrms, hrrms, hpnum))
-np.save("esqhist-V{}-gap-{}um.{}.npy".format(int(Vesq), int(geometry.RF_gap*1e6), setup.pnumb), out)
+np.save("esqhist.npy", out)
 
-l = min(len(energies), len(energy_time))
-np.save("esq-loss-V{}-gap-{}um.{}.npy".format(int(Vesq), int(geometry.RF_gap*1e6), setup.pnumb),
-        np.stack((energies[:l], energy_time[:l])))
+# --- makes the sin wave phase plot at the end
+s_phases = ((np.array(sct) + RF_toffset) % (1/freq))
+offset = -.07*Vmax # move down each wave so they are not on top of eachother
+
+# the sin wave
+T = np.linspace(0, 1/freq, 1000)
+V = Vmax*np.sin(2*np.pi*freq*T)
+
+# the dots
+for i, phase in enumerate(s_phases, 0):
+    o_Y = Vmax*np.sin(2*np.pi*phase*freq)
+    plt.plot(T, V+i*offset, "k-")
+    plt.plot(phase, o_Y+i*offset, 'bo')
+plt.show()
