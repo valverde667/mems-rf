@@ -5,6 +5,7 @@ timestep_size = 5e-11
 ev_to_joules = 1.6022e-19
 amu_to_kg = 1.66054e-27
 gap_width = geo.RF_gap
+freq_multiplier = 3
 
 def fraction_of_v_max_gained(e_kin_not, entry_coefficient, mass, v_max, freq):
     e_kin = e_kin_not
@@ -13,7 +14,7 @@ def fraction_of_v_max_gained(e_kin_not, entry_coefficient, mass, v_max, freq):
     position = 0
 
     while position < gap_width:
-        voltage = v_max*np.sin(2*np.pi*freq*time+poffset) # find votage at that timestep
+        voltage = v_max*np.sin(2*np.pi*freq*time+poffset*freq_multiplier) # find votage at that timestep
         velocity = np.sqrt(2*e_kin*ev_to_joules/(mass*amu_to_kg)) # find velocity at that timestep
         if (velocity*timestep_size+position < gap_width):
             distance_gained = velocity*timestep_size # find distance traveled in that timestep

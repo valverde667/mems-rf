@@ -4,10 +4,10 @@ Simplfied ESQ model
 import warpoptions
 #get input parameters
 warpoptions.parser.add_argument('--esq_voltage', dest='Vesq', type=float, default='813')
-warpoptions.parser.add_argument('--numRF', dest='numRF', type=int, default='6')
+warpoptions.parser.add_argument('--numRF', dest='numRF', type=int, default='40')
 warpoptions.parser.add_argument('--rf_voltage', dest='Vmax', type=float, default='500')
-warpoptions.parser.add_argument('--fraction', dest='V_arrival', type=float, default='.95')
-warpoptions.parser.add_argument('--mass', dest='current_mass', type=int, default='14')
+warpoptions.parser.add_argument('--fraction', dest='V_arrival', type=float, default='.8')
+warpoptions.parser.add_argument('--mass', dest='current_mass', type=int, default='13')
 warpoptions.parser.add_argument('--selected_mass', dest='selectedMass', type=int, default='14')
 warpoptions.parser.add_argument('--ekininit', dest='ekininit', type=float, default='20e3')
 warpoptions.parser.add_argument('--freq', dest='freq', type=float, default='15e6')
@@ -33,8 +33,11 @@ Vmax = warpoptions.options.Vmax #RF voltage
 freq = warpoptions.options.freq #RF freq #change freq in TTE
 V_arrival = warpoptions.options.V_arrival #the fraction of the total voltage gained across each gap
 
+freq = (1/3.4e-2)*np.sqrt(ekininit*selectedIons.charge/(2*selectedMass))#automaticaly set first distance
+freq_multiplier = 3
+
 # --- Invoke setup routine for the plotting
-setup(prefix="esq-V{}-gap-{}um-{}-{}".format(int(Vesq), int(geometry.RF_gap*1e6), selectedIons.name, numRF),cgmlog=0)
+setup(prefix="injected-mass-{}-selected-for-mass-{}-num-gaps-{}".format(selectedIons.mass/amu, selectedMass/amu, numRF),cgmlog=0)
 
 # --- Set basic beam parameters
 emittingradius = 0.41065e-3
@@ -136,36 +139,39 @@ ID_RF = 201
 def gen_volt(toffset=0):
     """ A sin voltage function with variable offset"""
     def RFvoltage(time):
-        return Vmax*np.sin(2*np.pi*freq*(time+toffset))
+        return Vmax*np.sin(2*np.pi*freq*(time+toffset)*freq_multiplier)
     return RFvoltage
 
 # --- generates voltage for the ESQs
 def gen_volt_esq(Vesq, inverse=False, toffset=0):
     def ESQvoltage(time):
         if inverse:
-            return -Vesq*np.sin(2*np.pi*freq*(time+toffset))
+            return -Vesq#*np.sin(2*np.pi*freq*(time+toffset))
         else:
-            return Vesq*np.sin(2*np.pi*freq*(time+toffset))
+            return Vesq#*np.sin(2*np.pi*freq*(time+toffset))
     return ESQvoltage
 
 # --- calculate the time ofset for the RFs
 energies = [ekininit + V_arrival*Vmax*i for i in range(numRF)]
-distances = [sqrt(ekininit*selectedIons.charge/(2*selectedMass))*1/freq]
-distances = distances + tte.delta_ts(tte.entry_coefficients(numRF, ekininit, V_arrival, selectedMass/amu, Vmax, freq), energies, selectedMass/amu, Vmax, freq)[1]
-distances = np.array(distances)
-distances += geometry.RF_gap
+distances = []
+for energy in energies:
+    distances.append(sqrt(energy*selectedIons.charge/(2*selectedMass))*1/freq)
+# distances = distances + tte.delta_ts(tte.entry_coefficients(numRF, ekininit, V_arrival, selectedMass/amu, Vmax, freq), energies, selectedMass/amu, Vmax, freq)[1]
+# distances = np.array(distances)
+# distances += geometry.RF_gap
 geometry.pos = -0.5*distances[0] - .5*geometry.RF_gap - geometry.RF_thickness
 d_mid = distances[0]*.5 - .5*geometry.RF_gap - geometry.RF_thickness
-V_in = tte.optimize_entry_coefficient(ekininit, V_arrival, selectedMass/amu, Vmax, freq)
-RF_toffset = np.arcsin(V_in)/(2*np.pi*freq)-d_mid/np.sqrt(2*ekininit*selectedIons.charge/selectedMass) - .5*ns # .5 ns to hit middle of pulse
-
+#V_in = tte.optimize_entry_coefficient(ekininit, V_arrival, selectedMass/amu, Vmax, freq)
+#RF_toffset = np.arcsin(V_in)/(2*np.pi*freq)-d_mid/np.sqrt(2*ekininit*selectedIons.charge/selectedMass) - .5*ns # .5 ns to hit middle of pulse
+RF_toffset = np.arcsin(V_arrival)/(2*np.pi*freq*freq_multiplier)-d_mid/np.sqrt(2*ekininit*selectedIons.charge/selectedMass) - .5*ns
 # ---  calculate the time ofset for the ESQs
-d1 = .5*distances[0]
-d2 = .5*distances[1]
-velocity1 = np.sqrt(2*ekininit*selectedIons.charge/selectedMass)
-velocity2 = np.sqrt(2*(ekininit + Vmax * V_arrival)*selectedIons.charge/selectedMass)
-time_to_ESQ1 = (d1/velocity1 + d2/velocity2)
-ESQ_toffset = np.arcsin(1)/(2*np.pi*freq) - time_to_ESQ1 - .5*ns # .5 ns to hit middle of pulse
+# d1 = .5*distances[0]
+# d2 = .5*distances[1]
+# velocity1 = np.sqrt(2*ekininit*selectedIons.charge/selectedMass)
+# velocity2 = np.sqrt(2*(ekininit + Vmax * V_arrival)*selectedIons.charge/selectedMass)
+# time_to_ESQ1 = (d1/velocity1 + d2/velocity2)
+# ESQ_toffset = np.arcsin(1)/(2*np.pi*freq) - time_to_ESQ1 - .5*ns # .5 ns to hit middle of pulse
+ESQ_toffset = 0
 
 Vpos = []
 
@@ -349,17 +355,21 @@ hpnum = selectedIons.hpnum[0]
 out = np.stack((t, hepsny, hepsnz, hep6d, hekinz, hekin, hxrms, hyrms, hrrms, hpnum))
 np.save("esqhist.npy", out)
 
-# --- makes the sin wave phase plot at the end
-s_phases = ((np.array(sct) + RF_toffset) % (1/freq))
-offset = -.07*Vmax # move down each wave so they are not on top of eachother
+# # --- makes the sin wave phase plot at the end
+# s_phases = ((np.array(sct) + RF_toffset) % (1/freq))
+# offset = -.07*Vmax # move down each wave so they are not on top of eachother
+#
+# # the sin wave
+# T = np.linspace(0, 1/freq, 1000)
+# V = Vmax*np.sin(2*np.pi*freq*T)
+#
+# # the dots
+# for i, phase in enumerate(s_phases, 0):
+#     o_Y = Vmax*np.sin(2*np.pi*phase*freq)
+#     plt.plot(T, V+i*offset, "k-")
+#     plt.plot(phase, o_Y+i*offset, 'bo')
+# plt.show()
 
-# the sin wave
-T = np.linspace(0, 1/freq, 1000)
-V = Vmax*np.sin(2*np.pi*freq*T)
-
-# the dots
-for i, phase in enumerate(s_phases, 0):
-    o_Y = Vmax*np.sin(2*np.pi*phase*freq)
-    plt.plot(T, V+i*offset, "k-")
-    plt.plot(phase, o_Y+i*offset, 'bo')
-plt.show()
+f= open("injected-mass-"+str(selectedIons.mass/amu)+"-selected-for-mass-"+str(selectedMass/amu)+".txt","a+")
+f.write(str(numsel))
+f.close
