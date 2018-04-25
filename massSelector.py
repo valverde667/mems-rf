@@ -1,15 +1,31 @@
-"""
-Simplfied ESQ model
-"""
 import warpoptions
-#get input parameters
+
+#   get input parameters
+#   you don't have to put all parameters into the command line,
+#   only the ones you want to change from their default vaues
+#   you can get a good idea of what these values should be from the ExcelSimulationOfMassSeperation.xlsx
+#   or from interactivePlot.ipynb
+#   use mathmatica to find out esq_voltage
+
+#   the input will look like:
+"""
+python massSelector.py --esq_voltage=500 --fraction=.8 --selectedMass=20 --ekininit=15e3
+"""
+#   voltage on the focusing quads
 warpoptions.parser.add_argument('--esq_voltage', dest='Vesq', type=float, default='813')
+#   the total number of RF acceleration gaps (must be a multiple of 2)
 warpoptions.parser.add_argument('--numRF', dest='numRF', type=int, default='40')
+#   the votage on the RF gaps at the peak of the sinusoid
 warpoptions.parser.add_argument('--rf_voltage', dest='Vmax', type=float, default='500')
+#   the fraction of the max voltage at which the selected ions cross the gap
 warpoptions.parser.add_argument('--fraction', dest='V_arrival', type=float, default='.8')
+#   the mass of the ions currently being accelerated
 warpoptions.parser.add_argument('--mass', dest='current_mass', type=int, default='13')
+#   the mass of the ions that the accelerator is built to select for
 warpoptions.parser.add_argument('--selected_mass', dest='selectedMass', type=int, default='14')
+#   the injeciton energy in eV
 warpoptions.parser.add_argument('--ekininit', dest='ekininit', type=float, default='20e3')
+#   the frequency of the RF
 warpoptions.parser.add_argument('--freq', dest='freq', type=float, default='15e6')
 
 from warp import *
@@ -34,12 +50,12 @@ freq = warpoptions.options.freq #RF freq #change freq in TTE
 V_arrival = warpoptions.options.V_arrival #the fraction of the total voltage gained across each gap
 
 freq = (1/3.4e-2)*np.sqrt(ekininit*selectedIons.charge/(2*selectedMass))#automaticaly set first distance
-freq_multiplier = 3
+freq_multiplier = 3 # multiplies the frequency by a constant while leaveing the geometry the same to improve mass separation
 
 # --- Invoke setup routine for the plotting
 setup(prefix="injected-mass-{}-selected-for-mass-{}-num-gaps-{}".format(selectedIons.mass/amu, selectedMass/amu, numRF),cgmlog=0)
 
-# --- Set basic beam parameters
+# --- Set basic beam parameters these should be calculated in mathmatica first
 emittingradius = 0.41065e-3
 ibeaminit = 1e-6
 
@@ -156,21 +172,10 @@ energies = [ekininit + V_arrival*Vmax*i for i in range(numRF)]
 distances = []
 for energy in energies:
     distances.append(sqrt(energy*selectedIons.charge/(2*selectedMass))*1/freq)
-# distances = distances + tte.delta_ts(tte.entry_coefficients(numRF, ekininit, V_arrival, selectedMass/amu, Vmax, freq), energies, selectedMass/amu, Vmax, freq)[1]
-# distances = np.array(distances)
-# distances += geometry.RF_gap
 geometry.pos = -0.5*distances[0] - .5*geometry.RF_gap - geometry.RF_thickness
 d_mid = distances[0]*.5 - .5*geometry.RF_gap - geometry.RF_thickness
-#V_in = tte.optimize_entry_coefficient(ekininit, V_arrival, selectedMass/amu, Vmax, freq)
-#RF_toffset = np.arcsin(V_in)/(2*np.pi*freq)-d_mid/np.sqrt(2*ekininit*selectedIons.charge/selectedMass) - .5*ns # .5 ns to hit middle of pulse
 RF_toffset = np.arcsin(V_arrival)/(2*np.pi*freq*freq_multiplier)-d_mid/np.sqrt(2*ekininit*selectedIons.charge/selectedMass) - .5*ns
-# ---  calculate the time ofset for the ESQs
-# d1 = .5*distances[0]
-# d2 = .5*distances[1]
-# velocity1 = np.sqrt(2*ekininit*selectedIons.charge/selectedMass)
-# velocity2 = np.sqrt(2*(ekininit + Vmax * V_arrival)*selectedIons.charge/selectedMass)
-# time_to_ESQ1 = (d1/velocity1 + d2/velocity2)
-# ESQ_toffset = np.arcsin(1)/(2*np.pi*freq) - time_to_ESQ1 - .5*ns # .5 ns to hit middle of pulse
+
 ESQ_toffset = 0
 
 Vpos = []
@@ -355,7 +360,7 @@ hpnum = selectedIons.hpnum[0]
 out = np.stack((t, hepsny, hepsnz, hep6d, hekinz, hekin, hxrms, hyrms, hrrms, hpnum))
 np.save("esqhist.npy", out)
 
-# # --- makes the sin wave phase plot at the end
+# # --- makes the sin wave phase plot at the end can un-comment if you are interested in this
 # s_phases = ((np.array(sct) + RF_toffset) % (1/freq))
 # offset = -.07*Vmax # move down each wave so they are not on top of eachother
 #
