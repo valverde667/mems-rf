@@ -34,7 +34,6 @@ import geometry
 from geometry import Aperture, ESQ, RF_stack3, Gap
 from helper import gitversion
 import matplotlib.pyplot as plt
-import TransitTimeEffectCalculator as tte
 
 w3d.solvergeom = w3d.XYZgeom
 top.dt = 5e-11
@@ -46,7 +45,7 @@ ekininit = warpoptions.options.ekininit
 Vesq = warpoptions.options.Vesq
 numRF = warpoptions.options.numRF
 Vmax = warpoptions.options.Vmax #RF voltage
-freq = warpoptions.options.freq #RF freq #change freq in TTE
+freq = warpoptions.options.freq #RF freq
 V_arrival = warpoptions.options.V_arrival #the fraction of the total voltage gained across each gap
 
 freq = (1/3.4e-2)*np.sqrt(ekininit*selectedIons.charge/(2*selectedMass))#automaticaly set first distance
@@ -167,7 +166,14 @@ def gen_volt_esq(Vesq, inverse=False, toffset=0):
             return Vesq#*np.sin(2*np.pi*freq*(time+toffset))
     return ESQvoltage
 
-# --- calculate the time ofset for the RFs
+# --- calculate the distances and time ofset for the RFs
+#         //=====\\   \\
+#        ||      //    \\
+#       //======\\
+#      ||      //
+#     //=====//
+#    //
+#   //
 energies = [ekininit + V_arrival*Vmax*i for i in range(numRF)]
 distances = []
 for energy in energies:

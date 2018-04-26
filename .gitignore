@@ -11,3 +11,5 @@ tmp.*
 *.webm
 *.avi
 *.svg
+*.DS_Store
+*.npy
