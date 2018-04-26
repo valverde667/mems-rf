@@ -2,8 +2,8 @@
 Simplfied ESQ model
 """
 import warpoptions
-warpoptions.parser.add_argument('--esq_voltage', dest='Vesq', type=float, default='2203.2')
-warpoptions.parser.add_argument('--numESQ', dest='numESQ', type=int, default='2')
+warpoptions.parser.add_argument('--esq_voltage', dest='Vesq', type=float, default='220.32')
+warpoptions.parser.add_argument('--numESQ', dest='numESQ', type=int, default='15')
 #potential to have all input parameters in one line? maybe input parameters is list?
 
 #warp.options.parser.add_argument('--input', dest=)
@@ -29,8 +29,8 @@ top.pline1 = "ESQ model"
 top.dt = 5e-11
 
 #often tweeked
-selectedIons = Species(charge_state=1, name='H2', mass=2*amu, color=green)
-ekininit = 200e3#1100e3#35.6e3#
+selectedIons = Species(charge_state=1, name='C14sinESQ', mass=14*amu, color=green)
+ekininit = 20e3
 Vesq = warpoptions.options.Vesq
 numESQ = warpoptions.options.numESQ
 ibeaminit = 1e-6
@@ -42,13 +42,13 @@ ibeaminit = 1e-6
 setup(prefix="esq-V{}-gap-{}um-{}-{}".format(int(Vesq), int(geometry.RF_gap*1e6), selectedIons.name, numESQ),cgmlog=0)
 
 # --- Set basic beam parameters
-emittingradius = 1*mm#0.055307*mm
+emittingradius = .32064e-3
 
 
 top.a0 = emittingradius
 top.b0 = emittingradius
-top.ap0 = 1e-3#2.919e-3#27.021e-3
-top.bp0 = -1e-3#-2.919e-3#-27.021e-3
+top.ap0 = 2.4925e-3#2.919e-3#27.021e-3
+top.bp0 = -2.4925e-3#-2.919e-3#-27.021e-3
 top.vbeam = .0e0
 top.emit = 9.96635e-7
 top.ibeam = ibeaminit
@@ -141,6 +141,13 @@ RFs = []
 ID_ESQ = 100
 ID_RF = 201
 
+
+ESQ_toffset = 0
+gaplength = 8*mm#16*mm
+freq = np.sqrt(2*ekininit*selectedIons.charge/(14*amu))/(gaplength+geometry.ESQ_wafer_length*2+geometry.ESQ_gap)
+print(freq)
+ESQ_toffset = -1/freq*.25 - .5*ns
+
 def gen_volt_esq(Vesq, inverse=False, toffset=0):
     def ESQvoltage(time):
         if inverse:
@@ -149,16 +156,20 @@ def gen_volt_esq(Vesq, inverse=False, toffset=0):
             return Vesq
     return ESQvoltage
 
+def gen_sin_volt_esq(Vesq, inverse=False, toffset=0):
+    def ESQvoltage(time):
+        if inverse:
+            return -Vesq*np.sin(2*np.pi*freq*(time + ESQ_toffset))
+        else:
+            return Vesq*np.sin(2*np.pi*freq*(time + ESQ_toffset))
+    return ESQvoltage
 
 # this loop generates the geometry
-ESQ_toffset = 0
-gaplength = 8*mm#16*mm
-
 for i in range(numESQ):
     Gap(gaplength/2)
-    E1 = ESQ(voltage=gen_volt_esq(Vesq, False, ESQ_toffset), condid=[ID_ESQ, ID_ESQ+1])
+    E1 = ESQ(voltage=gen_sin_volt_esq(Vesq, False, ESQ_toffset), condid=[ID_ESQ, ID_ESQ+1])
     Gap(geometry.ESQ_gap)
-    E2 = ESQ(voltage=gen_volt_esq(Vesq, True, ESQ_toffset), condid=[ID_ESQ+2, ID_ESQ+3])
+    E2 = ESQ(voltage=gen_sin_volt_esq(Vesq, True, ESQ_toffset), condid=[ID_ESQ+2, ID_ESQ+3])
     Gap(gaplength/2)
 
     ESQs.append(E1)
@@ -217,7 +228,7 @@ while (zmax < zrunmax):
     numsel.append(len(selectedIons.getke()))
     KE_select.append(np.mean(selectedIons.getke()))
 # saving beam data for eventual optimization
-    top.pline1 = "V_esq: {:.0f}".format(gen_volt_esq(Vesq, False, ESQ_toffset)(top.time))
+    top.pline1 = "V_esq: {:.0f}".format(gen_sin_volt_esq(Vesq, False, ESQ_toffset)(top.time))
 
     # inject only for 1 ns, so that we can get onto the rising edge of the RF
     if 0*ns < top.time < 1e-9:

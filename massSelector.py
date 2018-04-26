@@ -7,6 +7,7 @@ import warpoptions
 #   or from interactivePlot.ipynb
 #   use mathmatica to find out esq_voltage
 
+#   only specify the parameters you want to change from their default values
 #   the input will look like:
 """
 python massSelector.py --esq_voltage=500 --fraction=.8 --selectedMass=20 --ekininit=15e3
@@ -49,6 +50,7 @@ freq = warpoptions.options.freq #RF freq
 V_arrival = warpoptions.options.V_arrival #the fraction of the total voltage gained across each gap
 
 freq = (1/3.4e-2)*np.sqrt(ekininit*selectedIons.charge/(2*selectedMass))#automaticaly set first distance
+
 freq_multiplier = 3 # multiplies the frequency by a constant while leaveing the geometry the same to improve mass separation
 
 # --- Invoke setup routine for the plotting
