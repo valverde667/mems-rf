@@ -15,11 +15,11 @@ python single-species-simulation.py --esq_voltage=500 --fraction=.8 --speciesMas
 #   voltage on the focusing quads
 warpoptions.parser.add_argument('--esq_voltage', dest='Vesq', type=float, default='1')
 #   the total number of RF acceleration gaps (must be a multiple of 2)
-warpoptions.parser.add_argument('--numRF', dest='numRF', type=int, default='4')
+warpoptions.parser.add_argument('--numRF', dest='numRF', type=int, default='8')
 #   the votage on the RF gaps at the peak of the sinusoid
-warpoptions.parser.add_argument('--rf_voltage', dest='Vmax', type=float, default='10000') #we can play with this -MWG
+warpoptions.parser.add_argument('--rf_voltage', dest='Vmax', type=float, default='100') #we can play with this -MWG
 #   the fraction of the max voltage at which the selected ions cross the gap
-warpoptions.parser.add_argument('--fraction', dest='V_arrival', type=float, default='.95')
+warpoptions.parser.add_argument('--fraction', dest='V_arrival', type=float, default='.8')
 #   the mass of the ions currently being accelerated
 warpoptions.parser.add_argument('--mass', dest='current_mass', type=int, default='40')
 #   the mass of the ions that the accelerator is built to select for
@@ -175,13 +175,14 @@ def gen_volt_esq(Vesq, inverse=False, toffset=0):
             return Vesq#*np.sin(2*np.pi*freq*(time+toffset))
     return ESQvoltage
 
-# --- calculate the distances and time ofset for the RFs
+# --- calculate the distances and time offset for the RFs
 
 energies = [ekininit + V_arrival*Vmax*i for i in range(numRF)]
 distances = [wp.sqrt(energy*selectedIons.charge/(2*speciesMass))*1/freq for energy in energies]
 geometry.pos = -0.5*distances[0] - .5*geometry.RF_gap - geometry.RF_thickness
 d_mid = distances[0]*.5 - .5*geometry.RF_gap - geometry.RF_thickness
-RF_toffset=10e-9 #ns? #RF_toffset = np.arcsin(V_arrival)/(2*np.pi*freq*freq_multiplier)-d_mid/np.sqrt(2*ekininit*selectedIons.charge/speciesMass)
+RF_toffset = np.arcsin(V_arrival)/(2*np.pi*freq*freq_multiplier)-d_mid/np.sqrt(2*ekininit*selectedIons.charge/speciesMass)
+#RF_toffset=10e-9 #ns? #
 
 print("--- the middle of the acceleration gap in single-species-simulation.py is " +str(d_mid))
 
