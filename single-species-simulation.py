@@ -13,13 +13,13 @@ import warpoptions
 python single-species-simulation.py --esq_voltage=500 --fraction=.8 --speciesMass=20 --ekininit=15e3
 """
 #   voltage on the focusing quads
-warpoptions.parser.add_argument('--esq_voltage', dest='Vesq', type=float, default='1')
+warpoptions.parser.add_argument('--esq_voltage', dest='Vesq', type=float, default='.1')
 #   the total number of RF acceleration gaps (must be a multiple of 2)
-warpoptions.parser.add_argument('--numRF', dest='numRF', type=int, default='8')
+warpoptions.parser.add_argument('--numRF', dest='numRF', type=int, default='4')
 #   the votage on the RF gaps at the peak of the sinusoid
-warpoptions.parser.add_argument('--rf_voltage', dest='Vmax', type=float, default='100') #we can play with this -MWG
+warpoptions.parser.add_argument('--rf_voltage', dest='Vmax', type=float, default='5000') #we can play with this -MWG
 #   the fraction of the max voltage at which the selected ions cross the gap
-warpoptions.parser.add_argument('--fraction', dest='V_arrival', type=float, default='.8')
+warpoptions.parser.add_argument('--fraction', dest='V_arrival', type=float, default='1') #.8
 #   the mass of the ions currently being accelerated
 warpoptions.parser.add_argument('--mass', dest='current_mass', type=int, default='40')
 #   the mass of the ions that the accelerator is built to select for
@@ -38,7 +38,7 @@ import matplotlib.pyplot as plt
 import datetime
 
 wp.w3d.solvergeom = wp.w3d.XYZgeom
-wp.top.dt = 5e-11
+wp.top.dt = 5e-11 #5e-11 trying to make the simulation take less time so can make faster progress
 
 #set input parameters
 speciesMass = warpoptions.options.speciesMass*wp.amu
@@ -69,10 +69,10 @@ ibeaminit = 10e-6 # inital beam current -MWG
 
 wp.top.a0 = emittingradius
 wp.top.b0 = emittingradius
-wp.top.ap0 = 30e-3#.48743e-3 #divergence angle + (25-30mR) or 29mm -MWG
-wp.top.bp0 = 30e-3#-.48743e-3 #divergence angle -MWG
+wp.top.ap0 = 30e-3#divergence angle -MWG
+wp.top.bp0 = 30e-3#divergence angle -MWG
 wp.top.vbeam = .0e0
-#wp.top.emit = 9.45E-7 #what is this? Do we need it? -MWG
+wp.top.emit = 9.45E-7 #what is this? Do we need it; it is not being called anywhere here but maybe warp uses it? -MWG
 wp.top.ibeam = ibeaminit
 wp.top.ekin = ekininit
 wp.top.zion = selectedIons.charge_state
@@ -119,7 +119,7 @@ if wp.w3d.l2symtry or wp.w3d.l4symtry:
 # --- Select plot intervals, etc.
 wp.top.npmax = 300
 wp.top.inject = 1  # 2 means space-charge limited injection
-wp.top.rinject = 5000
+wp.top.rinject = 5000 #what is this? -MWG
 wp.top.npinject = 30  # 300  # needed!! macro particles per time step or cell
 wp.top.linj_eperp = False  # Turn on transverse E-fields near emitting surface
 wp.top.zinject = wp.w3d.zmmin
@@ -151,8 +151,8 @@ wp.package("w3d")
 wp.generate()
 
 # --- define voltages
-Vground = 0.0e3
-VRF = 1000.0
+Vground = 0.0e3 #do we actually need to do this? It is not being defined anywhere
+VRF = 1000.0 #" "
 
 ESQs = []
 RFs = []
@@ -167,24 +167,27 @@ def gen_volt(toffset=0): #0
     return RFvoltage
 
 # --- generates voltage for the ESQs
-def gen_volt_esq(Vesq, inverse=False, toffset=0):
+def gen_volt_esq(Vesq, inverse=False, toffset=0): #, toffset
     def ESQvoltage(time):
         if inverse:
-            return -Vesq#*np.sin(2*np.pi*freq*(time+toffset))
+            return -Vesq#*np.sin(2*np.pi*freq*(time+toffset)) #-Vesq#
         else:
-            return Vesq#*np.sin(2*np.pi*freq*(time+toffset))
+            return Vesq#*np.sin(2*np.pi*freq*(time+toffset)) #Vesq
     return ESQvoltage
 
 # --- calculate the distances and time offset for the RFs
 
-energies = [ekininit + V_arrival*Vmax*i for i in range(numRF)]
-distances = [wp.sqrt(energy*selectedIons.charge/(2*speciesMass))*1/freq for energy in energies]
-geometry.pos = -0.5*distances[0] - .5*geometry.RF_gap - geometry.RF_thickness
-d_mid = distances[0]*.5 - .5*geometry.RF_gap - geometry.RF_thickness
-RF_toffset = np.arcsin(V_arrival)/(2*np.pi*freq*freq_multiplier)-d_mid/np.sqrt(2*ekininit*selectedIons.charge/speciesMass)
-#RF_toffset=10e-9 #ns? #
+energies = [ekininit + V_arrival*Vmax*(i+1) for i in range(numRF)]
+distances = [wp.sqrt(energy*selectedIons.charge/(2*speciesMass))*1/freq for energy in energies] #beta lambda/2
+drifti = 10.05*wp.mm #added to start the particles well before the first RF wafer
+geometry.pos = -0.5*distances[0] - .5*geometry.RF_gap - geometry.RF_thickness + drifti #sets the begining position of the first RF
+d_mid = 0.00509045758644846 #distances[0]*.5 - .5*geometry.RF_gap - geometry.RF_thickness
+RF_toffset = np.arcsin(V_arrival)/(2*np.pi*freq*freq_multiplier) - d_mid/np.sqrt(2*ekininit*selectedIons.charge/speciesMass) - drifti/np.sqrt(2*ekininit*selectedIons.charge/speciesMass) +8e-9 #phase offset to account for moving the injection beam farther to the left
 
+print(" ekininit = {}".format(ekininit))
 print("--- the middle of the acceleration gap in single-species-simulation.py is " +str(d_mid))
+print("FIRST ARRAY OF DISTANCE")
+print(distances[0])
 
 ESQ_toffset = 0
 
@@ -201,14 +204,14 @@ def pairwise(it):
 
 # this loop generates the geometry
 for i, bl2s in enumerate(pairwise(zip(distances, energies))):
-    (rf_bl2, E1), (esq_bl2, E2) = bl2s
+    (rf_bl2, E1), (esq_bl2, E2) = bl2s #calling distances rf_bl2s
     # use first betalamba_half for the RF unit
     RF = RF_stack3(condid=[ID_RF, ID_RF+1, ID_RF+2],
-            betalambda_half=rf_bl2 ,voltage=gen_volt(RF_toffset)) #betalambda_half=rf_bl2,
+            betalambda_half=rf_bl2 ,voltage=gen_volt(RF_toffset))
     Vpos.append(geometry.pos)
 
     # scale esq voltages
-    voltage = Vesq * E2/ekininit
+    voltage = Vesq * E2/ekininit #why do we need to do this? -MWG
 
     # and second betalamba_half for ESQ unit
     gaplength = esq_bl2-geometry.RF_gap-2*geometry.RF_thickness
@@ -226,12 +229,12 @@ for i, bl2s in enumerate(pairwise(zip(distances, energies))):
     ID_ESQ += 4
     ID_RF += 3
 
-conductors = wp.sum(ESQs) + wp.sum(RFs)
+conductors = wp.sum(ESQs) + wp.sum(RFs) #names all ESQs and RFs conductors in order to feed into warp -MWG
 
-velo = np.sqrt(2*ekininit*selectedIons.charge/selectedIons.mass)
-length = geometry.pos
-tmax = length/velo
-zrunmax = length
+velo = np.sqrt(2*ekininit*selectedIons.charge/selectedIons.mass) #this is used to caluclate tmax - MWG
+length = geometry.pos + 3*wp.mm #2mm added to allow particles to completely pass through last RF gap -MWG
+tmax = length/velo #this is used for the maximum time for timesteps to take place -MWG
+zrunmax = length #this is used for the maximum distance for timesteps to take place
 
 # define the electrodes
 wp.installconductors(conductors)
@@ -274,6 +277,8 @@ distN = 0
 sct = [] #when the particles cross the acceleration gaps
 gap_num_select = 0
 
+geometry.mid_gap
+
 while (wp.top.time < tmax and zmax < zrunmax):
     wp.step(10) # each plotting step is 10 timesteps
     time.append(wp.top.time)
@@ -283,9 +288,9 @@ while (wp.top.time < tmax and zmax < zrunmax):
 
     wp.top.pline1 = "V_RF: {:.0f}   V_esq: {:.0f}".format(
         gen_volt(RF_toffset)(wp.top.time), gen_volt_esq(Vesq, False, ESQ_toffset)(wp.top.time))
-        
+        #, ESQ_toffset
     # inject only for 1 ns, so that we can get onto the rising edge of the RF
-    if 0*wp.ns < wp.top.time < 1e-9: #changes the beam length -MWG
+    if 0*wp.ns < wp.top.time < 50e-9: #changes the beam length -MWG
         wp.top.finject[0,selectedIons.jslist[0]] = 1
     else:
         wp.top.inject = 0
@@ -300,12 +305,17 @@ while (wp.top.time < tmax and zmax < zrunmax):
         energy_time.append(wp.top.time)
         distN += 1
 
+#find a way to compare Z.mean() and geometry.mid_gap to see when zmean is larger
+#have a flag to compare different mid_gap and zmean
+
+#if Z.mean() >
+
     zmin = wp.top.zbeam+wp.w3d.zmmin
     zmax = wp.top.zbeam+wp.w3d.zmmax
 
     # create some plots
 
-    # the instantanious kinetic energy plot
+    # the instantaneous kinetic energy plot
     KE = selectedIons.getke()
     print(np.mean(KE))
     if len(KE) > 0:
@@ -315,7 +325,7 @@ while (wp.top.time < tmax and zmax < zrunmax):
         #KEmax = KE.max()
         while KEmax-KEmin > deltaKE:
             deltaKE += 10e3
-    wp.ylimits(0.95*KEmin, 0.95*KEmin+deltaKE)
+    wp.ylimits(0.95*KEmin, 0.95*KEmin+deltaKE) #is this fraction supposed to match with V_arrival?
     wp.fma()
 
     # the side view particle and field plot
@@ -390,10 +400,8 @@ np.save("esqhist.npy", out)
 # plt.show()
 
 #wp.setup(prefix="injected-mass-{}-num-gaps-{}-date{}-".format(selectedIons.mass/wp.amu,numRF,datetimestamp),cgmlog=0)
-#f= open("injected-mass-"+str(selectedIons.mass/wp.amu)+"date:"+ datetimestamp+".txt")
 
 f= open("injected-mass-"+str(selectedIons.mass/wp.amu)+"-selected-for-mass-"+str(speciesMass/wp.amu)+".txt","a+")
 
-#f= open("injected-mass-"+str(selectedIons.mass/wp.amu)+".txt"+"a") -Does not currently work -MWG
 f.write(str(numsel))
 f.close

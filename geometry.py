@@ -8,20 +8,20 @@ framewidth = 150*wp.um
 
 # wafer dimenions
 # SOI
-ESQ_wafer_body = 678*wp.um #500*wp.um
-ESQ_wafer_box = 2*wp.um
-ESQ_wafer_si = 20*wp.um
+ESQ_wafer_body = 678*wp.um #should this be the same as the RF wafer length?
+ESQ_wafer_box = 2*wp.um #copper plating on the silicon ? (1um on both sides?)
+ESQ_wafer_si = 20*wp.um #silicon thickness? But it does not seem this slim -MWG
 ESQ_wafer_length = ESQ_wafer_body + ESQ_wafer_box + ESQ_wafer_si
 # RF
 RF_thickness = 625*wp.um
-RF_gap = 2000*wp.um  #5000*wp.um #acceleration gap
+RF_gap = 2000*wp.um #acceleration gap
 # esq
-ESQ_gap = .7*wp.mm
+ESQ_gap = .7*wp.mm #how is this calculated?
 # globals
-pos = 0
+pos = 0 #This is not being looked at
+mid_gap = []
 
-
-def Gap(dist=500*wp.um): #why is this 500 um?
+def Gap(dist=500*wp.um): #why is this 500 um, just a default value?
     """Vacuum gap, e.g. between wafers"""
     global pos
     pos += dist
@@ -38,7 +38,7 @@ def ESQ(voltage, condid):
 
     """
     global pos
-    scaling_factor = 10 #10 
+    scaling_factor = 10  
     R1 = 1*wp.mm #96*wp.um*scaling_factor  # center cylinder
     R2 = 75*wp.um*scaling_factor  # outside cylinders
 
@@ -139,21 +139,24 @@ def RF_stack3(condid, betalambda_half=200*wp.um, gap=RF_gap, voltage=0):
 
     """
 
-    global pos
+    global pos, mid_gap
     condidA, condidB, condidC = condid
 
-    r_beam = .5*wp.mm #90*wp.um*2 #aperature radius -MWG
+    r_beam = .5*wp.mm #aperature radius -MWG
 
     wafercenter = pos + 0.5*RF_thickness
     Frame = wp.Box(framelength, framelength, RF_thickness, voltage=0,
                 zcent=wafercenter, condid=condidA)
+                #why is there 50um being added to the rf thickness below???
     Beam = wp.ZCylinder(r_beam, RF_thickness + 50*wp.um, zcent=wafercenter, voltage=0, condid=condidA)
     Ground1 = Frame-Beam
     pos += RF_thickness + gap
 
     print("middle of first gap " +str(pos-.5*gap))
-
+    mid_gap.append(pos-0.5*gap) #-MWG this creates an array that holds all of the middle of the gaps for future use
+    
     length = betalambda_half-gap
+    print("betalambda_half = {}".format(betalambda_half))
     assert length > 0
     bodycenter = pos + 0.5*length
     Frame = wp.Box(framelength, framelength, length, voltage=voltage,
@@ -163,7 +166,8 @@ def RF_stack3(condid, betalambda_half=200*wp.um, gap=RF_gap, voltage=0):
     pos += length + gap
 
     print("middle of second gap " +str(pos-.5*gap))
-
+    mid_gap.append(pos-0.5*gap)
+    
     wafercenter = pos + 0.5*RF_thickness
     Frame = wp.Box(framelength, framelength, RF_thickness, voltage=0,
                 zcent=wafercenter, condid=condidC)
