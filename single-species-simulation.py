@@ -12,6 +12,8 @@ import warpoptions
 """
 python single-species-simulation.py --esq_voltage=500 --fraction=.8 --speciesMass=20 --ekininit=15e3
 """
+#   Bunch length
+warpoptions.parser.add_argument('--bunch_length', dest='Lbunch', type=float, default='1.e-9')
 #   voltage on the focusing quads
 warpoptions.parser.add_argument('--esq_voltage', dest='Vesq', type=float, default='.1')
 #   the total number of RF acceleration gaps (must be a multiple of 2)
@@ -32,15 +34,16 @@ warpoptions.parser.add_argument('--freq', dest='freq', type=float, default='13.5
 import warp as wp
 import numpy as np
 import geometry
-from geometry import Aperture, ESQ, RF_stack3, Gap
+from geometry import Aperture, ESQ, RF_stack3, Gap, mid_gap
 from helper import gitversion
 import matplotlib.pyplot as plt
 import datetime
 
 wp.w3d.solvergeom = wp.w3d.XYZgeom
-wp.top.dt = 5e-11 #5e-11 trying to make the simulation take less time so can make faster progress
+wp.top.dt = 5e-11
 
 #set input parameters
+L_bunch = warpoptions.options.Lbunch
 speciesMass = warpoptions.options.speciesMass*wp.amu
 selectedIons = wp.Species(charge_state=1, name='Ar', mass=warpoptions.options.current_mass*wp.amu, color=wp.green)
 ekininit = warpoptions.options.ekininit
@@ -99,10 +102,10 @@ wp.top.prwall = .5*wp.mm #this changes where the particles get absorbed. We shou
 # --- Set field grid size, this is the width of the window
 wp.w3d.xmmin = -0.02/8.
 wp.w3d.xmmax = +0.02/8.
-wp.w3d.ymmin = -0.02/8.
-wp.w3d.ymmax = +0.02/8.
+wp.w3d.ymmin = -0.02/8.*1.2
+wp.w3d.ymmax = +0.02/8.*1.2
 wp.w3d.zmmin = 0.0
-wp.w3d.zmmax = 18*wp.mm
+wp.w3d.zmmax = 53*wp.mm #18
 
 # set grid spacing, this is the number of mesh elements in one window
 wp.w3d.nx = 50.
@@ -123,7 +126,7 @@ wp.top.rinject = 5000 #what is this? -MWG
 wp.top.npinject = 30  # 300  # needed!! macro particles per time step or cell
 wp.top.linj_eperp = False  # Turn on transverse E-fields near emitting surface
 wp.top.zinject = wp.w3d.zmmin
-wp.top.vinject = 1.0
+wp.top.vinject = 1.0 #what does this do?
 print("--- Ions start at: ", wp.top.zinject)
 
 wp.top.nhist = 5  # Save history data every N time step
@@ -177,12 +180,12 @@ def gen_volt_esq(Vesq, inverse=False, toffset=0): #, toffset
 
 # --- calculate the distances and time offset for the RFs
 
-energies = [ekininit + V_arrival*Vmax*(i+1) for i in range(numRF)]
+energies = [ekininit + V_arrival*Vmax*(i+1) for i in range(numRF)] #i+1 to start at 15,000 energy instead of 10,000
 distances = [wp.sqrt(energy*selectedIons.charge/(2*speciesMass))*1/freq for energy in energies] #beta lambda/2
 drifti = 10.05*wp.mm #added to start the particles well before the first RF wafer
 geometry.pos = -0.5*distances[0] - .5*geometry.RF_gap - geometry.RF_thickness + drifti #sets the begining position of the first RF
-d_mid = 0.00509045758644846 #distances[0]*.5 - .5*geometry.RF_gap - geometry.RF_thickness
-RF_toffset = np.arcsin(V_arrival)/(2*np.pi*freq*freq_multiplier) - d_mid/np.sqrt(2*ekininit*selectedIons.charge/speciesMass) - drifti/np.sqrt(2*ekininit*selectedIons.charge/speciesMass) +8e-9 #phase offset to account for moving the injection beam farther to the left
+d_mid = geometry.pos + geometry.RF_thickness + .5*geometry.RF_gap
+RF_toffset = np.arcsin(V_arrival)/(2*np.pi*freq*freq_multiplier) - d_mid/np.sqrt(2*ekininit*selectedIons.charge/speciesMass) - drifti/np.sqrt(2*ekininit*selectedIons.charge/speciesMass) + .5*L_bunch +8e-9 #phase offset to account for moving the injection beam farther to the left for 10Kv only
 
 print(" ekininit = {}".format(ekininit))
 print("--- the middle of the acceleration gap in single-species-simulation.py is " +str(d_mid))
@@ -232,7 +235,7 @@ for i, bl2s in enumerate(pairwise(zip(distances, energies))):
 conductors = wp.sum(ESQs) + wp.sum(RFs) #names all ESQs and RFs conductors in order to feed into warp -MWG
 
 velo = np.sqrt(2*ekininit*selectedIons.charge/selectedIons.mass) #this is used to caluclate tmax - MWG
-length = geometry.pos + 3*wp.mm #2mm added to allow particles to completely pass through last RF gap -MWG
+length = geometry.pos + 2.5*wp.cm #3mm added to allow particles to completely pass through last RF gap -MWG
 tmax = length/velo #this is used for the maximum time for timesteps to take place -MWG
 zrunmax = length #this is used for the maximum distance for timesteps to take place
 
@@ -290,7 +293,7 @@ while (wp.top.time < tmax and zmax < zrunmax):
         gen_volt(RF_toffset)(wp.top.time), gen_volt_esq(Vesq, False, ESQ_toffset)(wp.top.time))
         #, ESQ_toffset
     # inject only for 1 ns, so that we can get onto the rising edge of the RF
-    if 0*wp.ns < wp.top.time < 50e-9: #changes the beam length -MWG
+    if 0*wp.ns < wp.top.time < L_bunch: #changes the beam length -MWG
         wp.top.finject[0,selectedIons.jslist[0]] = 1
     else:
         wp.top.inject = 0
