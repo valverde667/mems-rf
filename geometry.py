@@ -35,9 +35,9 @@ def ESQ(voltage, condid):
 
     """
     global pos
-    R1 = .5*(8/7)*wp.mm  #radius of electrodes
+    R1 = (4/7)*wp.mm  #radius of electrodes
 
-    X = .5*(15/7)*wp.mm#2*wp.mm  #X offset for electrodes
+    X = (15/14)*wp.mm#2*wp.mm  #X offset for electrodes
 
     print("--- ESQ starts at: ", pos)
     print("--- ESQ voltage: ", voltage)
