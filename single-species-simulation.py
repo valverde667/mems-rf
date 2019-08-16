@@ -13,7 +13,7 @@ import warpoptions
 python single-species-simulation.py --esq_voltage=500 --fraction=.8 --speciesMass=20 --ekininit=15e3
 """
 #   Bunch length
-warpoptions.parser.add_argument('--bunch_length', dest='Lbunch', type=float, default='50.e-9')
+warpoptions.parser.add_argument('--bunch_length', dest='Lbunch', type=float, default='1e-9')
 #   voltage on the focusing quads
 warpoptions.parser.add_argument('--esq_voltage', dest='Vesq', type=float, default='.01') #850
 #   the total number of RF acceleration gaps (must be a multiple of 2)
@@ -38,6 +38,9 @@ from geometry import ESQ, RF_stack3, Gap, mid_gap
 from helper import gitversion
 import matplotlib.pyplot as plt
 import datetime
+import time
+
+start = time.time()
 
 wp.w3d.solvergeom = wp.w3d.XYZgeom
 wp.top.dt = 5e-11
@@ -66,13 +69,13 @@ datetimestamp = datetime.datetime.now().strftime('%m-%d-%y_%H:%M:%S')
 wp.setup(prefix="injected-mass-{}-num-gaps-{}-date-{}-".format(selectedIons.mass/wp.amu,numRF,datetimestamp), cgmlog= 0)
 
 # --- Set basic beam parameters these should be calculated in mathmatica first
-emittingradius = .25e-3 #0.41065e-3
-ibeaminit = 10e-6 # inital beam current
+emittingradius = .37e-3 #0.41065e-3 Could vary between .25mm and .5mm? (first extraction grid and second extraction grid
+ibeaminit = 10e-6 # inital beam current May vary up to 25e-6
 
 wp.top.a0 = emittingradius
 wp.top.b0 = emittingradius
-wp.top.ap0 = 30e-3#divergence angle
-wp.top.bp0 = 30e-3#divergence angle
+wp.top.ap0 = 15e-3#divergence angle
+wp.top.bp0 = 15e-3#divergence angle
 wp.top.vbeam = .0e0
 wp.top.emit = 9.45E-7 #what is this? Do we need it; it is not being called anywhere here but maybe warp uses it? -MWG
 wp.top.ibeam = ibeaminit
@@ -99,12 +102,12 @@ wp.top.pboundnz = wp.absorb
 wp.top.prwall = .5*wp.mm #this changes where the particles get absorbed. We should find a more elegant way to do this
 
 # --- Set field grid size, this is the width of the window
-wp.w3d.xmmin = -0.02/8.
-wp.w3d.xmmax = +0.02/8.
+wp.w3d.xmmin = -23/14*wp.mm
+wp.w3d.xmmax = 23/14*wp.mm
 wp.w3d.ymmin = -0.02/8.*1.2
 wp.w3d.ymmax = +0.02/8.*1.2
 wp.w3d.zmmin = 0.0
-wp.w3d.zmmax = 53*wp.mm #18 #changes the length of the gist output window
+wp.w3d.zmmax = 53*wp.mm #changes the length of the gist output window
 
 # set grid spacing, this is the number of mesh elements in one window
 wp.w3d.nx = 50.
@@ -221,7 +224,9 @@ for i, bl2s in enumerate(pairwise(zip(distances, energies))):
     Gap(geometry.ESQ_gap)
     E2 = ESQ(voltage=gen_volt_esq(Vesq, True, ESQ_toffset), condid=[ID_ESQ+2, ID_ESQ+3])
     Gap(gaplength)
-
+    #add more ESQs to see the effect
+    
+    
     ESQs.append(E1)
     ESQs.append(E2)
     RFs.append(RF)
@@ -259,7 +264,7 @@ zmax = wp.w3d.zmmax
 zmid = 0.5*(zmax+zmin)
 
 # make a circle to show the beam pipe
-R = 1*wp.mm #beam radius
+R = .5*wp.mm #beam radius
 t = np.linspace(0, 2*np.pi, 100)
 X = R*np.sin(t)
 Y = R*np.cos(t)
@@ -325,20 +330,27 @@ while (wp.top.time < tmax and zmax < zrunmax):
     #cmax adjusts the righthand scale of the voltage, not sure how
 
     #keep track of minimum and maximum birth times of particles
+    '''#only call this after the window starts moving? When does the window start moving?
+    if selectedIons.getz() > drifti: #this is not working
+        t_birth_min = selectedIons.tbirth.min()
+        t_birth_max = selectedIons.tbirth.max()
+        tarray = np.linspace(t_birth_min, t_birth_max, 6)''' #this is not currently working, try without first
+
+    #sort by birthtime (using this while we figure out why above code is not working)
     t_birth_min = selectedIons.tbirth.min()
     t_birth_max = selectedIons.tbirth.max()
     tarray = np.linspace(t_birth_min, t_birth_max, 6)
 
     #mask to sort particles by birthtime
     mask = []
-    for i in range(len(tarray)-1):
+    for i in range(len(tarray)-1): #the length of tarray must be changing overtime which changes the mask which recolors the particles
         m = (selectedIons.tbirth > tarray[i])*(selectedIons.tbirth < tarray[i+1])
         mask.append(m)
 
     #plot particles on top of feild plot, sort by birthtime and color them accordingly
     colors = [wp.red, wp.yellow, wp.green, wp.blue, wp.magenta]
     for m, c in zip(mask, colors):
-        wp.plp(selectedIons.getx()[m], selectedIons.getz()[m], msize=1.0, color = c)
+        wp.plp(selectedIons.getx()[m], selectedIons.getz()[m], msize=1.0, color = c) #the selected ions are changing through time
     wp.limits(zmin, zmax)
     wp.ptitles("Particles and Fields", "Z [m]", "X [m]")
     wp.fma()
@@ -388,6 +400,7 @@ hyrms = selectedIons.hyrms[0]
 hrrms = selectedIons.hrrms[0]
 hpnum = selectedIons.hpnum[0]
 
+print('debug', t.shape, hepsny.shape)
 out = np.stack((t, hepsny, hepsnz, hep6d, hekinz, hekin, hxrms, hyrms, hrrms, hpnum))
 np.save("esqhist.npy", out)
 
@@ -408,7 +421,8 @@ np.save("esqhist.npy", out)
 
 #wp.setup(prefix="injected-mass-{}-num-gaps-{}-date{}-".format(selectedIons.mass/wp.amu,numRF,datetimestamp),cgmlog=0)
 
-f= open("injected-mass-"+str(selectedIons.mass/wp.amu)+"-selected-for-mass-"+str(speciesMass/wp.amu)+".txt","a+")
+with open(f"injected-mass-{selectedIons.mass/wp.amu}-selected-for-mass-{speciesMass/wp.amu}.txt", "a+") as f:
+    f.write(str(numsel))
 
-f.write(str(numsel))
-f.close
+#now_end = time.time()
+#print('Runtime', now_end-start)
