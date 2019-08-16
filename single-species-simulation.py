@@ -373,6 +373,19 @@ wp.plg(numsel, time, color=wp.blue)
 wp.ptitles("Particle Count vs Time", "Time (s)", "Number of Particles")
 wp.fma()
 
+starting_particles = []
+#make an array of starting_particles the same length as numsel
+for i in range(len(numsel)):
+    p = numsel[2]
+    starting_particles.append(p)
+
+#fraction of surviving particles
+f_survive = [i / j for i, j in zip(numsel, starting_particles)]
+
+wp.plg(f_survive, time, color = wp.green)
+wp.ptitles("Fraction of Surviving Particles vs Time", "Time (s)", "Fraction of Surviving Particles")
+wp.fma()
+
 # rms envelope plot
 wp.hpxrms(color=wp.red, titles=0)
 wp.hpyrms(color=wp.blue, titles=0)
