@@ -12,24 +12,26 @@ import warpoptions
 """
 python single-species-simulation.py --esq_voltage=500 --fraction=.8 --speciesMass=20 --ekininit=15e3
 """
-#   Bunch length
+#   bunch length
 warpoptions.parser.add_argument('--bunch_length', dest='Lbunch', type=float, default='1e-9')
 #   voltage on the focusing quads
-warpoptions.parser.add_argument('--esq_voltage', dest='Vesq', type=float, default='.01') #850
-#   the total number of RF acceleration gaps (must be a multiple of 2)
 warpoptions.parser.add_argument('--numRF', dest='numRF', type=int, default='4')
-#   the votage on the RF gaps at the peak of the sinusoid
+#   voltage on the RF gaps at the peak of the sinusoid
 warpoptions.parser.add_argument('--rf_voltage', dest='Vmax', type=float, default='5000') #we can play with this
-#   the fraction of the max voltage at which the selected ions cross the gap
+#   fraction of the max voltage at which the selected ions cross the gap
+warpoptions.parser.add_argument('--esq_voltage', dest='Vesq', type=float, default='.01') #850
+#   total number of RF acceleration gaps (must be a multiple of 2)
 warpoptions.parser.add_argument('--fraction', dest='V_arrival', type=float, default='1') #.8
-#   the mass of the ions currently being accelerated
-warpoptions.parser.add_argument('--mass', dest='current_mass', type=int, default='40')
-#   the mass of the ions that the accelerator is built to select for
+#   mass of the ions being accelerated
 warpoptions.parser.add_argument('--species_mass', dest='speciesMass', type=int, default='40')
-#   the injeciton energy in eV
+#   injeciton energy in eV
 warpoptions.parser.add_argument('--ekininit', dest='ekininit', type=float, default='10e3')
-#   the frequency of the RF
+#   frequency of the RF
 warpoptions.parser.add_argument('--freq', dest='freq', type=float, default='13.56e6') #27e6
+#   emitting radius
+warpoptions.parser.add_argument('--emit', dest='emittingRadius', type=float, default='.25e-3') #.37e-3 #.25
+#   divergence angle
+warpoptions.parser.add_argument('--diva', dest='divergenceAngle', type=float, default='5e-3')
 
 import warp as wp
 import numpy as np
@@ -39,6 +41,9 @@ from helper import gitversion
 import matplotlib.pyplot as plt
 import datetime
 import time
+import math
+import sys
+#import particlescraper
 
 start = time.time()
 
@@ -51,14 +56,16 @@ wp.top.tbirthpid = wp.nextpid()
 
 #set input parameters
 L_bunch = warpoptions.options.Lbunch
-speciesMass = warpoptions.options.speciesMass*wp.amu
-selectedIons = wp.Species(charge_state=1, name='Ar', mass=warpoptions.options.current_mass*wp.amu, color=wp.green)
-ekininit = warpoptions.options.ekininit
-Vesq = warpoptions.options.Vesq
 numRF = warpoptions.options.numRF
 Vmax = warpoptions.options.Vmax #RF voltage
-freq = warpoptions.options.freq #RF freq
+Vesq = warpoptions.options.Vesq
 V_arrival = warpoptions.options.V_arrival #fraction of the total voltage gained across each gap
+speciesMass = warpoptions.options.speciesMass*wp.amu
+selectedIons = wp.Species(charge_state=1, name='Ar', mass=warpoptions.options.speciesMass*wp.amu, color=wp.green)
+ekininit = warpoptions.options.ekininit
+freq = warpoptions.options.freq #RF freq
+emittingRadius = warpoptions.options.emittingRadius
+divergenceAngle = warpoptions.options.divergenceAngle
 
 # --- Invoke setup routine for the plotting (name the cgm output file)
 
@@ -66,18 +73,67 @@ V_arrival = warpoptions.options.V_arrival #fraction of the total voltage gained 
 now = datetime.datetime.now()
 datetimestamp = datetime.datetime.now().strftime('%m-%d-%y_%H:%M:%S')
 
-wp.setup(prefix="injected-mass-{}-num-gaps-{}-date-{}-".format(selectedIons.mass/wp.amu,numRF,datetimestamp), cgmlog= 0)
+#make cgm file name depend on what was changed
 
-# --- Set basic beam parameters these should be calculated in mathmatica first
-emittingradius = .37e-3 #0.41065e-3 Could vary between .25mm and .5mm? (first extraction grid and second extraction grid
+a = b = c = d = e = f = g = 0 #placeholder values to keep track of how many parameters were changed
+
+#find which change was made to record in the file name
+if L_bunch != 1e-9:
+    parameter_name = "L_bunch"
+    change = L_bunch
+    a = 1
+elif numRF != 4:
+    parameter_name = "numRF"
+    change = numRF
+    b = 1
+elif Vmax != 5000:
+    parameter_name = "RF Voltage"
+    change = Vmax
+    c = 1
+elif Vesq != .01:
+    parameter_name = "ESQ Voltage"
+    change = Vesq
+    d = 1
+elif V_arrival != 1:
+    parameter_name = "Fraction of Arrival Voltage"
+    change = V_arrival
+    e = 1
+elif emittingRadius != .25e-3:
+    parameter_name = "Emitting Radius"
+    change = emittingRadius
+    f = 1
+elif divergenceAngle != 5e-3:
+    parameter_name = "Divergence Angle"
+    change = divergenceAngle
+    g = 1
+else:
+    answer = input("You are using the basic parameters, \n y : continue , x : exit ")
+    type(answer)
+    if answer == 'x':
+        answer = False
+        sys.exit()
+    elif answer == 'y':
+        answer = True
+        parameter_name = "All Origional Parameters"
+        change = "null"
+
+total = a + b + c + d + e + f + g
+
+print(f"{total} parameters were changed......{parameter_name} changed to a value of {change}........................................................")
+
+#name files based on date and above parameters
+wp.setup(prefix=f"{parameter_name}__{change}__{datetimestamp}", cgmlog= 0)
+
+# --- Set basic beam parameters, these should be calculated in mathmatica first
+
 ibeaminit = 10e-6 # inital beam current May vary up to 25e-6
 
-wp.top.a0 = emittingradius
-wp.top.b0 = emittingradius
-wp.top.ap0 = 15e-3#divergence angle
-wp.top.bp0 = 15e-3#divergence angle
+wp.top.a0 = emittingRadius
+wp.top.b0 = emittingRadius
+wp.top.ap0 = divergenceAngle
+wp.top.bp0 = divergenceAngle
 wp.top.vbeam = .0e0
-wp.top.emit = 9.45E-7 #what is this? Do we need it; it is not being called anywhere here but maybe warp uses it? -MWG
+wp.top.emit = 9.45E-7
 wp.top.ibeam = ibeaminit
 wp.top.ekin = ekininit
 wp.top.zion = selectedIons.charge_state
@@ -99,7 +155,7 @@ wp.w3d.boundxy = wp.neumann
 # ---   for particles
 wp.top.pbound0 = wp.absorb
 wp.top.pboundnz = wp.absorb
-wp.top.prwall = .5*wp.mm #this changes where the particles get absorbed. We should find a more elegant way to do this
+wp.top.prwall = .5*wp.mm #should use particles scraper for this. Keep a prwall however make it slightly bigger so that the ions can get absorbed by conductors
 
 # --- Set field grid size, this is the width of the window
 wp.w3d.xmmin = -23/14*wp.mm
@@ -186,7 +242,7 @@ energies = [ekininit + V_arrival*Vmax*(i+1) for i in range(numRF)] #(i+1) to sta
 distances = [wp.sqrt(energy*selectedIons.charge/(2*speciesMass))*1/freq for energy in energies] #beta lambda/2
 drifti = 10.05*wp.mm #added to start the particles well before the first RF wafer
 geometry.pos = -0.5*distances[0] - .5*geometry.RF_gap - geometry.RF_thickness + drifti #starting position of particles
-d_mid = geometry.pos + geometry.RF_thickness + .5*geometry.RF_gap #the middle of the first gap
+d_mid = geometry.pos + geometry.RF_thickness + .5*geometry.RF_gap #middle of the first gap
 veloinit = np.sqrt(2*ekininit*selectedIons.charge/speciesMass) #initial velocity of particles
 t_offset = (d_mid - geometry.RF_thickness - .5*geometry.RF_gap)/veloinit #phase offset to account for moving the injection beam farther to the left
 print("TIME OFFSET = {}".format(t_offset)) #not the same as 8e-9
@@ -237,8 +293,8 @@ conductors = wp.sum(ESQs) + wp.sum(RFs) #names all ESQs and RFs conductors in or
 
 velo = np.sqrt(2*ekininit*selectedIons.charge/selectedIons.mass) #used to caluclate tmax
 length = geometry.pos + 2.5*wp.cm #2.5mm added to allow particles to completely pass through last RF gap
-tmax = length/velo #this is used for the maximum time for timesteps to take place
-zrunmax = length #this is used for the maximum distance for timesteps to take place
+tmax = length/velo #this is used for the maximum time for timesteps
+zrunmax = length #this is used for the maximum distance for timesteps
 
 # define the electrodes
 wp.installconductors(conductors)
@@ -246,7 +302,7 @@ wp.installconductors(conductors)
 # --- Recalculate the fields
 wp.fieldsol(-1)
 
-solver.gridmode = 0 #makes the fields oscillate properly at the beginning -MWG
+solver.gridmode = 0 #makes the fields oscillate properly at the beginning
 
 # I want contour plots for levels between 0 and 1kV
 #contours = range(0, int(Vesq), int(Vesq/10))
@@ -269,13 +325,14 @@ t = np.linspace(0, 2*np.pi, 100)
 X = R*np.sin(t)
 Y = R*np.cos(t)
 deltaKE = 10e3
-time = []
+time_time = []
 numsel = []
 KE_select = []
 beamwidth=[]
 energy_time = []
+starting_particles = []
 
-dist = 2.5*wp.mm
+dist = 2.5*wp.mm #why is this here?
 distN = 0
 
 sct = [] #when the particles cross the acceleration gaps
@@ -283,9 +340,10 @@ gap_num_select = 0
 
 geometry.mid_gap
 
+
 while (wp.top.time < tmax and zmax < zrunmax):
     wp.step(10) # each plotting step is 10 timesteps
-    time.append(wp.top.time)
+    time_time.append(wp.top.time)
 
     numsel.append(len(selectedIons.getke()))
     KE_select.append(np.mean(selectedIons.getke()))
@@ -369,20 +427,19 @@ while (wp.top.time < tmax and zmax < zrunmax):
     wp.fma()
 
 # particles in beam plot
-wp.plg(numsel, time, color=wp.blue)
+wp.plg(numsel, time_time, color=wp.blue)
 wp.ptitles("Particle Count vs Time", "Time (s)", "Number of Particles")
 wp.fma()
 
-starting_particles = []
 #make an array of starting_particles the same length as numsel
 for i in range(len(numsel)):
-    p = numsel[2]
+    p = max(numsel)
     starting_particles.append(p)
 
 #fraction of surviving particles
 f_survive = [i / j for i, j in zip(numsel, starting_particles)]
 
-wp.plg(f_survive, time, color = wp.green)
+wp.plg(f_survive, time_time, color = wp.green)
 wp.ptitles("Fraction of Surviving Particles vs Time", "Time (s)", "Fraction of Surviving Particles")
 wp.fma()
 
@@ -394,7 +451,7 @@ wp.ptitles("X(red), Y(blue), R(green)", "Z [m]", "X/Y/R [m]", "")
 wp.fma()
 
 # kinetic energy plot
-wp.plg(KE_select, time, color=wp.blue)
+wp.plg(KE_select, time_time, color=wp.blue)
 wp.ptitles("kinetic energy vs time")
 wp.fma()
 
@@ -413,9 +470,11 @@ hyrms = selectedIons.hyrms[0]
 hrrms = selectedIons.hrrms[0]
 hpnum = selectedIons.hpnum[0]
 
+datetimestamp2 = datetime.datetime.now().strftime('%m-%d-%y')
+
 print('debug', t.shape, hepsny.shape)
 out = np.stack((t, hepsny, hepsnz, hep6d, hekinz, hekin, hxrms, hyrms, hrrms, hpnum))
-np.save("esqhist.npy", out)
+np.save(f"esqhist_{datetimestamp2}.npy", out)
 
 # # --- makes the sin wave phase plot at the end can un-comment if you are interested in this
 # s_phases = ((np.array(sct) + RF_toffset) % (1/freq))
@@ -434,8 +493,9 @@ np.save("esqhist.npy", out)
 
 #wp.setup(prefix="injected-mass-{}-num-gaps-{}-date{}-".format(selectedIons.mass/wp.amu,numRF,datetimestamp),cgmlog=0)
 
-with open(f"injected-mass-{selectedIons.mass/wp.amu}-selected-for-mass-{speciesMass/wp.amu}.txt", "a+") as f:
+with open(f"{parameter_name}__{change}__{datetimestamp}__surviving_particles.txt", "a+") as f:
+    f.write(f"{parameter_name} = {change} \n # timestamp: {datetimestamp} parameters: Length:{L_bunch}_gap:{numRF}_VRF:{Vmax/1000}e{3}_Vesq:{Vesq/1000}_frac:{V_arrival}_emitR:{emittingRadius/.001}e-{3}_divA:{divergenceAngle/(.001)}e-{3} \n")
     f.write(str(numsel))
 
-#now_end = time.time()
-#print('Runtime', now_end-start)
+now_end = time.time()
+print(f'Runtime in seconds is {now_end-start}')
