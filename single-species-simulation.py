@@ -42,7 +42,8 @@ import matplotlib.pyplot as plt
 import datetime
 import time
 import math
-import sys
+import os
+from pathlib import Path
 #import particlescraper
 
 start = time.time()
@@ -72,8 +73,6 @@ divergenceAngle = warpoptions.options.divergenceAngle
 #add a date & timestamp to the cgm file
 now = datetime.datetime.now()
 datetimestamp = datetime.datetime.now().strftime('%m-%d-%y_%H:%M:%S')
-
-#make cgm file name depend on what was changed
 
 a = b = c = d = e = f = g = 0 #placeholder values to keep track of how many parameters were changed
 
@@ -121,8 +120,12 @@ total = a + b + c + d + e + f + g
 
 print(f"{total} parameters were changed......{parameter_name} changed to a value of {change}........................................................")
 
+#make cgm file name depend on what was changed
+
 #name files based on date and above parameters
-wp.setup(prefix=f"{parameter_name}__{change}__{datetimestamp}", cgmlog= 0)
+cgm_name = f"{parameter_name}__{change}__{datetimestamp}"
+
+wp.setup(prefix=f"{cgm_name}", cgmlog= 0)
 
 # --- Set basic beam parameters, these should be calculated in mathmatica first
 
@@ -474,7 +477,11 @@ datetimestamp2 = datetime.datetime.now().strftime('%m-%d-%y')
 
 print('debug', t.shape, hepsny.shape)
 out = np.stack((t, hepsny, hepsnz, hep6d, hekinz, hekin, hxrms, hyrms, hrrms, hpnum))
-np.save(f"esqhist_{datetimestamp2}.npy", out)
+
+#store files in certian folder related to filename
+atap_path = Path(r'/Users/mwgarske/atap-meqalac-simulations')
+
+np.save(f"{atap_path}/{parameter_name}/esqhist_{datetimestamp2}.npy", out)
 
 # # --- makes the sin wave phase plot at the end can un-comment if you are interested in this
 # s_phases = ((np.array(sct) + RF_toffset) % (1/freq))
@@ -497,5 +504,18 @@ with open(f"{parameter_name}__{change}__{datetimestamp}__surviving_particles.txt
     f.write(f"{parameter_name} = {change} \n # timestamp: {datetimestamp} parameters: Length:{L_bunch}_gap:{numRF}_VRF:{Vmax/1000}e{3}_Vesq:{Vesq/1000}_frac:{V_arrival}_emitR:{emittingRadius/.001}e-{3}_divA:{divergenceAngle/(.001)}e-{3} \n")
     f.write(str(numsel))
 
+
 now_end = time.time()
 print(f'Runtime in seconds is {now_end-start}')
+
+#change into the correct directory based off of the parameter change
+if not os.path.isdir(f"{parameter_name}"):
+    #make a new directory
+    os.system(f"mkdir {atap_path}/{parameter_name}")
+    print("The path did not exist, but I have made it")
+
+#move files to their respective folders
+os.system(f"mv {parameter_name}__{change}__{datetimestamp}__surviving_particles.txt {atap_path}/{parameter_name}")
+os.system(f"mv {cgm_name}* {atap_path}/{parameter_name}")
+
+print("<<<<<<<<<<..........All files have been successfully moved..........>>>>>>>>>>")
