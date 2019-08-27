@@ -44,12 +44,14 @@ import time
 import math
 import os
 from pathlib import Path
+import json
+import sys
 #import particlescraper
 
 start = time.time()
 
 wp.w3d.solvergeom = wp.w3d.XYZgeom
-wp.top.dt = 5e-11
+wp.top.dt = 5e-9#5e-11
 
 # --- keep track of when the particles are born
 wp.top.ssnpid = wp.nextpid()
@@ -86,23 +88,23 @@ elif numRF != 4:
     change = numRF
     b = 1
 elif Vmax != 5000:
-    parameter_name = "RF Voltage"
+    parameter_name = "RF_Voltage"
     change = Vmax
     c = 1
 elif Vesq != .01:
-    parameter_name = "ESQ Voltage"
+    parameter_name = "ESQ_Voltage"
     change = Vesq
     d = 1
 elif V_arrival != 1:
-    parameter_name = "Fraction of Arrival Voltage"
+    parameter_name = "Fraction_of_Arrival_Voltage"
     change = V_arrival
     e = 1
 elif emittingRadius != .25e-3:
-    parameter_name = "Emitting Radius"
+    parameter_name = "Emitting_Radius"
     change = emittingRadius
     f = 1
 elif divergenceAngle != 5e-3:
-    parameter_name = "Divergence Angle"
+    parameter_name = "Divergence_Angle"
     change = divergenceAngle
     g = 1
 else:
@@ -113,7 +115,7 @@ else:
         sys.exit()
     elif answer == 'y':
         answer = True
-        parameter_name = "All Origional Parameters"
+        parameter_name = "All_Origional_Parameters"
         change = "null"
 
 total = a + b + c + d + e + f + g
@@ -481,29 +483,63 @@ out = np.stack((t, hepsny, hepsnz, hep6d, hekinz, hekin, hxrms, hyrms, hrrms, hp
 #store files in certian folder related to filename
 atap_path = Path(r'/Users/mwgarske/atap-meqalac-simulations')
 
-np.save(f"{atap_path}/{parameter_name}/esqhist_{datetimestamp2}.npy", out)
 
-# # --- makes the sin wave phase plot at the end can un-comment if you are interested in this
-# s_phases = ((np.array(sct) + RF_toffset) % (1/freq))
-# offset = -.07*Vmax # move down each wave so they are not on top of eachother
-#
-# # the sin wave
-# T = np.linspace(0, 1/freq, 1000)
-# V = Vmax*np.sin(2*np.pi*freq*T)
-#
-# # the dots
-# for i, phase in enumerate(s_phases, 0):
-#     o_Y = Vmax*np.sin(2*np.pi*phase*freq)
-#     plt.plot(T, V+i*offset, "k-")
-#     plt.plot(phase, o_Y+i*offset, 'bo')
-# plt.show()
+#JSON
 
-#wp.setup(prefix="injected-mass-{}-num-gaps-{}-date{}-".format(selectedIons.mass/wp.amu,numRF,datetimestamp),cgmlog=0)
+#change arrays into lists to feed into JSON
 
-with open(f"{parameter_name}__{change}__{datetimestamp}__surviving_particles.txt", "a+") as f:
+fs = list(f_survive)
+sp = list(numsel)
+t = list(time_time)
+ke = list(KE)
+z = list(Z)
+
+#change all values into integers/strings to feed into JSON
+m = max(numsel)
+L = str(L_bunch)
+n = numRF
+Ve = str(Vesq)
+fA = str(V_arrival)
+sM = int(speciesMass)
+eK = int(ekininit)
+fq = int(freq)
+em = str(emittingRadius)
+dA = str(divergenceAngle)
+
+
+json_data = {
+    "max_particles" : m,
+    "fraction_particles" : fs,
+    "surviving_particles" : sp,
+    "time" : t,
+    "kinetic_energy" : ke,
+    "z_values" : z,
+    "parameter_dict": {
+        
+        "Vmax" : Vmax,
+        "L_bunch" : L,
+        "numRF" : n,
+        "Vesq" : Ve,
+        "V_arrival" : fA,
+        "speciesMass" : sM,
+        "ekininit" : eK,
+        "freq" : fq,
+        "emittingRadius" : em,
+        "divergenceAngle" : dA
+
+        }
+    }
+
+#print(json.dumps(json_data, indent=4))
+
+with open(f"{parameter_name}__{change}__{datetimestamp}__surviving_particles.json", "w") as write_file:
+    json.dump(json_data, write_file)
+
+"""print(json.dumps(json_data, indent=4, sort_keys=True))""" #pretty print
+
+"""with open(f"{parameter_name}__{change}__{datetimestamp}__surviving_particles.txt", "a+") as f:
     f.write(f"{parameter_name} = {change} \n # timestamp: {datetimestamp} parameters: Length:{L_bunch}_gap:{numRF}_VRF:{Vmax/1000}e{3}_Vesq:{Vesq/1000}_frac:{V_arrival}_emitR:{emittingRadius/.001}e-{3}_divA:{divergenceAngle/(.001)}e-{3} \n")
-    f.write(str(numsel))
-
+    f.write(str(numsel))""" #not needed now that we are formatting in JSON
 
 now_end = time.time()
 print(f'Runtime in seconds is {now_end-start}')
@@ -513,6 +549,9 @@ if not os.path.isdir(f"{parameter_name}"):
     #make a new directory
     os.system(f"mkdir {atap_path}/{parameter_name}")
     print("The path did not exist, but I have made it")
+
+np.save(f"{atap_path}/{parameter_name}/esqhist_{datetimestamp2}.npy", out)
+#np.save(f"esqhist_{datetimestamp2}.npy", out)
 
 #move files to their respective folders
 os.system(f"mv {parameter_name}__{change}__{datetimestamp}__surviving_particles.txt {atap_path}/{parameter_name}")
