@@ -19,7 +19,7 @@ warpoptions.parser.add_argument('--numRF', dest='numRF', type=int, default='4')
 #   voltage on the RF gaps at the peak of the sinusoid
 warpoptions.parser.add_argument('--rf_voltage', dest='Vmax', type=float, default='5000') #we can play with this
 #   fraction of the max voltage at which the selected ions cross the gap
-warpoptions.parser.add_argument('--esq_voltage', dest='Vesq', type=float, default='.01') #850
+warpoptions.parser.add_argument('--esq_voltage', dest='Vesq', type=float, default='200') #850
 #   total number of RF acceleration gaps (must be a multiple of 2)
 warpoptions.parser.add_argument('--fraction', dest='V_arrival', type=float, default='1') #.8
 #   mass of the ions being accelerated
@@ -46,12 +46,13 @@ import os
 from pathlib import Path
 import json
 import sys
+from warp.particles.extpart import ZCrossingParticles
 #import particlescraper
 
 start = time.time()
 
 wp.w3d.solvergeom = wp.w3d.XYZgeom
-wp.top.dt = 5e-9#5e-11
+wp.top.dt =   5e-9#5e-11 #for short runs try 5e-9 #these are the time steps for the simulation
 
 # --- keep track of when the particles are born
 wp.top.ssnpid = wp.nextpid()
@@ -284,12 +285,20 @@ for i, bl2s in enumerate(pairwise(zip(distances, energies))):
     E1 = ESQ(voltage=gen_volt_esq(Vesq, False, ESQ_toffset), condid=[ID_ESQ, ID_ESQ+1])
     Gap(geometry.ESQ_gap)
     E2 = ESQ(voltage=gen_volt_esq(Vesq, True, ESQ_toffset), condid=[ID_ESQ+2, ID_ESQ+3])
+    #can I just add more of these to see what happens?
+    Gap(geometry.ESQ_gap)#adds a gap between the two sets of ESQs maybe could change this to an arbitrary amount?
+    E3 = ESQ(voltage=gen_volt_esq(Vesq, False, ESQ_toffset), condid=[ID_ESQ+4, ID_ESQ+5])
+    Gap(geometry.ESQ_gap)
+    E4 = ESQ(voltage=gen_volt_esq(Vesq, True, ESQ_toffset), condid=[ID_ESQ+6, ID_ESQ+7])
+    
     Gap(gaplength)
     #add more ESQs to see the effect
     
     
     ESQs.append(E1)
     ESQs.append(E2)
+    ESQs.append(E3)
+    ESQs.append(E4)
     RFs.append(RF)
     ID_ESQ += 4
     ID_RF += 3
@@ -314,11 +323,13 @@ solver.gridmode = 0 #makes the fields oscillate properly at the beginning
 
 wp.winon(xon=0)
 
-# some plots of the geometry
-wp.pfzx(fill=1, filled=1, plotphi=0)
-wp.fma()
-wp.pfzx(fill=1, filled=1, plotphi=1)
-wp.fma()
+# Plots conductors and contours of electrostatic potential in the Z-X plane
+
+wp.pfzx(fill=1, filled=1, plotphi=0) #does not plot contours of potential
+wp.fma() #first frame in cgm file
+
+wp.pfzx(fill=1, filled=1, plotphi=1) #plots contours of potential
+wp.fma() #second frame in cgm file
 
 zmin = wp.w3d.zmmin
 zmax = wp.w3d.zmmax
@@ -345,6 +356,13 @@ gap_num_select = 0
 
 geometry.mid_gap
 
+# -- Record when Particles cross a certian Z value
+targetz = geometry.end_accel_gaps[-1]  #Z at the end of the last gap
+
+print(geometry.end_accel_gaps)
+print(f"....................The target z is: {targetz}...................")
+
+targetz_particles = ZCrossingParticles(zz=targetz, laccumulate=1)
 
 while (wp.top.time < tmax and zmax < zrunmax):
     wp.step(10) # each plotting step is 10 timesteps
@@ -386,7 +404,7 @@ while (wp.top.time < tmax and zmax < zrunmax):
         while KEmax-KEmin > deltaKE:
             deltaKE += 10e3
     wp.ylimits(0.95*KEmin, 0.95*KEmin+deltaKE) #is this fraction supposed to match with V_arrival?
-    wp.fma()
+    wp.fma() #third frame in cgm file, repeating
 
     # the side view field plot
     wp.pfzx(fill=1, filled=1, plotselfe=True, comp='E', titles=0, cmin=0, cmax=1.2*Vmax/geometry.RF_gap)
@@ -416,7 +434,7 @@ while (wp.top.time < tmax and zmax < zrunmax):
         wp.plp(selectedIons.getx()[m], selectedIons.getz()[m], msize=1.0, color = c) #the selected ions are changing through time
     wp.limits(zmin, zmax)
     wp.ptitles("Particles and Fields", "Z [m]", "X [m]")
-    wp.fma()
+    wp.fma() #fourth frame in cgm file, repeating
 
     # keep track of when the beam crosses the gaps (for the phase plot at the end)
     if gap_num_select < len(distances) and len(selectedIons.getz() > 0):
@@ -429,11 +447,16 @@ while (wp.top.time < tmax and zmax < zrunmax):
     wp.limits(-R, R)
     wp.ylimits(-R, R)
     wp.plg(Y, X, type="dash")
-    wp.fma()
+    wp.fma() #fifth fram in the cgm file, repeating
 
 # particles in beam plot
 wp.plg(numsel, time_time, color=wp.blue)
 wp.ptitles("Particle Count vs Time", "Time (s)", "Number of Particles")
+wp.fma() #fourth to last frame in cgm file
+
+#plot lost particles with respect to Z
+wp.plg(selectedIons.lostpars,wp.top.zplmesh+wp.top.zbeam)
+wp.ptitles("Particles Lost vs Z", "Z", "Number of Particles Lost")
 wp.fma()
 
 #make an array of starting_particles the same length as numsel
@@ -444,22 +467,34 @@ for i in range(len(numsel)):
 #fraction of surviving particles
 f_survive = [i / j for i, j in zip(numsel, starting_particles)]
 
+#want the particles that just make it through the last RF, need position of RF. This way we can see how many particles made it through the last important component of the accelerator
+#last_f_survive =
+
 wp.plg(f_survive, time_time, color = wp.green)
 wp.ptitles("Fraction of Surviving Particles vs Time", "Time (s)", "Fraction of Surviving Particles")
-wp.fma()
+wp.fma() # third to last frame in cgm file
 
 # rms envelope plot
 wp.hpxrms(color=wp.red, titles=0)
 wp.hpyrms(color=wp.blue, titles=0)
 wp.hprrms(color=wp.green, titles=0)
 wp.ptitles("X(red), Y(blue), R(green)", "Z [m]", "X/Y/R [m]", "")
-wp.fma()
+wp.fma() #second to last frame in cgm file
 
 # kinetic energy plot
 wp.plg(KE_select, time_time, color=wp.blue)
 wp.ptitles("kinetic energy vs time")
-wp.fma()
+wp.fma() #last frame in cgm file
 
+#Zcrossing Particles Plot
+x = targetz_particles.getx() #this is the x coordinate of the particles that made it through target
+#t = targetz_particles.getvz()
+#print(x)
+#print(t)
+"""wp.plg(t, x, color=wp.green)
+wp.ptitles("Spread of survived particles in the x direction")
+wp.fma() #last frame -1 in file
+"""
 # save history information, so that we can plot all cells in one plot
 t = np.trim_zeros(wp.top.thist, 'b')
 hepsny = selectedIons.hepsny[0]
@@ -480,22 +515,16 @@ datetimestamp2 = datetime.datetime.now().strftime('%m-%d-%y')
 print('debug', t.shape, hepsny.shape)
 out = np.stack((t, hepsny, hepsnz, hep6d, hekinz, hekin, hxrms, hyrms, hrrms, hpnum))
 
-#store files in certian folder related to filename
-atap_path = Path(r'/Users/mwgarske/atap-meqalac-simulations')
+#uncomment this to store files in certian folder related to filename
+#atap_path = Path(r'/Users/mwgarske/atap-meqalac-simulations') #insert your path here
 
-
-#JSON
-
-#change arrays into lists to feed into JSON
-
-fs = list(f_survive)
-sp = list(numsel)
+#Convert data into JSON serializable..............................................
+nsp = len(x)
 t = list(time_time)
 ke = list(KE)
 z = list(Z)
-
-#change all values into integers/strings to feed into JSON
 m = max(numsel)
+fs = len(x)/m
 L = str(L_bunch)
 n = numRF
 Ve = str(Vesq)
@@ -506,11 +535,10 @@ fq = int(freq)
 em = str(emittingRadius)
 dA = str(divergenceAngle)
 
-
 json_data = {
-    "max_particles" : m,
     "fraction_particles" : fs,
-    "surviving_particles" : sp,
+    "max_particles" : m,
+    "number_surviving_particles" : nsp,
     "time" : t,
     "kinetic_energy" : ke,
     "z_values" : z,
@@ -527,34 +555,32 @@ json_data = {
         "emittingRadius" : em,
         "divergenceAngle" : dA
 
-        }
-    }
-
-#print(json.dumps(json_data, indent=4))
+}
+}
 
 with open(f"{parameter_name}__{change}__{datetimestamp}__surviving_particles.json", "w") as write_file:
-    json.dump(json_data, write_file)
+    json.dump(json_data, write_file, indent=2)
 
-"""print(json.dumps(json_data, indent=4, sort_keys=True))""" #pretty print
+#open the file that was just created
+with open (f"{parameter_name}__{change}__{datetimestamp}__surviving_particles.json") as f:
+    data = json.load(f)
+    print(data['number_surviving_particles'])
 
-"""with open(f"{parameter_name}__{change}__{datetimestamp}__surviving_particles.txt", "a+") as f:
-    f.write(f"{parameter_name} = {change} \n # timestamp: {datetimestamp} parameters: Length:{L_bunch}_gap:{numRF}_VRF:{Vmax/1000}e{3}_Vesq:{Vesq/1000}_frac:{V_arrival}_emitR:{emittingRadius/.001}e-{3}_divA:{divergenceAngle/(.001)}e-{3} \n")
-    f.write(str(numsel))""" #not needed now that we are formatting in JSON
+#........................................................................
+#os.system("python3 continuous_flag.py")
 
 now_end = time.time()
 print(f'Runtime in seconds is {now_end-start}')
 
-#change into the correct directory based off of the parameter change
-if not os.path.isdir(f"{parameter_name}"):
+#uncomment this to change into the correct directory based off of the parameter change
+#if not os.path.isdir(f"{parameter_name}"):
     #make a new directory
-    os.system(f"mkdir {atap_path}/{parameter_name}")
-    print("The path did not exist, but I have made it")
+    #os.system(f"mkdir {atap_path}/{parameter_name}")
+    #print("The path did not exist, but I have made it")
 
-np.save(f"{atap_path}/{parameter_name}/esqhist_{datetimestamp2}.npy", out)
-#np.save(f"esqhist_{datetimestamp2}.npy", out)
+np.save(f"{parameter_name}_esqhist_{datetimestamp2}.npy", out)
 
-#move files to their respective folders
-os.system(f"mv {parameter_name}__{change}__{datetimestamp}__surviving_particles.txt {atap_path}/{parameter_name}")
-os.system(f"mv {cgm_name}* {atap_path}/{parameter_name}")
-
-print("<<<<<<<<<<..........All files have been successfully moved..........>>>>>>>>>>")
+#uncomment to move files to their respective folders
+#os.system(f"mv {cgm_name}* {atap_path}/{parameter_name}")
+#os.system(f"mv .json* {atap_path}/{parameter_name}")
+#os.system(f"mv {atap_path}/parameter_name}/esqhist_{datetimestamp2}.npy", out)
