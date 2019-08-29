@@ -18,6 +18,9 @@ ESQ_gap = .7*wp.mm #how is this calculated?
 pos = 0
 mid_gap = []
 
+end_accel_gaps = []
+
+
 def Gap(dist=500*wp.um): #why is this 500 um, just a default value?
     """Vacuum gap, e.g. between wafers"""
     global pos
@@ -92,7 +95,7 @@ def RF_stack3(condid, betalambda_half=200*wp.um, gap=RF_gap, voltage=0):
 
     """
 
-    global pos, mid_gap
+    global pos, mid_gap, end_accel_gaps
     condidA, condidB, condidC = condid
 
     r_beam = .5*wp.mm #aperature radius -MWG
@@ -103,10 +106,11 @@ def RF_stack3(condid, betalambda_half=200*wp.um, gap=RF_gap, voltage=0):
                 #why is there 50um being added to the rf thickness below?
     Beam = wp.ZCylinder(r_beam, RF_thickness + 50*wp.um, zcent=wafercenter, voltage=0, condid=condidA)
     Ground1 = Frame-Beam
-    pos += RF_thickness + gap
-
+    pos += RF_thickness + gap #the position of the end of the acceleration gaps
+    
     print("middle of first gap " +str(pos-.5*gap))
-    mid_gap.append(pos-0.5*gap) #-MWG this creates an array that holds all of the middle of the gaps for future use
+    mid_gap.append(pos-0.5*gap) #-array for middle of acceleration gaps for future use
+    end_accel_gaps.append(pos) #array of the end of gaps for future use
     
     length = betalambda_half-gap
     print("betalambda_half = {}".format(betalambda_half))
@@ -117,9 +121,10 @@ def RF_stack3(condid, betalambda_half=200*wp.um, gap=RF_gap, voltage=0):
     Beam = wp.ZCylinder(r_beam, length + 500*wp.um, zcent=bodycenter, voltage=voltage, condid=condidB)
     body1 = Frame-Beam
     pos += length + gap
-
+    
     print("middle of second gap " +str(pos-.5*gap))
     mid_gap.append(pos-0.5*gap)
+    end_accel_gaps.append(pos)
     
     wafercenter = pos + 0.5*RF_thickness
     Frame = wp.Box(framelength, framelength, RF_thickness, voltage=0,
