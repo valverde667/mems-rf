@@ -12,24 +12,34 @@ import warpoptions
 """
 python single-species-simulation.py --esq_voltage=500 --fraction=.8 --speciesMass=20 --ekininit=15e3
 """
+
 #   bunch length
 warpoptions.parser.add_argument('--bunch_length', dest='Lbunch', type=float, default='1e-9')
-#   voltage on the focusing quads
+
+#   number of acceleration gaps (must be a multiple of 2)
 warpoptions.parser.add_argument('--numRF', dest='numRF', type=int, default='4')
+
 #   voltage on the RF gaps at the peak of the sinusoid
-warpoptions.parser.add_argument('--rf_voltage', dest='Vmax', type=float, default='5000') #we can play with this
-#   fraction of the max voltage at which the selected ions cross the gap
-warpoptions.parser.add_argument('--esq_voltage', dest='Vesq', type=float, default='200') #850
-#   total number of RF acceleration gaps (must be a multiple of 2)
+warpoptions.parser.add_argument('--rf_voltage', dest='Vmax', type=float, default='8000') #will be between 5000 and 10000 most likely 8000
+
+# voltage on the Vesq
+warpoptions.parser.add_argument('--esq_voltage', dest='Vesq', type=float, default='.01') #850
+
+#   fraction of the max voltage at which the selected ions cross
 warpoptions.parser.add_argument('--fraction', dest='V_arrival', type=float, default='1') #.8
+
 #   mass of the ions being accelerated
 warpoptions.parser.add_argument('--species_mass', dest='speciesMass', type=int, default='40')
+
 #   injeciton energy in eV
 warpoptions.parser.add_argument('--ekininit', dest='ekininit', type=float, default='10e3')
+
 #   frequency of the RF
 warpoptions.parser.add_argument('--freq', dest='freq', type=float, default='13.56e6') #27e6
+
 #   emitting radius
 warpoptions.parser.add_argument('--emit', dest='emittingRadius', type=float, default='.25e-3') #.37e-3 #.25
+
 #   divergence angle
 warpoptions.parser.add_argument('--diva', dest='divergenceAngle', type=float, default='5e-3')
 
@@ -47,12 +57,12 @@ from pathlib import Path
 import json
 import sys
 from warp.particles.extpart import ZCrossingParticles
-#import particlescraper
+from warp.particles import particlescraper
 
 start = time.time()
 
 wp.w3d.solvergeom = wp.w3d.XYZgeom
-wp.top.dt =   5e-9#5e-11 #for short runs try 5e-9 #these are the time steps for the simulation
+wp.top.dt =   5e-11#5e-11 #for short runs try 5e-9 #these are the time steps for the simulation
 
 # --- keep track of when the particles are born
 wp.top.ssnpid = wp.nextpid()
@@ -88,7 +98,7 @@ elif numRF != 4:
     parameter_name = "numRF"
     change = numRF
     b = 1
-elif Vmax != 5000:
+elif Vmax != 8000:
     parameter_name = "RF_Voltage"
     change = Vmax
     c = 1
@@ -121,9 +131,8 @@ else:
 
 total = a + b + c + d + e + f + g
 
-print(f"{total} parameters were changed......{parameter_name} changed to a value of {change}........................................................")
-
 #make cgm file name depend on what was changed
+print(f"{total} parameters were changed......{parameter_name} changed to a value of {change}........................................................")
 
 #name files based on date and above parameters
 cgm_name = f"{parameter_name}__{change}__{datetimestamp}"
@@ -161,7 +170,7 @@ wp.w3d.boundxy = wp.neumann
 # ---   for particles
 wp.top.pbound0 = wp.absorb
 wp.top.pboundnz = wp.absorb
-wp.top.prwall = .5*wp.mm #should use particles scraper for this. Keep a prwall however make it slightly bigger so that the ions can get absorbed by conductors
+wp.top.prwall = 1*wp.mm #.5 #should use particles scraper for this. Keep a prwall however make it slightly bigger so that the ions can get absorbed by conductors
 
 # --- Set field grid size, this is the width of the window
 wp.w3d.xmmin = -23/14*wp.mm
@@ -169,7 +178,7 @@ wp.w3d.xmmax = 23/14*wp.mm
 wp.w3d.ymmin = -0.02/8.*1.2
 wp.w3d.ymmax = +0.02/8.*1.2
 wp.w3d.zmmin = 0.0
-wp.w3d.zmmax = 53*wp.mm #changes the length of the gist output window
+wp.w3d.zmmax = 53*wp.mm #changes the length of the gist output window, should this depend on something? Maybe this should be the spread of the last particles in the simulation to the end of the last acceleration gap, will all the particles make it through
 
 # set grid spacing, this is the number of mesh elements in one window
 wp.w3d.nx = 50.
@@ -285,11 +294,12 @@ for i, bl2s in enumerate(pairwise(zip(distances, energies))):
     E1 = ESQ(voltage=gen_volt_esq(Vesq, False, ESQ_toffset), condid=[ID_ESQ, ID_ESQ+1])
     Gap(geometry.ESQ_gap)
     E2 = ESQ(voltage=gen_volt_esq(Vesq, True, ESQ_toffset), condid=[ID_ESQ+2, ID_ESQ+3])
-    #can I just add more of these to see what happens?
-    Gap(geometry.ESQ_gap)#adds a gap between the two sets of ESQs maybe could change this to an arbitrary amount?
-    E3 = ESQ(voltage=gen_volt_esq(Vesq, False, ESQ_toffset), condid=[ID_ESQ+4, ID_ESQ+5])
-    Gap(geometry.ESQ_gap)
-    E4 = ESQ(voltage=gen_volt_esq(Vesq, True, ESQ_toffset), condid=[ID_ESQ+6, ID_ESQ+7])
+    
+    #uncomment below if want to add more esq's
+    #Gap(geometry.ESQ_gap)#adds a gap between the two sets of ESQs maybe could change this to an arbitrary amount?
+    #E3 = ESQ(voltage=gen_volt_esq(Vesq, False, ESQ_toffset), condid=[ID_ESQ+4, ID_ESQ+5])
+    #Gap(geometry.ESQ_gap)
+    #E4 = ESQ(voltage=gen_volt_esq(Vesq, True, ESQ_toffset), condid=[ID_ESQ+6, ID_ESQ+7])
     
     Gap(gaplength)
     #add more ESQs to see the effect
@@ -297,13 +307,19 @@ for i, bl2s in enumerate(pairwise(zip(distances, energies))):
     
     ESQs.append(E1)
     ESQs.append(E2)
-    ESQs.append(E3)
-    ESQs.append(E4)
+    
+    #uncomment below if more ESQs added
+    #ESQs.append(E3)
+    #ESQs.append(E4)
+    
     RFs.append(RF)
     ID_ESQ += 4
     ID_RF += 3
 
 conductors = wp.sum(ESQs) + wp.sum(RFs) #names all ESQs and RFs conductors in order to feed into warp
+
+#-- create scraper and feed conductors
+scraper = wp.ParticleScraper(conductors)
 
 velo = np.sqrt(2*ekininit*selectedIons.charge/selectedIons.mass) #used to caluclate tmax
 length = geometry.pos + 2.5*wp.cm #2.5mm added to allow particles to completely pass through last RF gap
@@ -348,7 +364,7 @@ beamwidth=[]
 energy_time = []
 starting_particles = []
 
-dist = 2.5*wp.mm #why is this here?
+dist = 2.5*wp.mm #why is this here? Used below to determine when to record time
 distN = 0
 
 sct = [] #when the particles cross the acceleration gaps
@@ -381,12 +397,15 @@ while (wp.top.time < tmax and zmax < zrunmax):
         wp.top.inject = 0
 
     Z = selectedIons.getz()
-    if Z.mean() > zmid:
-        wp.top.vbeamfrm = selectedIons.getvz().mean()
-        solver.gridmode = 0
+
+    if Z.mean() > zmid: # if the mean distance the particles have travelled is greater than the middle of the frame do this:
+        wp.top.vbeamfrm = selectedIons.getvz().mean() #the velocity of the frame is equal to the mean velocity of the ions?
+        solver.gridmode = 0 #oscillates the feilds, not sure if this is needed since we already called this at the beginning of the simulation
 
     # record time when we cross certain points
-    if Z.mean() > dist + np.cumsum(distances)[distN]:
+    if Z.mean() > drifti + np.cumsum(distances)[distN]: #np.cumsum(distances) adds all the bl/2's together over time
+    # if the mean distance of the particles is greater than the arbitrary distance added to the summation of distances times 0+i then append the time
+        #keep adding the distances to the left side of the equation and the equation may become not true at some point? took this out: dist +      to see what will happen to the simulation without it
         energy_time.append(wp.top.time)
         distN += 1
 
