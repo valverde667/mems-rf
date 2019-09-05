@@ -62,7 +62,7 @@ from warp.particles import particlescraper
 start = time.time()
 
 wp.w3d.solvergeom = wp.w3d.XYZgeom
-wp.top.dt =   5e-11#5e-11 #for short runs try 5e-9 #these are the time steps for the simulation
+wp.top.dt =   5e-9#5e-11 #for short runs try 5e-9 #these are the time steps for the simulation
 
 # --- keep track of when the particles are born
 wp.top.ssnpid = wp.nextpid()
@@ -535,7 +535,7 @@ print('debug', t.shape, hepsny.shape)
 out = np.stack((t, hepsny, hepsnz, hep6d, hekinz, hekin, hxrms, hyrms, hrrms, hpnum))
 
 #uncomment this to store files in certian folder related to filename
-#atap_path = Path(r'/Users/mwgarske/atap-meqalac-simulations') #insert your path here
+atap_path = Path(r'/Users/mwgarske/atap-meqalac-simulations') #insert your path here
 
 #Convert data into JSON serializable..............................................
 nsp = len(x)
@@ -553,14 +553,25 @@ eK = int(ekininit)
 fq = int(freq)
 em = str(emittingRadius)
 dA = str(divergenceAngle)
-
+pt = list(numsel)
+sa = list(geometry.start_accel_gaps)
+ea = list(geometry.end_accel_gaps)
+se = list(geometry.start_ESQ_gaps)
+ee = list(geometry.end_ESQ_gaps)
 json_data = {
-    "fraction_particles" : fs,
-    "max_particles" : m,
-    "number_surviving_particles" : nsp,
-    "time" : t,
-    "kinetic_energy" : ke,
-    "z_values" : z,
+    "data" : {
+        "fraction_particles" : fs,
+        "max_particles" : m,
+        "number_surviving_particles" : nsp,
+        "time" : t,
+        "kinetic_energy" : ke,
+        "z_values" : z,
+        "particles_overtime" : pt,
+        "RF_start" : sa,
+        "RF_end" : ea,
+        "ESQ_start" : se,
+        "ESQ_end" : ee,
+    },
     "parameter_dict": {
         
         "Vmax" : Vmax,
@@ -583,23 +594,23 @@ with open(f"{parameter_name}__{change}__{datetimestamp}__surviving_particles.jso
 #open the file that was just created
 with open (f"{parameter_name}__{change}__{datetimestamp}__surviving_particles.json") as f:
     data = json.load(f)
-    print(data['number_surviving_particles'])
+    print(data['data.number_surviving_particles'])
 
 #........................................................................
 #os.system("python3 continuous_flag.py")
 
 now_end = time.time()
-print(f'Runtime in seconds is {now_end-start}')
+print(f"Runtime in seconds is {now_end-start}")
 
 #uncomment this to change into the correct directory based off of the parameter change
-#if not os.path.isdir(f"{parameter_name}"):
+if not os.path.isdir(f"{parameter_name}"):
     #make a new directory
-    #os.system(f"mkdir {atap_path}/{parameter_name}")
-    #print("The path did not exist, but I have made it")
+    os.system(f"mkdir {atap_path}/{parameter_name}")
+    print("The path did not exist, but I have made it")
 
 np.save(f"{parameter_name}_esqhist_{datetimestamp2}.npy", out)
 
 #uncomment to move files to their respective folders
-#os.system(f"mv {cgm_name}* {atap_path}/{parameter_name}")
-#os.system(f"mv .json* {atap_path}/{parameter_name}")
-#os.system(f"mv {atap_path}/parameter_name}/esqhist_{datetimestamp2}.npy", out)
+os.system(f"mv {cgm_name}* {atap_path}/{parameter_name}")
+os.system(f"mv .json* {atap_path}/{parameter_name}")
+os.system(f"mv {atap_path}/{parameter_name}/esqhist_{datetimestamp2}.npy", out)
