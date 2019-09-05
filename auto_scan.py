@@ -1,7 +1,7 @@
 #x!/usr/local/bin/python3
 """
     Usage:
-    auto_scan [options] <parameter> <start> <end> <power> <N>
+    auto_scan [options] <parameter> <start> <end> <|power|> <N>
     
     Options:
     
