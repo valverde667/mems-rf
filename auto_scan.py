@@ -14,7 +14,7 @@
         species_mass 40
         ekininit 10e3
         freq 13.56e3-27e3
-        emit .25e-3-.5e-3 ~.37e-3
+        emit 25e-5-5e-4 ~37e-5
         diva 5e-3-29e-3
     
     """
@@ -45,4 +45,4 @@ parameter_list = np.arange(float(start), float(end), float(iterations)) #stops b
 
 for i, x in enumerate(parameter_list):
     print(f"........This is the start of parameter change {i+1} for {parameter_name}........")
-    os.system(f"python3 single-species-simulation.py --{parameter_name}={x}e{power}")
+    os.system(f"python3 single-species-simulation.py --{parameter_name}={x}e-{power}")
