@@ -13,12 +13,16 @@ ESQ_wafer_length = 625*wp.um #
 RF_thickness = 625*wp.um
 RF_gap = 2000*wp.um #acceleration gap
 # esq
-ESQ_gap = .7*wp.mm #how is this calculated?
+ESQ_gap = .7*wp.mm
 # globals
 pos = 0
 mid_gap = []
 
 end_accel_gaps = []
+start_accel_gaps = []
+start_ESQ_gaps = []
+end_ESQ_gaps = []
+
 
 
 def Gap(dist=500*wp.um): #why is this 500 um, just a default value?
@@ -43,6 +47,7 @@ def ESQ(voltage, condid):
     X = (15/14)*wp.mm#2*wp.mm  #X offset for electrodes
 
     print("--- ESQ starts at: ", pos)
+    start_ESQ_gaps.append(pos) #array of start of acceleration gaps for future use
     print("--- ESQ voltage: ", voltage)
     zcenter = pos + 0.5*ESQ_wafer_length
 
@@ -83,6 +88,7 @@ def ESQ(voltage, condid):
     electrodeD = element(voltage=neg_voltage, condid=condidB, rotation=270)
 
     pos += ESQ_wafer_length
+    end_ESQ_gaps.append(pos) #array of end of ESQ gaps for future use
     print("--- ESQ ends at: ", pos)
 
     return electrodeA + electrodeB + electrodeC + electrodeD
@@ -109,8 +115,9 @@ def RF_stack3(condid, betalambda_half=200*wp.um, gap=RF_gap, voltage=0):
     pos += RF_thickness + gap #the position of the end of the acceleration gaps
     
     print("middle of first gap " +str(pos-.5*gap))
-    mid_gap.append(pos-0.5*gap) #-array for middle of acceleration gaps for future use
-    end_accel_gaps.append(pos) #array of the end of gaps for future use
+    mid_gap.append(pos-0.5*gap) #array for middle of acceleration gaps for future use
+    end_accel_gaps.append(pos) #array of the end of acceleration gaps for future use
+    start_accel_gaps.append(pos-gap) #array of start of acceleration gaps for future use
     
     length = betalambda_half-gap
     print("betalambda_half = {}".format(betalambda_half))
@@ -125,6 +132,7 @@ def RF_stack3(condid, betalambda_half=200*wp.um, gap=RF_gap, voltage=0):
     print("middle of second gap " +str(pos-.5*gap))
     mid_gap.append(pos-0.5*gap)
     end_accel_gaps.append(pos)
+    start_accel_gaps.append(pos-gap) #array of start of acceleration gaps for future use
     
     wafercenter = pos + 0.5*RF_thickness
     Frame = wp.Box(framelength, framelength, RF_thickness, voltage=0,
