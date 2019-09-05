@@ -1,21 +1,21 @@
 #x!/usr/local/bin/python3
 """
     Usage:
-    auto_scan [options] <parameter> <start> <end> <N>
+    auto_scan [options] <parameter> <start> <end> <power> <N>
     
     Options:
     
     <parameter>
-        bunch_length
-        numRF
-        rf_voltage
-        esq_voltage
-        fraction
-        species_mass
-        ekininit
-        freq
-        emit
-        diva
+        bunch_length 1e-9
+        numRF 4
+        rf_voltage 5000-10000 ~8000
+        esq_voltage OFF=.01 ON=100-850
+        fraction .8-1 ~.8
+        species_mass 40
+        ekininit 10e3
+        freq 13.56e3-27e3
+        emit .25e-3-.5e-3 ~.37e-3
+        diva 5e-3-29e-3
     
     """
 
@@ -31,6 +31,7 @@ print(commands)
 parameter_name = commands['<parameter>']
 start = commands['<start>']
 end = commands['<end>']
+power = commands['<power>']
 iterations = commands['<N>']
 
 """if not parameter_name == 'bunch_length' or 'numRF' or 'rf_voltage' or 'esq_voltage'  or    'fraction' or 'species_mass' or 'ekininit' or 'freq' or 'emit' or 'diva':
@@ -44,4 +45,4 @@ parameter_list = np.arange(float(start), float(end), float(iterations)) #stops b
 
 for i, x in enumerate(parameter_list):
     print(f"........This is the start of parameter change {i+1} for {parameter_name}........")
-    os.system(f"python3 single-species-simulation.py --{parameter_name}={x}e-9")
+    os.system(f"python3 single-species-simulation.py --{parameter_name}={x}e{power}")
