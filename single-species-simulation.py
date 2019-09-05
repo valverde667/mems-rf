@@ -118,7 +118,7 @@ elif divergenceAngle != 5e-3:
     parameter_name = "Divergence_Angle"
     change = divergenceAngle
     g = 1
-else:
+"""else:
     answer = input("You are using the basic parameters, \n y : continue , x : exit ")
     type(answer)
     if answer == 'x':
@@ -127,7 +127,7 @@ else:
     elif answer == 'y':
         answer = True
         parameter_name = "All_Origional_Parameters"
-        change = "null"
+    change = "null"""" #Check to see if origional parameters are being used
 
 total = a + b + c + d + e + f + g
 
@@ -535,7 +535,7 @@ print('debug', t.shape, hepsny.shape)
 out = np.stack((t, hepsny, hepsnz, hep6d, hekinz, hekin, hxrms, hyrms, hrrms, hpnum))
 
 #uncomment this to store files in certian folder related to filename
-atap_path = Path(r'/Users/mwgarske/atap-meqalac-simulations') #insert your path here
+#atap_path = Path(r'/Users/mwgarske/atap-meqalac-simulations') #insert your path here
 
 #Convert data into JSON serializable..............................................
 nsp = len(x)
@@ -603,14 +603,14 @@ now_end = time.time()
 print(f"Runtime in seconds is {now_end-start}")
 
 #uncomment this to change into the correct directory based off of the parameter change
-if not os.path.isdir(f"{parameter_name}"):
+"""if not os.path.isdir(f"{parameter_name}"):
     #make a new directory
     os.system(f"mkdir {atap_path}/{parameter_name}")
-    print("The path did not exist, but I have made it")
+    print("The path did not exist, but I have made it")"""
 
 np.save(f"{parameter_name}_esqhist_{datetimestamp2}.npy", out)
 
 #uncomment to move files to their respective folders
-os.system(f"mv {cgm_name}* {atap_path}/{parameter_name}")
+"""os.system(f"mv {cgm_name}* {atap_path}/{parameter_name}")
 os.system(f"mv .json* {atap_path}/{parameter_name}")
-os.system(f"mv {atap_path}/{parameter_name}/esqhist_{datetimestamp2}.npy", out)
+os.system(f"mv {atap_path}/{parameter_name}/esqhist_{datetimestamp2}.npy", out)"""
