@@ -105,12 +105,12 @@ def RF_stack3(condid, betalambda_half=200*wp.um, gap=RF_gap, voltage=0):
     global pos, mid_gap, end_accel_gaps
     condidA, condidB, condidC, condidD = condid
 
-    r_beam = .5*wp.mm #aperature radius
+    r_beam = (1.067)/2*wp.mm #aperature radius
 
     wafercenter = pos + 0.5*RF_thickness
     print(f"The first wafer center is = {wafercenter}")
     
-    r_copper = 1.5*wp.mm
+    r_copper = (2.5/2)*wp.mm
     
     #First RF wafer grounded ------------------------------------------------------------------------------------
 
