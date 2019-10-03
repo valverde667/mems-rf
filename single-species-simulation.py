@@ -10,17 +10,17 @@ import warpoptions
 #   only specify the parameters you want to change from their default values
 #   the input will look like:
 """
-python single-species-simulation.py --esq_voltage=500 --fraction=.8 --speciesMass=20 --ekininit=15e3
+python3 single-species-simulation.py --esq_voltage=500 --fraction=.8 --speciesMass=20 --ekininit=15e3
 """
 
 #   bunch length
-warpoptions.parser.add_argument('--bunch_length', dest='Lbunch', type=float, default='1e-9')
+warpoptions.parser.add_argument('--bunch_length', dest='Lbunch', type=float, default='2e-9')
 
 #   number of acceleration gaps (must be a multiple of 2)
-warpoptions.parser.add_argument('--numRF', dest='numRF', type=int, default='4')
+warpoptions.parser.add_argument('--numRF', dest='numRF', type=int, default='2')
 
 #   voltage on the RF gaps at the peak of the sinusoid
-warpoptions.parser.add_argument('--rf_voltage', dest='Vmax', type=float, default='8000') #will be between 5000 and 10000 most likely 8000
+warpoptions.parser.add_argument('--rf_voltage', dest='Vmax', type=float, default='10000') #will be between 5000 and 10000 most likely 8000
 
 # voltage on the Vesq
 warpoptions.parser.add_argument('--esq_voltage', dest='Vesq', type=float, default='.01') #850
@@ -46,7 +46,8 @@ warpoptions.parser.add_argument('--diva', dest='divergenceAngle', type=float, de
 import warp as wp
 import numpy as np
 import geometry
-from geometry import ESQ, RF_stack3, Gap, mid_gap
+from geometry import ESQ, RF_stack3, Gap, mid_gap, target_conductor
+
 from helper import gitversion
 import matplotlib.pyplot as plt
 import datetime
@@ -62,7 +63,7 @@ from warp.particles import particlescraper
 start = time.time()
 
 wp.w3d.solvergeom = wp.w3d.XYZgeom
-wp.top.dt =   5e-9#5e-11 #for short runs try 5e-9 #these are the time steps for the simulation
+wp.top.dt =   5e-10#5e-11 #for short runs try 5e-9 #these are the time steps for the simulation
 
 # --- keep track of when the particles are born
 wp.top.ssnpid = wp.nextpid()
@@ -118,7 +119,17 @@ elif divergenceAngle != 5e-3:
     parameter_name = "Divergence_Angle"
     change = divergenceAngle
     g = 1
-"""else:
+#else:
+
+"""
+else:
+    #this can only run if you run auto_scan, should make this so that we do not have to do it this way
+    #there is probably a better way to do this
+    from auto_scan import auto_parameter_name
+    parameter_name = f"{auto_parameter_name}"
+    change = auto_scan.change
+#uncomment to check if no changes were made to origional parameters
+else:
     answer = input("You are using the basic parameters, \n y : continue , x : exit ")
     type(answer)
     if answer == 'x':
@@ -127,12 +138,13 @@ elif divergenceAngle != 5e-3:
     elif answer == 'y':
         answer = True
         parameter_name = "All_Origional_Parameters"
-    change = "null"""" #Check to see if origional parameters are being used
+        change = "null"
+"""
 
 total = a + b + c + d + e + f + g
-
+print(total)
 #make cgm file name depend on what was changed
-print(f"{total} parameters were changed......{parameter_name} changed to a value of {change}........................................................")
+#print(f"{total} parameters were changed......{parameter_name} changed to a value of {change}........................................................")
 
 #name files based on date and above parameters
 cgm_name = f"{parameter_name}__{change}__{datetimestamp}"
@@ -170,15 +182,15 @@ wp.w3d.boundxy = wp.neumann
 # ---   for particles
 wp.top.pbound0 = wp.absorb
 wp.top.pboundnz = wp.absorb
-wp.top.prwall = 1*wp.mm #.5 #should use particles scraper for this. Keep a prwall however make it slightly bigger so that the ions can get absorbed by conductors
+wp.top.prwall = 1*wp.mm #prwall slightly bigger than aperture radius so ions can get absorbed by conductors
 
 # --- Set field grid size, this is the width of the window
-wp.w3d.xmmin = -23/14*wp.mm
-wp.w3d.xmmax = 23/14*wp.mm
+wp.w3d.xmmin = -23/14*wp.mm#-23/14*wp.mm
+wp.w3d.xmmax = 23/14*wp.mm#23/14*wp.mm
 wp.w3d.ymmin = -0.02/8.*1.2
 wp.w3d.ymmax = +0.02/8.*1.2
 wp.w3d.zmmin = 0.0
-wp.w3d.zmmax = 53*wp.mm #changes the length of the gist output window, should this depend on something? Maybe this should be the spread of the last particles in the simulation to the end of the last acceleration gap, will all the particles make it through
+wp.w3d.zmmax = 53*wp.mm #53*wp.mm #changes the length of the gist output window. Maybe this should be the spread of the last particles in the simulation to the end of the last acceleration gap
 
 # set grid spacing, this is the number of mesh elements in one window
 wp.w3d.nx = 50.
@@ -234,6 +246,7 @@ ESQs = []
 RFs = []
 ID_ESQ = 100
 ID_RF = 201
+ID_target = 1
 
 # --- generates voltage for the RFs
 def gen_volt(toffset=0): #0
@@ -279,7 +292,7 @@ def pairwise(it):
 for i, bl2s in enumerate(pairwise(zip(distances, energies))):
     (rf_bl2, E1), (esq_bl2, E2) = bl2s #calling distances rf_bl2s
     # use first betalamba_half for the RF unit
-    RF = RF_stack3(condid=[ID_RF, ID_RF+1, ID_RF+2],
+    RF = RF_stack3(condid=[ID_RF, ID_RF+1, ID_RF+2, ID_RF+3],
             betalambda_half=rf_bl2 ,voltage=gen_volt(RF_toffset))
     Vpos.append(geometry.pos)
 
@@ -318,11 +331,8 @@ for i, bl2s in enumerate(pairwise(zip(distances, energies))):
 
 conductors = wp.sum(ESQs) + wp.sum(RFs) #names all ESQs and RFs conductors in order to feed into warp
 
-#-- create scraper and feed conductors
-scraper = wp.ParticleScraper(conductors)
-
 velo = np.sqrt(2*ekininit*selectedIons.charge/selectedIons.mass) #used to caluclate tmax
-length = geometry.pos + 2.5*wp.cm #2.5mm added to allow particles to completely pass through last RF gap
+length = geometry.pos + 2.5*wp.cm #2.5mm added to allow particles to completely pass through last RF gap, cant call targetz before the acceleration gaps are made
 tmax = length/velo #this is used for the maximum time for timesteps
 zrunmax = length #this is used for the maximum distance for timesteps
 
@@ -364,7 +374,7 @@ beamwidth=[]
 energy_time = []
 starting_particles = []
 
-dist = 2.5*wp.mm #why is this here? Used below to determine when to record time
+dist = 2.5*wp.mm #Used below to determine when to record time
 distN = 0
 
 sct = [] #when the particles cross the acceleration gaps
@@ -378,6 +388,23 @@ targetz = geometry.end_accel_gaps[-1]  #Z at the end of the last gap
 print(geometry.end_accel_gaps)
 print(f"....................The target z is: {targetz}...................")
 
+#targetz_conductor = wp.Cylinder(.01*wp.mm,1*wp.mm,zcent=targetz) #this did not work last time
+
+#conductor to absorb particles at a certian Z
+targetz_new = targetz + .005
+
+target = target_conductor(ID_target, targetz_new)
+
+wp.installconductor(target)
+
+#-- create scraper and feed conductors and targetz and retain information
+"""scraper = wp.ParticleScraper([conductors, target], lcollectlpdata=True) #, targetz"""
+#need to make a particle scraper line out of targetz, it doesnt know how to use target Z as a conductor,
+#might need to give it some width
+
+scraper = wp.ParticleScraper(conductors, lcollectlpdata=True) #to use until target is fixed to output data properly
+
+# -- name the target particles and count them
 targetz_particles = ZCrossingParticles(zz=targetz, laccumulate=1)
 
 while (wp.top.time < tmax and zmax < zrunmax):
@@ -401,16 +428,16 @@ while (wp.top.time < tmax and zmax < zrunmax):
     if Z.mean() > zmid: # if the mean distance the particles have travelled is greater than the middle of the frame do this:
         wp.top.vbeamfrm = selectedIons.getvz().mean() #the velocity of the frame is equal to the mean velocity of the ions?
         solver.gridmode = 0 #oscillates the feilds, not sure if this is needed since we already called this at the beginning of the simulation
-
+    """
     # record time when we cross certain points
-    if Z.mean() > drifti + np.cumsum(distances)[distN]: #np.cumsum(distances) adds all the bl/2's together over time
+    if Z.mean() > dist + np.cumsum(distances)[distN]: #np.cumsum(distances) adds all the bl/2's together over time
     # if the mean distance of the particles is greater than the arbitrary distance added to the summation of distances times 0+i then append the time
         #keep adding the distances to the left side of the equation and the equation may become not true at some point? took this out: dist +      to see what will happen to the simulation without it
         energy_time.append(wp.top.time)
         distN += 1
-
+        """
     zmin = wp.top.zbeam+wp.w3d.zmmin
-    zmax = wp.top.zbeam+wp.w3d.zmmax #scales the window length
+    zmax = wp.top.zbeam+wp.w3d.zmmax #scales the window length #redefines the end of the simulation tacks on the 53mm
 
     # create some plots
 
@@ -478,6 +505,21 @@ wp.plg(selectedIons.lostpars,wp.top.zplmesh+wp.top.zbeam)
 wp.ptitles("Particles Lost vs Z", "Z", "Number of Particles Lost")
 wp.fma()
 
+"""#plot history of scraped particles plot for conductors
+wp.plg(conductors.get_energy_histogram)
+wp.fma()
+
+wp.plg(conductors.plot_energy_histogram)
+wp.fma()
+
+wp.plg(conductors.get_current_history)
+wp.fma()
+
+wp.plg(conductors.plot_current_history)
+wp.fma()"""
+
+#above should work for target Z as well however, it has not worked yet
+
 #make an array of starting_particles the same length as numsel
 for i in range(len(numsel)):
     p = max(numsel)
@@ -534,13 +576,13 @@ datetimestamp2 = datetime.datetime.now().strftime('%m-%d-%y')
 print('debug', t.shape, hepsny.shape)
 out = np.stack((t, hepsny, hepsnz, hep6d, hekinz, hekin, hxrms, hyrms, hrrms, hpnum))
 
-#uncomment this to store files in certian folder related to filename
-#atap_path = Path(r'/Users/mwgarske/atap-meqalac-simulations') #insert your path here
+#store files in certian folder related to filename
+atap_path = Path(r'/Users/mwgarske/atap-meqalac-simulations') #insert your path here
 
 #Convert data into JSON serializable..............................................
 nsp = len(x)
 t = list(time_time)
-ke = list(KE)
+ke = list(KE_select)
 z = list(Z)
 m = max(numsel)
 fs = len(x)/m
@@ -594,7 +636,7 @@ with open(f"{parameter_name}__{change}__{datetimestamp}__surviving_particles.jso
 #open the file that was just created
 with open (f"{parameter_name}__{change}__{datetimestamp}__surviving_particles.json") as f:
     data = json.load(f)
-    print(data['data.number_surviving_particles'])
+#print(data['data.number_surviving_particles'])
 
 #........................................................................
 #os.system("python3 continuous_flag.py")
@@ -602,15 +644,15 @@ with open (f"{parameter_name}__{change}__{datetimestamp}__surviving_particles.js
 now_end = time.time()
 print(f"Runtime in seconds is {now_end-start}")
 
-#uncomment this to change into the correct directory based off of the parameter change
-"""if not os.path.isdir(f"{parameter_name}"):
+#change into the correct directory based off of the parameter change
+if not os.path.isdir(f"{parameter_name}"):
     #make a new directory
     os.system(f"mkdir {atap_path}/{parameter_name}")
-    print("The path did not exist, but I have made it")"""
+    print("The path did not exist, but I have made it")
 
 np.save(f"{parameter_name}_esqhist_{datetimestamp2}.npy", out)
 
-#uncomment to move files to their respective folders
-"""os.system(f"mv {cgm_name}* {atap_path}/{parameter_name}")
-os.system(f"mv .json* {atap_path}/{parameter_name}")
-os.system(f"mv {atap_path}/{parameter_name}/esqhist_{datetimestamp2}.npy", out)"""
+#move files to their respective folders
+os.system(f"mv {parameter_name}__{change}__{datetimestamp}.000.cgm {atap_path}/{parameter_name}/")
+os.system(f"mv {parameter_name}__{change}__{datetimestamp}__surviving_particles.json {atap_path}/{parameter_name}/")
+os.system(f"mv {parameter_name}_esqhist_{datetimestamp2}.npy {atap_path}/{parameter_name}/")
