@@ -17,7 +17,7 @@ python3 single-species-simulation.py --esq_voltage=500 --fraction=.8 --speciesMa
 warpoptions.parser.add_argument('--bunch_length', dest='Lbunch', type=float, default='2e-9')
 
 #   number of acceleration gaps (must be a multiple of 2)
-warpoptions.parser.add_argument('--numRF', dest='numRF', type=int, default='2')
+warpoptions.parser.add_argument('--numRF', dest='numRF', type=int, default='4') #this should be the number of RF wafers # gaps = number of wafers/2
 
 #   voltage on the RF gaps at the peak of the sinusoid
 warpoptions.parser.add_argument('--rf_voltage', dest='Vmax', type=float, default='10000') #will be between 5000 and 10000 most likely 8000
@@ -63,7 +63,7 @@ from warp.particles import particlescraper
 start = time.time()
 
 wp.w3d.solvergeom = wp.w3d.XYZgeom
-wp.top.dt =   5e-10#5e-11 #for short runs try 5e-9 #these are the time steps for the simulation
+wp.top.dt =   5e-11#5e-11 #for short runs try 5e-9 #these are the time steps for the simulation
 
 # --- keep track of when the particles are born
 wp.top.ssnpid = wp.nextpid()
@@ -91,15 +91,15 @@ datetimestamp = datetime.datetime.now().strftime('%m-%d-%y_%H:%M:%S')
 a = b = c = d = e = f = g = 0 #placeholder values to keep track of how many parameters were changed
 
 #find which change was made to record in the file name
-if L_bunch != 1e-9:
+if L_bunch != 2e-9:
     parameter_name = "L_bunch"
     change = L_bunch
     a = 1
-elif numRF != 4:
+elif numRF != 2:
     parameter_name = "numRF"
     change = numRF
     b = 1
-elif Vmax != 8000:
+elif Vmax != 10000:
     parameter_name = "RF_Voltage"
     change = Vmax
     c = 1
@@ -301,7 +301,9 @@ for i, bl2s in enumerate(pairwise(zip(distances, energies))):
 
     # and second betalamba_half for ESQ unit
     gaplength = esq_bl2-geometry.RF_gap-2*geometry.RF_thickness
+    print(f"gaplength for ESQ = {gaplength}")
     gaplength = gaplength/2-geometry.ESQ_gap/2-geometry.ESQ_wafer_length
+    print(f"now gaplength for ESQ = {gaplength}")
     assert gaplength > 0
     Gap(gaplength)
     E1 = ESQ(voltage=gen_volt_esq(Vesq, False, ESQ_toffset), condid=[ID_ESQ, ID_ESQ+1])
@@ -329,7 +331,7 @@ for i, bl2s in enumerate(pairwise(zip(distances, energies))):
     ID_ESQ += 4
     ID_RF += 3
 
-conductors = wp.sum(ESQs) + wp.sum(RFs) #names all ESQs and RFs conductors in order to feed into warp
+conductors = wp.sum(RFs) #+ wp.sum(ESQs)# + names all ESQs and RFs conductors in order to feed into warp
 
 velo = np.sqrt(2*ekininit*selectedIons.charge/selectedIons.mass) #used to caluclate tmax
 length = geometry.pos + 2.5*wp.cm #2.5mm added to allow particles to completely pass through last RF gap, cant call targetz before the acceleration gaps are made
@@ -655,4 +657,4 @@ np.save(f"{parameter_name}_esqhist_{datetimestamp2}.npy", out)
 #move files to their respective folders
 os.system(f"mv {parameter_name}__{change}__{datetimestamp}.000.cgm {atap_path}/{parameter_name}/")
 os.system(f"mv {parameter_name}__{change}__{datetimestamp}__surviving_particles.json {atap_path}/{parameter_name}/")
-os.system(f"mv {parameter_name}_esqhist_{datetimestamp2}.npy {atap_path}/{parameter_name}/")
+#os.system(f"mv {parameter_name}_esqhist_{datetimestamp2}.npy {atap_path}/{parameter_name}/")
