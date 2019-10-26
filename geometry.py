@@ -8,13 +8,13 @@ framewidth = 150*wp.um
 
 # wafer dimenions
 # SOI
-ESQ_wafer_length = 625*wp.um #
+ESQ_wafer_length = 625*wp.um #ESQ thickness
 # RF
 RF_thickness = 625*wp.um
 RF_gap = 2000*wp.um #acceleration gap
 copper_thickness = 35*wp.um
 # esq
-ESQ_gap = .7*wp.mm
+ESQ_gap = .7*wp.mm #distance between ESQ wafers
 # globals
 pos = 0
 mid_gap = []
@@ -47,10 +47,11 @@ def ESQ(voltage, condid):
 
     X = (15/14)*wp.mm#2*wp.mm  #X offset for electrodes
 
-    print("--- ESQ starts at: ", pos)
-    start_ESQ_gaps.append(pos) #array of start of acceleration gaps for future use
+    print("--- ESQ starts at: ", mid_gap[-1]) #print("--- ESQ starts at: ", pos)
+    start_ESQ_gaps.append(mid_gap[-1]) #array of start of acceleration gaps for future use
     print("--- ESQ voltage: ", voltage)
-    zcenter = pos + 0.5*ESQ_wafer_length
+    zcenter = mid_gap[-1] - 0.5*ESQ_wafer_length #center of ESQ? #+
+    print(f"the center of the esq is {zcenter}")
 
     def element(voltage, condid, rotation):
         """create a single element, rotated X degrees"""
@@ -88,7 +89,7 @@ def ESQ(voltage, condid):
     electrodeC = element(voltage=pos_voltage, condid=condidA, rotation=180)
     electrodeD = element(voltage=neg_voltage, condid=condidB, rotation=270)
 
-    pos += ESQ_wafer_length
+    pos =+ mid_gap[-1] + ESQ_gap + .5*ESQ_wafer_length #pos += ESQ_wafer_length
     end_ESQ_gaps.append(pos) #array of end of ESQ gaps for future use
     print("--- ESQ ends at: ", pos)
 
@@ -113,8 +114,6 @@ def RF_stack3(condid, betalambda_half=200*wp.um, gap=RF_gap, voltage=0):
     r_copper = (2.5/2)*wp.mm
     
     #First RF wafer grounded ------------------------------------------------------------------------------------
-
-    length = betalambda_half-gap #want to use betalambda half to separate the RF cells from each other
     
     
     center_copper_1A = wafercenter-.5*RF_thickness-.5*copper_thickness
@@ -147,7 +146,8 @@ def RF_stack3(condid, betalambda_half=200*wp.um, gap=RF_gap, voltage=0):
     start_accel_gaps.append(pos-gap) #array of start of acceleration gaps for future use
     
     #Second RF wafer at voltage ---------------------------------------------------------------------------------
-    
+
+    length = betalambda_half-gap #want to use betalambda half to separate the RF cells from each other
     print("betalambda_half = {}".format(betalambda_half))
     assert length > 0
     bodycenter = pos + 0.5*length
@@ -176,13 +176,14 @@ def RF_stack3(condid, betalambda_half=200*wp.um, gap=RF_gap, voltage=0):
     inner_cylinder2 = inner_cylinder_conductor2 - subtraction_beam_cylinder2
     
     pos += length + gap
-    
+    '''
     print("middle of second gap " + str(pos-.5*gap))
     mid_gap.append(pos-0.5*gap)
     end_accel_gaps.append(pos)
     start_accel_gaps.append(pos-gap) #array of start of acceleration gaps for future use
-    
+    '''
     first_RF_cell = c_conductor_1A + inner_cylinder1 +  c_conductor_1B + c_conductor_2A + inner_cylinder2 + c_conductor_2B
+    
     
     #third RF wafer at ground------------------------------------------------------------------------------------------------
 
@@ -212,12 +213,12 @@ def RF_stack3(condid, betalambda_half=200*wp.um, gap=RF_gap, voltage=0):
     print(f"the position is currently: {pos}")
     pos += RF_thickness + gap #the position of the end of the acceleration gaps
     print(f"after changing the position it is now: {pos}")
-                                                
+    
     print("middle of first gap " +str(pos-.5*gap))
     mid_gap.append(pos-0.5*gap) #array for middle of acceleration gaps for future use
     end_accel_gaps.append(pos) #array of the end of acceleration gaps for future use
     start_accel_gaps.append(pos-gap) #array of start of acceleration gaps for future use
-
+    
     #fourth wafer at voltage-----------------------------------------------------------------------------------------
     
     print("betalambda_half = {}".format(betalambda_half))
@@ -246,16 +247,17 @@ def RF_stack3(condid, betalambda_half=200*wp.um, gap=RF_gap, voltage=0):
     inner_cylinder4 = inner_cylinder_conductor4 - subtraction_beam_cylinder4
                                                 
     pos += length + gap
-                                                
+    '''
     print("middle of second gap " + str(pos-.5*gap))
     mid_gap.append(pos-0.5*gap)
     end_accel_gaps.append(pos)
     start_accel_gaps.append(pos-gap) #array of start of acceleration gaps for future use
-                                                
+    '''
     second_RF_cell = c_conductor_3A + inner_cylinder3 +  c_conductor_3B + c_conductor_4A + inner_cylinder4 + c_conductor_4B
     #--------------------------------------------------------------------------------------------
     
-    return first_RF_cell + second_RF_cell
+    
+    return first_RF_cell #+ second_RF_cell
 
 
 #conductor to absorb particles at a certian Z
