@@ -154,6 +154,7 @@ wp.setup(prefix=f"{cgm_name}", cgmlog= 0)
 # --- Set basic beam parameters, these should be calculated in mathmatica first
 
 ibeaminit = 10e-6 # inital beam current May vary up to 25e-6
+n = 0 #to be used to switch the voltages on the RF wafers
 
 wp.top.a0 = emittingRadius
 wp.top.b0 = emittingRadius
@@ -190,7 +191,7 @@ wp.w3d.xmmax = 23/14*wp.mm#23/14*wp.mm
 wp.w3d.ymmin = -0.02/8.*1.2
 wp.w3d.ymmax = +0.02/8.*1.2
 wp.w3d.zmmin = 0.0
-wp.w3d.zmmax = 53*wp.mm #53*wp.mm #changes the length of the gist output window. Maybe this should be the spread of the last particles in the simulation to the end of the last acceleration gap
+wp.w3d.zmmax = 23*wp.mm #53*wp.mm #changes the length of the gist output window. Maybe this should be the spread of the last particles in the simulation to the end of the last acceleration gap
 
 # set grid spacing, this is the number of mesh elements in one window
 wp.w3d.nx = 50.
@@ -393,11 +394,11 @@ print(f"....................The target z is: {targetz}...................")
 #targetz_conductor = wp.Cylinder(.01*wp.mm,1*wp.mm,zcent=targetz) #this did not work last time
 
 #conductor to absorb particles at a certian Z
-targetz_new = targetz + .005
+#targetz_new = targetz + .005
 
-target = target_conductor(ID_target, targetz_new)
+#target = target_conductor(ID_target, targetz_new)
 
-wp.installconductor(target)
+#wp.installconductor(target)
 
 #-- create scraper and feed conductors and targetz and retain information
 """scraper = wp.ParticleScraper([conductors, target], lcollectlpdata=True) #, targetz"""
@@ -407,7 +408,7 @@ wp.installconductor(target)
 scraper = wp.ParticleScraper(conductors, lcollectlpdata=True) #to use until target is fixed to output data properly
 
 # -- name the target particles and count them
-targetz_particles = ZCrossingParticles(zz=targetz, laccumulate=1)
+#targetz_particles = ZCrossingParticles(zz=targetz, laccumulate=1)
 
 while (wp.top.time < tmax and zmax < zrunmax):
     wp.step(10) # each plotting step is 10 timesteps
@@ -544,13 +545,19 @@ wp.hprrms(color=wp.green, titles=0)
 wp.ptitles("X(red), Y(blue), R(green)", "Z [m]", "X/Y/R [m]", "")
 wp.fma() #second to last frame in cgm file
 
+#Kinetic Energy at certian Z value
+wp.plg(KE_select, time_time, color=wp.blue)
+wp.limits(0,70e-9) #limits(xmin,xmax,ymin,ymax)
+wp.ptitles("Kinetic Energy vs Time")
+wp.fma()
+
 # kinetic energy plot
 wp.plg(KE_select, time_time, color=wp.blue)
 wp.ptitles("kinetic energy vs time")
 wp.fma() #last frame in cgm file
 
 #Zcrossing Particles Plot
-x = targetz_particles.getx() #this is the x coordinate of the particles that made it through target
+#x = targetz_particles.getx() #this is the x coordinate of the particles that made it through target
 #t = targetz_particles.getvz()
 #print(x)
 #print(t)
@@ -581,13 +588,11 @@ out = np.stack((t, hepsny, hepsnz, hep6d, hekinz, hekin, hxrms, hyrms, hrrms, hp
 #store files in certian folder related to filename
 atap_path = Path(r'/Users/mwgarske/atap-meqalac-simulations') #insert your path here
 
-#Convert data into JSON serializable..............................................
-nsp = len(x)
+#Convert data into JSON serializable..............................................#nsp = len(x)#"number_surviving_particles" : nsp,fs = len(x)/m, "fraction_particles" : fs,
 t = list(time_time)
 ke = list(KE_select)
 z = list(Z)
 m = max(numsel)
-fs = len(x)/m
 L = str(L_bunch)
 n = numRF
 Ve = str(Vesq)
@@ -604,9 +609,7 @@ se = list(geometry.start_ESQ_gaps)
 ee = list(geometry.end_ESQ_gaps)
 json_data = {
     "data" : {
-        "fraction_particles" : fs,
         "max_particles" : m,
-        "number_surviving_particles" : nsp,
         "time" : t,
         "kinetic_energy" : ke,
         "z_values" : z,
