@@ -24,12 +24,14 @@ start_accel_gaps = []
 start_ESQ_gaps = []
 end_ESQ_gaps = []
 count = 0 # 1st RF count = 0 grounded, second rf count =1 voltage, third RF count = 2 voltage, fourth RF count =3 grounded, fourth RF count =4 voltage (GVVGGVVGGVVGGVVGG GVVG is being repeated throughout which is why we were doing it this way beforeI'll try to make it work the other way then
-
+pos_pos =[] #to keep track of what value pos has throughout the making of the RF stack
 
 def Gap(dist=500*wp.um): #why is this 500 um, just a default value?
     """Vacuum gap, e.g. between wafers"""
     global pos
+    print(f"The position in the Gap function currently is {pos}")
     pos += dist
+    print(f"After adding {dist} to the pos the pos is now {pos}")
     print("--- Gap ends at: ", pos)
 
 
@@ -105,11 +107,14 @@ def RF_stack3(condid, betalambda_half=200*wp.um, gap=RF_gap, voltage=0):
 
     global pos, mid_gap, end_accel_gaps
     condidA, condidB, condidC, condidD = condid
-
+    
+    pos_pos.append(pos) #check, beginning of the first circular conductor
+    print(f"The beginning of the next wafer set is {pos}")
+    
     r_beam = (1.067)/2*wp.mm #aperature radius
 
-    wafercenter = pos + 0.5*RF_thickness
-    print(f"The first wafer center is = {wafercenter}")
+    wafercenter = pos + copper_thickness + 0.5*RF_thickness #center of the first RF wafer
+    print(f"The wafer center is = {wafercenter}")
     
     r_copper = (2.5/2)*wp.mm
     
@@ -122,7 +127,7 @@ def RF_stack3(condid, betalambda_half=200*wp.um, gap=RF_gap, voltage=0):
     subtraction_beam_1A = wp.ZCylinder(r_beam, length = copper_thickness+.5*wp.mm, zcent=center_copper_1A, voltage=0, condid=condidA, material='Cu')#to be used to subtract from copper conductors
     c_conductor_1A = circular_copper_conductor_1A - subtraction_beam_1A #circular_copper_conductor - subtraction_frame - subtraction_beam
     
-    center_copper_1B = wafercenter+RF_thickness+copper_thickness
+    center_copper_1B = wafercenter+.5*RF_thickness+copper_thickness
     circular_copper_conductor_1B = wp.ZCylinder(radius=r_copper, length=copper_thickness, voltage=0,
                                                 xcent=0, ycent=0, zcent=center_copper_1B, condid=condidA, material='Cu')
     subtraction_beam_1B = wp.ZCylinder(r_beam, length = copper_thickness+.5*wp.mm, zcent=center_copper_1B, voltage=0, condid=condidA, material='Cu')#to be used to subtract from copper conductors
@@ -130,15 +135,17 @@ def RF_stack3(condid, betalambda_half=200*wp.um, gap=RF_gap, voltage=0):
     
     #cylinder inbetween two disk conductors, matching Grant's New RF design
     #comment out if not interested in this design
-    center_inner_cylinder1 = (center_copper_1A + center_copper_1B )/2
+    center_inner_cylinder1 = wafercenter #(center_copper_1A + center_copper_1B )/2
     inner_cylinder_conductor1 = wp.ZCylinder(radius=r_beam + copper_thickness, length=RF_thickness, voltage=0,
                                                 xcent=0, ycent=0, zcent=center_inner_cylinder1, condid=condidA, material='Cu')
     subtraction_beam_cylinder1 = wp.ZCylinder(r_beam, length = RF_thickness+.5*wp.mm, zcent=center_inner_cylinder1, voltage=0, condid=condidA, material='Cu')
     inner_cylinder1 = inner_cylinder_conductor1 - subtraction_beam_cylinder1
     
     print(f"the position is currently: {pos}")
-    pos += RF_thickness + gap #the position of the end of the acceleration gaps
+    pos += RF_thickness + 2*copper_thickness + gap #the at the start of the next circular conductors
     print(f"after changing the position it is now: {pos}")
+    
+    pos_pos.append(pos) #check
     
     print("middle of first gap " +str(pos-.5*gap))
     mid_gap.append(pos-0.5*gap) #array for middle of acceleration gaps for future use
@@ -175,7 +182,9 @@ def RF_stack3(condid, betalambda_half=200*wp.um, gap=RF_gap, voltage=0):
     subtraction_beam_cylinder2 = wp.ZCylinder(r_beam, length = RF_thickness+.5*wp.mm, zcent=center_inner_cylinder2, voltage=voltage, condid=condidB, material='Cu')
     inner_cylinder2 = inner_cylinder_conductor2 - subtraction_beam_cylinder2
     
-    pos += length + gap
+    pos += betalambda_half #at the start of the FOURTH WAFER
+    
+    pos_pos.append(pos) #check
     '''
     print("middle of second gap " + str(pos-.5*gap))
     mid_gap.append(pos-0.5*gap)
@@ -185,18 +194,21 @@ def RF_stack3(condid, betalambda_half=200*wp.um, gap=RF_gap, voltage=0):
     first_RF_cell = c_conductor_1A +  c_conductor_1B + c_conductor_2A + c_conductor_2B #c_conductor_1A + inner_cylinder1 +  c_conductor_1B + c_conductor_2A + inner_cylinder2 + c_conductor_2B
     
     
-    #third RF wafer at ground------------------------------------------------------------------------------------------------
+    #third RF wafer at voltage------------------------------------------------------------------------------------------------
 
     print(f"The second wafer center is = {wafercenter}")
 
-    center_copper_3A = wafercenter + betalambda_half
-    print(f"The third wafer center is = {center_copper_3A}")
+    wafercenter_2 = pos - gap - copper_thickness -.5*RF_thickness
+    print(f"The third wafer center is = {wafercenter_2}")
+    
+    center_copper_3A = wafercenter_2 - .5*RF_thickness -.5*copper_thickness
+    
     circular_copper_conductor_3A = wp.ZCylinder(radius=r_copper, length=copper_thickness, voltage=voltage,
                                                 xcent=0, ycent=0, zcent=center_copper_3A, condid=condidC)
     subtraction_beam_3A = wp.ZCylinder(r_beam, length = copper_thickness+.5*wp.mm, zcent=center_copper_3A, voltage=voltage, condid=condidC)#to be used to subtract from copper conductors
     c_conductor_3A = circular_copper_conductor_3A - subtraction_beam_3A #circular_copper_conductor - subtraction_frame - subtraction_beam
                                                 
-    center_copper_3B = center_copper_3A+RF_thickness+copper_thickness
+    center_copper_3B = wafercenter_2 + .5*RF_thickness + .5*copper_thickness
     circular_copper_conductor_3B = wp.ZCylinder(radius=r_copper, length=copper_thickness, voltage=voltage,
         xcent=0, ycent=0, zcent=center_copper_3B, condid=condidC)
     subtraction_beam_3B = wp.ZCylinder(r_beam, length = copper_thickness+.5*wp.mm, zcent=center_copper_3B, voltage=voltage, condid=condidC)#to be used to subtract from copper conductors
@@ -211,22 +223,24 @@ def RF_stack3(condid, betalambda_half=200*wp.um, gap=RF_gap, voltage=0):
     inner_cylinder3 = inner_cylinder_conductor3 - subtraction_beam_cylinder3
                                                 
     print(f"the position is currently: {pos}")
-    pos += RF_thickness + gap #the position of the end of the acceleration gaps
+    #pos += RF_thickness + gap +2*copper_thickness #the position of the start of the next conductors at the end of the acceleration gap
     print(f"after changing the position it is now: {pos}")
+    
+    pos_pos.append(pos) #check
     
     print("middle of first gap " +str(pos-.5*gap))
     mid_gap.append(pos-0.5*gap) #array for middle of acceleration gaps for future use
     end_accel_gaps.append(pos) #array of the end of acceleration gaps for future use
     start_accel_gaps.append(pos-gap) #array of start of acceleration gaps for future use
     
-    #fourth wafer at voltage-----------------------------------------------------------------------------------------
+    #fourth wafer at ground-----------------------------------------------------------------------------------------
     
     print("betalambda_half = {}".format(betalambda_half))
     assert length > 0
     bodycenter = pos + 0.5*length
     print(f"The first body center is = {bodycenter}")
     
-    center_copper_4A = center_copper_3B + gap
+    center_copper_4A = pos + .5*copper_thickness
     circular_copper_conductor_4A = wp.ZCylinder(radius=r_copper, length=copper_thickness, voltage=0,
                                                 xcent=0, ycent=0, zcent=center_copper_4A, condid=condidD)
     subtraction_beam_4A = wp.ZCylinder(r_beam, length = copper_thickness+.5*wp.mm, zcent=center_copper_4A, voltage=0, condid=condidD)#to be used to subtract from copper conductors
@@ -245,8 +259,16 @@ def RF_stack3(condid, betalambda_half=200*wp.um, gap=RF_gap, voltage=0):
                                             xcent=0, ycent=0, zcent=center_inner_cylinder4, condid=condidD, material='Cu')
     subtraction_beam_cylinder4 = wp.ZCylinder(r_beam, length = RF_thickness+.5*wp.mm, zcent=center_inner_cylinder4, voltage=0, condid=condidD, material='Cu')
     inner_cylinder4 = inner_cylinder_conductor4 - subtraction_beam_cylinder4
-                                                
-    pos += length + gap
+    
+    print(f"Before the last change the position is {pos}")
+    pos += 2*copper_thickness + RF_thickness #has no effect on ending starting position of next stack....???
+    #2*copper_thickness + RF_thickness + betalambda_half - 2*(2*copper_thickness + RF_thickness) - gap
+    #Start of the next wafer set, determines where to start the next wafer stack
+    #so we want this to be the start of the next wafer set
+    
+    pos_pos.append(pos) #check
+    
+    print(f"The position after the change is {pos}")
     '''
     print("middle of second gap " + str(pos-.5*gap))
     mid_gap.append(pos-0.5*gap)
