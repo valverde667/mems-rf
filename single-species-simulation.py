@@ -17,7 +17,7 @@ python3 single-species-simulation.py --esq_voltage=500 --fraction=.8 --speciesMa
 warpoptions.parser.add_argument('--bunch_length', dest='Lbunch', type=float, default='2e-9')
 
 #   number of acceleration gaps (must be a multiple of 2)
-warpoptions.parser.add_argument('--numRF', dest='numRF', type=int, default='4') #this should be the number of RF wafers # gaps = number of wafers/2
+warpoptions.parser.add_argument('--numRF', dest='numRF', type=int, default='2') #number of RF gaps
 
 #   voltage on the RF gaps at the peak of the sinusoid
 warpoptions.parser.add_argument('--rf_voltage', dest='Vmax', type=float, default='10000') #will be between 5000 and 10000 most likely 8000
@@ -47,7 +47,6 @@ import warp as wp
 import numpy as np
 import geometry
 from geometry import ESQ, RF_stack3, Gap, mid_gap, target_conductor
-
 from helper import gitversion
 import matplotlib.pyplot as plt
 import datetime
@@ -186,9 +185,9 @@ wp.top.pboundnz = wp.absorb
 wp.top.prwall = 1*wp.mm #prwall slightly bigger than aperture radius so ions can get absorbed by conductors
 
 # --- Set field grid size, this is the width of the window
-wp.w3d.xmmin = -23/14*wp.mm#-23/14*wp.mm
-wp.w3d.xmmax = 23/14*wp.mm#23/14*wp.mm
-wp.w3d.ymmin = -0.02/8.*1.2
+wp.w3d.xmmin = -23/14*wp.mm
+wp.w3d.xmmax = 23/14*wp.mm
+wp.w3d.ymmin = -0.02/8.*1.2 #why is this 1.2 here?
 wp.w3d.ymmax = +0.02/8.*1.2
 wp.w3d.zmmin = 0.0
 wp.w3d.zmmax = 23*wp.mm #53*wp.mm #changes the length of the gist output window. Maybe this should be the spread of the last particles in the simulation to the end of the last acceleration gap
@@ -267,15 +266,16 @@ def gen_volt_esq(Vesq, inverse=False, toffset=0):
 
 # --- calculate the distances and time offset for the RFs
 
-energies = [ekininit + V_arrival*Vmax*(i+1) for i in range(numRF)] #(i+1) to start at proper 15,000 energy gain
+energies = [ekininit + V_arrival*Vmax*(i+1) for i in range(numRF)] #(i+1) to start at proper 15,000 energy gain, Vmax needs to be adjusted depending on the actual strength of the electric field in the acceleration gap, the middle of the gaps are lower than the vmax for grants design
 distances = [wp.sqrt(energy*selectedIons.charge/(2*speciesMass))*1/freq for energy in energies] #beta lambda/2
 drifti = 10.05*wp.mm #added to start the particles well before the first RF wafer
-geometry.pos = -0.5*distances[0] - .5*geometry.RF_gap - geometry.RF_thickness + drifti #starting position of particles
-d_mid = geometry.pos + geometry.RF_thickness + .5*geometry.RF_gap #middle of the first gap
+geometry.pos = -0.5*distances[0] - .5*geometry.RF_gap - geometry.RF_thickness - 2*geometry.copper_thickness + drifti #starting position of particles
+d_mid = geometry.pos + geometry.RF_thickness + .5*geometry.RF_gap + 2*geometry.copper_thickness #middle of the first gap
 veloinit = np.sqrt(2*ekininit*selectedIons.charge/speciesMass) #initial velocity of particles
-t_offset = (d_mid - geometry.RF_thickness - .5*geometry.RF_gap)/veloinit #phase offset to account for moving the injection beam farther to the left
+t_offset = (d_mid - geometry.RF_thickness - .5*geometry.RF_gap - 2*geometry.copper_thickness)/veloinit #phase offset to account for moving the injection beam farther to the left
 print("TIME OFFSET = {}".format(t_offset)) #not the same as 8e-9
 RF_toffset = np.arcsin(V_arrival)/(2*np.pi*freq) - (d_mid + drifti)/veloinit + 8e-9#.5*L_bunch - 1e-9# L_bunch - 8e-9
+
 ESQ_toffset = 0
 
 Vpos = []
@@ -291,15 +291,21 @@ def pairwise(it):
 
 # this loop generates the geometry
 for i, bl2s in enumerate(pairwise(zip(distances, energies))):
-    (rf_bl2, E1), (esq_bl2, E2) = bl2s #calling distances rf_bl2s
+    (rf_bl2, E1), (esq_bl2, E2) = bl2s #calling distances rf_bl2s # #calling distances rf_bl2s
     # use first betalamba_half for the RF unit
     RF = RF_stack3(condid=[ID_RF, ID_RF+1, ID_RF+2, ID_RF+3],
             betalambda_half=rf_bl2 ,voltage=gen_volt(RF_toffset))
     Vpos.append(geometry.pos)
-
+    
+    print(f"the betalambda/2 I am about to use is {rf_bl2}")
+    print(f"The position is currently {geometry.pos}")
+    new_start_RF_stack = geometry.pos + (rf_bl2) #- 4*geometry.copper_thickness - 2*geometry.RF_thickness)
+    print(f"I am actually starting the next wafer stack here at {new_start_RF_stack}")
+    Gap(rf_bl2 - geometry.RF_gap - 4*geometry.copper_thickness - 2*geometry.RF_thickness)
+    
     # scale esq voltages
-    voltage = Vesq * E2/ekininit #why do we need to do this? -MWG
-
+    voltage = Vesq * E2/ekininit #why do we need to do this?
+    '''
     # and second betalamba_half for ESQ unit
     gaplength = esq_bl2-geometry.RF_gap-2*geometry.RF_thickness
     print(f"gaplength for ESQ = {gaplength}")
@@ -327,9 +333,11 @@ for i, bl2s in enumerate(pairwise(zip(distances, energies))):
     #uncomment below if more ESQs added
     #ESQs.append(E3)
     #ESQs.append(E4)
-    
+    '''
     RFs.append(RF)
+    '''
     ID_ESQ += 4
+    '''
     ID_RF += 3
 
 conductors = wp.sum(RFs) #+ wp.sum(ESQs)# + names all ESQs and RFs conductors in order to feed into warp
@@ -417,8 +425,9 @@ while (wp.top.time < tmax and zmax < zrunmax):
     numsel.append(len(selectedIons.getke()))
     KE_select.append(np.mean(selectedIons.getke()))
 
-    wp.top.pline1 = "V_RF: {:.0f}   V_esq: {:.0f}".format(
-        gen_volt(RF_toffset)(wp.top.time), gen_volt_esq(Vesq, False, ESQ_toffset)(wp.top.time))
+    wp.top.pline1 = "V_RF: {:.0f}".format(
+        gen_volt(RF_toffset)(wp.top.time))
+    #wp.top.pline1 = "V_RF: {:.0f}   V_esq: {:.0f}".format(gen_volt(RF_toffset)(wp.top.time), gen_volt_esq(Vesq, False, ESQ_toffset)(wp.top.time))
         
     # inject only for 1 ns, so that we can get onto the rising edge of the RF
     if 0*wp.ns < wp.top.time < L_bunch: #changes the beam length
@@ -429,7 +438,7 @@ while (wp.top.time < tmax and zmax < zrunmax):
     Z = selectedIons.getz()
 
     if Z.mean() > zmid: # if the mean distance the particles have travelled is greater than the middle of the frame do this:
-        wp.top.vbeamfrm = selectedIons.getvz().mean() #the velocity of the frame is equal to the mean velocity of the ions?
+        wp.top.vbeamfrm = selectedIons.getvz().mean() #the velocity of the frame is equal to the mean velocity of the ions
         solver.gridmode = 0 #oscillates the feilds, not sure if this is needed since we already called this at the beginning of the simulation
     """
     # record time when we cross certain points
@@ -456,7 +465,7 @@ while (wp.top.time < tmax and zmax < zrunmax):
     wp.fma() #third frame in cgm file, repeating
 
     # the side view field plot
-    wp.pfzx(fill=1, filled=1, plotselfe=True, comp='E', titles=0, cmin=0, cmax=1.2*Vmax/geometry.RF_gap)
+    wp.pfzx(fill=1, filled=1, plotselfe=True, comp='E', titles=0, cmin=0, cmax=Vmax/geometry.RF_gap) #1.2*Vmax/geometry.RF_gap (if want to see 20% increase in electric field)
     #cmax adjusts the righthand scale of the voltage, not sure how
 
     #keep track of minimum and maximum birth times of particles
@@ -588,14 +597,13 @@ out = np.stack((t, hepsny, hepsnz, hep6d, hekinz, hekin, hxrms, hyrms, hrrms, hp
 #store files in certian folder related to filename
 atap_path = Path(r'/Users/mwgarske/atap-meqalac-simulations') #insert your path here
 
-#Convert data into JSON serializable..............................................#nsp = len(x)#"number_surviving_particles" : nsp,fs = len(x)/m, "fraction_particles" : fs,
+    #Convert data into JSON serializable..............................................#nsp = len(x)#"number_surviving_particles" : nsp,fs = len(x)/m, "fraction_particles" : fs,Ve = str(Vesq), se = list(geometry.start_ESQ_gaps), ee = list(geometry.end_ESQ_gaps), "ESQ_start" : se,"ESQ_end" : ee,"Vesq" : Ve,
 t = list(time_time)
 ke = list(KE_select)
 z = list(Z)
 m = max(numsel)
 L = str(L_bunch)
 n = numRF
-Ve = str(Vesq)
 fA = str(V_arrival)
 sM = int(speciesMass)
 eK = int(ekininit)
@@ -605,8 +613,6 @@ dA = str(divergenceAngle)
 pt = list(numsel)
 sa = list(geometry.start_accel_gaps)
 ea = list(geometry.end_accel_gaps)
-se = list(geometry.start_ESQ_gaps)
-ee = list(geometry.end_ESQ_gaps)
 json_data = {
     "data" : {
         "max_particles" : m,
@@ -615,16 +621,13 @@ json_data = {
         "z_values" : z,
         "particles_overtime" : pt,
         "RF_start" : sa,
-        "RF_end" : ea,
-        "ESQ_start" : se,
-        "ESQ_end" : ee,
+        "RF_end" : ea
     },
     "parameter_dict": {
         
         "Vmax" : Vmax,
         "L_bunch" : L,
         "numRF" : n,
-        "Vesq" : Ve,
         "V_arrival" : fA,
         "speciesMass" : sM,
         "ekininit" : eK,
