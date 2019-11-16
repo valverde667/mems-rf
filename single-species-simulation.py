@@ -17,7 +17,7 @@ python3 single-species-simulation.py --esq_voltage=500 --fraction=.8 --speciesMa
 warpoptions.parser.add_argument('--bunch_length', dest='Lbunch', type=float, default='2e-9')
 
 #   number of acceleration gaps (must be a multiple of 2)
-warpoptions.parser.add_argument('--numRF', dest='numRF', type=int, default='2') #number of RF gaps
+warpoptions.parser.add_argument('--numRF', dest='numRF', type=int, default='4') #number of RF gaps
 
 #   voltage on the RF gaps at the peak of the sinusoid
 warpoptions.parser.add_argument('--rf_voltage', dest='Vmax', type=float, default='10000') #will be between 5000 and 10000 most likely 8000
@@ -94,7 +94,7 @@ if L_bunch != 2e-9:
     parameter_name = "L_bunch"
     change = L_bunch
     a = 1
-elif numRF != 2:
+elif numRF != 4:
     parameter_name = "numRF"
     change = numRF
     b = 1
@@ -301,7 +301,7 @@ for i, bl2s in enumerate(pairwise(zip(distances, energies))):
     print(f"The position is currently {geometry.pos}")
     new_start_RF_stack = geometry.pos + (rf_bl2) #- 4*geometry.copper_thickness - 2*geometry.RF_thickness)
     print(f"I am actually starting the next wafer stack here at {new_start_RF_stack}")
-    Gap(rf_bl2 - geometry.RF_gap - 4*geometry.copper_thickness - 2*geometry.RF_thickness)
+    Gap(rf_bl2 - geometry.RF_gap - 4*geometry.copper_thickness - 2*geometry.RF_thickness) #put this into geometry??????? with different position for the ESQ
     
     # scale esq voltages
     voltage = Vesq * E2/ekininit #why do we need to do this?
@@ -465,15 +465,18 @@ while (wp.top.time < tmax and zmax < zrunmax):
     wp.fma() #third frame in cgm file, repeating
 
     # the side view field plot
-    wp.pfzx(fill=1, filled=1, plotselfe=True, comp='E', titles=0, cmin=0, cmax=Vmax/geometry.RF_gap) #1.2*Vmax/geometry.RF_gap (if want to see 20% increase in electric field)
+    wp.pfzx(fill=1, filled=1, plotselfe=True, comp='z', titles=0, cmin=-1.2*Vmax/geometry.RF_gap, cmax=1.2*Vmax/geometry.RF_gap) #Vmax/geometry.RF_gap #1.2*Vmax/geometry.RF_gap (if want to see 20% increase in electric field) #comp='z': the component of the electric field to plot, 'x', 'y', 'z' or 'E',use 'E' for the magnitude.
+    #look at different components of Ez, to confirm the direction, summarize this
     #cmax adjusts the righthand scale of the voltage, not sure how
 
     #keep track of minimum and maximum birth times of particles
-    '''#only call this after the window starts moving? When does the window start moving?
+    '''
+    #only call this after the window starts moving? When does the window start moving?
     if selectedIons.getz() > drifti: #this is not working
         t_birth_min = selectedIons.tbirth.min()
         t_birth_max = selectedIons.tbirth.max()
-        tarray = np.linspace(t_birth_min, t_birth_max, 6)''' #this is not currently working, try without first
+        tarray = np.linspace(t_birth_min, t_birth_max, 6)
+    ''' #this is not currently working, try without first
 
     #sort by birthtime (using this while we figure out why above code is not working)
     t_birth_min = selectedIons.tbirth.min()
