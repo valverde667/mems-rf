@@ -191,8 +191,8 @@ def RF_stack3(condid, betalambda_half=200*wp.um, gap=RF_gap, voltage=0):
     end_accel_gaps.append(pos)
     start_accel_gaps.append(pos-gap) #array of start of acceleration gaps for future use
     '''
-    first_RF_cell = c_conductor_1A +  c_conductor_1B + c_conductor_2A + c_conductor_2B #c_conductor_1A + inner_cylinder1 +  c_conductor_1B + c_conductor_2A + inner_cylinder2 + c_conductor_2B
-    
+    first_RF_cell = c_conductor_1A + inner_cylinder1 +  c_conductor_1B + c_conductor_2A + inner_cylinder2 + c_conductor_2B
+    #c_conductor_1A +  c_conductor_1B + c_conductor_2A + c_conductor_2B
     
     #third RF wafer at voltage------------------------------------------------------------------------------------------------
 
@@ -275,7 +275,7 @@ def RF_stack3(condid, betalambda_half=200*wp.um, gap=RF_gap, voltage=0):
     end_accel_gaps.append(pos)
     start_accel_gaps.append(pos-gap) #array of start of acceleration gaps for future use
     '''
-    second_RF_cell = c_conductor_3A +  c_conductor_3B + c_conductor_4A + c_conductor_4B #second_RF_cell = c_conductor_3A + inner_cylinder3 +  c_conductor_3B + c_conductor_4A + inner_cylinder4 + c_conductor_4B
+    second_RF_cell = c_conductor_3A + inner_cylinder3 +  c_conductor_3B + c_conductor_4A + inner_cylinder4 + c_conductor_4B #c_conductor_3A +  c_conductor_3B + c_conductor_4A + c_conductor_4B #second_RF_cell = c_conductor_3A + inner_cylinder3 +  c_conductor_3B + c_conductor_4A + inner_cylinder4 + c_conductor_4B
     #--------------------------------------------------------------------------------------------
     
     
