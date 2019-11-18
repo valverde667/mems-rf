@@ -449,7 +449,8 @@ while (wp.top.time < tmax and zmax < zrunmax):
         distN += 1
         """
     zmin = wp.top.zbeam+wp.w3d.zmmin
-    zmax = wp.top.zbeam+wp.w3d.zmmax #scales the window length #redefines the end of the simulation tacks on the 53mm
+    zmax = wp.top.zbeam+wp.w3d.zmmax #trying to get rid of extra length at the end of the simulation, this is wasting computing power
+    #wp.top.zbeam+wp.w3d.zmmax #scales the window length #redefines the end of the simulation tacks on the 53mm
 
     # create some plots
 
@@ -508,7 +509,7 @@ while (wp.top.time < tmax and zmax < zrunmax):
     wp.limits(-R, R)
     wp.ylimits(-R, R)
     wp.plg(Y, X, type="dash")
-    wp.fma() #fifth fram in the cgm file, repeating
+    wp.fma() #fifth frame in the cgm file, repeating
 
 # particles in beam plot
 wp.plg(numsel, time_time, color=wp.blue)
