@@ -5,7 +5,7 @@ import warpoptions
 #   only the ones you want to change from their default vaues
 #   you can get a good idea of what these values should be from the ExcelSimulationOfMassSeperation.xlsx
 #   or from interactivePlot.ipynb
-#   use mathmatica to find out esq_voltage
+#   use mathematica to find out esq_voltage
 
 #   only specify the parameters you want to change from their default values
 #   the input will look like:
@@ -152,7 +152,7 @@ wp.setup(prefix=f"{cgm_name}", cgmlog= 0)
 
 # --- Set basic beam parameters, these should be calculated in mathmatica first
 
-ibeaminit = 10e-6 # inital beam current May vary up to 25e-6
+ibeaminit = 10e-6 # initial beam current May vary up to 25e-6
 n = 0 #to be used to switch the voltages on the RF wafers
 
 wp.top.a0 = emittingRadius
