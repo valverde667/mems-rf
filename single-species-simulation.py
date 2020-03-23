@@ -1,4 +1,5 @@
 import warpoptions
+# this file was only edited a little to output the z-crossing data at the end of the simulation
 
 #   get input parameters
 #   you don't have to put all parameters into the command line,
@@ -62,7 +63,8 @@ from warp.particles import particlescraper
 start = time.time()
 
 wp.w3d.solvergeom = wp.w3d.XYZgeom
-wp.top.dt =   5e-11#5e-11 #for short runs try 5e-9 #these are the time steps for the simulation
+wp.top.dt =   1e-9#5e-11 #for short runs try 5e-9 #these
+# are the time steps for the simulation
 
 # --- keep track of when the particles are born
 wp.top.ssnpid = wp.nextpid()
@@ -90,6 +92,8 @@ datetimestamp = datetime.datetime.now().strftime('%m-%d-%y_%H:%M:%S')
 a = b = c = d = e = f = g = 0 #placeholder values to keep track of how many parameters were changed
 
 #find which change was made to record in the file name
+parameter_name = "Default"
+change = ""
 if L_bunch != 2e-9:
     parameter_name = "L_bunch"
     change = L_bunch
@@ -169,7 +173,8 @@ wp.top.linj_efromgrid = True
 wp.derivqty()
 
 # --- Set input parameters describing the 3d simulation
-wp.w3d.l4symtry = True
+#ToDo optimize symmetries
+wp.w3d.l4symtry = True# True
 wp.w3d.l2symtry = False
 
 # --- Set boundary conditions
@@ -187,7 +192,8 @@ wp.top.prwall = 1*wp.mm #prwall slightly bigger than aperture radius so ions can
 # --- Set field grid size, this is the width of the window
 wp.w3d.xmmin = -23/14*wp.mm
 wp.w3d.xmmax = 23/14*wp.mm
-wp.w3d.ymmin = -0.02/8.*1.2 #why is this 1.2 here?
+wp.w3d.ymmin = -0.02/8.*1.2 #toDo why is this not the
+# same as x???
 wp.w3d.ymmax = +0.02/8.*1.2
 wp.w3d.zmmin = 0.0
 wp.w3d.zmmax = 23*wp.mm #53*wp.mm #changes the length of the gist output window. Maybe this should be the spread of the last particles in the simulation to the end of the last acceleration gap
@@ -280,6 +286,8 @@ ESQ_toffset = 0
 
 Vpos = []
 
+print(f"Energies : {energies}\nDistances : {distances}")
+
 def pairwise(it):
     """Return two items from a list per iteration"""
     it = iter(it)
@@ -289,7 +297,8 @@ def pairwise(it):
         except StopIteration:
             return
 
-# this loop generates the geometry
+# ---- generating geometry -----
+#this loop generates the geometry of the waifers
 for i, bl2s in enumerate(pairwise(zip(distances, energies))):
     (rf_bl2, E1), (esq_bl2, E2) = bl2s #calling distances rf_bl2s # #calling distances rf_bl2s
     # use first betalamba_half for the RF unit
@@ -304,7 +313,7 @@ for i, bl2s in enumerate(pairwise(zip(distances, energies))):
     Gap(rf_bl2 - geometry.RF_gap - 4*geometry.copper_thickness - 2*geometry.RF_thickness) #put this into geometry??????? with different position for the ESQ
     
     # scale esq voltages
-    voltage = Vesq * E2/ekininit #why do we need to do this?
+    voltage = Vesq * E2/ekininit #ToDo why do we need to do this?
     '''
     # and second betalamba_half for ESQ unit
     gaplength = esq_bl2-geometry.RF_gap-2*geometry.RF_thickness
@@ -339,21 +348,73 @@ for i, bl2s in enumerate(pairwise(zip(distances, energies))):
     ID_ESQ += 4
     '''
     ID_RF += 3
+#spectrometer = geometry.spectrometer_v1(100000, 5*wp.mm, 10*wp.mm)
+#print(f"Spectrometer {spectrometer}")
 
-conductors = wp.sum(RFs) #+ wp.sum(ESQs)# + names all ESQs and RFs conductors in order to feed into warp
+conductors = wp.sum(RFs) #+ spectrometer #+ wp.sum(ESQs)# + names all ESQs and RFs conductors in order to feed into warp
 
-velo = np.sqrt(2*ekininit*selectedIons.charge/selectedIons.mass) #used to caluclate tmax
+#after generating the geometry, list positions:
+print(f"List of used positions : {geometry.pos_pos}")
+# ------ end of geometry -----
+#ToDo Timo - work here
+velo = np.sqrt(2*ekininit*selectedIons.charge/selectedIons.mass) #used to calculate tmax
 length = geometry.pos + 2.5*wp.cm #2.5mm added to allow particles to completely pass through last RF gap, cant call targetz before the acceleration gaps are made
 tmax = length/velo #this is used for the maximum time for timesteps
 zrunmax = length #this is used for the maximum distance for timesteps
 
 # define the electrodes
 wp.installconductors(conductors)
+#print(f"Installed conductors : {wp.listofallconductors}")
 
 # --- Recalculate the fields
 wp.fieldsol(-1)
 
 solver.gridmode = 0 #makes the fields oscillate properly at the beginning
+
+#############################
+##ToDo Timo ZC
+### track particles after crossing a Z location -
+# in this case after the final rf amp
+lastWafer = geometry.pos_pos[-1]
+zc_pos = lastWafer + 2 *wp.mm
+print(f"recording particles crossing at z = {zc_pos}")
+zc = ZCrossingParticles(zz=zc_pos, laccumulate=1)
+
+z_snapshots = [lastWafer + 0 *wp.mm,
+               lastWafer + 1 *wp.mm,
+               lastWafer + 2 *wp.mm,
+               lastWafer + 3 *wp.mm]
+def saveBeamSnapshot(z):
+    if z_snapshots: # checks for remaining snapshots
+        nextZ = min(z_snapshots)
+        if z > nextZ:
+            # this is an approximation and in keV
+            avEkin = np.square(selectedIons.getvz()).mean() *\
+                     .5 * warpoptions.options.speciesMass*wp\
+                         .amu / wp.echarge / 1000
+            json_Zsnap = {
+                "ekin" : avEkin,
+                "z_snap_pos": nextZ-lastWafer,
+                "x": selectedIons.getx().tolist(),
+                "y": selectedIons.gety().tolist(),
+                "z": selectedIons.getz().tolist(),
+                "vx": selectedIons.getvx().tolist(),
+                "vy": selectedIons.getvy().tolist(),
+                "vz": selectedIons.getvz().tolist(),
+            }
+            snapFileName = f"{datetimestamp}" \
+                           f"_{avEkin:.1f}keV_" \
+                           f"{(nextZ-lastWafer)/wp.mm:.2f}"\
+                           f"mm_snap.json"
+            snapFileName = f"testing/{snapFileName}"
+            with open(snapFileName , "w") as write_file:
+                json.dump(json_Zsnap, write_file, indent=2)
+            print(f"Particle snapshot created at "
+                  f"{nextZ} with mean Ekin"
+                  f" {avEkin}keV")
+            z_snapshots.remove(nextZ)
+
+#############################
 
 # I want contour plots for levels between 0 and 1kV
 #contours = range(0, int(Vesq), int(Vesq/10))
@@ -391,9 +452,7 @@ distN = 0
 sct = [] #when the particles cross the acceleration gaps
 gap_num_select = 0
 
-geometry.mid_gap
-
-# -- Record when Particles cross a certian Z value
+# -- Record when Particles cross a certain Z value
 targetz = geometry.end_accel_gaps[-1]  #Z at the end of the last gap
 
 print(geometry.end_accel_gaps)
@@ -401,15 +460,17 @@ print(f"....................The target z is: {targetz}...................")
 
 #targetz_conductor = wp.Cylinder(.01*wp.mm,1*wp.mm,zcent=targetz) #this did not work last time
 
-#conductor to absorb particles at a certian Z
+#conductor to absorb particles at a certain Z
 #targetz_new = targetz + .005
 
-#target = target_conductor(ID_target, targetz_new)
+#ToDo Timo target already kind of here
+#targetz =  25*wp.mm
+#target = target_conductor(ID_target, targetz)
 
 #wp.installconductor(target)
 
 #-- create scraper and feed conductors and targetz and retain information
-"""scraper = wp.ParticleScraper([conductors, target], lcollectlpdata=True) #, targetz"""
+#scraper = wp.ParticleScraper([conductors, target], lcollectlpdata=True) #, targetz
 #need to make a particle scraper line out of targetz, it doesnt know how to use target Z as a conductor,
 #might need to give it some width
 
@@ -417,7 +478,7 @@ scraper = wp.ParticleScraper(conductors, lcollectlpdata=True) #to use until targ
 
 # -- name the target particles and count them
 #targetz_particles = ZCrossingParticles(zz=targetz, laccumulate=1)
-
+#ToDo this is where the actual sim runs
 while (wp.top.time < tmax and zmax < zrunmax):
     wp.step(10) # each plotting step is 10 timesteps
     time_time.append(wp.top.time)
@@ -430,7 +491,7 @@ while (wp.top.time < tmax and zmax < zrunmax):
     #wp.top.pline1 = "V_RF: {:.0f}   V_esq: {:.0f}".format(gen_volt(RF_toffset)(wp.top.time), gen_volt_esq(Vesq, False, ESQ_toffset)(wp.top.time))
         
     # inject only for 1 ns, so that we can get onto the rising edge of the RF
-    if 0*wp.ns < wp.top.time < L_bunch: #changes the beam length
+    if 0*wp.ns < wp.top.time < L_bunch: #changes the beam
         wp.top.finject[0,selectedIons.jslist[0]] = 1
     else:
         wp.top.inject = 0
@@ -439,7 +500,7 @@ while (wp.top.time < tmax and zmax < zrunmax):
 
     if Z.mean() > zmid: # if the mean distance the particles have travelled is greater than the middle of the frame do this:
         wp.top.vbeamfrm = selectedIons.getvz().mean() #the velocity of the frame is equal to the mean velocity of the ions
-        solver.gridmode = 0 #oscillates the feilds, not sure if this is needed since we already called this at the beginning of the simulation
+        solver.gridmode = 0 #oscillates the fields, not sure if this is needed since we already called this at the beginning of the simulation
     """
     # record time when we cross certain points
     if Z.mean() > dist + np.cumsum(distances)[distN]: #np.cumsum(distances) adds all the bl/2's together over time
@@ -452,7 +513,7 @@ while (wp.top.time < tmax and zmax < zrunmax):
     zmax = wp.top.zbeam+wp.w3d.zmmax #trying to get rid of extra length at the end of the simulation, this is wasting computing power
     #wp.top.zbeam+wp.w3d.zmmax #scales the window length #redefines the end of the simulation tacks on the 53mm
 
-    # create some plots
+        # create some plots
 
     # the instantaneous kinetic energy plot
     KE = selectedIons.getke()
@@ -510,6 +571,8 @@ while (wp.top.time < tmax and zmax < zrunmax):
     wp.ylimits(-R, R)
     wp.plg(Y, X, type="dash")
     wp.fma() #fifth frame in the cgm file, repeating
+    # check if a snapshot should be taken (timo)
+    saveBeamSnapshot(Z.mean())
 
 # particles in beam plot
 wp.plg(numsel, time_time, color=wp.blue)
@@ -558,7 +621,7 @@ wp.hprrms(color=wp.green, titles=0)
 wp.ptitles("X(red), Y(blue), R(green)", "Z [m]", "X/Y/R [m]", "")
 wp.fma() #second to last frame in cgm file
 
-#Kinetic Energy at certian Z value
+#Kinetic Energy at certain Z value
 wp.plg(KE_select, time_time, color=wp.blue)
 wp.limits(0,70e-9) #limits(xmin,xmax,ymin,ymax)
 wp.ptitles("Kinetic Energy vs Time")
@@ -598,8 +661,8 @@ datetimestamp2 = datetime.datetime.now().strftime('%m-%d-%y')
 print('debug', t.shape, hepsny.shape)
 out = np.stack((t, hepsny, hepsnz, hep6d, hekinz, hekin, hxrms, hyrms, hrrms, hpnum))
 
-#store files in certian folder related to filename
-atap_path = Path(r'/Users/mwgarske/atap-meqalac-simulations') #insert your path here
+#store files in certain folder related to filename
+atap_path = Path(r'/home/timo/Documents/Warp/Sims/') #insert your path here
 
     #Convert data into JSON serializable..............................................#nsp = len(x)#"number_surviving_particles" : nsp,fs = len(x)/m, "fraction_particles" : fs,Ve = str(Vesq), se = list(geometry.start_ESQ_gaps), ee = list(geometry.end_ESQ_gaps), "ESQ_start" : se,"ESQ_end" : ee,"Vesq" : Ve,
 t = list(time_time)
@@ -653,11 +716,24 @@ with open (f"{parameter_name}__{change}__{datetimestamp}__surviving_particles.js
 #........................................................................
 #os.system("python3 continuous_flag.py")
 
+# Timo
+# ZCrossing store
+json_ZC = {
+    "x" :zc.getx().tolist(),
+    "y" :zc.gety().tolist(),
+    "vx":zc.getvx().tolist(),
+    "vy":zc.getvy().tolist(),
+    "vz":zc.getvz().tolist(),
+    "t" :zc.gett().tolist(),
+}
+with open(f"{parameter_name}__{change}__{datetimestamp}__ZCrossing.json", "w") as write_file:
+    json.dump(json_ZC, write_file, indent=2)
+
 now_end = time.time()
 print(f"Runtime in seconds is {now_end-start}")
 
 #change into the correct directory based off of the parameter change
-if not os.path.isdir(f"{parameter_name}"):
+if not os.path.isdir(f"{atap_path}/{parameter_name}"):
     #make a new directory
     os.system(f"mkdir {atap_path}/{parameter_name}")
     print("The path did not exist, but I have made it")
@@ -667,4 +743,6 @@ np.save(f"{parameter_name}_esqhist_{datetimestamp2}.npy", out)
 #move files to their respective folders
 os.system(f"mv {parameter_name}__{change}__{datetimestamp}.000.cgm {atap_path}/{parameter_name}/")
 os.system(f"mv {parameter_name}__{change}__{datetimestamp}__surviving_particles.json {atap_path}/{parameter_name}/")
-#os.system(f"mv {parameter_name}_esqhist_{datetimestamp2}.npy {atap_path}/{parameter_name}/")
+os.system(f"mv {parameter_name}_esqhist_{datetimestamp2}.npy {atap_path}/{parameter_name}/")
+os.system(f"mv {parameter_name}__{change}__{datetimestamp}__ZCrossing.json {atap_path}/{parameter_name}/")
+os.system(f"gist -x {atap_path}/{parameter_name}/{parameter_name}__{change}__{datetimestamp}.000.cgm")
