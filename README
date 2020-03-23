@@ -1,1 +1,14 @@
-this file is used to check if I did everything right with git and the branches
+2020-03-23, Timo:
+single-species-simulation.py:
+    Original file by maddy with some editing by me, mainly some cleanup and changes with the file output as well as saving particles crossing specific z-locations after the final RF-unit. For use of inserting those particles into my Energy analyzer simulation.
+    
+geometry.py: 
+re-written RF-stack etc
+geometry can now be set manually to mimik the actual setup of the wafers, which are not set perfectly
+
+single_species_simulation_for_thread.py:
+I removed a lot of unnececarry stuff and added some cofig options from the command line. It can be used with the multirunner skript.
+Makes use of ne RF stack design, which allows for manual arrangement of RF wafers to be able to simulate actual setup
+
+multirunner.py:
+small script which calls list of single_species_simulation_for_thread simulations in new threads.
