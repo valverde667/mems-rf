@@ -19,3 +19,15 @@ plots a histogram/plot of the particle distribution on a screen behind the defle
 
 calibration_evaluation.py
 plots the screen location vs particle speed vs deflector voltage
+
+Regarding Step 1, 2, 3 
+I have to write down more how to use the simulations
+Step1:
+for the particle postions stored from the single-species-simulation
+step2: 
+stores the particle after the travel through the analyzer
+step3:
+stores the final evaluation and plots
+
+
+
