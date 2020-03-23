@@ -1,0 +1,21 @@
+2020-03-23, Timo:
+
+multirun_calibration.py:
+Script to batch run spectrometer_sim_calibration
+
+spectrometer_sim_calibration.py
+spawns single particle in spectrometer, written to be run in batch
+
+spectrometer_sim.py
+specrometer simulation, that uses the particle files given by the single-species-simulations
+
+multirunner_spec.py
+multiruns the spectrometer_sim.py
+
+calibration_evaluation.py
+
+spectrometer_eval.py
+plots a histogram/plot of the particle distribution on a screen behind the deflectors
+
+calibration_evaluation.py
+plots the screen location vs particle speed vs deflector voltage
