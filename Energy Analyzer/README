@@ -29,5 +29,6 @@ stores the particle after the travel through the analyzer
 step3:
 stores the final evaluation and plots
 
-
-
+Interpolation.p & deflector_scope_data_eval.py:
+this is a tricky one as thy does not belong in this folder. Instead I copy the files into the data directory of a deflector scan and adapt it to the needs there. Interpolation.py is used to be able to return the particle energy for a specific deflection voltage and screen psotiton.
+The simulation gives f(x,y) = z, this allows for g(z,y) = x basically.
