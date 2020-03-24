@@ -44,7 +44,7 @@ warpoptions.parser.add_argument('--species_mass',
                                 dest='speciesMass',
                                 type=int, default='40')
 
-#   injeciton energy in eV
+#   injection energy in eV
 warpoptions.parser.add_argument('--ekininit',
                                 dest='ekininit', type=float,
                                 default='10e3')
@@ -67,7 +67,7 @@ warpoptions.parser.add_argument('--diva',
 
 #   special cgm name - for mass output / scripting
 warpoptions.parser.add_argument('--name', dest='name',
-                                type=str, default='')
+                                type=str, default='unnamedRun')
 
 #   divergence angle
 warpoptions.parser.add_argument('--tstep',
