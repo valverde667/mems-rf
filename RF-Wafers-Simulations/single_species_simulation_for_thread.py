@@ -124,8 +124,9 @@ datetimestamp = datetime.datetime.now().strftime(
 
 # --- where to store the outputfiles
 cgm_name = name
-step1path = "/home/timo/Documents/Warp/atap-meqalac" \
-            "-simulations/Spectrometer-Sim/step1/"
+#step1path = "/home/timo/Documents/Warp/atap-meqalac" \
+#            "-simulations/Spectrometer-Sim/step1/"
+step1path = '/home/timo/Documents/LBL/Warp/atap-meqalac-simulations-spectrometer-branch/RF-Wafers-Simulations/test'
 wp.setup(prefix=f"{step1path}/{cgm_name}")  # , cgmlog= 0)
 
 # --- Set basic beam parameters
@@ -273,6 +274,10 @@ positionArray = []
 a = centerOfFirstRFGap
 betalambda0 = 0
 betalambda1 = 0
+# TODO this does not work properly
+# for legacy purposes numRF is used,
+# numRF = 2 means one unit of GND RF RF GND
+# 4 equals two units etc.
 for i in np.arange(0, numRF / 2, 2):
     # a, b, c & d are the positions of the RFs/GND
     a = a - geometry.gapGNDRF / 2 - \
@@ -399,7 +404,8 @@ scraper = wp.ParticleScraper(conductors,
 # -- name the target particles and count them
 # targetz_particles = ZCrossingParticles(zz=targetz, laccumulate=1)
 # this is where the actual sim runs
-while (wp.top.time < tmax or zmax < zrunmax):
+# TODO: wp.top.zbeam is always zero
+while (wp.top.time < tmax or zmax < 50*wp.mm):#zmax < zrunmax):
     wp.step(10)  # each plotting step is 10 timesteps
     time_time.append(wp.top.time)
 
@@ -428,7 +434,7 @@ while (wp.top.time < tmax or zmax < zrunmax):
         # wp.top.vbeamfrm = selectedIons.getvz().max()
         solver.gridmode = 0  # oscillates the fields, not sure if this is needed since we already called this at the beginning of the simulation
 
-    # Todo is this needed
+    # Todo is this needed but wp.top.zbeam is always zero
     zmin = wp.top.zbeam + wp.w3d.zmmin
     zmax = wp.top.zbeam + wp.w3d.zmmax  # trying to get rid of extra length at the end of the simulation, this is wasting computing power
     # wp.top.zbeam+wp.w3d.zmmax #scales the window length #redefines the end of the simulation tacks on the 53mm

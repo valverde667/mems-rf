@@ -12,3 +12,10 @@ Makes use of ne RF stack design, which allows for manual arrangement of RF wafer
 
 multirunner.py:
 small script which calls list of single_species_simulation_for_thread simulations in new threads.
+
+Known problems:
+single_species_simulation_for_thread.py:
+
+The setup / calculation of the wafer positions does not work properly; numRF # delivers not the expected number of wafers/units.
+
+simulation runs for far too long, because wp.top.zbeam is always zero, so manual limit needs to be set.
