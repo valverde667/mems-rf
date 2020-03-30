@@ -1,4 +1,5 @@
 import warpoptions
+
 # 2020-03-23, Timo
 # This file is based of maddy's version but has a lot of code
 # re-written, espacially does it make use of the new code for
@@ -18,15 +19,15 @@ warpoptions.parser.add_argument('--bunch_length',
                                 dest='Lbunch', type=float,
                                 default='2e-9')
 
-#   number of acceleration gaps (must be a multiple of 2)
-warpoptions.parser.add_argument('--numRF', dest='numRF',
+#   number of RF units
+warpoptions.parser.add_argument('--Units', dest='Units',
                                 type=int,
-                                default='4')  # number of RF gaps
+                                default='2')  # number of RF gaps
 
 #   voltage on the RF gaps at the peak of the sinusoid
 warpoptions.parser.add_argument('--rf_voltage', dest='Vmax',
                                 type=float,
-                                default='10000')  # will be between 5000 and 10000 most likely 8000
+                                default='10000')  # will be between 4000 and 10000
 
 # voltage on the Vesq
 warpoptions.parser.add_argument('--esq_voltage',
@@ -67,7 +68,8 @@ warpoptions.parser.add_argument('--diva',
 
 #   special cgm name - for mass output / scripting
 warpoptions.parser.add_argument('--name', dest='name',
-                                type=str, default='unnamedRun')
+                                type=str,
+                                default='unnamedRun')
 
 #   divergence angle
 warpoptions.parser.add_argument('--tstep',
@@ -103,7 +105,7 @@ wp.top.tbirthpid = wp.nextpid()
 
 # set input parameters
 L_bunch = warpoptions.options.Lbunch
-numRF = warpoptions.options.numRF
+Units = warpoptions.options.Units
 Vmax = warpoptions.options.Vmax  # RF voltage
 Vesq = warpoptions.options.Vesq
 V_arrival = warpoptions.options.V_arrival  # fraction of the total voltage gained across each gap
@@ -124,7 +126,7 @@ datetimestamp = datetime.datetime.now().strftime(
 
 # --- where to store the outputfiles
 cgm_name = name
-#step1path = "/home/timo/Documents/Warp/atap-meqalac" \
+# step1path = "/home/timo/Documents/Warp/atap-meqalac" \
 #            "-simulations/Spectrometer-Sim/step1/"
 step1path = '/home/timo/Documents/LBL/Warp/atap-meqalac-simulations-spectrometer-branch/RF-Wafers-Simulations/test'
 wp.setup(prefix=f"{step1path}/{cgm_name}")  # , cgmlog= 0)
@@ -173,6 +175,7 @@ wp.w3d.ymmax = +0.02 / 8. * 1.2
 wp.w3d.zmmin = 0.0
 # changes the length of the gist output window.
 wp.w3d.zmmax = 23 * wp.mm
+
 
 # set grid spacing, this is the number of mesh elements in one window
 wp.w3d.nx = 50.
@@ -271,40 +274,43 @@ Vpos = []
 # calculating the ideal positions
 # Todo explain calculation
 positionArray = []
-a = centerOfFirstRFGap
+# Calculating first position
+# this is not actually C but the very first wafer a
+c = centerOfFirstRFGap - geometry.gapGNDRF / 2 - \
+        geometry.copper_thickness - \
+        geometry.wafer_thickness / 2
 betalambda0 = 0
 betalambda1 = 0
-# TODO this does not work properly
-# for legacy purposes numRF is used,
-# numRF = 2 means one unit of GND RF RF GND
-# 4 equals two units etc.
-for i in np.arange(0, numRF / 2, 2):
-    # a, b, c & d are the positions of the RFs/GND
-    a = a - geometry.gapGNDRF / 2 - \
-        geometry.copper_thickness - \
-        geometry.wafer_thickness / 2 + betalambda1
+
+for i in np.arange(0, Units):
+    # a, b, c & d are the positions of the center of RFs/GND wafers
+    # GND RF RF GND
+    a = c + betalambda0
     b = a + geometry.gapGNDRF + \
         geometry.copper_thickness * 2 + \
         geometry.wafer_thickness
-    betalambda0 = wp.sqrt((
-                                  ekininit + V_arrival * Vmax * (
-                                      2 * i + 1)) * 2 *
-                          selectedIons.charge / speciesMass) * 1 / freq / 2
-    c = a + betalambda0
-    d = b + betalambda0
-    betalambda1 = wp.sqrt(
-        (ekininit + V_arrival * Vmax * (2 * i + 2))
+    betalambda1 = wp.sqrt((ekininit + V_arrival * Vmax * (2*i + 1)) * 2 *selectedIons.charge / speciesMass) * 1 / freq / 2
+    c = a + betalambda1
+    d = b + betalambda1
+    betalambda0 = wp.sqrt(
+        (ekininit + V_arrival * Vmax * (2*i + 2))
         * 2 * selectedIons.charge /
         speciesMass) * 1 / freq / 2
     positionArray.append([a, b, c, d])
-print(
-    f"The {numRF * 2} wafers will be placed at {positionArray}")
+# Here it is optional to overwrite the position Array, to
+# simulate the ACTUAL setup:
+# calculatedPositionArray = positionArray
+# positionArray = [[1,2,3,4],
+#                  [5,6,7,8],
+#                  ]
+for i, pa in enumerate(positionArray):
+    print(f"Unit {i} placed at {pa}")
 
 # add actual stack
 conductors = RF_stack(positionArray,
-                          gen_volt(RF_offset))
+                      gen_volt(RF_offset))
 
-# ToDo Timo - work here
+# ToDo
 velo = np.sqrt(
     2 * ekininit * selectedIons.charge / selectedIons.mass)  # used to calculate tmax
 length = positionArray[-1][-1] + 25 * wp.mm
@@ -321,7 +327,8 @@ wp.fieldsol(-1)
 solver.gridmode = 0  # makes the fields oscillate properly at the beginning
 
 #############################
-##ToDo Timo ZC
+## ToDo Timo ZC this could need some improvement
+# maybe a complete tracking of all particles might be useful for some applications
 ### track particles after crossing a Z location -
 # in this case after the final rf amp
 lastWafer = positionArray[-1][-1]
@@ -397,7 +404,7 @@ KE_select = []
 beamwidth = []
 energy_time = []
 starting_particles = []
-
+Z=[0]
 scraper = wp.ParticleScraper(conductors,
                              lcollectlpdata=True)  # to use until target is fixed to output data properly
 
@@ -405,7 +412,9 @@ scraper = wp.ParticleScraper(conductors,
 # targetz_particles = ZCrossingParticles(zz=targetz, laccumulate=1)
 # this is where the actual sim runs
 # TODO: wp.top.zbeam is always zero
-while (wp.top.time < tmax or zmax < 50*wp.mm):#zmax < zrunmax):
+while (
+        wp.top.time < tmax or max(Z) < 10 * wp.mm + lastWafer):  # zmax < zrunmax):
+    print(f'max Z {max(Z)}')
     wp.step(10)  # each plotting step is 10 timesteps
     time_time.append(wp.top.time)
 
@@ -479,7 +488,7 @@ while (wp.top.time < tmax or zmax < 50*wp.mm):#zmax < zrunmax):
     for i in range(len(
             tarray) - 1):  # the length of tarray must be changing overtime which changes the mask which recolors the particles
         m = (selectedIons.tbirth > tarray[i]) * (
-                    selectedIons.tbirth < tarray[i + 1])
+                selectedIons.tbirth < tarray[i + 1])
         mask.append(m)
 
     # plot particles on top of feild plot, sort by birthtime and color them accordingly
@@ -616,7 +625,7 @@ ke = list(KE_select)
 z = list(Z)
 m = max(numsel)
 L = str(L_bunch)
-n = numRF
+n = Units * 2
 fA = str(V_arrival)
 sM = int(speciesMass)
 eK = int(ekininit)
@@ -641,6 +650,7 @@ json_data = {
         "Vmax": Vmax,
         "L_bunch": L,
         "numRF": n,
+        'Units': Units,
         "V_arrival": fA,
         "speciesMass": sM,
         "ekininit": eK,
