@@ -8,42 +8,27 @@ import warp as wp
 
 
 # unit cell frame
-framelength = 0.15#\\1500*wp.um
-framewidth = 150*wp.um
+#framelength = 0.15#\\1500*wp.um
+#framewidth = 150*wp.um
 
-# wafer dimensions
-d_beamhole = 1 *wp.mm
-wafer_thickness = 625 * wp.um
-copper_thickness = 35 * wp.um
-d_out_copper = 2 *wp.mm
-gapGNDRF = 2 * wp.mm
-# SOI
-ESQ_wafer_length = 625*wp.um #ESQ thickness
-# esq
-ESQ_gap = .7*wp.mm #distance between ESQ wafers
-
-#Todo is that needed
-capacitor_Xshift = 0# 5*wp.mm
-capacitor_plateDist = 2 # 30*wp.mm
-
-end_accel_gaps = []
-start_accel_gaps = []
-start_ESQ_gaps = []
-end_ESQ_gaps = []
-count = 0 # 1st RF count = 0 grounded, second rf count =1 voltage, third RF count = 2 voltage, fourth RF count =3 grounded, fourth RF count =4 voltage (GVVGGVVGGVVGGVVGG GVVG is being repeated throughout which is why we were doing it this way beforeI'll try to make it work the other way then
-pos_pos =[] #to keep track of what value pos has throughout the making of the RF stack
+#end_accel_gaps = []
+#start_accel_gaps = []
+#start_ESQ_gaps = []
+#end_ESQ_gaps = []
+#count = 0 # 1st RF count = 0 grounded, second rf count =1 voltage, third RF count = 2 voltage, fourth RF count =3 grounded, fourth RF count =4 voltage (GVVGGVVGGVVGGVVGG GVVG is being repeated throughout which is why we were doing it this way beforeI'll try to make it work the other way then
+#pos_pos =[] #to keep track of what value pos has throughout the making of the RF stack
 
 #should be obsolete by now
-def Gap(dist=500*wp.um): #why is this 500 um, just a default value?
-    """Vacuum gap, e.g. between wafers"""
-    global pos
-    print(f"The position in the Gap function currently is {pos}")
-    pos += dist
-    print(f"After adding {dist} to the pos the pos is now {pos}")
-    print("--- Gap ends at: ", pos)
+# def Gap(dist=500*wp.um): #why is this 500 um, just a default value?
+#     """Vacuum gap, e.g. between wafers"""
+#     global pos
+#     print(f"The position in the Gap function currently is {pos}")
+#     pos += dist
+#     print(f"After adding {dist} to the pos the pos is now {pos}")
+#     print("--- Gap ends at: ", pos)
 
 
-def ESQ(voltage, condid):
+def ESQ_old(voltage, condid):
     """Simple ESQ wafer
 
     Use 4 cylinders in Z to make up a single electrode.
@@ -105,9 +90,51 @@ def ESQ(voltage, condid):
 
     return electrodeA + electrodeB + electrodeC + electrodeD
 ####
+
+def ESQ_double(position, voltage, d_wafers=2*wp.mm):
+    '''
+    ESQ double, new implementation, April 2020
+    timobauer@lbl.com
+    :param position: position of the center of the 2 wafers
+    :param voltage: applied against ground, wafers are
+                    on +/- voltage
+    :param d_wafers: gap between the wafers (width of washers)
+    :return: an ESQ double
+    '''
+    # Dimensions:
+    d_beamhole = 1 * wp.mm
+    wafer_thickness = 625 * wp.um
+    copper_thickness = 35 * wp.um
+    d_out_copper = 2 * wp.mm
+    quater_gap = .25 *wp.mm #EXPLAIN
+    #
+    #
+    def pcb(material):
+        return \
+            wp.ZCylinder(radius=10 * wp.mm,
+                         length=wafer_thickness,
+                         xcent=0, ycent=0,
+                         zcent=position,
+                         material=material,
+                         voltage=0
+                         ) - wp.ZCylinder(
+                radius=d_beamhole / 2 + copper_thickness,
+                length=wafer_thickness,
+                xcent=0, ycent=0, zcent=position,
+                material=material, voltage=0)
+    #
+
+
+###
 def RF_stack(stackPositions, voltage):
     """This is a rewritten code to make it easier to adapt
     it to the actual teststand"""
+    # Defining dimensions:
+    d_beamhole = 1 * wp.mm
+    wafer_thickness = 625 * wp.um
+    copper_thickness = 35 * wp.um
+    d_out_copper = 2 * wp.mm
+    #
     def wafer(centerposition, v):
         """This is a single wafer with at a
         centerposition"""
@@ -160,15 +187,14 @@ def RF_stack(stackPositions, voltage):
 
 
 #conductor to absorb particles at a certain Z
-def target_conductor(condid, zcent):
-    #Frame = wp.Box(framelength, framelength, 625*wp.um, voltage=0,zcent=zcent)
-    Frame = wp.Box(framelength, framelength, 1 * wp.mm, voltage=0, zcent=zcent)
-        #target_conductor = wp.ZCylinder(radius=2*wp.mm, length=625*wp.um,
-        #voltage=0, xcent=0, ycent=0, zcent=zcent)
-    return Frame #+ target_conductor
+# def target_conductor(condid, zcent):
+#     #Frame = wp.Box(framelength, framelength, 625*wp.um, voltage=0,zcent=zcent)
+#     Frame = wp.Box(framelength, framelength, 1 * wp.mm, voltage=0, zcent=zcent)
+#         #target_conductor = wp.ZCylinder(radius=2*wp.mm, length=625*wp.um,
+#         #voltage=0, xcent=0, ycent=0, zcent=zcent)
+#     return Frame #+ target_conductor
 
-# Spectrometer test setup:
-
+# Spectrometer test setup TODO Clean that up and adapt it to new way of running warp sims
 def spectrometer_v1(voltage=1000, d_lastRF_capacitor=25*wp.mm, d_lastRF_Screen=100*wp.mm):
     """
     :param voltage: sets the potential between the two metal plates,
@@ -178,6 +204,7 @@ def spectrometer_v1(voltage=1000, d_lastRF_capacitor=25*wp.mm, d_lastRF_Screen=1
     :param d_lastRF_Screen: "" to the screen
     :return: the entire spectrometer setup
     """
+    # TODO: get rid of pos etc
     global pos
     pos = pos + d_lastRF_capacitor
     pos_pos.append(pos)
@@ -197,19 +224,20 @@ def spectrometer_v1(voltage=1000, d_lastRF_capacitor=25*wp.mm, d_lastRF_Screen=1
     print(f"Setting up Scintillator at {pos}")
     return p1 + p2
 
-def spectrometer_standalone(voltage=1000,centerposition =
-40 *wp.mm, distanceplates = 30 *wp.mm):
-    # Dimensions of metal plates
-    plateX = 10 *wp.mm
-    plateY = 50 *wp.mm
-    plateZ = 25 *wp.mm
-    #ToDo add x-shift
-    plate1 = wp.Box(xsize=plateX,ysize=plateY,
-                    zsize=plateZ, xcent=distanceplates/2
-                    , ycent=0, zcent=centerposition,
-                    voltage=voltage/2)
-    plate2 = wp.Box(xsize=plateX, ysize=plateY,
-                    zsize=plateZ, xcent=-distanceplates / 2
-                    , ycent=0, zcent=centerposition,
-                    voltage=-voltage / 2)
-    return plate1 + plate2
+# should not be needed
+# def spectrometer_standalone(voltage=1000,centerposition =
+# 40 *wp.mm, distanceplates = 30 *wp.mm):
+#     # Dimensions of metal plates
+#     plateX = 10 *wp.mm
+#     plateY = 50 *wp.mm
+#     plateZ = 25 *wp.mm
+#     #ToDo add x-shift
+#     plate1 = wp.Box(xsize=plateX,ysize=plateY,
+#                     zsize=plateZ, xcent=distanceplates/2
+#                     , ycent=0, zcent=centerposition,
+#                     voltage=voltage/2)
+#     plate2 = wp.Box(xsize=plateX, ysize=plateY,
+#                     zsize=plateZ, xcent=-distanceplates / 2
+#                     , ycent=0, zcent=centerposition,
+#                     voltage=-voltage / 2)
+#     return plate1 + plate2
