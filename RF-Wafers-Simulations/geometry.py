@@ -6,6 +6,9 @@
 import warp as wp
 # universial dimensions
 
+gapGNDRF = 2 *wp.mm # those are currently needed in sss_f_t
+wafer_thickness = 625 * wp.um
+copper_thickness = 35 * wp.um
 
 # unit cell frame
 #framelength = 0.15#\\1500*wp.um
@@ -91,8 +94,8 @@ def ESQ_old(voltage, condid):
     return electrodeA + electrodeB + electrodeC + electrodeD
 ####
 
-def ESQ_double(position, voltage, d_wafers=2*wp.mm):
-    '''
+def ESQ_double(centerposition, voltage, d_wafers=2*wp.mm):
+    """
     ESQ double, new implementation, April 2020
     timobauer@lbl.com
     :param position: position of the center of the 2 wafers
@@ -100,7 +103,7 @@ def ESQ_double(position, voltage, d_wafers=2*wp.mm):
                     on +/- voltage
     :param d_wafers: gap between the wafers (width of washers)
     :return: an ESQ double
-    '''
+    """
     # Dimensions:
     d_beamhole = 1 * wp.mm
     wafer_thickness = 625 * wp.um
@@ -108,25 +111,40 @@ def ESQ_double(position, voltage, d_wafers=2*wp.mm):
     d_out_copper = 2 * wp.mm
     quater_gap = .25 *wp.mm #EXPLAIN
     #
-    #
-    def pcb(material):
-        return \
-            wp.ZCylinder(radius=10 * wp.mm,
-                         length=wafer_thickness,
-                         xcent=0, ycent=0,
-                         zcent=position,
-                         material=material,
-                         voltage=0
-                         ) - wp.ZCylinder(
-                radius=d_beamhole / 2 + copper_thickness,
-                length=wafer_thickness,
-                xcent=0, ycent=0, zcent=position,
-                material=material, voltage=0)
+    def ESQ(position):
+        """
+        One ESQ wafer
+        :param position: of the center of a single ESQ wafer
+        :return: a single ESQ wafer
+        """
+        def pcb(material):
+            """
+            A this is a metal hollow zylinder with the
+            dimensions of the PCB for subtraction later.
+            :param material: should be the same as what it
+                            subtracted from
+            :return: PCB/silicone part of the wafers
+            """
+            # TODO This zylinder stuff can be replaced by an annulus
+            return \
+                wp.ZCylinder(radius=10 * wp.mm,
+                             length=wafer_thickness,
+                             xcent=0, ycent=0,
+                             zcent=position,
+                             material=material,
+                             voltage=0
+                             ) - wp.ZCylinder(
+                    radius=d_beamhole / 2 + copper_thickness,
+                    length=wafer_thickness,
+                    xcent=0, ycent=0, zcent=position,
+                    material=material, voltage=0)
+
     #
 
 
 ###
 def RF_stack(stackPositions, voltage):
+    # TODO This zylinder stuff can be replaced by an annulus
     """This is a rewritten code to make it easier to adapt
     it to the actual teststand"""
     # Defining dimensions:
@@ -136,8 +154,13 @@ def RF_stack(stackPositions, voltage):
     d_out_copper = 2 * wp.mm
     #
     def wafer(centerposition, v):
-        """This is a single wafer with at a
-        centerposition"""
+        """
+        A this is a metal hollow zylinder with the
+        dimensions of the PCB for subtraction later.
+        :param material: should be the same as what it
+                        subtracted from
+        :return: PCB/silicone part of the wafers
+        """
         #
         def pcb(material):
             return \

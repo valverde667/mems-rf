@@ -128,7 +128,7 @@ datetimestamp = datetime.datetime.now().strftime(
 cgm_name = name
 # step1path = "/home/timo/Documents/Warp/atap-meqalac" \
 #            "-simulations/Spectrometer-Sim/step1/"
-step1path = '/home/timo/Documents/LBL/Warp/atap-meqalac-simulations-spectrometer-branch/RF-Wafers-Simulations/test'
+step1path = '/home/timo/Documents/LBL/Warp/atap-meqalac-simulations-spectrometer-branch/RF-Wafers-Simulations/test/'
 wp.setup(prefix=f"{step1path}/{cgm_name}")  # , cgmlog= 0)
 
 # --- Set basic beam parameters
@@ -332,6 +332,7 @@ solver.gridmode = 0  # makes the fields oscillate properly at the beginning
 ### track particles after crossing a Z location -
 # in this case after the final rf amp
 lastWafer = positionArray[-1][-1]
+print(f'Last wafer at {lastWafer}')
 zc_pos = lastWafer + 2 * wp.mm
 print(f"recording particles crossing at z = {zc_pos}")
 zc = ZCrossingParticles(zz=zc_pos, laccumulate=1)
@@ -342,6 +343,7 @@ z_snapshots = [lastWafer + 0 * wp.mm,
 
 
 def saveBeamSnapshot(z):
+    # TODO docstring
     if z_snapshots:  # checks for remaining snapshots
         nextZ = min(z_snapshots)
         if z > nextZ:
@@ -407,14 +409,18 @@ starting_particles = []
 Z=[0]
 scraper = wp.ParticleScraper(conductors,
                              lcollectlpdata=True)  # to use until target is fixed to output data properly
+# End of simulation when this is reached
+zEnd = 10 * wp.mm + lastWafer
+print(f'Simulation runs until Z = {zEnd}')
 
 # -- name the target particles and count them
 # targetz_particles = ZCrossingParticles(zz=targetz, laccumulate=1)
 # this is where the actual sim runs
 # TODO: wp.top.zbeam is always zero
 while (
-        wp.top.time < tmax or max(Z) < 10 * wp.mm + lastWafer):  # zmax < zrunmax):
-    print(f'max Z {max(Z)}')
+        wp.top.time < tmax and max(Z) < zEnd ):  # zmax < zrunmax):
+    print(f'first Particle at {max(Z)};'
+          f' simulations stops at {zEnd}')
     wp.step(10)  # each plotting step is 10 timesteps
     time_time.append(wp.top.time)
 
@@ -620,46 +626,46 @@ out = np.stack((t, hepsny, hepsnz, hep6d, hekinz, hekin,
 # atap_path = Path(r'/home/timo/Documents/Warp/Sims/') #insert your path here
 
 # Convert data into JSON serializable..............................................#nsp = len(x)#"number_surviving_particles" : nsp,fs = len(x)/m, "fraction_particles" : fs,Ve = str(Vesq), se = list(geometry.start_ESQ_gaps), ee = list(geometry.end_ESQ_gaps), "ESQ_start" : se,"ESQ_end" : ee,"Vesq" : Ve,
-t = list(time_time)
-ke = list(KE_select)
-z = list(Z)
-m = max(numsel)
-L = str(L_bunch)
-n = Units * 2
-fA = str(V_arrival)
-sM = int(speciesMass)
-eK = int(ekininit)
-fq = int(freq)
-em = str(emittingRadius)
-dA = str(divergenceAngle)
-pt = list(numsel)
-sa = list(geometry.start_accel_gaps)
-ea = list(geometry.end_accel_gaps)
-json_data = {
-    "data": {
-        "max_particles": m,
-        "time": t,
-        "kinetic_energy": ke,
-        "z_values": z,
-        "particles_overtime": pt,
-        "RF_start": sa,
-        "RF_end": ea
-    },
-    "parameter_dict": {
-
-        "Vmax": Vmax,
-        "L_bunch": L,
-        "numRF": n,
-        'Units': Units,
-        "V_arrival": fA,
-        "speciesMass": sM,
-        "ekininit": eK,
-        "freq": fq,
-        "emittingRadius": em,
-        "divergenceAngle": dA
-
-    }
-}
+# t = list(time_time)
+# ke = list(KE_select)
+# z = list(Z)
+# m = max(numsel)
+# L = str(L_bunch)
+# n = Units * 2
+# fA = str(V_arrival)
+# sM = int(speciesMass)
+# eK = int(ekininit)
+# fq = int(freq)
+# em = str(emittingRadius)
+# dA = str(divergenceAngle)
+# pt = list(numsel)
+# sa = list(geometry.start_accel_gaps)
+# ea = list(geometry.end_accel_gaps)
+# json_data = {
+#     "data": {
+#         "max_particles": m,
+#         "time": t,
+#         "kinetic_energy": ke,
+#         "z_values": z,
+#         "particles_overtime": pt,
+#         "RF_start": sa,
+#         "RF_end": ea
+#     },
+#     "parameter_dict": {
+#
+#         "Vmax": Vmax,
+#         "L_bunch": L,
+#         "numRF": n,
+#         'Units': Units,
+#         "V_arrival": fA,
+#         "speciesMass": sM,
+#         "ekininit": eK,
+#         "freq": fq,
+#         "emittingRadius": em,
+#         "divergenceAngle": dA
+#
+#     }
+# }
 
 # Timo
 # ZCrossing store
