@@ -20,7 +20,7 @@ warpoptions.parser.add_argument('--bunch_length',
                                 default='2e-9')
 
 #   number of RF units
-warpoptions.parser.add_argument('--Units', dest='Units',
+warpoptions.parser.add_argument('--units', dest='Units',
                                 type=int,
                                 default='2')  # number of RF gaps
 
@@ -32,7 +32,7 @@ warpoptions.parser.add_argument('--rf_voltage', dest='Vmax',
 # voltage on the Vesq
 warpoptions.parser.add_argument('--esq_voltage',
                                 dest='Vesq', type=float,
-                                default='.01')  # 850
+                                default='.00')  # 850
 
 #   fraction of the max voltage at which the selected ions cross
 warpoptions.parser.add_argument('--fraction',
@@ -74,7 +74,8 @@ warpoptions.parser.add_argument('--name', dest='name',
 #   divergence angle
 warpoptions.parser.add_argument('--tstep',
                                 dest='timestep',
-                                type=float, default='1e-11')
+                                type=float,
+                                default='1e-11')  # default='1e-11')
 
 import warp as wp
 import numpy as np
@@ -151,7 +152,7 @@ wp.derivqty()
 
 # --- Set input parameters describing the 3d simulation
 
-wp.w3d.l4symtry = True  # True
+wp.w3d.l4symtry = False  # True
 wp.w3d.l2symtry = False
 
 # ---   Set boundary conditions
@@ -175,7 +176,6 @@ wp.w3d.ymmax = +0.02 / 8. * 1.2
 wp.w3d.zmmin = 0.0
 # changes the length of the gist output window.
 wp.w3d.zmmax = 23 * wp.mm
-
 
 # set grid spacing, this is the number of mesh elements in one window
 wp.w3d.nx = 50.
@@ -277,8 +277,8 @@ positionArray = []
 # Calculating first position
 # this is not actually C but the very first wafer a
 c = centerOfFirstRFGap - geometry.gapGNDRF / 2 - \
-        geometry.copper_thickness - \
-        geometry.wafer_thickness / 2
+    geometry.copper_thickness - \
+    geometry.wafer_thickness / 2
 betalambda0 = 0
 betalambda1 = 0
 
@@ -289,11 +289,12 @@ for i in np.arange(0, Units):
     b = a + geometry.gapGNDRF + \
         geometry.copper_thickness * 2 + \
         geometry.wafer_thickness
-    betalambda1 = wp.sqrt((ekininit + V_arrival * Vmax * (2*i + 1)) * 2 *selectedIons.charge / speciesMass) * 1 / freq / 2
+    betalambda1 = wp.sqrt((ekininit + V_arrival * Vmax * (
+            2 * i + 1)) * 2 * selectedIons.charge / speciesMass) * 1 / freq / 2
     c = a + betalambda1
     d = b + betalambda1
     betalambda0 = wp.sqrt(
-        (ekininit + V_arrival * Vmax * (2*i + 2))
+        (ekininit + V_arrival * Vmax * (2 * i + 2))
         * 2 * selectedIons.charge /
         speciesMass) * 1 / freq / 2
     positionArray.append([a, b, c, d])
@@ -309,6 +310,16 @@ for i, pa in enumerate(positionArray):
 # add actual stack
 conductors = RF_stack(positionArray,
                       gen_volt(RF_offset))
+# calculate ESQ positions
+esqPositions = []
+for i in range(len(positionArray) - 1):
+    esqPositions.append(
+        (-positionArray[i][-1] + positionArray[i + 1][
+            0]) / 2)
+print(f'Placing ESQs at {esqPositions}')
+# Optional overwrite of ESQ positions:
+# esqPositions = [2,3,4,5]
+conductors += geometry.ESQ_double(esqPositions, 500)
 
 # ToDo
 velo = np.sqrt(
@@ -406,7 +417,7 @@ KE_select = []
 beamwidth = []
 energy_time = []
 starting_particles = []
-Z=[0]
+Z = [0]
 scraper = wp.ParticleScraper(conductors,
                              lcollectlpdata=True)  # to use until target is fixed to output data properly
 # End of simulation when this is reached
@@ -418,7 +429,8 @@ print(f'Simulation runs until Z = {zEnd}')
 # this is where the actual sim runs
 # TODO: wp.top.zbeam is always zero
 while (
-        wp.top.time < tmax and max(Z) < zEnd ):  # zmax < zrunmax):
+        wp.top.time < tmax and max(
+    Z) < zEnd):  # zmax < zrunmax):
     print(f'first Particle at {max(Z)};'
           f' simulations stops at {zEnd}')
     wp.step(10)  # each plotting step is 10 timesteps
@@ -455,7 +467,13 @@ while (
     # wp.top.zbeam+wp.w3d.zmmax #scales the window length #redefines the end of the simulation tacks on the 53mm
 
     # create some plots
-
+    # Timo copied that from carlos:
+    wp.pfxy(fill=1, filled=1, plotselfe=True, comp='x',
+            # added on 4/2 by Carlos
+            titles=0)
+    wp.ptitles(f"xy plot of E_y, z mean: {Z.mean()}", "x",
+               "y")
+    wp.fma()
     # the instantaneous kinetic energy plot
     KE = selectedIons.getke()
     print(np.mean(KE))

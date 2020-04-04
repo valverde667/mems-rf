@@ -120,7 +120,7 @@ def ESQ_double(centerpositions, voltage,
     :param voltage: applied against ground, wafers are
                     on +/- voltage
     :param d_wafers: gap between the wafers (width of washers)
-    :return: an ESQ doubleh
+    :return: an ESQ double
     """
     # Dimensions:
     d_beamhole = 1 * wp.mm
@@ -200,17 +200,16 @@ def ESQ_double(centerpositions, voltage,
                quarter(2, signedV) + quarter(3, -signedV) - \
                pcb()
         #
-    esqs = []
+    esqs = None
     for centerposition in centerpositions:
         esqoffcenter = wafer_thickness / 2 + \
                        copper_thickness + d_wafers / 2
         print(
-            f'ESQ POS at: \n {centerposition + esqoffcenter}'
-            f'\n{centerposition - esqoffcenter}')
-        esqs.append(
-            ESQ(centerposition - esqoffcenter, -1) + ESQ(
-                centerposition + esqoffcenter, +1))
-    return sum(esqs)
+            f'ESQ POS at: \n {centerposition - esqoffcenter}'
+            f'\n{centerposition + esqoffcenter}')
+        esqs += ESQ(centerposition - esqoffcenter, -1) + ESQ(
+                centerposition + esqoffcenter, +1)
+    return esqs
     #
 
 
