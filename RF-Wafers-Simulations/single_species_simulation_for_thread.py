@@ -319,7 +319,7 @@ for i in range(len(positionArray) - 1):
 print(f'Placing ESQs at {esqPositions}')
 # Optional overwrite of ESQ positions:
 # esqPositions = [2,3,4,5]
-conductors += geometry.ESQ_double(esqPositions, 500)
+# conductors += geometry.ESQ_double(esqPositions, 500)
 
 # ToDo
 velo = np.sqrt(
