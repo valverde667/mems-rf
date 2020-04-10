@@ -32,7 +32,7 @@ warpoptions.parser.add_argument('--rf_voltage', dest='Vmax',
 # voltage on the Vesq
 warpoptions.parser.add_argument('--esq_voltage',
                                 dest='Vesq', type=float,
-                                default='.00')  # 850
+                                default='.01')  # 850
 
 #   fraction of the max voltage at which the selected ions cross
 warpoptions.parser.add_argument('--fraction',
@@ -74,8 +74,7 @@ warpoptions.parser.add_argument('--name', dest='name',
 #   divergence angle
 warpoptions.parser.add_argument('--tstep',
                                 dest='timestep',
-                                type=float,
-                                default='1e-11')  # default='1e-11')
+                                type=float, default='1e-11')
 
 import warp as wp
 import numpy as np
@@ -92,6 +91,7 @@ import json
 import sys
 from warp.particles.extpart import ZCrossingParticles
 from warp.particles import particlescraper
+
 
 start = time.time()
 
@@ -127,9 +127,11 @@ datetimestamp = datetime.datetime.now().strftime(
 
 # --- where to store the outputfiles
 cgm_name = name
-# step1path = "/home/timo/Documents/Warp/atap-meqalac" \
+# step1path = "/home/timo/Documents/Warp/berkeley-atap-meqalac" \
 #            "-simulations/Spectrometer-Sim/step1/"
-step1path = '/home/timo/Documents/LBL/Warp/atap-meqalac-simulations-spectrometer-branch/RF-Wafers-Simulations/test/'
+step1path = '/home/cverdoza/Documents/LBL/WARP/berkeleylab-atap-meqalac-simulations/RF-Wafers-Simulations/test'
+
+
 wp.setup(prefix=f"{step1path}/{cgm_name}")  # , cgmlog= 0)
 
 # --- Set basic beam parameters
@@ -152,7 +154,7 @@ wp.derivqty()
 
 # --- Set input parameters describing the 3d simulation
 
-wp.w3d.l4symtry = False  # True
+wp.w3d.l4symtry = True  # True
 wp.w3d.l2symtry = False
 
 # ---   Set boundary conditions
@@ -176,6 +178,7 @@ wp.w3d.ymmax = +0.02 / 8. * 1.2
 wp.w3d.zmmin = 0.0
 # changes the length of the gist output window.
 wp.w3d.zmmax = 23 * wp.mm
+
 
 # set grid spacing, this is the number of mesh elements in one window
 wp.w3d.nx = 50.
@@ -231,7 +234,6 @@ ID_ESQ = 100
 ID_RF = 201
 ID_target = 1
 
-
 # --- generates voltage for the RFs
 def gen_volt(toffset=0):  # 0
     """ A cos voltage function with variable offset"""
@@ -252,6 +254,7 @@ def gen_volt_esq(Vesq, inverse=False, toffset=0):
             return Vesq  # *np.sin(2*np.pi*freq*(time+toffset))
 
     return ESQvoltage
+
 
 
 # --- calculate the distances and time offset for the RFs
@@ -277,51 +280,48 @@ positionArray = []
 # Calculating first position
 # this is not actually C but the very first wafer a
 c = centerOfFirstRFGap - geometry.gapGNDRF / 2 - \
-    geometry.copper_thickness - \
-    geometry.wafer_thickness / 2
+        geometry.copper_thickness - \
+        geometry.wafer_thickness / 2
 betalambda0 = 0
 betalambda1 = 0
 
 for i in np.arange(0, Units):
-    # a, b, c & d are the positions of the center of RFs/GND wafers
-    # GND RF RF GND
+     #a, b, c & d are the positions of the center of RFs/GND wafers
+#     GND RF RF GND
     a = c + betalambda0
     b = a + geometry.gapGNDRF + \
         geometry.copper_thickness * 2 + \
         geometry.wafer_thickness
-    betalambda1 = wp.sqrt((ekininit + V_arrival * Vmax * (
-            2 * i + 1)) * 2 * selectedIons.charge / speciesMass) * 1 / freq / 2
+    betalambda1 = wp.sqrt((ekininit + V_arrival * Vmax * (2*i + 1)) * 2 *selectedIons.charge / speciesMass) * 1 / freq / 2
     c = a + betalambda1
     d = b + betalambda1
     betalambda0 = wp.sqrt(
-        (ekininit + V_arrival * Vmax * (2 * i + 2))
+        (ekininit + V_arrival * Vmax * (2*i + 2))
         * 2 * selectedIons.charge /
         speciesMass) * 1 / freq / 2
     positionArray.append([a, b, c, d])
 # Here it is optional to overwrite the position Array, to
 # simulate the ACTUAL setup:
-# calculatedPositionArray = positionArray
-# positionArray = [[1,2,3,4],
+#calculatedPositionArray = positionArray
+#positionArray = [[1,2,3,4],
 #                  [5,6,7,8],
-#                  ]
+#                  [9,10,11,12]
+#                ]
+                  
 for i, pa in enumerate(positionArray):
     print(f"Unit {i} placed at {pa}")
 
 # add actual stack
 conductors = RF_stack(positionArray,
                       gen_volt(RF_offset))
+
+# ToDo
 # calculate ESQ positions
 esqPositions = []
 for i in range(len(positionArray) - 1):
     esqPositions.append(
-        (-positionArray[i][-1] + positionArray[i + 1][
-            0]) / 2)
+        (-positionArray[i][-1] + positionArray[i + 1][0]) / 2)
 print(f'Placing ESQs at {esqPositions}')
-# Optional overwrite of ESQ positions:
-# esqPositions = [2,3,4,5]
-# conductors += geometry.ESQ_double(esqPositions, 500)
-
-# ToDo
 velo = np.sqrt(
     2 * ekininit * selectedIons.charge / selectedIons.mass)  # used to calculate tmax
 length = positionArray[-1][-1] + 25 * wp.mm
@@ -335,6 +335,7 @@ wp.installconductors(conductors)
 # --- Recalculate the fields
 wp.fieldsol(-1)
 
+
 solver.gridmode = 0  # makes the fields oscillate properly at the beginning
 
 #############################
@@ -343,7 +344,6 @@ solver.gridmode = 0  # makes the fields oscillate properly at the beginning
 ### track particles after crossing a Z location -
 # in this case after the final rf amp
 lastWafer = positionArray[-1][-1]
-print(f'Last wafer at {lastWafer}')
 zc_pos = lastWafer + 2 * wp.mm
 print(f"recording particles crossing at z = {zc_pos}")
 zc = ZCrossingParticles(zz=zc_pos, laccumulate=1)
@@ -354,7 +354,6 @@ z_snapshots = [lastWafer + 0 * wp.mm,
 
 
 def saveBeamSnapshot(z):
-    # TODO docstring
     if z_snapshots:  # checks for remaining snapshots
         nextZ = min(z_snapshots)
         if z > nextZ:
@@ -417,23 +416,119 @@ KE_select = []
 beamwidth = []
 energy_time = []
 starting_particles = []
-Z = [0]
+Z=[0]
 scraper = wp.ParticleScraper(conductors,
                              lcollectlpdata=True)  # to use until target is fixed to output data properly
-# End of simulation when this is reached
-zEnd = 10 * wp.mm + lastWafer
-print(f'Simulation runs until Z = {zEnd}')
 
 # -- name the target particles and count them
 # targetz_particles = ZCrossingParticles(zz=targetz, laccumulate=1)
 # this is where the actual sim runs
 # TODO: wp.top.zbeam is always zero
+
+#attempt at graphing 
+zEnd = 10 * wp.mm + lastWafer
+print(f'Simulation runs until Z = {zEnd}')
+
+def plotf(axes,component):
+    if axes == 'xy':
+        if component == 'E':
+            wp.pfxy(fill=1, filled=1, plotselfe=True, comp='E',#added on 4/2 by Carlos
+            titles=0, cmin=-1.2 * Vmax / geometry.gapGNDRF,
+            cmax=1.2 * Vmax / geometry.gapGNDRF)  # Vmax/geometry.RF_gap
+            wp.ptitles("xy plot of magnitude of field","x","y")
+            wp.fma()
+        elif component == 'x':
+            wp.pfxy(fill=1, filled=1, plotselfe=True, comp='x',#added on 4/2 by Carlos
+            titles=0, cmin=-1.2 * Vmax / geometry.gapGNDRF,
+            cmax=1.2 * Vmax / geometry.gapGNDRF)  # Vmax/geometry.RF_gap
+            wp.ptitles("xy plot of E_x component of field","x","y")
+            wp.fma()
+        elif component == 'y':
+            wp.pfxy(fill=1, filled=1, plotselfe=True, comp='y',#added on 4/2 by Carlos
+            titles=0, cmin=-1.2 * Vmax / geometry.gapGNDRF,
+            cmax=1.2 * Vmax / geometry.gapGNDRF)  # Vmax/geometry.RF_gap
+            wp.ptitles("xy plot of E_y component of field","x","y")
+            wp.fma()
+        elif component == 'z':
+            wp.pfxy(fill=1, filled=1, plotselfe=True, comp='z',#added on 4/2 by Carlos             
+            titles=0, cmin=-1.2 * Vmax / geometry.gapGNDRF,
+            cmax=1.2 * Vmax / geometry.gapGNDRF)  # Vmax/geometry.RF_gap
+            wp.ptitles("xy plot of E_z component of field","x","y")
+            wp.fma()
+        else:
+            print("Error! Wrong component declared!!!")
+    elif axes == 'zy':
+        if component == 'E':
+            wp.pfzy(fill=1, filled=1, plotselfe=True, comp='E',#added on 4/2 by Carlos
+            titles=0, cmin=-1.2 * Vmax / geometry.gapGNDRF,
+            cmax=1.2 * Vmax / geometry.gapGNDRF)  # Vmax/geometry.RF_gap
+            wp.ptitles("zy plot of magnitude of field","z","y")
+            wp.fma()
+        elif component == 'x':
+            wp.pfzy(fill=1, filled=1, plotselfe=True, comp='x',#added on 4/2 by Carlos
+            titles=0, cmin=-1.2 * Vmax / geometry.gapGNDRF,
+            cmax=1.2 * Vmax / geometry.gapGNDRF)  # Vmax/geometry.RF_gap
+            wp.ptitles("zy plot of E_x component of field","z","y")
+            wp.fma()
+        elif component == 'y':
+            wp.pfzy(fill=1, filled=1, plotselfe=True, comp='y',#added on 4/2 by Carlos
+            titles=0, cmin=-1.2 * Vmax / geometry.gapGNDRF,
+            cmax=1.2 * Vmax / geometry.gapGNDRF)  # Vmax/geometry.RF_gap
+            wp.ptitles("zy plot of E_y component of field","z","y")
+            wp.fma()
+        elif component == 'z':
+            wp.pfzy(fill=1, filled=1, plotselfe=True, comp='y',#added on 4/2 by Carlos
+            titles=0, cmin=-1.2 * Vmax / geometry.gapGNDRF,
+            cmax=1.2 * Vmax / geometry.gapGNDRF)  # Vmax/geometry.RF_gap
+            wp.ptitles("zy plot of E_z component of field","z","y")
+            wp.fma()
+        else:
+            print("Error! Wrong component declared!!!")
+    elif axes == 'zx':
+        if component == 'E':
+            wp.pfzx(fill=1, filled=1, plotselfe=True, comp='E',#added on 4/2 by Carlos
+            titles=0, cmin=-1.2 * Vmax / geometry.gapGNDRF,
+            cmax=1.2 * Vmax / geometry.gapGNDRF)  # Vmax/geometry.RF_gap
+            wp.ptitles("zx plot of magnitude of field","z","x")
+            wp.fma()
+        elif component == 'x':
+            wp.pfzx(fill=1, filled=1, plotselfe=True, comp='x',#added on 4/2 by Carlos
+            titles=0, cmin=-1.2 * Vmax / geometry.gapGNDRF,
+            cmax=1.2 * Vmax / geometry.gapGNDRF)  # Vmax/geometry.RF_gap
+            wp.ptitles("zx plot of E_x component of field","z","x")
+            wp.fma()
+        elif component == 'y':
+            wp.pfzx(fill=1, filled=1, plotselfe=True, comp='y',#added on 4/2 by Carlos
+            titles=0, cmin=-1.2 * Vmax / geometry.gapGNDRF,
+            cmax=1.2 * Vmax / geometry.gapGNDRF)  # Vmax/geometry.RF_gap
+            wp.ptitles("zx plot of E_y component of field","z","x")
+            wp.fma()
+        elif component == 'z':
+            wp.pfzx(fill=1, filled=1, plotselfe=True, comp='z',#added on 4/2 by Carlos
+            titles=0, cmin=-1.2 * Vmax / geometry.gapGNDRF,
+            cmax=1.2 * Vmax / geometry.gapGNDRF)  # Vmax/geometry.RF_gap
+            wp.ptitles("zx plot of E_z component of field","z","x")
+            wp.fma()
+        else:
+            print("Error! Wrong component declared!!!")
+    else:
+        print("error!!!! wrong axes input!!")
+        return
+
+
+axes1 = 'xy'    
+axes2 = 'zx'    
+component1 = 'x'
+component2 = 'z'    
+#plotf(axes1,component1)    
+#plotf(axes2,component2)
+
 while (
         wp.top.time < tmax and max(
     Z) < zEnd):  # zmax < zrunmax):
     print(f'first Particle at {max(Z)};'
           f' simulations stops at {zEnd}')
-    wp.step(10)  # each plotting step is 10 timesteps
+    wp.step(100)  # each plotting step is 10 timesteps
     time_time.append(wp.top.time)
 
     numsel.append(len(selectedIons.getke()))
@@ -442,8 +537,8 @@ while (
     wp.top.pline1 = "V_RF: {:.0f}".format(
         gen_volt(RF_offset)(wp.top.time))  # ToDo check if
     # this is correct
-    # wp.top.pline1 = "V_RF: {:.0f}   V_esq: {:.0f}".format(gen_volt(RF_toffset)(wp.top.time), gen_volt_esq(Vesq, False, ESQ_toffset)(wp.top.time))
-
+    # wp.top.pline1 = "V_RF: {:.0f}   V_esq: {:.0f}".format(gen_volt(RF_toffset)(wp.top.time), gen_volt_esq(Vesq, False, ESQ_toffset)(wp.top.time)) 
+   
     # Todo this can be adapted to run an endless stream
     #  of ions, and see what happens
     # inject only for 1 ns, so that we can get onto the rising edge of the RF
@@ -467,13 +562,9 @@ while (
     # wp.top.zbeam+wp.w3d.zmmax #scales the window length #redefines the end of the simulation tacks on the 53mm
 
     # create some plots
-    # Timo copied that from carlos:
-    wp.pfxy(fill=1, filled=1, plotselfe=True, comp='x',
-            # added on 4/2 by Carlos
-            titles=0)
-    wp.ptitles(f"xy plot of E_y, z mean: {Z.mean()}", "x",
-               "y")
-    wp.fma()
+    plotf(axes1,component1)    
+
+
     # the instantaneous kinetic energy plot
     KE = selectedIons.getke()
     print(np.mean(KE))
@@ -484,12 +575,13 @@ while (
             deltaKE += 10e3
     wp.ylimits(0.95 * KEmin,
                0.95 * KEmin + deltaKE)  # is this fraction supposed to match with V_arrival?
-    wp.fma()  # third frame in cgm file, repeating
+    wp.fma()  # third frame in cgm file, repeating 
+    
+    plotf(axes2,component2)
 
-    # the side view field plot
-    wp.pfzx(fill=1, filled=1, plotselfe=True, comp='z',
-            titles=0, cmin=-1.2 * Vmax / geometry.gapGNDRF,
-            cmax=1.2 * Vmax / geometry.gapGNDRF)  # Vmax/geometry.RF_gap #1.2*Vmax/geometry.RF_gap (if want to see 20% increase in electric field) #comp='z': the component of the electric field to plot, 'x', 'y', 'z' or 'E',use 'E' for the magnitude.
+
+
+    #1.2*Vmax/geometry.RF_gap (if want to see 20% increase in electric field) #comp='z': the component of the electric field to plot, 'x', 'y', 'z' or 'E',use 'E' for the magnitude.
     # look at different components of Ez, to confirm the direction, summarize this
     # cmax adjusts the righthand scale of the voltage, not sure how
 
@@ -644,46 +736,46 @@ out = np.stack((t, hepsny, hepsnz, hep6d, hekinz, hekin,
 # atap_path = Path(r'/home/timo/Documents/Warp/Sims/') #insert your path here
 
 # Convert data into JSON serializable..............................................#nsp = len(x)#"number_surviving_particles" : nsp,fs = len(x)/m, "fraction_particles" : fs,Ve = str(Vesq), se = list(geometry.start_ESQ_gaps), ee = list(geometry.end_ESQ_gaps), "ESQ_start" : se,"ESQ_end" : ee,"Vesq" : Ve,
-# t = list(time_time)
-# ke = list(KE_select)
-# z = list(Z)
-# m = max(numsel)
-# L = str(L_bunch)
-# n = Units * 2
-# fA = str(V_arrival)
-# sM = int(speciesMass)
-# eK = int(ekininit)
-# fq = int(freq)
-# em = str(emittingRadius)
-# dA = str(divergenceAngle)
-# pt = list(numsel)
-# sa = list(geometry.start_accel_gaps)
-# ea = list(geometry.end_accel_gaps)
-# json_data = {
-#     "data": {
-#         "max_particles": m,
-#         "time": t,
-#         "kinetic_energy": ke,
-#         "z_values": z,
-#         "particles_overtime": pt,
-#         "RF_start": sa,
-#         "RF_end": ea
-#     },
-#     "parameter_dict": {
-#
-#         "Vmax": Vmax,
-#         "L_bunch": L,
-#         "numRF": n,
-#         'Units': Units,
-#         "V_arrival": fA,
-#         "speciesMass": sM,
-#         "ekininit": eK,
-#         "freq": fq,
-#         "emittingRadius": em,
-#         "divergenceAngle": dA
-#
-#     }
-# }
+t = list(time_time)
+ke = list(KE_select)
+z = list(Z)
+m = max(numsel)
+L = str(L_bunch)
+n = Units * 2
+fA = str(V_arrival)
+sM = int(speciesMass)
+eK = int(ekininit)
+fq = int(freq)
+em = str(emittingRadius)
+dA = str(divergenceAngle)
+pt = list(numsel)
+sa = list(geometry.start_accel_gaps)
+ea = list(geometry.end_accel_gaps)
+json_data = {
+    "data": {
+        "max_particles": m,
+        "time": t,
+        "kinetic_energy": ke,
+        "z_values": z,
+        "particles_overtime": pt,
+        "RF_start": sa,
+        "RF_end": ea
+    },
+    "parameter_dict": {
+
+        "Vmax": Vmax,
+        "L_bunch": L,
+        "numRF": n,
+        'Units': Units,
+        "V_arrival": fA,
+        "speciesMass": sM,
+        "ekininit": eK,
+        "freq": fq,
+        "emittingRadius": em,
+        "divergenceAngle": dA
+
+    }
+}
 
 # Timo
 # ZCrossing store
