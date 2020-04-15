@@ -18,7 +18,7 @@ python3 single-species-simulation.py --esq_voltage=500 --fraction=.8 --speciesMa
 #   bunch length
 warpoptions.parser.add_argument('--bunch_length',
                                 dest='Lbunch', type=float,
-                                default='2e-9')
+                                default='1e-9')
 
 #   number of RF units
 warpoptions.parser.add_argument('--units', dest='Units',
@@ -75,7 +75,7 @@ warpoptions.parser.add_argument('--name', dest='name',
 #   divergence angle
 warpoptions.parser.add_argument('--tstep',
                                 dest='timestep',
-                                type=float, default='1e-11')
+                                type=float, default='1e-9')
 
 import warp as wp
 import numpy as np
@@ -286,29 +286,38 @@ c = centerOfFirstRFGap - geometry.gapGNDRF / 2 - \
 betalambda0 = 0
 betalambda1 = 0
 
-for i in np.arange(0, Units):
-     #a, b, c & d are the positions of the center of RFs/GND wafers
+#for i in np.arange(0, Units):
+#     #a, b, c & d are the positions of the center of RFs/GND wafers
 #     GND RF RF GND
-    a = c + betalambda0
-    b = a + geometry.gapGNDRF + \
-        geometry.copper_thickness * 2 + \
-        geometry.wafer_thickness
-    betalambda1 = wp.sqrt((ekininit + V_arrival * Vmax * (2*i + 1)) * 2 *selectedIons.charge / speciesMass) * 1 / freq / 2
-    c = a + betalambda1
-    d = b + betalambda1
-    betalambda0 = wp.sqrt(
-        (ekininit + V_arrival * Vmax * (2*i + 2))
-        * 2 * selectedIons.charge /
-        speciesMass) * 1 / freq / 2
-    positionArray.append([a, b, c, d])
+#    a = c + betalambda0
+#    b = a + geometry.gapGNDRF + \
+#        geometry.copper_thickness * 2 + \
+#        geometry.wafer_thickness
+#    betalambda1 = wp.sqrt((ekininit + V_arrival * Vmax * (2*i + 1)) * 2 *selectedIons.charge #/ speciesMass) * 1 / freq / 2
+#    c = a + betalambda1
+#    d = b + betalambda1
+#    betalambda0 = wp.sqrt(
+#        (ekininit + V_arrival * Vmax * (2*i + 2))
+#        * 2 * selectedIons.charge /
+#        speciesMass) * 1 / freq / 2
+    
+#    if Units == 1:
+#        c = c - 10* wp.mm
+#    elif Units == 2:
+#        a = a - 50* wp.mm
+#        b = b + 40* wp.mm
+    
+#    positionArray.append([a, b, c, d])
+    
+    
 # Here it is optional to overwrite the position Array, to
 # simulate the ACTUAL setup:
-#calculatedPositionArray = positionArray
-#positionArray = [[1,2,3,4],
-#                  [5,6,7,8],
-#                  [9,10,11,12]
-#                ]
-                  
+calculatedPositionArray = positionArray
+positionArray = [[.0036525,.0056525,0.01243279,0.01463279],
+                  [0.0233854,0.0253854,0.03520207,0.03720207],
+                  [0.04850842,0.0505842,0.06239143,0.06439143]
+                ]#last modification in 9kv 3rd simulation added by carlos on 4/14
+
 for i, pa in enumerate(positionArray):
     print(f"Unit {i} placed at {pa}")
 
@@ -319,10 +328,15 @@ conductors = RF_stack(positionArray,
 # ToDo
 # calculate ESQ positions
 esqPositions = []
-for i in range(len(positionArray) - 1):
-    esqPositions.append(
-        (-positionArray[i][-1] + positionArray[i + 1][0]) / 2)
-print(f'Placing ESQs at {esqPositions}')
+#for i in range(len(positionArray) - 1):
+#    esqPositions.append(
+#        (positionArray[i][-1] + positionArray[i + 1][0]) / 2)
+#print(f'Placing ESQs at {esqPositions}')
+
+#re-added after simulation on 4/14
+#firstesq placed incorrectly
+#consider adding manually!!!!
+
 velo = np.sqrt(
     2 * ekininit * selectedIons.charge / selectedIons.mass)  # used to calculate tmax
 length = positionArray[-1][-1] + 25 * wp.mm
@@ -430,143 +444,92 @@ scraper = wp.ParticleScraper(conductors,
 zEnd = 10 * wp.mm + lastWafer
 print(f'Simulation runs until Z = {zEnd}')
 
-def plotf(axes,component):
-    if axes == 'xy':
-        if component == 'E':
-            wp.pfxy(fill=1, filled=1, plotselfe=True, comp='E',#added on 4/2 by Carlos
-            titles=0, cmin=-1.2 * Vmax / geometry.gapGNDRF,
-            cmax=1.2 * Vmax / geometry.gapGNDRF)  # Vmax/geometry.RF_gap
-            wp.ptitles("xy plot of magnitude of field","x","y")
-            wp.fma()
-        elif component == 'x':
-            wp.pfxy(fill=1, filled=1, plotselfe=True, comp='x',#added on 4/2 by Carlos
-            titles=0, cmin=-1.2 * Vmax / geometry.gapGNDRF,
-            cmax=1.2 * Vmax / geometry.gapGNDRF)  # Vmax/geometry.RF_gap
-            wp.ptitles("xy plot of E_x component of field","x","y")
-            wp.fma()
-        elif component == 'y':
-            wp.pfxy(fill=1, filled=1, plotselfe=True, comp='y',#added on 4/2 by Carlos
-            titles=0, cmin=-1.2 * Vmax / geometry.gapGNDRF,
-            cmax=1.2 * Vmax / geometry.gapGNDRF)  # Vmax/geometry.RF_gap
-            wp.ptitles("xy plot of E_y component of field","x","y")
-            wp.fma()
-        elif component == 'z':
-            wp.pfxy(fill=1, filled=1, plotselfe=True, comp='z',#added on 4/2 by Carlos             
-            titles=0, cmin=-1.2 * Vmax / geometry.gapGNDRF,
-            cmax=1.2 * Vmax / geometry.gapGNDRF)  # Vmax/geometry.RF_gap
-            wp.ptitles("xy plot of E_z component of field","x","y")
-            wp.fma()
-        else:
-            print("Error! Wrong component declared!!!")
-    elif axes == 'zy':
-        if component == 'E':
-            wp.pfzy(fill=1, filled=1, plotselfe=True, comp='E',#added on 4/2 by Carlos
-            titles=0, cmin=-1.2 * Vmax / geometry.gapGNDRF,
-            cmax=1.2 * Vmax / geometry.gapGNDRF)  # Vmax/geometry.RF_gap
-            wp.ptitles("zy plot of magnitude of field","z","y")
-            wp.fma()
-        elif component == 'x':
-            wp.pfzy(fill=1, filled=1, plotselfe=True, comp='x',#added on 4/2 by Carlos
-            titles=0, cmin=-1.2 * Vmax / geometry.gapGNDRF,
-            cmax=1.2 * Vmax / geometry.gapGNDRF)  # Vmax/geometry.RF_gap
-            wp.ptitles("zy plot of E_x component of field","z","y")
-            wp.fma()
-        elif component == 'y':
-            wp.pfzy(fill=1, filled=1, plotselfe=True, comp='y',#added on 4/2 by Carlos
-            titles=0, cmin=-1.2 * Vmax / geometry.gapGNDRF,
-            cmax=1.2 * Vmax / geometry.gapGNDRF)  # Vmax/geometry.RF_gap
-            wp.ptitles("zy plot of E_y component of field","z","y")
-            wp.fma()
-        elif component == 'z':
-            wp.pfzy(fill=1, filled=1, plotselfe=True, comp='y',#added on 4/2 by Carlos
-            titles=0, cmin=-1.2 * Vmax / geometry.gapGNDRF,
-            cmax=1.2 * Vmax / geometry.gapGNDRF)  # Vmax/geometry.RF_gap
-            wp.ptitles("zy plot of E_z component of field","z","y")
-            wp.fma()
-        else:
-            print("Error! Wrong component declared!!!")
-    elif axes == 'zx':
-        if component == 'E':
-            wp.pfzx(fill=1, filled=1, plotselfe=True, comp='E',#added on 4/2 by Carlos
-            titles=0, cmin=-1.2 * Vmax / geometry.gapGNDRF,
-            cmax=1.2 * Vmax / geometry.gapGNDRF)  # Vmax/geometry.RF_gap
-            wp.ptitles("zx plot of magnitude of field","z","x")
-            wp.fma()
-        elif component == 'x':
-            wp.pfzx(fill=1, filled=1, plotselfe=True, comp='x',#added on 4/2 by Carlos
-            titles=0, cmin=-1.2 * Vmax / geometry.gapGNDRF,
-            cmax=1.2 * Vmax / geometry.gapGNDRF)  # Vmax/geometry.RF_gap
-            wp.ptitles("zx plot of E_x component of field","z","x")
-            wp.fma()
-        elif component == 'y':
-            wp.pfzx(fill=1, filled=1, plotselfe=True, comp='y',#added on 4/2 by Carlos
-            titles=0, cmin=-1.2 * Vmax / geometry.gapGNDRF,
-            cmax=1.2 * Vmax / geometry.gapGNDRF)  # Vmax/geometry.RF_gap
-            wp.ptitles("zx plot of E_y component of field","z","x")
-            wp.fma()
-        elif component == 'z':
-            wp.pfzx(fill=1, filled=1, plotselfe=True, comp='z',#added on 4/2 by Carlos
-            titles=0, cmin=-1.2 * Vmax / geometry.gapGNDRF,
-            cmax=1.2 * Vmax / geometry.gapGNDRF)  # Vmax/geometry.RF_gap
-            wp.ptitles("zx plot of E_z component of field","z","x")
-            wp.fma()
-        else:
-            print("Error! Wrong component declared!!!")
-    else:
+def plotf(axes, component, new_page=True):
+    if axes not in ["xy", "zx", "zy"]:
         print("error!!!! wrong axes input!!")
         return
-
+    
+    if component not in ["x", "y", "z", "E"]:
+        print("Error! Wrong component declared!!!")
+        return
+    
+    if axes == 'xy':
+        plotfunc = wp.pfxy
+    elif axes == 'zy':
+        plotfunc = wp.pfzy
+    elif axes == 'zx':
+        plotfunc = wp.pfzx
+    
+    plotfunc(fill=1, filled=1, plotselfe=True, comp=component,             
+            titles=0, cmin=-1.2 * Vmax / geometry.gapGNDRF,
+            cmax=1.2 * Vmax / geometry.gapGNDRF)  # Vmax/geometry.RF_gap
+    
+    if component == 'E':
+        wp.ptitles(axes,"plot of magnitude of field")
+    elif component == 'x':
+        wp.ptitles(axes,"plot of E_x component of field")
+    elif component == 'y':
+        wp.ptitles(axes," plot of E_y component of field")
+    elif component == 'z':
+        wp.ptitles(axes,"plot of E_z component of field")
+    
+    if new_page:
+        wp.fma()    
 
 axes1 = 'xy'    
-axes2 = 'zx'    
+axes2 = 'zx'
+#axes3 = 'zy'
 component1 = 'x'
-component2 = 'z'    
+component2 = 'z'
+#component3 = 'y'
+#magnitude = 'E'
 #plotf(axes1,component1)    
 #plotf(axes2,component2)
+#plotf(axes3,component3)
 
-while (
-        wp.top.time < tmax and max(
-    Z) < zEnd):  # zmax < zrunmax):
+while (wp.top.time < tmax and max(Z) < zEnd):
     print(f'first Particle at {max(Z)};'
           f' simulations stops at {zEnd}')
-    wp.step(100)  # each plotting step is 10 timesteps
-    time_time.append(wp.top.time)
-
+    wp.step(10)  # each plotting step is 10 timesteps
+    time_time.append(wp.top.time) 
     numsel.append(len(selectedIons.getke()))
     KE_select.append(np.mean(selectedIons.getke()))
-
     wp.top.pline1 = "V_RF: {:.0f}".format(
         gen_volt(RF_offset)(wp.top.time))  # ToDo check if
-    # this is correct
-    # wp.top.pline1 = "V_RF: {:.0f}   V_esq: {:.0f}".format(gen_volt(RF_toffset)(wp.top.time), gen_volt_esq(Vesq, False, ESQ_toffset)(wp.top.time)) 
-   
-    # Todo this can be adapted to run an endless stream
-    #  of ions, and see what happens
-    # inject only for 1 ns, so that we can get onto the rising edge of the RF
+     # this is correct
+     # wp.top.pline1 = "V_RF: {:.0f}   V_esq: {:.0f}".format(gen_volt(RF_toffset)(wp.top.time), gen_volt_esq(Vesq, False, ESQ_toffset)(wp.top.time))
+     # Todo this can be adapted to run an endless stream
+     #  of ions, and see what happens
+     # inject only for 1 ns, so that we can get onto the rising edge of the RF
     if 0 * wp.ns < wp.top.time < L_bunch:  # changes the beam
-        wp.top.finject[0, selectedIons.jslist[0]] = 1
+         wp.top.finject[0, selectedIons.jslist[0]] = 1
     else:
         wp.top.inject = 0
+        Z = selectedIons.getz()
 
-    Z = selectedIons.getz()
-    # ToDo make a version that follows the fastet particle
+     # ToDo make a version that follows the fastet particle
     if Z.mean() > zmid:  # if the mean distance the particles have travelled is greater than the middle of the frame do this:
-        # the velocity of the frame is equal to the mean velocity of the ions
-        wp.top.vbeamfrm = selectedIons.getvz().mean()
-        # "" for maximal ions
-        # wp.top.vbeamfrm = selectedIons.getvz().max()
-        solver.gridmode = 0  # oscillates the fields, not sure if this is needed since we already called this at the beginning of the simulation
+            # the velocity of the frame is equal to the mean velocity of the ions
+            wp.top.vbeamfrm = selectedIons.getvz().mean()
 
-    # Todo is this needed but wp.top.zbeam is always zero
+         # "" for maximal ions
+
+         # wp.top.vbeamfrm = selectedIons.getvz().max()
+            solver.gridmode = 0  # oscillates the fields, not sure if this is needed since we already called this at the beginning of the simulation
+     # Todo is this needed but wp.top.zbeam is always zero
     zmin = wp.top.zbeam + wp.w3d.zmmin
     zmax = wp.top.zbeam + wp.w3d.zmmax  # trying to get rid of extra length at the end of the simulation, this is wasting computing power
-    # wp.top.zbeam+wp.w3d.zmmax #scales the window length #redefines the end of the simulation tacks on the 53mm
-
-    # create some plots
-    plotf(axes1,component1)    
-
-
-    # the instantaneous kinetic energy plot
+     # wp.top.zbeam+wp.w3d.zmmax #scales the window length #redefines the end of the simulation tacks on the 53mm
+     # create some plots
+     # Timo copied that from carlos:
+    wp.pfxy(fill=1, filled=1, plotselfe=True, comp='x',
+             # added on 4/2 by Carlos
+             titles=0)
+    wp.ptitles(f"xy plot of E_x, z mean: {Z.mean()}", "x",
+                "y")
+    #plotf(axes1,component1, z mean: {Z.mean()})
+    wp.fma()
+     # the instantaneous kinetic energy plot
     KE = selectedIons.getke()
     print(np.mean(KE))
     if len(KE) > 0:
@@ -574,19 +537,17 @@ while (
         KEmin, KEmax = KE.min(), KE.max()
         while KEmax - KEmin > deltaKE:
             deltaKE += 10e3
-    wp.ylimits(0.95 * KEmin,
-               0.95 * KEmin + deltaKE)  # is this fraction supposed to match with V_arrival?
-    wp.fma()  # third frame in cgm file, repeating 
-    
-    plotf(axes2,component2)
-
-
-
-    #1.2*Vmax/geometry.RF_gap (if want to see 20% increase in electric field) #comp='z': the component of the electric field to plot, 'x', 'y', 'z' or 'E',use 'E' for the magnitude.
-    # look at different components of Ez, to confirm the direction, summarize this
-    # cmax adjusts the righthand scale of the voltage, not sure how
-
-    # keep track of minimum and maximum birth times of particles
+    wp.ylimits(0.95 * KEmin,0.95 * KEmin + deltaKE)  # is this fraction supposed to match with V_arrival?
+    wp.fma()  # third frame in cgm file, repeating     
+            # the side view field plot
+    #plotf(axes2,component2, z mean: {Z.mean()})
+    wp.fma()
+    wp.pfzx(fill=1, filled=1, plotselfe=True, comp='z',
+            titles=0, cmin=-1.2 * Vmax / geometry.gapGNDRF,
+             cmax=1.2 * Vmax / geometry.gapGNDRF)  # Vmax/geometry.RF_gap #1.2*Vmax/geometry.RF_gap (if want to see 20% increase in electric field) #comp='z': the component of the electric field to plot, 'x', 'y', 'z' or 'E',use 'E' for the magnitude.
+     # look at different components of Ez, to confirm the direction, summarize this
+     # cmax adjusts the righthand scale of the voltage, not sure how
+     # keep track of minimum and maximum birth times of particles
     '''
     #only call this after the window starts moving? When does the window start moving?
     if selectedIons.getz() > drifti: #this is not working
@@ -594,111 +555,91 @@ while (
         t_birth_max = selectedIons.tbirth.max()
         tarray = np.linspace(t_birth_min, t_birth_max, 6)
     '''  # this is not currently working, try without first
-
     # sort by birthtime (using this while we figure out why above code is not working)
     t_birth_min = selectedIons.tbirth.min()
     t_birth_max = selectedIons.tbirth.max()
     tarray = np.linspace(t_birth_min, t_birth_max, 6)
-
-    # mask to sort particles by birthtime
+     # mask to sort particles by birthtime
     mask = []
-    for i in range(len(
-            tarray) - 1):  # the length of tarray must be changing overtime which changes the mask which recolors the particles
+    for i in range(len(tarray) - 1):  # the length of tarray must be changing overtime which changes the mask which recolors the particles
         m = (selectedIons.tbirth > tarray[i]) * (
-                selectedIons.tbirth < tarray[i + 1])
-        mask.append(m)
-
-    # plot particles on top of feild plot, sort by birthtime and color them accordingly
+            selectedIons.tbirth < tarray[i + 1])
+        mask.append(m) 
+     # plot particles on top of feild plot, sort by birthtime and color them accordingly
     colors = [wp.red, wp.yellow, wp.green, wp.blue,
-              wp.magenta]
+               wp.magenta]
     for m, c in zip(mask, colors):
-        wp.plp(selectedIons.getx()[m],
-               selectedIons.getz()[m], msize=1.0,
-               color=c)  # the selected ions are changing through time
+        wp.plp(selectedIons.getx()[m],selectedIons.getz()[m],msize=1.0,color=c)  # the selected ions are changing through time
     wp.limits(zmin, zmax)
     wp.ptitles("Particles and Fields", "Z [m]", "X [m]")
-    wp.fma()  # fourth frame in cgm file, repeating
-
-    # TODO
-    # keep track of when the beam crosses the gaps (for the phase plot at the end)
-    # if gap_num_select < len(distances) and len(selectedIons.getz() > 0):
-    #     if np.max(selectedIons.getz()) > np.cumsum(distances)[gap_num_select] -0.5*distances[0]:
-    #         sct.append(wp.top.time)
-    #         gap_num_select += 1
-
-    # the head on particle plot
-    selectedIons.ppxy(color=wp.red,
-                      titles=0)  # ppxy (particle plot x horizontal axis, y on vertical axis)
+    wp.fma()  # fourth frame in cgm file, repeating 
+    
+    selectedIons.ppxy(color=wp.red,titles=0)  # ppxy (particle plot x horizontal axis, y on vertical axis
     wp.limits(-R, R)
     wp.ylimits(-R, R)
     wp.plg(Y, X, type="dash")
     wp.fma()  # fifth frame in the cgm file, repeating
     # check if a snapshot should be taken (timo)
     saveBeamSnapshot(Z.mean())
-
 # particles in beam plot
 wp.plg(numsel, time_time, color=wp.blue)
-wp.ptitles("Particle Count vs Time", "Time (s)",
-           "Number of Particles")
+wp.ptitles("Particle Count vs Time", "Time (s)","Number of Particles")
 wp.fma()  # fourth to last frame in cgm file
-
-# plot lost particles with respect to Z
+# plot lost particles with respect to Z 
 wp.plg(selectedIons.lostpars, wp.top.zplmesh + wp.top.zbeam)
-wp.ptitles("Particles Lost vs Z", "Z",
-           "Number of Particles Lost")
+wp.ptitles("Particles Lost vs Z", "Z","Number of Particles Lost")
 wp.fma()
+
+ 
 
 """#plot history of scraped particles plot for conductors
 wp.plg(conductors.get_energy_histogram)
 wp.fma()
 
 wp.plg(conductors.plot_energy_histogram)
-wp.fma()
+wp.fma() 
 
 wp.plg(conductors.get_current_history)
 wp.fma()
 
 wp.plg(conductors.plot_current_history)
 wp.fma()"""
-
-# above should work for target Z as well however, it has not worked yet
-
+# above should work for target Z as well however, it has not worked yet 
 # make an array of starting_particles the same length as numsel
+
 for i in range(len(numsel)):
-    p = max(numsel)
+    p = max(numsel) 
     starting_particles.append(p)
-
-# fraction of surviving particles
-f_survive = [i / j for i, j in
+ # fraction of surviving particles
+f_survive = [i / j for i, j in              
              zip(numsel, starting_particles)]
+ # want the particles that just make it through the last RF, need position of RF. This way we can see how many particles made it through the last important component of the accelerator
 
-# want the particles that just make it through the last RF, need position of RF. This way we can see how many particles made it through the last important component of the accelerator
-# last_f_survive =
+ # last_f_survive =
+
+ 
 
 wp.plg(f_survive, time_time, color=wp.green)
 wp.ptitles("Fraction of Surviving Particles vs Time",
-           "Time (s)", "Fraction of Surviving Particles")
+            "Time (s)", "Fraction of Surviving Particles")
 wp.fma()  # third to last frame in cgm file
-
 # rms envelope plot
+
 wp.hpxrms(color=wp.red, titles=0)
 wp.hpyrms(color=wp.blue, titles=0)
 wp.hprrms(color=wp.green, titles=0)
 wp.ptitles("X(red), Y(blue), R(green)", "Z [m]",
-           "X/Y/R [m]", "")
-wp.fma()  # second to last frame in cgm file
-
-# Kinetic Energy at certain Z value
+            "X/Y/R [m]", "")
+wp.fma()  # second to last frame in cgm file 
+ # Kinetic Energy at certain Z value
 wp.plg(KE_select, time_time, color=wp.blue)
 wp.limits(0, 70e-9)  # limits(xmin,xmax,ymin,ymax)
 wp.ptitles("Kinetic Energy vs Time")
-wp.fma()
-
+wp.fma() 
 # kinetic energy plot
 wp.plg(KE_select, time_time, color=wp.blue)
 wp.ptitles("kinetic energy vs time")
 wp.fma()  # last frame in cgm file
-
 # Zcrossing Particles Plot
 # x = targetz_particles.getx() #this is the x coordinate of the particles that made it through target
 # t = targetz_particles.getvz()
@@ -709,23 +650,21 @@ wp.ptitles("Spread of survived particles in the x direction")
 wp.fma() #last frame -1 in file
 """
 # save history information, so that we can plot all cells in one plot
+
 t = np.trim_zeros(wp.top.thist, 'b')
 hepsny = selectedIons.hepsny[0]
 hepsnz = selectedIons.hepsnz[0]
 hep6d = selectedIons.hepsx[0] * selectedIons.hepsy[0] * \
-        selectedIons.hepsz[0]
+         selectedIons.hepsz[0]
 hekinz = 1e-6 * 0.5 * wp.top.aion * wp.amu * \
-         selectedIons.hvzbar[0] ** 2 / wp.jperev
-
-u = selectedIons.hvxbar[0] ** 2 + selectedIons.hvybar[
-    0] ** 2 + selectedIons.hvzbar[0] ** 2
+          selectedIons.hvzbar[0] ** 2 / wp.jperev
+u = selectedIons.hvxbar[0] ** 2 + selectedIons.hvybar[0] ** 2 + selectedIons.hvzbar[0] ** 2
 hekin = 1e-6 * 0.5 * wp.top.aion * wp.amu * u / wp.jperev
-
 hxrms = selectedIons.hxrms[0]
 hyrms = selectedIons.hyrms[0]
 hrrms = selectedIons.hrrms[0]
-hpnum = selectedIons.hpnum[0]
 
+hpnum = selectedIons.hpnum[0] 
 datetimestamp2 = datetime.datetime.now().strftime(
     '%m-%d-%y')
 
@@ -733,50 +672,54 @@ print('debug', t.shape, hepsny.shape)
 out = np.stack((t, hepsny, hepsnz, hep6d, hekinz, hekin,
                 hxrms, hyrms, hrrms, hpnum))
 
+ 
+
 # store files in certain folder related to filename - not used here
 # atap_path = Path(r'/home/timo/Documents/Warp/Sims/') #insert your path here
 
+ 
+
 # Convert data into JSON serializable..............................................#nsp = len(x)#"number_surviving_particles" : nsp,fs = len(x)/m, "fraction_particles" : fs,Ve = str(Vesq), se = list(geometry.start_ESQ_gaps), ee = list(geometry.end_ESQ_gaps), "ESQ_start" : se,"ESQ_end" : ee,"Vesq" : Ve,
-t = list(time_time)
-ke = list(KE_select)
-z = list(Z)
-m = max(numsel)
-L = str(L_bunch)
-n = Units * 2
-fA = str(V_arrival)
-sM = int(speciesMass)
-eK = int(ekininit)
-fq = int(freq)
-em = str(emittingRadius)
-dA = str(divergenceAngle)
-pt = list(numsel)
-sa = list(geometry.start_accel_gaps)
-ea = list(geometry.end_accel_gaps)
-json_data = {
-    "data": {
-        "max_particles": m,
-        "time": t,
-        "kinetic_energy": ke,
-        "z_values": z,
-        "particles_overtime": pt,
-        "RF_start": sa,
-        "RF_end": ea
-    },
-    "parameter_dict": {
-
-        "Vmax": Vmax,
-        "L_bunch": L,
-        "numRF": n,
-        'Units': Units,
-        "V_arrival": fA,
-        "speciesMass": sM,
-        "ekininit": eK,
-        "freq": fq,
-        "emittingRadius": em,
-        "divergenceAngle": dA
-
-    }
-}
+# t = list(time_time)
+# ke = list(KE_select)
+# z = list(Z)
+# m = max(numsel)
+# L = str(L_bunch)
+# n = Units * 2
+# fA = str(V_arrival)
+# sM = int(speciesMass)
+# eK = int(ekininit) 
+# fq = int(freq)
+# em = str(emittingRadius)
+# dA = str(divergenceAngle)
+# pt = list(numsel)
+# sa = list(geometry.start_accel_gaps)
+# ea = list(geometry.end_accel_gaps)
+# json_data = {
+#     "data": {
+#         "max_particles": m,
+#         "time": t,
+#         "kinetic_energy": ke,
+#         "z_values": z,
+#         "particles_overtime": pt,
+#         "RF_start": sa,
+#         "RF_end": ea 
+#     },
+#     "parameter_dict": {
+#
+#         "Vmax": Vmax,
+#         "L_bunch": L,
+#         "numRF": n,
+#         'Units': Units,
+#         "V_arrival": fA,
+#         "speciesMass": sM,
+#         "ekininit": eK,
+#         "freq": fq,
+#         "emittingRadius": em,
+#         "divergenceAngle": dA
+#
+#     }
+# } 
 
 # Timo
 # ZCrossing store
@@ -791,6 +734,7 @@ json_ZC = {
 with open(f"{step1path}/{cgm_name}_zc.json",
           "w") as write_file:
     json.dump(json_ZC, write_file, indent=2)
-
 now_end = time.time()
 print(f"Runtime in seconds is {now_end - start}")
+
+
