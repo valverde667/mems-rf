@@ -98,7 +98,8 @@ start = time.time()
 
 wp.w3d.solvergeom = wp.w3d.XYZgeom
 # Timesteps
-wp.top.dt = warpoptions.options.timestep
+#wp.top.dt = warpoptions.options.timestep#
+wp.top.dt = 1e-10# updated from original script, check first before pushing 4/15
 # 10-9 for short; 10e-11 for a nice one
 
 # --- keep track of when the particles are born
@@ -198,7 +199,7 @@ if wp.w3d.l2symtry or wp.w3d.l4symtry:
 wp.top.npmax = 300
 wp.top.inject = 1  # 2 means space-charge limited injection
 wp.top.rinject = 5000
-wp.top.npinject = 30  # 300  # needed!! macro particles per time step or cell
+wp.top.npinject = 10  # 300  # needed!! macro particles per time step or cell#modified smaller step from 30 on 4/15 to monitor particles correctly. refer to original script
 wp.top.linj_eperp = False  # Turn on transverse E-fields near emitting surface
 wp.top.zinject = wp.w3d.zmmin
 wp.top.vinject = 1.0
@@ -313,12 +314,23 @@ betalambda1 = 0
 # Here it is optional to overwrite the position Array, to
 # simulate the ACTUAL setup:
 calculatedPositionArray = positionArray
-positionArray = [[.0036525,.0056525,0.01243279,0.01463279],
-                  [0.0233854,0.0253854,0.03520207,0.03720207],
-                  [0.04850842,0.0505842,0.06239143,0.06439143]
-                ]#last modification in 9kv 3rd simulation added by carlos on 4/14
+positionArray = [[.0036525,.0056525,0.01323279,0.01523279],
+                  [0.0233854,0.0253854,0.03420207,0.03620207],
+                  [0.0485042,0.0505042,0.06300143,0.06500143]
+                ]
+#for 9kV
+#positionArray = [[.0036525,.0056525,0.01243279,0.01463279],
+#                  [0.0211854,0.0233854,0.03130207,0.03330207],
+#                  [0.04460842,0.0460842,0.06009143,0.062009143]
+#                        ]
+#for 7kV
 
-for i, pa in enumerate(positionArray):
+
+#catching it at the plates with peak voltage #april 15
+
+
+
+for i,pa in enumerate(positionArray):
     print(f"Unit {i} placed at {pa}")
 
 # add actual stack
@@ -428,6 +440,10 @@ deltaKE = 10e3
 time_time = []
 numsel = []
 KE_select = []
+KE_select_Max = []#modified 4/16
+
+Particle_Counts_Above_E = []#modified 4/17, 
+#will list how much Particles have higher E than avg KE at that moment 
 beamwidth = []
 energy_time = []
 starting_particles = []
@@ -492,8 +508,30 @@ while (wp.top.time < tmax and max(Z) < zEnd):
           f' simulations stops at {zEnd}')
     wp.step(10)  # each plotting step is 10 timesteps
     time_time.append(wp.top.time) 
+    
     numsel.append(len(selectedIons.getke()))
-    KE_select.append(np.mean(selectedIons.getke()))
+    
+    KE_select.append(np.mean(selectedIons.getke()))#notes from 4/15 modify a KE_max as well
+        
+    KE_select_Max.append(np.max(selectedIons.getke()))#modified 4/16
+    #number of particles as function of Energy
+    
+          #KE avg of all particles at this time interval
+    #Particle_Count = len(selectedIons.getke())  #Particle Count at this time interval
+    KE = selectedIons.getke()
+    print(f"KE in this loop is = {KE}")
+    Particle_Count_Over_Avg_KE = 0   # Set to zero at each moment as time elapses
+    for i in range(len(selectedIons.getke())):   # goes through each particle
+        Avg_KE = np.mean(selectedIons.getke())
+        print(f"Mean KE in this for loop is = {Avg_KE}")
+        KE_i = selectedIons.getke()[i]
+        print(f"KE in this for loop is = {KE_i}")     # obtains KE of said particle
+        if ( KE_i > Avg_KE ):               # checks to see if KE of particle is greater than avg KE
+            Particle_Count_Over_Avg_KE +=1    #adds to count of particles above avg KE
+    Particle_Counts_Above_E.append(Particle_Count_Over_Avg_KE) 
+# particles in beam plot
+       #accounts for all particles at that moment in time
+
     wp.top.pline1 = "V_RF: {:.0f}".format(
         gen_volt(RF_offset)(wp.top.time))  # ToDo check if
      # this is correct
@@ -505,17 +543,18 @@ while (wp.top.time < tmax and max(Z) < zEnd):
          wp.top.finject[0, selectedIons.jslist[0]] = 1
     else:
         wp.top.inject = 0
-        Z = selectedIons.getz()
+        
+    Z = selectedIons.getz()
 
      # ToDo make a version that follows the fastet particle
-    if Z.mean() > zmid:  # if the mean distance the particles have travelled is greater than the middle of the frame do this:
+    if Z.mean() > zmid:  # if the mean distance the particles have travelled is greater than the middle of the frame do this: MODIFIED 4/15
             # the velocity of the frame is equal to the mean velocity of the ions
-            wp.top.vbeamfrm = selectedIons.getvz().mean()
+        wp.top.vbeamfrm = selectedIons.getvz().mean()#return to tab forward position if doesnt work 
 
          # "" for maximal ions
 
-         # wp.top.vbeamfrm = selectedIons.getvz().max()
-            solver.gridmode = 0  # oscillates the fields, not sure if this is needed since we already called this at the beginning of the simulation
+        #wp.top.vbeamfrm = selectedIons.getvz().max()
+        solver.gridmode = 0  # oscillates the fields, not sure if this is needed since we already called this at the beginning of the simulation #SAME as above 4/1
      # Todo is this needed but wp.top.zbeam is always zero
     zmin = wp.top.zbeam + wp.w3d.zmmin
     zmax = wp.top.zbeam + wp.w3d.zmmax  # trying to get rid of extra length at the end of the simulation, this is wasting computing power
@@ -525,7 +564,7 @@ while (wp.top.time < tmax and max(Z) < zEnd):
     wp.pfxy(fill=1, filled=1, plotselfe=True, comp='x',
              # added on 4/2 by Carlos
              titles=0)
-    wp.ptitles(f"xy plot of E_x, z mean: {Z.mean()}", "x",
+    wp.ptitles(f"xy plot of E_x", "z mean: {Z.mean()}", "x",
                 "y")
     #plotf(axes1,component1, z mean: {Z.mean()})
     wp.fma()
@@ -581,7 +620,7 @@ while (wp.top.time < tmax and max(Z) < zEnd):
     wp.fma()  # fifth frame in the cgm file, repeating
     # check if a snapshot should be taken (timo)
     saveBeamSnapshot(Z.mean())
-# particles in beam plot
+
 wp.plg(numsel, time_time, color=wp.blue)
 wp.ptitles("Particle Count vs Time", "Time (s)","Number of Particles")
 wp.fma()  # fourth to last frame in cgm file
@@ -605,7 +644,7 @@ wp.fma()
 wp.plg(conductors.plot_current_history)
 wp.fma()"""
 # above should work for target Z as well however, it has not worked yet 
-# make an array of starting_particles the same length as numsel
+# make an array of starting_particles the same lenfor i in rangegth as numsel
 
 for i in range(len(numsel)):
     p = max(numsel) 
@@ -617,7 +656,7 @@ f_survive = [i / j for i, j in
 
  # last_f_survive =
 
- 
+
 
 wp.plg(f_survive, time_time, color=wp.green)
 wp.ptitles("Fraction of Surviving Particles vs Time",
@@ -636,10 +675,52 @@ wp.plg(KE_select, time_time, color=wp.blue)
 wp.limits(0, 70e-9)  # limits(xmin,xmax,ymin,ymax)
 wp.ptitles("Kinetic Energy vs Time")
 wp.fma() 
+
+wp.plg(KE_select_Max, time_time, color=wp.blue)
+wp.limits(0, 70e-9)  # limits(xmin,xmax,ymin,ymax)
+wp.ptitles("Kinetic Energy vs Time")
+wp.fma()
 # kinetic energy plot
 wp.plg(KE_select, time_time, color=wp.blue)
 wp.ptitles("kinetic energy vs time")
 wp.fma()  # last frame in cgm file
+
+wp.plg(KE_select_Max, time_time, color=wp.red)
+wp.ptitles("Max kinetic energy vs time")#modified 4/16
+wp.fma()  #new last frame in cgm file
+
+wp.plg(Particle_Counts_Above_E,KE_select, color=wp.blue)
+wp.ptitles("Particle Count(t) vs Energy(t)")#modified 4/16
+wp.fma()  #new last frame in cgm file
+
+KE = selectedIons.getke()
+plotmin = np.min(KE) -1
+plotmax = np.max(KE) +1
+plotE = np.linspace(plotmin,plotmax,20)
+listcount=[]      
+for e in plotE:
+    elementcount = 0
+    for k in KE:
+        if k>e:
+            elementcount+=1
+        
+    listcount.append(elementcount)
+wp.plg(listcount, plotE, color=wp.red)
+wp.ptitles("Number of Particles above E vs E after last gap ")
+C, edges = np.histogram(KE,bins=len(plotE),range=(plotmin,plotmax))
+wp.plg(C,plotE)
+wp.fma() 
+
+
+
+
+
+
+#You had KE_mean vs. time already, Add another plot KE_max vs. time
+#Modify your script to get plot 
+#On the target plane (when ions exit all the gaps), For E range from 0 to 50 keV, plot number of ions at range of (E, E+0.1keV) as a function of E. 
+
+
 # Zcrossing Particles Plot
 # x = targetz_particles.getx() #this is the x coordinate of the particles that made it through target
 # t = targetz_particles.getvz()
