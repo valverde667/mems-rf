@@ -75,7 +75,7 @@ warpoptions.parser.add_argument('--name', dest='name',
 #   divergence angle
 warpoptions.parser.add_argument('--tstep',
                                 dest='timestep',
-                                type=float, default='1e-9')
+                                type=float, default='1e-9') #1e-11
 
 import warp as wp
 import numpy as np
@@ -129,9 +129,8 @@ datetimestamp = datetime.datetime.now().strftime(
 
 # --- where to store the outputfiles
 cgm_name = name
-# step1path = "/home/timo/Documents/Warp/berkeley-atap-meqalac" \
-#            "-simulations/Spectrometer-Sim/step1/"
-step1path = '/home/cverdoza/Documents/LBL/WARP/berkeleylab-atap-meqalac-simulations/RF-Wafers-Simulations/test'
+step1path = "/home/timo/Documents/LBL/Warp/CGM"
+#step1path = '/home/cverdoza/Documents/LBL/WARP/berkeleylab-atap-meqalac-simulations/RF-Wafers-Simulations/test'
 
 
 wp.setup(prefix=f"{step1path}/{cgm_name}")  # , cgmlog= 0)
@@ -277,43 +276,44 @@ ESQ_toffset = 0
 Vpos = []
 
 # calculating the ideal positions
-# Todo explain calculation
-positionArray = []
-# Calculating first position
-# this is not actually C but the very first wafer a
-c = centerOfFirstRFGap - geometry.gapGNDRF / 2 - \
-        geometry.copper_thickness - \
-        geometry.wafer_thickness / 2
-betalambda0 = 0
-betalambda1 = 0
+def calculateRFwaferpositions():
+    positionArray = []
+    # Calculating first position
+    # this is not actually C but the very first wafer a
+    c = centerOfFirstRFGap - geometry.gapGNDRF / 2 - \
+            geometry.copper_thickness - \
+            geometry.wafer_thickness / 2
+    betalambda0 = 0
+    betalambda1 = 0
+    for i in np.arange(0, Units):
+        #a, b, c & d are the positions of the center of RFs/GND wafers
+        #GND RF RF GND
+       a = c + betalambda0
+       b = a + geometry.gapGNDRF + \
+           geometry.copper_thickness * 2 + \
+           geometry.wafer_thickness
+       betalambda1 = wp.sqrt((ekininit + V_arrival * Vmax * (2*i + 1)) * 2 *selectedIons.charge / speciesMass) * 1 / freq / 2
+       c = a + betalambda1
+       d = b + betalambda1
+       betalambda0 = wp.sqrt(
+           (ekininit + V_arrival * Vmax * (2*i + 2))
+           * 2 * selectedIons.charge /
+           speciesMass) * 1 / freq / 2
 
-#for i in np.arange(0, Units):
-#     #a, b, c & d are the positions of the center of RFs/GND wafers
-#     GND RF RF GND
-#    a = c + betalambda0
-#    b = a + geometry.gapGNDRF + \
-#        geometry.copper_thickness * 2 + \
-#        geometry.wafer_thickness
-#    betalambda1 = wp.sqrt((ekininit + V_arrival * Vmax * (2*i + 1)) * 2 *selectedIons.charge #/ speciesMass) * 1 / freq / 2
-#    c = a + betalambda1
-#    d = b + betalambda1
-#    betalambda0 = wp.sqrt(
-#        (ekininit + V_arrival * Vmax * (2*i + 2))
-#        * 2 * selectedIons.charge /
-#        speciesMass) * 1 / freq / 2
-    
-#    if Units == 1:
-#        c = c - 10* wp.mm
-#    elif Units == 2:
-#        a = a - 50* wp.mm
-#        b = b + 40* wp.mm
-    
-#    positionArray.append([a, b, c, d])
+       if Units == 1:
+           c = c - 10* wp.mm
+       elif Units == 2:
+           a = a - 50* wp.mm
+           b = b + 40* wp.mm
+
+       positionArray.append([a, b, c, d])
+    return positionArray
     
     
 # Here it is optional to overwrite the position Array, to
 # simulate the ACTUAL setup:
-calculatedPositionArray = positionArray
+calculatedPositionArray = calculateRFwaferpositions()
+print(calculatedPositionArray)
 positionArray = [[.0036525,.0056525,0.01323279,0.01523279],
                   [0.0233854,0.0253854,0.03420207,0.03620207],
                   [0.0485042,0.0505042,0.06300143,0.06500143]
@@ -337,8 +337,8 @@ for i,pa in enumerate(positionArray):
 conductors = RF_stack(positionArray,
                       gen_volt(RF_offset))
 
-# ToDo
-# calculate ESQ positions
+# ToDo Timo
+# calculate ESQ positions each plotting step is 10 timesteps
 esqPositions = []
 #for i in range(len(positionArray) - 1):
 #    esqPositions.append(
@@ -366,7 +366,7 @@ wp.fieldsol(-1)
 solver.gridmode = 0  # makes the fields oscillate properly at the beginning
 
 #############################
-## ToDo Timo ZC this could need some improvement
+## ToDo Timo ZC this could need some improvement -> change to saving the entire beam properly
 # maybe a complete tracking of all particles might be useful for some applications
 ### track particles after crossing a Z location -
 # in this case after the final rf amp
@@ -506,8 +506,9 @@ component2 = 'z'
 while (wp.top.time < tmax and max(Z) < zEnd):
     print(f'first Particle at {max(Z)};'
           f' simulations stops at {zEnd}')
-    wp.step(10)  # each plotting step is 10 timesteps
-    time_time.append(wp.top.time) 
+    #wp.step(warpoptions.options.timestep)  # each plotting step is 10 timesteps
+    wp.step(10)
+    time_time.append(wp.top.time)
     
     numsel.append(len(selectedIons.getke()))
     
@@ -529,7 +530,7 @@ while (wp.top.time < tmax and max(Z) < zEnd):
         if ( KE_i > Avg_KE ):               # checks to see if KE of particle is greater than avg KE
             Particle_Count_Over_Avg_KE +=1    #adds to count of particles above avg KE
     Particle_Counts_Above_E.append(Particle_Count_Over_Avg_KE) 
-# particles in beam plot
+    # particles in beam plot
        #accounts for all particles at that moment in time
 
     wp.top.pline1 = "V_RF: {:.0f}".format(
@@ -619,7 +620,7 @@ while (wp.top.time < tmax and max(Z) < zEnd):
     wp.plg(Y, X, type="dash")
     wp.fma()  # fifth frame in the cgm file, repeating
     # check if a snapshot should be taken (timo)
-    saveBeamSnapshot(Z.mean())
+    # saveBeamSnapshot(Z.mean()) # Currently not needed
 
 wp.plg(numsel, time_time, color=wp.blue)
 wp.ptitles("Particle Count vs Time", "Time (s)","Number of Particles")
