@@ -171,19 +171,18 @@ wp.top.pboundnz = wp.absorb
 wp.top.prwall = 1 * wp.mm  # prwall slightly bigger than aperture radius so ions can get absorbed by conductors
 
 # --- Set field grid size, this is the width of the window
-# ToDo why wired numbers?
-wp.w3d.xmmin = -23 / 14 * wp.mm
-wp.w3d.xmmax = 23 / 14 * wp.mm
-wp.w3d.ymmin = -0.02 / 8. * 1.2  #
-wp.w3d.ymmax = +0.02 / 8. * 1.2
+wp.w3d.xmmin = 3/2 * wp.mm
+wp.w3d.xmmax = 3/2 * wp.mm
+wp.w3d.ymmin = 3/2 * wp.mm  #
+wp.w3d.ymmax = 3/2 * wp.mm
 wp.w3d.zmmin = 0.0
 # changes the length of the gist output window.
 wp.w3d.zmmax = 23 * wp.mm
 
 
 # set grid spacing, this is the number of mesh elements in one window
-wp.w3d.nx = 50.
-wp.w3d.ny = 50.
+wp.w3d.nx = 60.
+wp.w3d.ny = 60.
 wp.w3d.nz = 180.
 # ToDo what and why the following
 if wp.w3d.l4symtry:
