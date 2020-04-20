@@ -112,9 +112,57 @@ def ESQ_double(centerpositions, voltage,
                 centerposition + esqoffcenter, +1)
     return esqs
     #
-
-
-
+###
+def electrical_connections(centerpos, voltage, orientation):
+    """
+    returns the electrical connections, ether in x or y
+    param centerpos: centerposition of the connection; NOT the center of the wafer!
+    """
+    assert orientation in ['x', 'y','xy']
+    # Dimensions:
+    d_beamhole = 1 * wp.mm
+    wafer_thickness = 625 * wp.um
+    copper_thickness = 35 * wp.um
+    connector_width = 750 * wp.um
+    inner_sqare = 2500 * wp.um
+    lattice_constant = 3000 * wp.um
+    #
+    lattice = wp.Box(
+        zcent=centerpos,
+        voltage=voltage,
+        xsize=lattice_constant + connector_width/2,
+        ysize=lattice_constant + connector_width/2,
+        zsize=copper_thickness
+    ) - wp.Box(
+        zcent=centerpos,
+        voltage=voltage,
+        xsize=lattice_constant - connector_width / 2,
+        ysize=lattice_constant - connector_width / 2,
+        zsize=copper_thickness
+    )
+    #
+    if orientation == 'x':
+        xs = lattice_constant
+        ys = connector_width
+    elif orientation == 'y':
+        ys = lattice_constant
+        xs = connector_width
+    elif orientation == 'xy':
+        return electrical_connections(centerpos, voltage, 'y') + \
+                electrical_connections(centerpos,voltage, 'x')
+    connectors = wp.Box(
+        zcent=centerpos,
+        xsize=xs,
+        ysize=ys,
+        zsize=copper_thickness,
+        voltage=voltage
+    ) - wp.ZCylinder(
+        zcent=centerpos,
+        radius=d_beamhole/2,
+        length=copper_thickness,
+        voltage=voltage
+    )
+    return lattice + connectors
 ###
 def RF_stack(stackPositions, voltage):
     """This is a rewritten code to make it easier to adapt
@@ -139,21 +187,33 @@ def RF_stack(stackPositions, voltage):
             return \
                 wp.ZAnnulus(
                     rmin=d_beamhole / 2 + copper_thickness,
-                    rmax=1,
+                    rmax=1, # Basically 'infinite'
                     length=wafer_thickness,
                     zcent=centerposition,
                     material=material, voltage=0)
         #
-        copper = \
-            wp.ZAnnulus(
-                rmax=d_out_copper/2,
-                rmin=d_beamhole/2,
-                zcent=centerposition,
-                material="Cu",
-                voltage=v
-            ) - pcb('Cu')
+        def copper():
+            ring = \
+                wp.ZAnnulus(
+                    rmax=d_out_copper/2,
+                    rmin=d_beamhole/2,
+                    zcent=centerposition,
+                    length=wafer_thickness + 2*copper_thickness,
+                    material="Cu",
+                    voltage=v
+                ) - pcb('Cu')
+            connectors = electrical_connections(
+                centerpos = centerposition+(wafer_thickness/2 + copper_thickness),
+                voltage = v,
+                orientation = 'xy'
+            ) + electrical_connections(
+                centerpos=centerposition - (wafer_thickness / 2 + copper_thickness),
+                voltage=v,
+                orientation='xy'
+            )
+            return ring + connectors
         #
-        return copper  # +pcb("")
+        return copper()  # +pcb("")
     #
     # Manual overwrite of the positions, always as a
     # centerposition:
