@@ -123,7 +123,7 @@ def electrical_connections(centerpos, voltage, orientation):
     d_beamhole = 1 * wp.mm
     wafer_thickness = 625 * wp.um
     copper_thickness = 35 * wp.um
-    connector_width = 750 * wp.um
+    connector_width = 400 * wp.um
     inner_sqare = 2500 * wp.um
     lattice_constant = 3000 * wp.um
     #
