@@ -556,7 +556,7 @@ while (wp.top.time < tmax and max(Z) < zEnd):
     wp.pfxy(fill=1, filled=1, plotselfe=True, comp='x',
              # added on 4/2 by Carlos
              titles=0)
-    wp.ptitles(f"xy plot of E_x", "z mean: {Z.mean()}", "x",
+    wp.ptitles(f"xy plot of E_x", f"z mean: {Z.mean()}", "x",
                 "y")
     wp.fma()
     ### Frame, showing
@@ -583,6 +583,7 @@ while (wp.top.time < tmax and max(Z) < zEnd):
     # wp.fma()
     ### Frame, showing
     plotf('xy','E',1)
+    ### Frame, showing
     plotf('xy','z',1)
     ### Frame, showing the side view plot of Ez and the electrical components
     wp.pfzx(fill=1, filled=1, plotselfe=True, comp='z',
