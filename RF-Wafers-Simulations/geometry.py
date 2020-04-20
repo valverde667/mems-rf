@@ -121,10 +121,8 @@ def electrical_connections(centerpos, voltage, orientation):
     assert orientation in ['x', 'y','xy']
     # Dimensions:
     d_beamhole = 1 * wp.mm
-    wafer_thickness = 625 * wp.um
     copper_thickness = 35 * wp.um
     connector_width = 400 * wp.um
-    inner_sqare = 2500 * wp.um
     lattice_constant = 3000 * wp.um
     #
     lattice = wp.Box(
@@ -136,8 +134,8 @@ def electrical_connections(centerpos, voltage, orientation):
     ) - wp.Box(
         zcent=centerpos,
         voltage=voltage,
-        xsize=lattice_constant - connector_width / 2,
-        ysize=lattice_constant - connector_width / 2,
+        xsize=lattice_constant - (connector_width / 2),
+        ysize=lattice_constant - (connector_width / 2),
         zsize=copper_thickness
     )
     #
@@ -172,6 +170,7 @@ def RF_stack(stackPositions, voltage):
     wafer_thickness = 625 * wp.um
     copper_thickness = 35 * wp.um
     d_out_copper = 2 * wp.mm
+    d_out_copper = 1.5 * wp.mm
 
     #
     def wafer(centerposition, v):
@@ -204,8 +203,8 @@ def RF_stack(stackPositions, voltage):
                 ) - pcb('Cu')
             connectors = electrical_connections(
                 centerpos = centerposition+(wafer_thickness/2 + copper_thickness),
-                voltage = v,
-                orientation = 'xy'
+                voltage=v,
+                orientation='xy'
             ) + electrical_connections(
                 centerpos=centerposition - (wafer_thickness / 2 + copper_thickness),
                 voltage=v,
