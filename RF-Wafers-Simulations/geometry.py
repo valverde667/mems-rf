@@ -134,22 +134,15 @@ def RF_stack(stackPositions, voltage):
                         subtracted from
         :return: PCB/silicone part of the wafers
         """
-
         #
         def pcb(material):
             return \
-                wp.ZCylinder(radius=10 * wp.mm,
-                             length=wafer_thickness,
-                             xcent=0, ycent=0,
-                             zcent=centerposition,
-                             material=material,
-                             voltage=0
-                             ) - wp.ZCylinder(
-                    radius=d_beamhole / 2 + copper_thickness,
+                wp.ZAnnulus(
+                    rmin=d_beamhole / 2 + copper_thickness,
+                    rmax=1,
                     length=wafer_thickness,
-                    xcent=0, ycent=0, zcent=centerposition,
+                    zcent=centerposition,
                     material=material, voltage=0)
-
         #
         copper = \
             wp.ZAnnulus(
