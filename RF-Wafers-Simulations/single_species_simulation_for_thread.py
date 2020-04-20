@@ -504,72 +504,72 @@ component2 = 'z'
 #plotf(axes3,component3)
 
 while (wp.top.time < tmax and max(Z) < zEnd):
+    ### Running the sim
+    wp.step(10)
+    ### Informations
     print(f'first Particle at {max(Z)};'
           f' simulations stops at {zEnd}')
-    #wp.step(warpoptions.options.timestep)  # each plotting step is 10 timesteps
-    wp.step(10)
+
+    ###### Collecting data
+    ### collecting data for Particle count vs Time Plot
     time_time.append(wp.top.time)
-    
     numsel.append(len(selectedIons.getke()))
-    
-    KE_select.append(np.mean(selectedIons.getke()))#notes from 4/15 modify a KE_max as well
-        
-    KE_select_Max.append(np.max(selectedIons.getke()))#modified 4/16
-    #number of particles as function of Energy
-    
-          #KE avg of all particles at this time interval
+    ### collecting for kinetic energy plots
+    KE_select.append(np.mean(selectedIons.getke()))
+    KE_select_Max.append(np.max(selectedIons.getke()))
     #Particle_Count = len(selectedIons.getke())  #Particle Count at this time interval
     KE = selectedIons.getke()
-    print(f"KE in this loop is = {KE}")
+    #print(f"KE in this loop is = {KE}")
     Particle_Count_Over_Avg_KE = 0   # Set to zero at each moment as time elapses
     for i in range(len(selectedIons.getke())):   # goes through each particle
         Avg_KE = np.mean(selectedIons.getke())
-        print(f"Mean KE in this for loop is = {Avg_KE}")
+        #print(f"Mean KE in this for loop is = {Avg_KE}")
         KE_i = selectedIons.getke()[i]
-        print(f"KE in this for loop is = {KE_i}")     # obtains KE of said particle
+        #print(f"KE in this for loop is = {KE_i}")     # obtains KE of said particle
         if ( KE_i > Avg_KE ):               # checks to see if KE of particle is greater than avg KE
             Particle_Count_Over_Avg_KE +=1    #adds to count of particles above avg KE
-    Particle_Counts_Above_E.append(Particle_Count_Over_Avg_KE) 
+    Particle_Counts_Above_E.append(Particle_Count_Over_Avg_KE)
     # particles in beam plot
        #accounts for all particles at that moment in time
 
     wp.top.pline1 = "V_RF: {:.0f}".format(
-        gen_volt(RF_offset)(wp.top.time))  # ToDo check if
-     # this is correct
-     # wp.top.pline1 = "V_RF: {:.0f}   V_esq: {:.0f}".format(gen_volt(RF_toffset)(wp.top.time), gen_volt_esq(Vesq, False, ESQ_toffset)(wp.top.time))
-     # Todo this can be adapted to run an endless stream
-     #  of ions, and see what happens
-     # inject only for 1 ns, so that we can get onto the rising edge of the RF
+        gen_volt(RF_offset)(wp.top.time))  # Move this where it belongs
+    ###### Injection
     if 0 * wp.ns < wp.top.time < L_bunch:  # changes the beam
          wp.top.finject[0, selectedIons.jslist[0]] = 1
     else:
         wp.top.inject = 0
-        
-    Z = selectedIons.getz()
 
-     # ToDo make a version that follows the fastet particle
+    ###### Moving the frame dependent on particle position
+    Z = selectedIons.getz()
     if Z.mean() > zmid:  # if the mean distance the particles have travelled is greater than the middle of the frame do this: MODIFIED 4/15
             # the velocity of the frame is equal to the mean velocity of the ions
-        wp.top.vbeamfrm = selectedIons.getvz().mean()#return to tab forward position if doesnt work 
-
-         # "" for maximal ions
-
-        #wp.top.vbeamfrm = selectedIons.getvz().max()
-        solver.gridmode = 0  # oscillates the fields, not sure if this is needed since we already called this at the beginning of the simulation #SAME as above 4/1
-     # Todo is this needed but wp.top.zbeam is always zero
+        wp.top.vbeamfrm = selectedIons.getvz().mean()
+        # wp.top.vbeamfrm = selectedIons.getvz().max()
+        solver.gridmode = 0  # ToDo Test if this is needed
+    # Todo is this needed? wp.top.zbeam is always zero
     zmin = wp.top.zbeam + wp.w3d.zmmin
     zmax = wp.top.zbeam + wp.w3d.zmmax  # trying to get rid of extra length at the end of the simulation, this is wasting computing power
      # wp.top.zbeam+wp.w3d.zmmax #scales the window length #redefines the end of the simulation tacks on the 53mm
-     # create some plots
-     # Timo copied that from carlos:
+
+    ###### Plotting
+    ### Frame, showing
     wp.pfxy(fill=1, filled=1, plotselfe=True, comp='x',
              # added on 4/2 by Carlos
              titles=0)
     wp.ptitles(f"xy plot of E_x", "z mean: {Z.mean()}", "x",
                 "y")
-    #plotf(axes1,component1, z mean: {Z.mean()})
     wp.fma()
-     # the instantaneous kinetic energy plot
+    ### Frame, showing
+    wp.pfxy(fill=1, filled=1, plotselfe=True, comp='z',
+            titles=0)
+    wp.ptitles(f"xy plot of E_z", f"z mean: {Z.mean()}", "x",
+               "y")
+    wp.fma()
+    #
+    #plotf(axes1,component1, z mean: {Z.mean()}) # Todo Carlos, can this be removed?
+
+    ### Frame, the instantaneous kinetic energy plot
     KE = selectedIons.getke()
     print(np.mean(KE))
     if len(KE) > 0:
@@ -578,50 +578,47 @@ while (wp.top.time < tmax and max(Z) < zEnd):
         while KEmax - KEmin > deltaKE:
             deltaKE += 10e3
     wp.ylimits(0.95 * KEmin,0.95 * KEmin + deltaKE)  # is this fraction supposed to match with V_arrival?
-    wp.fma()  # third frame in cgm file, repeating     
-            # the side view field plot
-    #plotf(axes2,component2, z mean: {Z.mean()})
     wp.fma()
+    ### Frame the side view field plot
+    # plotf(axes2,component2, z mean: {Z.mean()})
+    # wp.fma()
+    ### Frame, showing
+    plotf('xy','E',1)
+    plotf('xy','z',1)
+    ### Frame, showing the side view plot of Ez and the electrical components
     wp.pfzx(fill=1, filled=1, plotselfe=True, comp='z',
             titles=0, cmin=-1.2 * Vmax / geometry.gapGNDRF,
-             cmax=1.2 * Vmax / geometry.gapGNDRF)  # Vmax/geometry.RF_gap #1.2*Vmax/geometry.RF_gap (if want to see 20% increase in electric field) #comp='z': the component of the electric field to plot, 'x', 'y', 'z' or 'E',use 'E' for the magnitude.
-     # look at different components of Ez, to confirm the direction, summarize this
-     # cmax adjusts the righthand scale of the voltage, not sure how
-     # keep track of minimum and maximum birth times of particles
-    '''
-    #only call this after the window starts moving? When does the window start moving?
-    if selectedIons.getz() > drifti: #this is not working
-        t_birth_min = selectedIons.tbirth.min()
-        t_birth_max = selectedIons.tbirth.max()
-        tarray = np.linspace(t_birth_min, t_birth_max, 6)
-    '''  # this is not currently working, try without first
-    # sort by birthtime (using this while we figure out why above code is not working)
+             cmax=1.2 * Vmax / geometry.gapGNDRF)
+    # sort by birthtime
     t_birth_min = selectedIons.tbirth.min()
     t_birth_max = selectedIons.tbirth.max()
     tarray = np.linspace(t_birth_min, t_birth_max, 6)
-     # mask to sort particles by birthtime
+    # mask to sort particles by birthtime
     mask = []
     for i in range(len(tarray) - 1):  # the length of tarray must be changing overtime which changes the mask which recolors the particles
         m = (selectedIons.tbirth > tarray[i]) * (
             selectedIons.tbirth < tarray[i + 1])
         mask.append(m) 
-     # plot particles on top of feild plot, sort by birthtime and color them accordingly
+    # plot particles on top of fild plot, sort by birthtime and color them accordingly
     colors = [wp.red, wp.yellow, wp.green, wp.blue,
                wp.magenta]
     for m, c in zip(mask, colors):
         wp.plp(selectedIons.getx()[m],selectedIons.getz()[m],msize=1.0,color=c)  # the selected ions are changing through time
     wp.limits(zmin, zmax)
     wp.ptitles("Particles and Fields", "Z [m]", "X [m]")
-    wp.fma()  # fourth frame in cgm file, repeating 
-    
+    wp.fma()
+    ### Frame, shwoing
     selectedIons.ppxy(color=wp.red,titles=0)  # ppxy (particle plot x horizontal axis, y on vertical axis
     wp.limits(-R, R)
     wp.ylimits(-R, R)
     wp.plg(Y, X, type="dash")
-    wp.fma()  # fifth frame in the cgm file, repeating
-    # check if a snapshot should be taken (timo)
-    # saveBeamSnapshot(Z.mean()) # Currently not needed
+    wp.fma()
+    ### check if a snapshot should be taken for export for the energy analyzer
+    # saveBeamSnapshot(Z.mean())
+### END of Simulation
 
+###### Final Plots
+### Frame, Particle count vs Time Plot
 wp.plg(numsel, time_time, color=wp.blue)
 wp.ptitles("Particle Count vs Time", "Time (s)","Number of Particles")
 wp.fma()  # fourth to last frame in cgm file
@@ -629,24 +626,7 @@ wp.fma()  # fourth to last frame in cgm file
 wp.plg(selectedIons.lostpars, wp.top.zplmesh + wp.top.zbeam)
 wp.ptitles("Particles Lost vs Z", "Z","Number of Particles Lost")
 wp.fma()
-
- 
-
-"""#plot history of scraped particles plot for conductors
-wp.plg(conductors.get_energy_histogram)
-wp.fma()
-
-wp.plg(conductors.plot_energy_histogram)
-wp.fma() 
-
-wp.plg(conductors.get_current_history)
-wp.fma()
-
-wp.plg(conductors.plot_current_history)
-wp.fma()"""
-# above should work for target Z as well however, it has not worked yet 
-# make an array of starting_particles the same lenfor i in rangegth as numsel
-
+### Frame, surviving particles plot:
 for i in range(len(numsel)):
     p = max(numsel) 
     starting_particles.append(p)
@@ -655,45 +635,40 @@ f_survive = [i / j for i, j in
              zip(numsel, starting_particles)]
  # want the particles that just make it through the last RF, need position of RF. This way we can see how many particles made it through the last important component of the accelerator
 
- # last_f_survive =
-
-
-
 wp.plg(f_survive, time_time, color=wp.green)
 wp.ptitles("Fraction of Surviving Particles vs Time",
             "Time (s)", "Fraction of Surviving Particles")
-wp.fma()  # third to last frame in cgm file
-# rms envelope plot
-
+wp.fma()
+### Frame, rms envelope plot
 wp.hpxrms(color=wp.red, titles=0)
 wp.hpyrms(color=wp.blue, titles=0)
 wp.hprrms(color=wp.green, titles=0)
 wp.ptitles("X(red), Y(blue), R(green)", "Z [m]",
             "X/Y/R [m]", "")
-wp.fma()  # second to last frame in cgm file 
- # Kinetic Energy at certain Z value
+wp.fma()
+### Frame, Kinetic Energy at certain Z value
 wp.plg(KE_select, time_time, color=wp.blue)
 wp.limits(0, 70e-9)  # limits(xmin,xmax,ymin,ymax)
 wp.ptitles("Kinetic Energy vs Time")
 wp.fma() 
-
+### Frame, maximal kinetic energy at certain Z value
 wp.plg(KE_select_Max, time_time, color=wp.blue)
 wp.limits(0, 70e-9)  # limits(xmin,xmax,ymin,ymax)
-wp.ptitles("Kinetic Energy vs Time")
+wp.ptitles(" Maximal Kinetic Energy vs Time")
 wp.fma()
 # kinetic energy plot
 wp.plg(KE_select, time_time, color=wp.blue)
 wp.ptitles("kinetic energy vs time")
-wp.fma()  # last frame in cgm file
-
+wp.fma()
+### TODO Here are duplicates, if I see that correctly @Carlos
 wp.plg(KE_select_Max, time_time, color=wp.red)
-wp.ptitles("Max kinetic energy vs time")#modified 4/16
-wp.fma()  #new last frame in cgm file
+wp.ptitles("Max kinetic energy vs time")
+wp.fma()
 
 wp.plg(Particle_Counts_Above_E,KE_select, color=wp.blue)
 wp.ptitles("Particle Count(t) vs Energy(t)")#modified 4/16
-wp.fma()  #new last frame in cgm file
-
+wp.fma()
+### Frame, showing ---
 KE = selectedIons.getke()
 plotmin = np.min(KE) -1
 plotmax = np.max(KE) +1
@@ -711,12 +686,9 @@ wp.ptitles("Number of Particles above E vs E after last gap ")
 C, edges = np.histogram(KE,bins=len(plotE),range=(plotmin,plotmax))
 wp.plg(C,plotE)
 wp.fma() 
+#####
 
-
-
-
-
-
+# ToDo: who wrote this? @Carlos
 #You had KE_mean vs. time already, Add another plot KE_max vs. time
 #Modify your script to get plot 
 #On the target plane (when ions exit all the gaps), For E range from 0 to 50 keV, plot number of ions at range of (E, E+0.1keV) as a function of E. 
@@ -727,10 +699,8 @@ wp.fma()
 # t = targetz_particles.getvz()
 # print(x)
 # print(t)
-"""wp.plg(t, x, color=wp.green)
-wp.ptitles("Spread of survived particles in the x direction")
-wp.fma() #last frame -1 in file
-"""
+
+### Data storage
 # save history information, so that we can plot all cells in one plot
 
 t = np.trim_zeros(wp.top.thist, 'b')
@@ -754,12 +724,10 @@ print('debug', t.shape, hepsny.shape)
 out = np.stack((t, hepsny, hepsnz, hep6d, hekinz, hekin,
                 hxrms, hyrms, hrrms, hpnum))
 
- 
+ ### END BELOW HERE ARE ONLY COMMENTS
 
 # store files in certain folder related to filename - not used here
 # atap_path = Path(r'/home/timo/Documents/Warp/Sims/') #insert your path here
-
- 
 
 # Convert data into JSON serializable..............................................#nsp = len(x)#"number_surviving_particles" : nsp,fs = len(x)/m, "fraction_particles" : fs,Ve = str(Vesq), se = list(geometry.start_ESQ_gaps), ee = list(geometry.end_ESQ_gaps), "ESQ_start" : se,"ESQ_end" : ee,"Vesq" : Ve,
 # t = list(time_time)
@@ -819,4 +787,21 @@ with open(f"{step1path}/{cgm_name}_zc.json",
 now_end = time.time()
 print(f"Runtime in seconds is {now_end - start}")
 
+# Optional plots:
+"""#plot history of scraped particles plot for conductors
+wp.plg(conductors.get_energy_histogram)
+wp.fma()
 
+wp.plg(conductors.plot_energy_histogram)
+wp.fma() 
+
+wp.plg(conductors.get_current_history)
+wp.fma()
+
+wp.plg(conductors.plot_current_history)
+wp.fma()"""
+
+"""wp.plg(t, x, color=wp.green)
+wp.ptitles("Spread of survived particles in the x direction")
+wp.fma() #last frame -1 in file
+"""
