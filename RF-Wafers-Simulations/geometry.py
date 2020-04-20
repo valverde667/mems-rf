@@ -11,104 +11,6 @@ gapGNDRF = 2 * wp.mm  # those are currently needed in sss_f_t
 wafer_thickness = 625 * wp.um
 copper_thickness = 35 * wp.um
 
-
-# unit cell frame
-# framelength = 0.15#\\1500*wp.um
-# framewidth = 150*wp.um
-
-# end_accel_gaps = []
-# start_accel_gaps = []
-# start_ESQ_gaps = []
-# end_ESQ_gaps = []
-# count = 0 # 1st RF count = 0 grounded, second rf count =1 voltage, third RF count = 2 voltage, fourth RF count =3 grounded, fourth RF count =4 voltage (GVVGGVVGGVVGGVVGG GVVG is being repeated throughout which is why we were doing it this way beforeI'll try to make it work the other way then
-# pos_pos =[] #to keep track of what value pos has throughout the making of the RF stack
-
-# should be obsolete by now
-# def Gap(dist=500*wp.um): #why is this 500 um, just a default value?
-#     """Vacuum gap, e.g. between wafers"""
-#     global pos
-#     print(f"The position in the Gap function currently is {pos}")
-#     pos += dist
-#     print(f"After adding {dist} to the pos the pos is now {pos}")
-#     print("--- Gap ends at: ", pos)
-
-
-def ESQ_old(voltage, condid):
-    """Simple ESQ wafer
-
-    Use 4 cylinders in Z to make up a single electrode.
-    Add to current position(pos) and use two condids [a,b] for the electrodes.
-
-    Bias these +-+- with voltage V.
-
-    """
-    global pos
-    R1 = (4 / 7) * wp.mm  # radius of electrodes
-
-    X = (
-                15 / 14) * wp.mm  # 2*wp.mm  #X offset for electrodes
-
-    print("--- ESQ starts at: ",
-          mid_gap[-1])  # print("--- ESQ starts at: ", pos)
-    start_ESQ_gaps.append(mid_gap[
-                              -1])  # array of start of acceleration gaps for future use
-    print("--- ESQ voltage: ", voltage)
-    zcenter = mid_gap[
-                  -1] - 0.5 * ESQ_wafer_length  # center of ESQ? #+
-    print(f"the center of the esq is {zcenter}")
-
-    def element(voltage, condid, rotation):
-        """create a single element, rotated X degrees"""
-
-        if rotation == 0:
-            xcent1, ycent1 = X, 0
-        elif rotation == 90:
-            xcent1, ycent1 = 0, -X
-        elif rotation == 180:
-            xcent1, ycent1 = -X, 0
-        elif rotation == 270:
-            xcent1, ycent1 = 0, X
-        else:
-            print("wrong rotation value")
-
-        electrode = wp.ZCylinder(radius=R1,
-                                 length=ESQ_wafer_length,
-                                 voltage=voltage,
-                                 xcent=xcent1, ycent=ycent1,
-                                 zcent=zcenter,
-                                 condid=condid)
-        return electrode
-
-    condidA, condidB = condid
-
-    # cylinders
-    if callable(voltage):
-        pos_voltage = voltage
-
-        def neg_voltage(x):
-            return -voltage(x)
-    else:
-        pos_voltage = voltage
-        neg_voltage = -voltage
-
-    electrodeA = element(voltage=pos_voltage,
-                         condid=condidA, rotation=0)
-    electrodeB = element(voltage=neg_voltage,
-                         condid=condidB, rotation=90)
-    electrodeC = element(voltage=pos_voltage,
-                         condid=condidA, rotation=180)
-    electrodeD = element(voltage=neg_voltage,
-                         condid=condidB, rotation=270)
-
-    pos = + mid_gap[
-        -1] + ESQ_gap + .5 * ESQ_wafer_length  # pos += ESQ_wafer_length
-    end_ESQ_gaps.append(
-        pos)  # array of end of ESQ gaps for future use
-    print("--- ESQ ends at: ", pos)
-
-    return electrodeA + electrodeB + electrodeC + electrodeD
-
-
 ####
 
 def ESQ_double(centerpositions, voltage,
@@ -151,7 +53,6 @@ def ESQ_double(centerpositions, voltage,
                 zcent=position,
                 length=wafer_thickness,
             )
-
         #
         def quarter(orientation, qvolt=voltage,
                     rmin=d_beamhole, rmax=d_out_copper,
@@ -213,9 +114,9 @@ def ESQ_double(centerpositions, voltage,
     #
 
 
+
 ###
 def RF_stack(stackPositions, voltage):
-    # TODO This zylinder stuff can be replaced by an annulus
     """This is a rewritten code to make it easier to adapt
     it to the actual teststand"""
     # Defining dimensions:
@@ -251,23 +152,15 @@ def RF_stack(stackPositions, voltage):
 
         #
         copper = \
-            wp.ZCylinder(radius=d_out_copper / 2,
-                         length=wafer_thickness + 2 *
-                                copper_thickness,
-                         xcent=0, ycent=0,
-                         zcent=centerposition,
-                         material="Cu",
-                         voltage=v) \
-            - pcb("Cu") \
-            - wp.ZCylinder(
-                radius=d_beamhole / 2,
-                length=wafer_thickness +
-                       2 * copper_thickness,
-                xcent=0, ycent=0, zcent=centerposition,
-                material="Cu", voltage=v)
+            wp.ZAnnulus(
+                rmax=d_out_copper/2,
+                rmin=d_beamhole/2,
+                zcent=centerposition,
+                material="Cu",
+                voltage=v
+            ) - pcb('Cu')
         #
         return copper  # +pcb("")
-
     #
     # Manual overwrite of the positions, always as a
     # centerposition:
