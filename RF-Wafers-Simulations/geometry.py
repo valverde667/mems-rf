@@ -122,7 +122,7 @@ def electrical_connections(centerpos, voltage, orientation):
     # Dimensions:
     d_beamhole = 1 * wp.mm
     copper_thickness = 35 * wp.um
-    connector_width = 400 * wp.um
+    connector_width = 500 * wp.um
     lattice_constant = 3000 * wp.um
     #
     lattice = wp.Box(
@@ -189,7 +189,8 @@ def RF_stack(stackPositions, voltage):
                     rmax=1, # Basically 'infinite'
                     length=wafer_thickness,
                     zcent=centerposition,
-                    material=material, voltage=0)
+                    #material=material,
+                    voltage=0)
         #
         def copper():
             ring = \
@@ -198,15 +199,15 @@ def RF_stack(stackPositions, voltage):
                     rmin=d_beamhole/2,
                     zcent=centerposition,
                     length=wafer_thickness + 2*copper_thickness,
-                    material="Cu",
+                    #material="Cu",
                     voltage=v
                 ) - pcb('Cu')
             connectors = electrical_connections(
-                centerpos = centerposition+(wafer_thickness/2 + copper_thickness),
+                centerpos = centerposition + (wafer_thickness/2 + copper_thickness/2),
                 voltage=v,
                 orientation='xy'
             ) + electrical_connections(
-                centerpos=centerposition - (wafer_thickness / 2 + copper_thickness),
+                centerpos=centerposition - (wafer_thickness / 2 + copper_thickness/2),
                 voltage=v,
                 orientation='xy'
             )
