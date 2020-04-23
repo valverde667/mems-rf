@@ -264,6 +264,7 @@ def RF_stack(stackPositions, voltage):
                     wafer(s[3], 0)
             stacks.append(stack)
         return stacks
+    return hackymanualstack()
 
 
 # conductor to absorb particles at a certain Z
