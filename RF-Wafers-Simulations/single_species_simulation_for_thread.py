@@ -72,10 +72,20 @@ warpoptions.parser.add_argument('--name', dest='name',
                                 type=str,
                                 default='unnamedRun')
 
+#   special cgm path - for mass output / scripting
+warpoptions.parser.add_argument('--path', dest='path',
+                                type=str,
+                                default='')
+
 #   divergence angle
 warpoptions.parser.add_argument('--tstep',
                                 dest='timestep',
                                 type=float, default='1e-9') #1e-11
+
+#   enables some additional code if True
+warpoptions.parser.add_argument('--autorun',
+                                dest='autorun',
+                                type=bool, default=False)
 
 import warp as wp
 import numpy as np
@@ -98,8 +108,8 @@ start = time.time()
 
 wp.w3d.solvergeom = wp.w3d.XYZgeom
 # Timesteps
-#wp.top.dt = warpoptions.options.timestep#
-wp.top.dt = 1e-10# updated from original script, check first before pushing 4/15
+wp.top.dt = warpoptions.options.timestep
+#wp.top.dt = 1e-10# updated from original script, check first before pushing 4/15
 # 10-9 for short; 10e-11 for a nice one
 
 # --- keep track of when the particles are born
@@ -132,6 +142,9 @@ cgm_name = name
 step1path = "/home/timo/Documents/LBL/Warp/CGM"
 #step1path = '/home/cverdoza/Documents/LBL/WARP/berkeleylab-atap-meqalac-simulations/RF-Wafers-Simulations/test'
 
+# overwrite if path is given by command
+if warpoptions.options.path != '':
+    step1path = warpoptions.options.path
 
 wp.setup(prefix=f"{step1path}/{cgm_name}")  # , cgmlog= 0)
 
@@ -177,13 +190,13 @@ wp.w3d.ymmin = 3/2 * wp.mm  #
 wp.w3d.ymmax = 3/2 * wp.mm
 wp.w3d.zmmin = 0.0
 # changes the length of the gist output window.
-wp.w3d.zmmax = 23 * wp.mm
+wp.w3d.zmmax = 10*wp.mm #23 * wp.mm
 
 
 # set grid spacing, this is the number of mesh elements in one window
-wp.w3d.nx = 60.
-wp.w3d.ny = 60.
-wp.w3d.nz = 180.
+wp.w3d.nx = 30#60.
+wp.w3d.ny = 30#60.
+wp.w3d.nz = 60#85#180.
 # ToDo what and why the following
 if wp.w3d.l4symtry:
     wp.w3d.xmmin = 0.
@@ -312,10 +325,10 @@ def calculateRFwaferpositions():
 # Here it is optional to overwrite the position Array, to
 # simulate the ACTUAL setup:
 calculatedPositionArray = calculateRFwaferpositions()
-print(calculatedPositionArray)
+#print(calculatedPositionArray)
 positionArray = [[.0036525,.0056525,0.01323279,0.01523279],
-                  [0.0233854,0.0253854,0.03420207,0.03620207],
-                  [0.0485042,0.0505042,0.06300143,0.06500143]
+                  #[0.0233854,0.0253854,0.03420207,0.03620207],
+                  #[0.0485042,0.0505042,0.06300143,0.06500143] #timo testrun
                 ]
 #for 9kV
 #positionArray = [[.0036525,.0056525,0.01243279,0.01463279],
@@ -335,7 +348,68 @@ for i,pa in enumerate(positionArray):
 # add actual stack
 conductors = RF_stack(positionArray,
                       gen_volt(RF_offset))
+### Functions for automated wafer position by batch running
+basepath = warpoptions.options.path
+thisrunID = warpoptions.options.name
+markedpositions = []
+markedpositionsenergies= []
+#
+def readjson():
+    fp = f'{basepath}data.json'
+    with open(fp, 'r') as readfile:
+        data = json.load(readfile)
+    return data
+#
+def writejson(key, value):
+    print(' IN SIM')
+    print(thisrunID)
+    print(type(thisrunID))
+    writedata = readjson()
+    print(writedata.keys())
+    writedata[thisrunID][key] = value
+    with open(f'{basepath}data.json', 'w') as writefile:
+        json.dump(writedata, writefile, sort_keys=True, indent=1)
+#
+def autoinit():
 
+    #assert thisrunID.__len__() == 4
+    #
+    rj = readjson()[thisrunID]
+
+    waferposloaded = rj["rf_gaps"]
+    positionArray = waferposloaded
+    global markedpositions
+    markedpositions = rj["markedpositions"]
+    #
+    print(f'marked positions {markedpositions}')
+    writejson("rf_voltage", Vmax)
+    writejson("bunch_length",L_bunch)
+    writejson("ekininit", ekininit)
+    writejson("freq",freq)
+    writejson("tstep",warpoptions.options.timestep)
+    writejson("rfgaps_ideal",calculateRFwaferpositions())
+    #
+#
+def autosave(se):
+    print(f'marked positions {markedpositions}')
+    '''se : selected Ions'''
+    if warpoptions.options.autorun:
+        if se.getz().max() > markedpositions[0]:
+            print('YES')
+            ekinmax = se.getke().max()
+            ekinav = se.getke().mean()
+            markedpositionsenergies.append({"ekinmax":ekinmax,"ekinav": ekinav})
+            writejson("markedpositionsenergies",markedpositionsenergies)
+            del markedpositions[0]
+            if len(markedpositions) == 0:
+                print('ENDING SIM')
+                return True # cancels the entire simulation loop
+    return False
+
+#
+if warpoptions.options.autorun:
+    autoinit()
+###
 # ToDo Timo
 # calculate ESQ positions each plotting step is 10 timesteps
 esqPositions = []
@@ -613,6 +687,11 @@ while (wp.top.time < tmax and max(Z) < zEnd):
     wp.ylimits(-R, R)
     wp.plg(Y, X, type="dash")
     wp.fma()
+    ###
+    #autosave(selectedIons)
+    if autosave(selectedIons):
+        print(f'Postion {selectedIons.getz().max()}')
+        break
     ### check if a snapshot should be taken for export for the energy analyzer
     # saveBeamSnapshot(Z.mean())
 ### END of Simulation
@@ -772,20 +851,20 @@ out = np.stack((t, hepsny, hepsnz, hep6d, hekinz, hekin,
 # } 
 
 # Timo
-# ZCrossing store
-json_ZC = {
-    "x": zc.getx().tolist(),
-    "y": zc.gety().tolist(),
-    "vx": zc.getvx().tolist(),
-    "vy": zc.getvy().tolist(),
-    "vz": zc.getvz().tolist(),
-    "t": zc.gett().tolist(),
-}
-with open(f"{step1path}/{cgm_name}_zc.json",
-          "w") as write_file:
-    json.dump(json_ZC, write_file, indent=2)
-now_end = time.time()
-print(f"Runtime in seconds is {now_end - start}")
+# ZCrossing store closed for autorunner
+# json_ZC = {
+#     "x": zc.getx().tolist(),
+#     "y": zc.gety().tolist(),
+#     "vx": zc.getvx().tolist(),
+#     "vy": zc.getvy().tolist(),
+#     "vz": zc.getvz().tolist(),
+#     "t": zc.gett().tolist(),
+# }
+# with open(f"{step1path}/{cgm_name}_zc.json",
+#           "w") as write_file:
+#     json.dump(json_ZC, write_file, indent=2)
+# now_end = time.time()
+# print(f"Runtime in seconds is {now_end - start}")
 
 # Optional plots:
 """#plot history of scraped particles plot for conductors
