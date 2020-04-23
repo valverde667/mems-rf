@@ -11,6 +11,7 @@ gapGNDRF = 2 * wp.mm  # those are currently needed in sss_f_t
 wafer_thickness = 625 * wp.um
 copper_thickness = 35 * wp.um
 
+
 ####
 
 def ESQ_double(centerpositions, voltage,
@@ -53,6 +54,7 @@ def ESQ_double(centerpositions, voltage,
                 zcent=position,
                 length=wafer_thickness,
             )
+
         #
         def quarter(orientation, qvolt=voltage,
                     rmin=d_beamhole, rmax=d_out_copper,
@@ -101,6 +103,7 @@ def ESQ_double(centerpositions, voltage,
                quarter(2, signedV) + quarter(3, -signedV) - \
                pcb()
         #
+
     esqs = None
     for centerposition in centerpositions:
         esqoffcenter = wafer_thickness / 2 + \
@@ -109,16 +112,18 @@ def ESQ_double(centerpositions, voltage,
             f'ESQ POS at: \n {centerposition - esqoffcenter}'
             f'\n{centerposition + esqoffcenter}')
         esqs += ESQ(centerposition - esqoffcenter, -1) + ESQ(
-                centerposition + esqoffcenter, +1)
+            centerposition + esqoffcenter, +1)
     return esqs
     #
+
+
 ###
 def electrical_connections(centerpos, voltage, orientation):
     """
     returns the electrical connections, ether in x or y
     param centerpos: centerposition of the connection; NOT the center of the wafer!
     """
-    assert orientation in ['x', 'y','xy']
+    assert orientation in ['x', 'y', 'xy']
     # Dimensions:
     d_beamhole = 1 * wp.mm
     copper_thickness = 35 * wp.um
@@ -128,8 +133,8 @@ def electrical_connections(centerpos, voltage, orientation):
     lattice = wp.Box(
         zcent=centerpos,
         voltage=voltage,
-        xsize=lattice_constant + connector_width/2,
-        ysize=lattice_constant + connector_width/2,
+        xsize=lattice_constant + connector_width / 2,
+        ysize=lattice_constant + connector_width / 2,
         zsize=copper_thickness
     ) - wp.Box(
         zcent=centerpos,
@@ -147,7 +152,7 @@ def electrical_connections(centerpos, voltage, orientation):
         xs = connector_width
     elif orientation == 'xy':
         return electrical_connections(centerpos, voltage, 'y') + \
-                electrical_connections(centerpos,voltage, 'x')
+               electrical_connections(centerpos, voltage, 'x')
     connectors = wp.Box(
         zcent=centerpos,
         xsize=xs,
@@ -156,11 +161,13 @@ def electrical_connections(centerpos, voltage, orientation):
         voltage=voltage
     ) - wp.ZCylinder(
         zcent=centerpos,
-        radius=d_beamhole/2,
+        radius=d_beamhole / 2,
         length=copper_thickness,
         voltage=voltage
     )
     return lattice + connectors
+
+
 ###
 def RF_stack(stackPositions, voltage):
     """This is a rewritten code to make it easier to adapt
@@ -181,53 +188,82 @@ def RF_stack(stackPositions, voltage):
                         subtracted from
         :return: PCB/silicone part of the wafers
         """
+
         #
         def pcb(material):
             return \
                 wp.ZAnnulus(
                     rmin=d_beamhole / 2 + copper_thickness,
-                    rmax=1, # Basically 'infinite'
+                    rmax=1,  # Basically 'infinite'
                     length=wafer_thickness,
                     zcent=centerposition,
-                    #material=material,
+                    # material=material,
                     voltage=0)
+
         #
         def copper():
             ring = \
                 wp.ZAnnulus(
-                    rmax=d_out_copper/2,
-                    rmin=d_beamhole/2,
+                    rmax=d_out_copper / 2,
+                    rmin=d_beamhole / 2,
                     zcent=centerposition,
-                    length=wafer_thickness + 2*copper_thickness,
-                    #material="Cu",
+                    length=wafer_thickness + 2 * copper_thickness,
+                    # material="Cu",
                     voltage=v
                 ) - pcb('Cu')
             connectors = electrical_connections(
-                centerpos = centerposition + (wafer_thickness/2 + copper_thickness/2),
+                centerpos=centerposition + (wafer_thickness / 2 + copper_thickness / 2),
                 voltage=v,
                 orientation='xy'
             ) + electrical_connections(
-                centerpos=centerposition - (wafer_thickness / 2 + copper_thickness/2),
+                centerpos=centerposition - (wafer_thickness / 2 + copper_thickness / 2),
                 voltage=v,
                 orientation='xy'
             )
             return ring + connectors
+
         #
         return copper()  # +pcb("")
+
     #
-    # Manual overwrite of the positions, always as a
-    # centerposition:
-    # [[GND, RF, RF, GND],[GND, RF, RF, GND], [..],..]
-    # stackPositions = [[.002, .004, .008, .010]]
-    stacks = []
-    for s in stackPositions:
-        stack = wafer(s[0], 0) + \
-                wafer(s[1], voltage) + \
-                wafer(s[2], voltage) + \
-                wafer(s[3], 0)
-        stacks.append(stack)
+    def equalvoltagestack():
+        #
+        # Manual overwrite of the positions, always as a
+        # centerposition:
+        # [[GND, RF, RF, GND],[GND, RF, RF, GND], [..],..]
+        # stackPositions = [[.002, .004, .008, .010]]
+        stacks = []
+        for s in stackPositions:
+            stack = wafer(s[0], 0) + \
+                    wafer(s[1], voltage) + \
+                    wafer(s[2], voltage) + \
+                    wafer(s[3], 0)
+            stacks.append(stack)
+        return stacks
+        #
+
+    # return wp.sum(equalvoltagestack())
     #
-    return wp.sum(stacks)
+    def hackymanualstack():
+        import numpy as np
+        # Carlos, set it up here
+        freq = 27e6
+        Vmax = 7e3
+        toffset = 0  # should be in the magnitude of 1/freq
+
+        def RFvoltage2(time):
+            return -Vmax * np.cos(
+                2 * np.pi * freq * (time + toffset))
+        #
+        voltages = [voltage, voltage, voltage, voltage, RFvoltage2, RFvoltage2, RFvoltage2, RFvoltage2, ]
+        stacks = []
+        for i, s in enumerate(stackPositions):
+            stack = wafer(s[0], 0) + \
+                    wafer(s[1], voltages[i]) + \
+                    wafer(s[2], voltage[i]) + \
+                    wafer(s[3], 0)
+            stacks.append(stack)
+        return stacks
 
 
 # conductor to absorb particles at a certain Z
