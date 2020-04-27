@@ -146,9 +146,9 @@ def singleRFplot():
         print(f'mes: {mes}')
         for j, me in enumerate(mes):
             print(f'me: {me}')
-            pos.append(centerpositions[i][j]*1e3)
-            eav.append(me["ekinav"]/1e3)
-            emax.append(me["ekinmax"]/1e3)
+            pos.append(centerpositions[i][j] * 1e3)
+            eav.append(me["ekinav"] / 1e3)
+            emax.append(me["ekinmax"] / 1e3)
             #
             print(pos)
             print(eav)
