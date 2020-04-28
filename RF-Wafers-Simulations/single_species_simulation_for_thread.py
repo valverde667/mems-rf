@@ -189,12 +189,12 @@ wp.w3d.ymmin = 3 / 2 * wp.mm  #
 wp.w3d.ymmax = 3 / 2 * wp.mm
 wp.w3d.zmmin = 0.0
 # changes the length of the gist output window.
-wp.w3d.zmmax = 10 * wp.mm  # 23 * wp.mm
+wp.w3d.zmmax = 23 * wp.mm # 10
 
 # set grid spacing, this is the number of mesh elements in one window
 wp.w3d.nx = 30  # 60.
 wp.w3d.ny = 30  # 60.
-wp.w3d.nz = 60  # 85#180.
+wp.w3d.nz = 180. # 180 for 23 # 6-85 for 10
 # ToDo what and why the following
 if wp.w3d.l4symtry:
     wp.w3d.xmmin = 0.
@@ -340,13 +340,6 @@ positionArray = [[.0036525, .0056525, 0.01323279, 0.01523279],
 
 # catching it at the plates with peak voltage #april 15
 
-
-for i, pa in enumerate(positionArray):
-    print(f"Unit {i} placed at {pa}")
-
-# add actual stack
-conductors = RF_stack(positionArray,
-                      gen_volt(RF_offset))
 ### Functions for automated wafer position by batch running
 basepath = warpoptions.options.path
 thisrunID = warpoptions.options.name
@@ -356,7 +349,7 @@ markedpositionsenergies = []
 
 #
 def readjson():
-    fp = f'{basepath}data.json'
+    fp = f'{basepath}{thisrunID}.json'
     with open(fp, 'r') as readfile:
         data = json.load(readfile)
     return data
@@ -369,8 +362,8 @@ def writejson(key, value):
     print(type(thisrunID))
     writedata = readjson()
     print(writedata.keys())
-    writedata[thisrunID][key] = value
-    with open(f'{basepath}data.json', 'w') as writefile:
+    writedata[key] = value
+    with open(f'{basepath}{thisrunID}.json', 'w') as writefile:
         json.dump(writedata, writefile, sort_keys=True, indent=1)
 
 
@@ -378,8 +371,8 @@ def writejson(key, value):
 def autoinit():
     # assert thisrunID.__len__() == 4
     #
-    rj = readjson()[thisrunID]
-
+    rj = readjson()
+    global positionArray
     waferposloaded = rj["rf_gaps"]
     positionArray = waferposloaded
     global markedpositions
@@ -416,6 +409,14 @@ def autosave(se):
 #
 if warpoptions.options.autorun:
     autoinit()
+###
+### Placing the Wafers
+for i, pa in enumerate(positionArray):
+    print(f"Unit {i} placed at {pa}")
+
+# add actual stack
+conductors = RF_stack(positionArray,
+                      gen_volt(RF_offset))
 ###
 # ToDo Timo
 # calculate ESQ positions each plotting step is 10 timesteps
