@@ -247,12 +247,12 @@ ID_target = 1
 
 
 # --- generates voltage for the RFs
-def gen_volt(toffset=0):  # 0
+def gen_volt(toffset=0, frequency=freq):  # 0
     """ A cos voltage function with variable offset"""
 
     def RFvoltage(time):
         return -Vmax * np.cos(
-            2 * np.pi * freq * (time + toffset))
+            2 * np.pi * frequency * (time + toffset))
 
     return RFvoltage
 
@@ -327,8 +327,8 @@ def calculateRFwaferpositions():
 calculatedPositionArray = calculateRFwaferpositions()
 # print(calculatedPositionArray)
 positionArray = [[.0036525, .0056525, 0.01323279, 0.01523279],
-                 # [0.0233854,0.0253854,0.03420207,0.03620207],
-                 # [0.0485042,0.0505042,0.06300143,0.06500143] #timo testrun
+                 [0.0233854,0.0253854,0.03420207,0.03620207],
+                 [0.0485042,0.0505042,0.06300143,0.06500143] #timo testrun
                  ]
 # for 9kV
 # positionArray = [[.0036525,.0056525,0.01243279,0.01463279],
@@ -414,9 +414,25 @@ if warpoptions.options.autorun:
 for i, pa in enumerate(positionArray):
     print(f"Unit {i} placed at {pa}")
 
+# NEW: Voltages for each RF stack
+# setting frequency overwrites the default/waroptions
+# frequency setting;
+voltages = [
+            gen_volt(toffset=RF_offset,frequency=13.56e6),
+            gen_volt(toffset=RF_offset, frequency=13.56e6),
+            gen_volt(toffset=RF_offset, frequency=13.56e6),
+            gen_volt(toffset=RF_offset, frequency=27e6),
+            gen_volt(toffset=RF_offset, frequency=27e6),
+            gen_volt(toffset=RF_offset, frequency=27e6),
+            gen_volt(toffset=RF_offset, frequency=27e6),
+            gen_volt(toffset=RF_offset, frequency=27e6),
+            gen_volt(toffset=RF_offset, frequency=27e6),
+            gen_volt(toffset=RF_offset, frequency=27e6),
+            gen_volt(toffset=RF_offset, frequency=27e6),
+            ]
 # add actual stack
-conductors = RF_stack(positionArray,
-                      gen_volt(RF_offset))
+conductors = RF_stack(positionArray, voltages)
+print('CONDUCT DONE')
 ###
 # ToDo Timo
 # calculate ESQ positions each plotting step is 10 timesteps
@@ -587,7 +603,8 @@ component2 = 'z'
 
 while (wp.top.time < tmax and max(Z) < zEnd):
     ### Running the sim
-    wp.step(10)
+    wp.step(1)
+    #wp.step(10)
     ### Informations
     print(f'first Particle at {max(Z)};'
           f' simulations stops at {zEnd}')
