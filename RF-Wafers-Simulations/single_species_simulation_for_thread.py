@@ -1,14 +1,5 @@
 import warpoptions
 
-# 2020 Carlos latest commit 4-10
-# 2020-03-23, Timo
-# This file is based of maddy's version but has a lot of code
-# re-written, espacially does it make use of the new code for
-# the geometry of the RF-Wafers. The only current problem
-# is that the wafer positions are not perfect yet.
-# This can be solved by some try and error
-
-
 #   only specify the parameters you want to change from their default values
 #   the input will look like:
 """
@@ -108,8 +99,7 @@ start = time.time()
 wp.w3d.solvergeom = wp.w3d.XYZgeom
 # Timesteps
 wp.top.dt = warpoptions.options.timestep
-# wp.top.dt = 1e-10# updated from original script, check first before pushing 4/15
-# 10-9 for short; 10e-11 for a nice one
+# 10-9 for short; 10e-11 for a nice one;
 
 # --- keep track of when the particles are born
 wp.top.ssnpid = wp.nextpid()
@@ -130,11 +120,6 @@ freq = warpoptions.options.freq  # RF freq
 emittingRadius = warpoptions.options.emittingRadius
 divergenceAngle = warpoptions.options.divergenceAngle
 name = warpoptions.options.name
-# Invoke setup routine for the plotting (name the cgm output file)
-# add a date & timestamp to the cgm file
-now = datetime.datetime.now()
-datetimestamp = datetime.datetime.now().strftime(
-    '%m-%d-%y_%H:%M:%S')
 
 # --- where to store the outputfiles
 cgm_name = name
@@ -148,9 +133,7 @@ if warpoptions.options.path != '':
 wp.setup(prefix=f"{step1path}/{cgm_name}")  # , cgmlog= 0)
 
 # --- Set basic beam parameters
-
-ibeaminit = 10e-6  # initial beam current May vary up to 25e-6
-n = 0  # to be used to switch the voltages on the RF wafers
+ibeaminit = 10e-6  # initial beam current may vary up to 25e-6
 
 wp.top.a0 = emittingRadius
 wp.top.b0 = emittingRadius
@@ -249,13 +232,10 @@ ID_target = 1
 # --- generates voltage for the RFs
 def gen_volt(toffset=0, frequency=freq):  # 0
     """ A cos voltage function with variable offset"""
-
     def RFvoltage(time):
         return -Vmax * np.cos(
             2 * np.pi * frequency * (time + toffset))
-
     return RFvoltage
-
 
 # --- generates voltage for the ESQs
 def gen_volt_esq(Vesq, inverse=False, toffset=0):
@@ -264,7 +244,6 @@ def gen_volt_esq(Vesq, inverse=False, toffset=0):
             return -Vesq  # *np.sin(2*np.pi*freq*(time+toffset))
         else:
             return Vesq  # *np.sin(2*np.pi*freq*(time+toffset))
-
     return ESQvoltage
 
 
@@ -277,14 +256,13 @@ print(f"Particles need {tParticlesAtCenterFirstGap * 1e6}us"
       f" to reach the center of the first gap")
 # RF should be maximal when particles arrive
 # time for the cos to travel there minus the time the
-# particles take # Todo check this -> seems to work
+# particles take
 RF_offset = centerOfFirstRFGap / wp.clight - \
             tParticlesAtCenterFirstGap
 print(f"RF_offset {RF_offset}")
 ESQ_toffset = 0
 
 Vpos = []
-
 
 # calculating the ideal positions
 def calculateRFwaferpositions():
@@ -346,8 +324,6 @@ thisrunID = warpoptions.options.name
 markedpositions = []
 markedpositionsenergies = []
 
-
-#
 def readjson():
     fp = f'{basepath}{thisrunID}.json'
     with open(fp, 'r') as readfile:
@@ -355,22 +331,15 @@ def readjson():
     return data
 
 
-#
 def writejson(key, value):
-    print(' IN SIM')
-    print(thisrunID)
-    print(type(thisrunID))
+    print(f'Writing Data to json {thisrunID}')
     writedata = readjson()
-    print(writedata.keys())
     writedata[key] = value
     with open(f'{basepath}{thisrunID}.json', 'w') as writefile:
         json.dump(writedata, writefile, sort_keys=True, indent=1)
 
 
-#
 def autoinit():
-    # assert thisrunID.__len__() == 4
-    #
     rj = readjson()
     global positionArray
     waferposloaded = rj["rf_gaps"]
@@ -385,12 +354,10 @@ def autoinit():
     writejson("freq", freq)
     writejson("tstep", warpoptions.options.timestep)
     writejson("rfgaps_ideal", calculateRFwaferpositions())
-    #
 
 
-#
 def autosave(se):
-    print(f'marked positions {markedpositions}')
+    # print(f'marked positions {markedpositions}')
     '''se : selected Ions'''
     if warpoptions.options.autorun:
         if se.getz().max() > markedpositions[0]:
@@ -405,46 +372,35 @@ def autosave(se):
                 return True  # cancels the entire simulation loop
     return False
 
-
-#
 if warpoptions.options.autorun:
     autoinit()
-###
+
+
 ### Placing the Wafers
 for i, pa in enumerate(positionArray):
     print(f"Unit {i} placed at {pa}")
 
-# NEW: Voltages for each RF stack
+# Voltages for each RF UNIT
 # setting frequency overwrites the default/waroptions
 # frequency setting;
 voltages = [
-            gen_volt(toffset=RF_offset,frequency=13.56e6),
-            gen_volt(toffset=RF_offset, frequency=13.56e6),
-            gen_volt(toffset=RF_offset, frequency=13.56e6),
-            gen_volt(toffset=RF_offset, frequency=27e6),
-            gen_volt(toffset=RF_offset, frequency=27e6),
-            gen_volt(toffset=RF_offset, frequency=27e6),
-            gen_volt(toffset=RF_offset, frequency=27e6),
-            gen_volt(toffset=RF_offset, frequency=27e6),
-            gen_volt(toffset=RF_offset, frequency=27e6),
-            gen_volt(toffset=RF_offset, frequency=27e6),
-            gen_volt(toffset=RF_offset, frequency=27e6),
+            gen_volt(toffset=RF_offset,frequency=14.8e6),
+            gen_volt(toffset=RF_offset, frequency=14.8e6),
+            gen_volt(toffset=RF_offset, frequency=14.8e6),
+            gen_volt(toffset=RF_offset+9.25E-9, frequency=27e6),
+            gen_volt(toffset=RF_offset+9.25E-9, frequency=27e6),
+            gen_volt(toffset=RF_offset+9.25E-9, frequency=27e6),
+            gen_volt(toffset=RF_offset+9.25E-9, frequency=27e6),
+            gen_volt(toffset=RF_offset+9.25E-9, frequency=27e6),
+            gen_volt(toffset=RF_offset+9.25E-9, frequency=27e6),
+            gen_volt(toffset=RF_offset+9.25E-9, frequency=27e6),
+            gen_volt(toffset=RF_offset+9.25E-9, frequency=27e6),
             ]
 # add actual stack
 conductors = RF_stack(positionArray, voltages)
 print('CONDUCT DONE')
-###
-# ToDo Timo
-# calculate ESQ positions each plotting step is 10 timesteps
-esqPositions = []
-# for i in range(len(positionArray) - 1):
-#    esqPositions.append(
-#        (positionArray[i][-1] + positionArray[i + 1][0]) / 2)
-# print(f'Placing ESQs at {esqPositions}')
 
-# re-added after simulation on 4/14
-# firstesq placed incorrectly
-# consider adding manually!!!!
+# ToDo: Add ESQ code here
 
 velo = np.sqrt(
     2 * ekininit * selectedIons.charge / selectedIons.mass)  # used to calculate tmax
@@ -452,9 +408,8 @@ length = positionArray[-1][-1] + 25 * wp.mm
 tmax = length / velo  # this is used for the maximum time for timesteps
 zrunmax = length  # this is used for the maximum distance for timesteps
 
-# define the electrodes
+# Install conductors
 wp.installconductors(conductors)
-# print(f"Installed conductors : {wp.listofallconductors}")
 
 # --- Recalculate the fields
 wp.fieldsol(-1)
@@ -462,7 +417,7 @@ wp.fieldsol(-1)
 solver.gridmode = 0  # makes the fields oscillate properly at the beginning
 
 #############################
-## ToDo Timo ZC this could need some improvement -> change to saving the entire beam properly
+## ToDo replace this with a beam dump:
 # maybe a complete tracking of all particles might be useful for some applications
 ### track particles after crossing a Z location -
 # in this case after the final rf amp
@@ -505,7 +460,6 @@ def saveBeamSnapshot(z):
                   f" {avEkin}keV")
             z_snapshots.remove(nextZ)
 
-
 #############################
 
 # I want contour plots for levels between 0 and 1kV
@@ -546,11 +500,6 @@ starting_particles = []
 Z = [0]
 scraper = wp.ParticleScraper(conductors,
                              lcollectlpdata=True)  # to use until target is fixed to output data properly
-
-# -- name the target particles and count them
-# targetz_particles = ZCrossingParticles(zz=targetz, laccumulate=1)
-# this is where the actual sim runs
-# TODO: wp.top.zbeam is always zero
 
 # attempt at graphing
 zEnd = 10 * wp.mm + lastWafer
@@ -603,8 +552,7 @@ component2 = 'z'
 
 while (wp.top.time < tmax and max(Z) < zEnd):
     ### Running the sim
-    wp.step(1)
-    #wp.step(10)
+    wp.step(10)
     ### Informations
     print(f'first Particle at {max(Z)};'
           f' simulations stops at {zEnd}')
@@ -755,19 +703,19 @@ wp.ptitles("X(red), Y(blue), R(green)", "Z [m]",
 wp.fma()
 ### Frame, Kinetic Energy at certain Z value
 wp.plg(KE_select, time_time, color=wp.blue)
-wp.limits(0, 70e-9)  # limits(xmin,xmax,ymin,ymax)
+wp.limits(0, 70e-9,0,30e3)  # limits(xmin,xmax,ymin,ymax)
 wp.ptitles("Kinetic Energy vs Time")
 wp.fma()
 ### Frame, maximal kinetic energy at certain Z value
 wp.plg(KE_select_Max, time_time, color=wp.blue)
-wp.limits(0, 70e-9)  # limits(xmin,xmax,ymin,ymax)
+wp.limits(0, 70e-9,0,30e3)  # limits(xmin,xmax,ymin,ymax)
 wp.ptitles(" Maximal Kinetic Energy vs Time")
 wp.fma()
 # kinetic energy plot
 wp.plg(KE_select, time_time, color=wp.blue)
 wp.ptitles("kinetic energy vs time")
 wp.fma()
-### TODO Here are duplicates, if I see that correctly @Carlos
+### kinetic energy plot
 wp.plg(KE_select_Max, time_time, color=wp.red)
 wp.ptitles("Max kinetic energy vs time")
 wp.fma()
@@ -795,18 +743,6 @@ wp.plg(C, plotE)
 wp.fma()
 #####
 
-# ToDo: who wrote this? @Carlos
-# You had KE_mean vs. time already, Add another plot KE_max vs. time
-# Modify your script to get plot
-# On the target plane (when ions exit all the gaps), For E range from 0 to 50 keV, plot number of ions at range of (E, E+0.1keV) as a function of E.
-
-
-# Zcrossing Particles Plot
-# x = targetz_particles.getx() #this is the x coordinate of the particles that made it through target
-# t = targetz_particles.getvz()
-# print(x)
-# print(t)
-
 ### Data storage
 # save history information, so that we can plot all cells in one plot
 
@@ -824,14 +760,12 @@ hyrms = selectedIons.hyrms[0]
 hrrms = selectedIons.hrrms[0]
 
 hpnum = selectedIons.hpnum[0]
-datetimestamp2 = datetime.datetime.now().strftime(
-    '%m-%d-%y')
 
 print('debug', t.shape, hepsny.shape)
 out = np.stack((t, hepsny, hepsnz, hep6d, hekinz, hekin,
                 hxrms, hyrms, hrrms, hpnum))
 
-### END BELOW HERE ARE ONLY COMMENTS
+### END BELOW HERE IS CODE THAT MIGHT BE USEFUL LATER
 
 # store files in certain folder related to filename - not used here
 # atap_path = Path(r'/home/timo/Documents/Warp/Sims/') #insert your path here
