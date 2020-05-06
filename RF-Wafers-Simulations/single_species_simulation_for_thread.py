@@ -82,17 +82,9 @@ import warp as wp
 import numpy as np
 import geometry
 from geometry import RF_stack
-from helper import gitversion
-import matplotlib.pyplot as plt
-import datetime
 import time
-import math
-import os
-from pathlib import Path
 import json
-import sys
 from warp.particles.extpart import ZCrossingParticles
-from warp.particles import particlescraper
 
 start = time.time()
 
