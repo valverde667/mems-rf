@@ -195,7 +195,7 @@ def RF_stack(stackPositions, voltages):
             voltage=v,
             orientation='xy'
         )
-        copper = connectors + ring
+        return connectors + ring
 
     # Manual overwrite of the positions, always as a
     # centerposition:
