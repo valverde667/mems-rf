@@ -134,8 +134,6 @@ def order(x, y):
 def scan(begin, end, stepwidth, activegap, absolute=False):
     s = []
     newIDs = []
-    # timos note-list
-    # optimalpositions = [5e-3, 14.53896927 * 1e-3, 25.93442557 * 1e-3,0.03887133713781783]
     optimalpositions = readjson('0000')['optimalgaps'][
                        :activegap - 1]  # this line and the next are now obselete, change of code needed TODO
     assert len(optimalpositions) + 1 == activegap  # check that the next one appends to the right position
@@ -296,12 +294,9 @@ def optimizepositions(startgap, endgap, ranges=((-0, 1e-3), (-0.1e-3, 0.1e-3)), 
                 pass
 
 
-
-
 def positionenergies(gap):
-    '''
-    returns the position, Eaver and Emax lists ordered by position for a gap
-    '''
+    ''' returns the position, Eaver and Emax lists ordered by position for a gap
+        if a pyplot axis is given, it plots the energies '''
     rj = readalljson(f"{gap * 1000}")
     ids = rj.keys()
     print(f'Found IDs {ids} for gap {gap}')
