@@ -6,8 +6,8 @@ from matplotlib import pyplot as plt
 from scipy.optimize import curve_fit
 import lmfit
 
-basepath = '/media/timo/simstore/r5-2.5e-10/'
-simpath = '/home/timo/Documents/LBL/Warp/atap-meqalac-simulations/RF-Wafers-Simulations/single_species_simulation_for_thread.py'
+basepath = "/media/timo/simstore/r5-2.5e-10/"
+simpath = "/home/timo/Documents/LBL/Warp/atap-meqalac-simulations/RF-Wafers-Simulations/single_species_simulation_for_thread.py"
 # setting up
 stepsize = 0.1e-3
 steps = 20
@@ -18,16 +18,18 @@ bunch_length = 1e-9
 ekininit = 10e3
 freq = 14.8e6  # currently overwritten in def betalambda
 tstep = 7e-11
-basecommand = f'python3 {simpath}' \
-              f' --rf_voltage {rf_voltage}' \
-              f' --bunch_length {bunch_length}' \
-              f' --ekininit  {ekininit}' \
-              f' --freq {freq}' \
-              f' --tstep {tstep}' \
-              f' --autorun True' \
-              f' --path {basepath}'
+basecommand = (
+    f"python3 {simpath}"
+    f" --rf_voltage {rf_voltage}"
+    f" --bunch_length {bunch_length}"
+    f" --ekininit  {ekininit}"
+    f" --freq {freq}"
+    f" --tstep {tstep}"
+    f" --autorun True"
+    f" --path {basepath}"
+)
 #
-'''
+"""
 format of json:
 {
     runnumber #### : {
@@ -37,31 +39,31 @@ format of json:
 }
 
 ID = # RF-UNIT ### runnumber -> 5356 => 5RF Units, run 356
-'''
+"""
 
 
 def readjson(ID):
     if type(ID) == int:
-        ID = f'{ID:04d}'
-    if os.path.isfile(f'{basepath}{ID}.json'):
-        with open(f'{basepath}{ID}.json', 'r') as readfile:
+        ID = f"{ID:04d}"
+    if os.path.isfile(f"{basepath}{ID}.json"):
+        with open(f"{basepath}{ID}.json", "r") as readfile:
             data = json.load(readfile)
     else:
         data = {}
     return data
 
 
-def readalljson(IDa='1000', IDb='9999'):
-    '''
+def readalljson(IDa="1000", IDb="9999"):
+    """
     Retruns all runs for a given gap (all contiunous sets - same thousands)
     Its not a bug, its a feature
-    '''
+    """
     outdict = {}
     n = int(IDa)
     end = int(IDb)
-    print(f'{basepath}{n:04d}.json')
-    while os.path.isfile(f'{basepath}{n:04d}.json') and n <= end:
-        outdict[f'{n:04d}'] = readjson(n)
+    print(f"{basepath}{n:04d}.json")
+    while os.path.isfile(f"{basepath}{n:04d}.json") and n <= end:
+        outdict[f"{n:04d}"] = readjson(n)
         n += 1
     return outdict
 
@@ -69,7 +71,7 @@ def readalljson(IDa='1000', IDb='9999'):
 def writejson(ID, key, value):
     writedata = readjson(ID)
     writedata[key] = value
-    with open(f'{basepath}{ID}.json', 'w') as writefile:
+    with open(f"{basepath}{ID}.json", "w") as writefile:
         json.dump(writedata, writefile, sort_keys=True, indent=1)
 
 
@@ -115,7 +117,7 @@ def runcomm(com, x):
 
 
 def runIDs(IDs, limit=20):
-    print(f'starting to run simulation {IDs}')
+    print(f"starting to run simulation {IDs}")
     time.sleep(1)
     th = []
     for id in IDs:
@@ -134,36 +136,41 @@ def order(x, y):
 def scan(begin, end, stepwidth, activegap, absolute=False):
     s = []
     newIDs = []
-    optimalpositions = readjson('0000')['optimalgaps'][
-                       :activegap - 1]  # this line and the next are now obselete, change of code needed TODO
-    assert len(optimalpositions) + 1 == activegap  # check that the next one appends to the right position
+    optimalpositions = readjson("0000")["optimalgaps"][
+        : activegap - 1
+    ]  # this line and the next are now obselete, change of code needed TODO
+    assert (
+        len(optimalpositions) + 1 == activegap
+    )  # check that the next one appends to the right position
     for n in np.arange(begin, end, stepwidth):
         sn = optimalpositions.copy()
-        add = optimalpositions[-1] + betalambda(ekininit + rf_voltage * activegap, activegap)
+        add = optimalpositions[-1] + betalambda(
+            ekininit + rf_voltage * activegap, activegap
+        )
         if absolute:  # absolute postion and not relative to btalamda/2
             add = 0
         sn.append(add + n)
         if len(sn) % 2 == 1:
             sn.append(sn[-1] + betalambda(ekininit + rf_voltage * len(sn)))
         s.append(sn.copy())
-    print(f'run centerpositions : {s}')
-    print(f'Setting up {len(s)} new runs')
+    print(f"run centerpositions : {s}")
+    print(f"Setting up {len(s)} new runs")
     #
-    alldata = readalljson(f'{activegap * 1000}')
+    alldata = readalljson(f"{activegap * 1000}")
     if alldata != {}:
         number = int(list(alldata.keys())[-1])
         number += 1
     else:
         number = activegap * 1000
-    print(f'continuing at number {number}')
+    print(f"continuing at number {number}")
     for i in range(len(s)):
         markedpositions = []
         newIDs.append(str(i + number))
         writejson(newIDs[-1], "rf_gaps", centertoposition(s[i].copy()))
         writejson(newIDs[-1], "centerpositions", s[i].copy())
-        print(f's[{i}] : {s[i]}')
+        print(f"s[{i}] : {s[i]}")
         for p in centertoposition(s[i]):
-            print(f' P : {p}')
+            print(f" P : {p}")
             for pi in range(1, len(p), 2):
                 markedpositions.append(p[pi] + 2.5e-3)
         writejson(newIDs[-1], "markedpositions", markedpositions)
@@ -183,7 +190,9 @@ def infoplots():
     optimalpositions = readjson("0000")["optimalgaps"]
     #
     fs = 15
-    fig, ((axEperGap, axBL), (ax3, axratio), (ax5, ax6)) = plt.subplots(3, 2, figsize=(15, 15))
+    fig, ((axEperGap, axBL), (ax3, axratio), (ax5, ax6)) = plt.subplots(
+        3, 2, figsize=(15, 15)
+    )
     # Plot energy gain per gap and betalamda and actual distance
     gap = []
     gap2 = []
@@ -199,81 +208,79 @@ def infoplots():
         gap.append(i + 1)
         egain.append(energygain(i + 1))
         bl_perfect.append(betalambda(optimalenergies[i] + rf_voltage) * tomm)
-        bl_lastenergy.append(betalambda(
-            optimalenergies[i] + energygain(i + 1)) * tomm)  # energy gain for next gap based on old one
+        bl_lastenergy.append(
+            betalambda(optimalenergies[i] + energygain(i + 1)) * tomm
+        )  # energy gain for next gap based on old one
     for i in range(len(optimalenergies) - 1):
         gap2.append(i + 1)
         actualgapdistance.append((optimalpositions[i + 1] - optimalpositions[i]) * tomm)
         ratio_bl.append(actualgapdistance[i] / bl_perfect[i])
         d_bl.append(actualgapdistance[i] - bl_perfect[i])
-        testarr.append(
-            d_bl[i] / optimalenergies[i] * 1e3
-        )
+        testarr.append(d_bl[i] / optimalenergies[i] * 1e3)
     print(d_bl)
     axEperGap.plot(gap, egain, marker="o")
-    axEperGap.set(
-        title=f'Energy gain per gap',
-        xlabel='Gap', ylabel='Energy gain [eV]'
-    )
-    axBL.plot(gap, bl_perfect, label='ideal BL', marker='o')
-    axBL.plot(gap, bl_lastenergy, label='BL with last energy', marker='o')
-    axBL.plot(gap2, actualgapdistance, label='optimzed distance', marker='o')
+    axEperGap.set(title=f"Energy gain per gap", xlabel="Gap", ylabel="Energy gain [eV]")
+    axBL.plot(gap, bl_perfect, label="ideal BL", marker="o")
+    axBL.plot(gap, bl_lastenergy, label="BL with last energy", marker="o")
+    axBL.plot(gap2, actualgapdistance, label="optimzed distance", marker="o")
     axBL.legend()
     axBL.set(
-        title='Beta Lambdas',
-        xlabel='# gap', ylabel='[mm]',
+        title="Beta Lambdas", xlabel="# gap", ylabel="[mm]",
     )
-    axratio.plot(gap2, ratio_bl, marker='o')
+    axratio.plot(gap2, ratio_bl, marker="o")
     axratio.set(
-        title='ratio of optimzed distance to ideal BL',
-        xlabel='# gap', ylabel='ratio'
+        title="ratio of optimzed distance to ideal BL", xlabel="# gap", ylabel="ratio"
     )
-    ax3.plot(gap2, d_bl, marker='o')
-    ax3.set(
-        title='difference BL ideal to actual',
-        xlabel='# gap', ylabel='[mm]'
-    )
-    ax5.plot(gap, optimalenergies, marker='o')
-    ax5.set(
-        title='Energy after gap',
-        xlabel='# gap', ylabel='[eV]'
-    )
+    ax3.plot(gap2, d_bl, marker="o")
+    ax3.set(title="difference BL ideal to actual", xlabel="# gap", ylabel="[mm]")
+    ax5.plot(gap, optimalenergies, marker="o")
+    ax5.set(title="Energy after gap", xlabel="# gap", ylabel="[eV]")
     ax6.plot(gap2, testarr)
-    ax6.set(title='difference bl / energy',
-            xlabel='# gap', ylabel='[mm]/keV')
+    ax6.set(title="difference bl / energy", xlabel="# gap", ylabel="[mm]/keV")
     # plt.title(f'Info')
     plt.tight_layout()
-    plt.savefig(f'{basepath}info.png', dpi=400)
+    plt.savefig(f"{basepath}info.png", dpi=400)
+
 
 def correction(gap):
-    return (0.45*(gap)+1)/1e3
+    return (0.45 * (gap) + 1) / 1e3
 
-def optimizepositions(startgap, endgap, ranges=((-0, 1e-3), (-0.1e-3, 0.1e-3)), parallelsimulations=5, maxcpus=20):
-    '''optimzes gaps, ranges gives the number of iterations and their (symmetrical) width'''
+
+def optimizepositions(
+    startgap,
+    endgap,
+    ranges=((-0, 1e-3), (-0.1e-3, 0.1e-3)),
+    parallelsimulations=5,
+    maxcpus=20,
+):
+    """optimzes gaps, ranges gives the number of iterations and their (symmetrical) width"""
     optimalpositions = readjson("0000")["optimalgaps"]
     optimalenergies = readjson("0000")["optimalenergies"]
-    print(f'{optimalenergies} : {optimalpositions}')
+    print(f"{optimalenergies} : {optimalpositions}")
     if startgap <= len(optimalpositions):
-        print(f'WARNING: SIMULATIONS FOR THIS GAP ALREADY EXISTENT')
+        print(f"WARNING: SIMULATIONS FOR THIS GAP ALREADY EXISTENT")
         time.sleep(10)
     #
     for gap in range(startgap, endgap + 1):
         # Also, instead of calculation a second run could be based on old estimations ToDo
-        maximumpos = optimalpositions[gap - 1 - 1] + betalambda(optimalenergies[gap - 1 - 1] + rf_voltage,
-                                                                activegap=gap) + correction(gap)
-        print(f'Expect next maximum at {maximumpos}')
+        maximumpos = (
+            optimalpositions[gap - 1 - 1]
+            + betalambda(optimalenergies[gap - 1 - 1] + rf_voltage, activegap=gap)
+            + correction(gap)
+        )
+        print(f"Expect next maximum at {maximumpos}")
         for r in ranges:
             ids = scan(
                 maximumpos + r[0],
                 maximumpos + r[1],
-                stepwidth= (r[1]-r[0])/ (parallelsimulations),
+                stepwidth=(r[1] - r[0]) / (parallelsimulations),
                 activegap=gap,
-                absolute=True
+                absolute=True,
             )
             runIDs(ids, maxcpus)
             block()
             maximumpos, maximumenergy, maxincluded = findmaximum(gap)
-            print(f'FOUND THE FOLLOWING, maximum is included: {maxincluded}.')
+            print(f"FOUND THE FOLLOWING, maximum is included: {maxincluded}.")
             print(optimalpositions)
             print(maximumpos, maximumenergy, maxincluded)
             if len(optimalpositions) == gap:
@@ -286,7 +293,7 @@ def optimizepositions(startgap, endgap, ranges=((-0, 1e-3), (-0.1e-3, 0.1e-3)), 
             writejson("0000", "optimalenergies", optimalenergies)
             print(optimalpositions)
             time.sleep(5)
-        if gap>2:
+        if gap > 2:
             try:
                 infoplots()
                 findmaximumplots(gap)
@@ -295,11 +302,11 @@ def optimizepositions(startgap, endgap, ranges=((-0, 1e-3), (-0.1e-3, 0.1e-3)), 
 
 
 def positionenergies(gap):
-    ''' returns the position, Eaver and Emax lists ordered by position for a gap
-        if a pyplot axis is given, it plots the energies '''
+    """ returns the position, Eaver and Emax lists ordered by position for a gap
+        if a pyplot axis is given, it plots the energies """
     rj = readalljson(f"{gap * 1000}")
     ids = rj.keys()
-    print(f'Found IDs {ids} for gap {gap}')
+    print(f"Found IDs {ids} for gap {gap}")
     centerpositions = []
     markedenergies = []
     for id in ids:
@@ -328,16 +335,16 @@ def singleRFplot(gap):
     fig, ax = plt.subplots()
 
     ax.plot(np.array(pos) * 1e3, np.array(eav) * 1e-3, marker="o")
-    plt.title(f'Scan of gap {gap}.')
-    plt.xlabel('[mm]')
-    plt.ylabel('Energy [keV]')
+    plt.title(f"Scan of gap {gap}.")
+    plt.xlabel("[mm]")
+    plt.ylabel("Energy [keV]")
     #
     plt.show()
     plt.close()
 
 
 def findmaximum(gap, axis=False):
-    ''' checks if a local maximum is found. If so, returns it'''
+    """ checks if a local maximum is found. If so, returns it"""
     pos, eav, emax = positionenergies(gap)
     # first check if we already found a local maximum
     energy = eav  # or emax
@@ -348,7 +355,7 @@ def findmaximum(gap, axis=False):
     if indexmaximumE == len(energy) - 1:
         maximumincluded = False  # the search needs to continue to the right
     #
-    print(f' Maximal energy from list : {maximumE}')
+    print(f" Maximal energy from list : {maximumE}")
     # ok, we have a local maximum
     maximumincluded = True
 
@@ -359,33 +366,41 @@ def findmaximum(gap, axis=False):
     result = model.fit(energy, x=pos, x0=pos[indexmaximumE], a=5e8, max=maximumE)
     print(result.fit_report())
     print(result.best_values)
-    maximumEposition = result.best_values['x0']
+    maximumEposition = result.best_values["x0"]
     print(f"new optimal position: {maximumEposition}")
     #
     if axis:
-        axis.plot(np.array(pos), np.array(eav), marker="o", linestyle='None')
-        axis.plot([maximumEposition, maximumEposition], [maximumE + 10, maximumE - 100], color='black', alpha=0.5,
-                label=f'{maximumEposition * 1e3:0.2f}mm')
-        axis.plot(np.array(pos), result.best_fit, label='Best fit')
-        axis.plot(np.array(pos), result.init_fit, 'k--', label='initial fit')
+        axis.plot(np.array(pos), np.array(eav), marker="o", linestyle="None")
+        axis.plot(
+            [maximumEposition, maximumEposition],
+            [maximumE + 10, maximumE - 100],
+            color="black",
+            alpha=0.5,
+            label=f"{maximumEposition * 1e3:0.2f}mm",
+        )
+        axis.plot(np.array(pos), result.best_fit, label="Best fit")
+        axis.plot(np.array(pos), result.init_fit, "k--", label="initial fit")
         axis.legend()
-        axis.set(title=f"Scan of gap {gap}.\n{result.best_values['max']:0.2f}eV at {result.best_values['x0'] * 1e3:0.2f}mm",
-                 xlabel='[m]', ylabel='Energy [eV]')
+        axis.set(
+            title=f"Scan of gap {gap}.\n{result.best_values['max']:0.2f}eV at {result.best_values['x0'] * 1e3:0.2f}mm",
+            xlabel="[m]",
+            ylabel="Energy [eV]",
+        )
     # return position of maximum and its value
-    return maximumEposition, result.best_values['max'], maximumincluded
+    return maximumEposition, result.best_values["max"], maximumincluded
+
 
 def findmaximumplots(highestgap):
-    fig, axs = plt.subplots(highestgap-1,figsize=(12, 12*(highestgap-1)))
-    for gap in range(2,highestgap+1):
-        maximumpos, maximumenergy, maxincluded = findmaximum(gap, axs[gap-2])
+    fig, axs = plt.subplots(highestgap - 1, figsize=(12, 12 * (highestgap - 1)))
+    for gap in range(2, highestgap + 1):
+        maximumpos, maximumenergy, maxincluded = findmaximum(gap, axs[gap - 2])
     plt.tight_layout()
-    plt.savefig(f'{basepath}findingmaximum.png', dpi=300)
+    plt.savefig(f"{basepath}findingmaximum.png", dpi=300)
 
 
 def block(maxthreads=1):
     while threading.active_count() > maxthreads:
-        print(f'Active Simulations :'
-              f' {threading.active_count() - 1}')
+        print(f"Active Simulations :" f" {threading.active_count() - 1}")
         time.sleep(1)
 
 
@@ -393,6 +408,7 @@ def rbp(run, plotnr):
     runIDs(run)
     block()
     singleRFplot(plotnr)
+
 
 #
 # pos, eav, emax = singleRFplot(3)

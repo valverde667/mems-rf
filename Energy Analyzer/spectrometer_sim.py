@@ -4,26 +4,30 @@ import warpoptions
 import warp as wp
 from warp import mm
 import numpy as np
-import os, json, datetime, time, math, importlib,sys
+import os, json, datetime, time, math, importlib, sys
+
 # from geometry import spectrometer_standalone
 from warp.particles.extpart import ZCrossingParticles
 
 
-
-class spectrometerSim():
-    def __init__(self,
-                 pathtoparticlefile="/media/timo/storage/Documents/LBL/Warp/atap-meqalac-simulations/Spectrometer-Sim/testing/testParticles.json",
-                 pathtooutput="/media/timo/storage/Documents/LBL/Warp/atap-meqalac-simulations/Spectrometer-Sim/step2",
-                 outputfile="autorun",
-                 voltage=8000
-                 ):
+class spectrometerSim:
+    def __init__(
+        self,
+        pathtoparticlefile="/media/timo/storage/Documents/LBL/Warp/atap-meqalac-simulations/Spectrometer-Sim/testing/testParticles.json",
+        pathtooutput="/media/timo/storage/Documents/LBL/Warp/atap-meqalac-simulations/Spectrometer-Sim/step2",
+        outputfile="autorun",
+        voltage=8000,
+    ):
         # init
-        self.particlefile, self.pathtooutput, self.outputfilename = \
-            pathtoparticlefile, pathtooutput, outputfile
+        self.particlefile, self.pathtooutput, self.outputfilename = (
+            pathtoparticlefile,
+            pathtooutput,
+            outputfile,
+        )
         self.voltage = voltage
 
-    RED = '\u001b[31m'
-    RES = '\u001b[0m'
+    RED = "\u001b[31m"
+    RES = "\u001b[0m"
 
     # thisFilesPath = '/media/timo/storage/Documents/LBL/Warp/atap-meqalac-simulations/Spectrometer-Sim'
     #    particlefile = f"{self.thisFilesPath}/testing/testParticles.json"
@@ -40,25 +44,37 @@ class spectrometerSim():
     # moved from geometry file
     #############################
     # CAREFUL WITH FILES!!!!
-    def spectrometer_standalone(self, aperature=0.5 * mm,
-                                centerpositionZ=40 * mm, # b
-                                distanceplates=25 * mm): # d
+    def spectrometer_standalone(
+        self, aperature=0.5 * mm, centerpositionZ=40 * mm, distanceplates=25 * mm  # b
+    ):  # d
         voltage = self.voltage
         # Dimensions of metal plates
         plateX = 1 * mm
         plateY = 50 * mm
-        plateZ = 25.3 * mm # c
+        plateZ = 25.3 * mm  # c
         # x-shift
         x2 = -3 * mm
         x1 = x2 + distanceplates
-        plate1 = wp.Box(xsize=plateX, ysize=plateY,
-                        zsize=plateZ, xcent=x1
-                        , ycent=0, zcent=centerpositionZ,
-                        voltage=-voltage / 2, condid=20)
-        plate2 = wp.Box(xsize=plateX, ysize=plateY,
-                        zsize=plateZ, xcent=x2
-                        , ycent=0, zcent=centerpositionZ,
-                        voltage=voltage / 2, condid=21)
+        plate1 = wp.Box(
+            xsize=plateX,
+            ysize=plateY,
+            zsize=plateZ,
+            xcent=x1,
+            ycent=0,
+            zcent=centerpositionZ,
+            voltage=-voltage / 2,
+            condid=20,
+        )
+        plate2 = wp.Box(
+            xsize=plateX,
+            ysize=plateY,
+            zsize=plateZ,
+            xcent=x2,
+            ycent=0,
+            zcent=centerpositionZ,
+            voltage=voltage / 2,
+            condid=21,
+        )
         # aperture
         #   Dimensions
         apX = 10 * mm
@@ -67,51 +83,58 @@ class spectrometerSim():
         #   calc center locations
         apXcenter = aperature / 2 + (apX / 2)
         apYcenter = 0 * mm
-        apZcenter = 20 * mm # a
+        apZcenter = 20 * mm  # a
         # setup
-        aperture1 = wp.Box(xsize=apX, ysize=apY, zsize=apZ,
-                           xcent=apXcenter, ycent=apYcenter,
-                           zcent=apZcenter, voltage=0,
-                           condid=10)
-        aperture2 = wp.Box(xsize=apX, ysize=apY, zsize=apZ,
-                           xcent=-apXcenter,
-                           ycent=apYcenter,
-                           zcent=apZcenter, voltage=0,
-                           condid=11)
+        aperture1 = wp.Box(
+            xsize=apX,
+            ysize=apY,
+            zsize=apZ,
+            xcent=apXcenter,
+            ycent=apYcenter,
+            zcent=apZcenter,
+            voltage=0,
+            condid=10,
+        )
+        aperture2 = wp.Box(
+            xsize=apX,
+            ysize=apY,
+            zsize=apZ,
+            xcent=-apXcenter,
+            ycent=apYcenter,
+            zcent=apZcenter,
+            voltage=0,
+            condid=11,
+        )
 
         return aperture1 + aperture2 + plate1 + plate2
 
     def eKin(self, arr):
-        return np.square(
-            arr) * .5 * 40 * wp.amu / wp.echarge / 1000
+        return np.square(arr) * 0.5 * 40 * wp.amu / wp.echarge / 1000
 
     def eKin2(self, arr1, arr2):
-        'returns an array in keV'
+        "returns an array in keV"
         arrsq = np.add(np.square(arr1), np.square(arr2))
-        return arrsq * .5 * 40 * wp.amu / wp.echarge / 1000
+        return arrsq * 0.5 * 40 * wp.amu / wp.echarge / 1000
 
     #############################
     def simulate(self):
         wp.w3d.solvergeom = wp.w3d.XYZgeom
         wp.top.dt = 1e-9
         # ToDo add warpoptions and add species to json
-        selectedIons = wp.Species(
-            charge_state=1, name='Ar', mass=40 * wp.amu)
+        selectedIons = wp.Species(charge_state=1, name="Ar", mass=40 * wp.amu)
 
         now = datetime.datetime.now()
-        datetimestamp = \
-            datetime.datetime.now().strftime(
-                '%m-%d-%y_%H:%M:%S')
-        date = datetime.datetime.now().strftime('%m-%d-%y')
+        datetimestamp = datetime.datetime.now().strftime("%m-%d-%y_%H:%M:%S")
+        date = datetime.datetime.now().strftime("%m-%d-%y")
 
-        with open(self.particlefile, 'r') as fp:
+        with open(self.particlefile, "r") as fp:
             particledata = json.load(fp)
 
         # cgm setup
         # cgm_name = f"{particlefile}_spectro_{datetimestamp}"
         # cgm_name = f"{self.thisFilesPath}/testing/{date}"
-        cgm_name = f'{self.pathtooutput}/{self.outputfilename}'
-        wp.setup(prefix=f'{cgm_name}')
+        cgm_name = f"{self.pathtooutput}/{self.outputfilename}"
+        wp.setup(prefix=f"{cgm_name}")
 
         # Symmetries - there are none
         wp.w3d.l4symtry = False
@@ -124,7 +147,7 @@ class spectrometerSim():
         wp.w3d.xmmax = 0.1
         wp.w3d.ymmin = -0.002
         wp.w3d.ymmax = 0.002
-        wp.w3d.zmmin = -.015  # dependent on
+        wp.w3d.zmmin = -0.015  # dependent on
         # plateposition
         wp.w3d.zmmax = 0.12
 
@@ -162,7 +185,7 @@ class spectrometerSim():
         # --- Set up fieldsolver
         solver = wp.MRBlock3D()
         wp.registersolver(solver)
-        solver.mgtol = .5  # 1.0  # Poisson solver tolerance,
+        solver.mgtol = 0.5  # 1.0  # Poisson solver tolerance,
         # in volts
         solver.mgparam = 1.5
         solver.downpasses = 3  # 2
@@ -180,32 +203,29 @@ class spectrometerSim():
         #############################
         # Comment: ParticleScraper does not store the velocity of
         # a particle, but ZCrossingParticles does. Therefore
-        print('setup geom')
+        print("setup geom")
         z_scintillator = 0.1
         zc_test = ZCrossingParticles(zz=0.01, laccumulate=1)
-        zc = ZCrossingParticles(zz=z_scintillator,
-                                laccumulate=1)
+        zc = ZCrossingParticles(zz=z_scintillator, laccumulate=1)
         conductors = self.spectrometer_standalone()
         # wp.installconductors(conductors)
         # print(f"Installed conductors : {wp.listofallconductors}")
         # recalculate fields
 
         # ParticleScraper # Todo use conducterID for statistics
-        scraper = wp.ParticleScraper(conductors,
-                                     lsavecondid=True)
+        scraper = wp.ParticleScraper(conductors, lsavecondid=True)
         # Setup Scintillator Screen
         scintillatorScreen = wp.ZPlane(
-            zcent=z_scintillator + .0001,
-            voltage=0, condid=30)
+            zcent=z_scintillator + 0.0001, voltage=0, condid=30
+        )
         wp.installconductors(conductors)
         wp.installconductors(scintillatorScreen)
-        sciScraper = wp.ParticleScraper(scintillatorScreen,
-                                        lsaveintercept=True)
+        sciScraper = wp.ParticleScraper(scintillatorScreen, lsaveintercept=True)
         wp.fieldsol(-1)
         #############################
         #   add Particles
         #############################
-        print('add Particles')
+        print("add Particles")
         pd = particledata
         # for x, y, z, vx, vy, vz in zip(pd['x'], pd['y'], pd['z'],
         #                                pd['vx'], pd['vy'], pd['vz']):
@@ -214,19 +234,23 @@ class spectrometerSim():
         #                               vy=vy, vz=vz,
         #                               lallindomain=True)
         # can be an array
-        pdz = np.array(pd['z'])
+        pdz = np.array(pd["z"])
         z = pdz - pdz.mean()
         print(z[3])
-        selectedIons.addparticles(x=pd['x'], y=pd['y'], z=z,
-                                  vx=pd[
-                                      'vx'], vy=pd['vy'],
-                                  vz=pd['vz'],
-                                  lallindomain=True)
+        selectedIons.addparticles(
+            x=pd["x"],
+            y=pd["y"],
+            z=z,
+            vx=pd["vx"],
+            vy=pd["vy"],
+            vz=pd["vz"],
+            lallindomain=True,
+        )
         # lallindomain in particles/particles.py line 1798
         #############################
         #   plot of E-fields:
         #############################
-        print('efield plots')
+        print("efield plots")
         # # does not plot contours of potential
         # wp.pfzx(fill=1, filled=1, plotphi=0)
         # wp.fma()
@@ -239,12 +263,11 @@ class spectrometerSim():
         #   running the simulation
         #############################
 
-        print('run Sim')
+        print("run Sim")
         time_time = []
         tmax = 1e-8  # rough calculation
 
-        while (
-                wp.top.time < tmax and selectedIons.getn() != 0):
+        while wp.top.time < tmax and selectedIons.getn() != 0:
             self.progressbar(wp.top.time / tmax)
             wp.step(10)
             time_time.append(wp.top.time)
@@ -256,9 +279,8 @@ class spectrometerSim():
             # color sort by time of birth or energy
             # wp.ptitles("Particles and Fields", "Z [m]", "X [m]")
             # wp.fma()
-            wp.pfzx(fill=1, filled=1, plotphi=1, comp='E',
-                    plotselfe=True, iy=15)
-            selectedIons.color = 'red'
+            wp.pfzx(fill=1, filled=1, plotphi=1, comp="E", plotselfe=True, iy=15)
+            selectedIons.color = "red"
             selectedIons.ppzx()  # shows how the beam changes shape
             wp.fma()  # second frame in cgm file
             # avEkin = np.square(selectedIons.getvz()).mean() * \
@@ -276,19 +298,20 @@ class spectrometerSim():
         z = z_scintillator
         vz = zc.getvz().tolist()
         ekinz = self.eKin(vz).tolist()
-        data = {'x': x,
-                'vx': vx,
-                'y': y,
-                'vy': vy,
-                'z': z,
-                'vz': vz,
-                'ekinz': ekinz,
-                'voltage': self.voltage
-                }
+        data = {
+            "x": x,
+            "vx": vx,
+            "y": y,
+            "vy": vy,
+            "z": z,
+            "vz": vz,
+            "ekinz": ekinz,
+            "voltage": self.voltage,
+        }
         if not os.path.isdir(self.pathtooutput):
             os.mkdir(self.pathtooutput)
-        op = f'{self.pathtooutput}/{self.outputfilename}.json'
-        with open(op, 'w') as fp:
+        op = f"{self.pathtooutput}/{self.outputfilename}.json"
+        with open(op, "w") as fp:
             json.dump(data, fp)
 
         # todo remove
@@ -306,13 +329,14 @@ class spectrometerSim():
 ###########################################################
 ###########################################################
 
-class spectrometerSimCalibration():
+
+class spectrometerSimCalibration:
     def __init__(self, energy=10000, voltage=8000):
         self.particleenergy, self.voltage = energy, voltage
         importlib.reload(wp)
 
-    RED = '\u001b[31m'
-    RES = '\u001b[0m'
+    RED = "\u001b[31m"
+    RES = "\u001b[0m"
 
     def progressbar(self, f):
         f = f % 1
@@ -325,9 +349,9 @@ class spectrometerSimCalibration():
     #############################
     # moved from geometry file
     #############################
-    def spectrometer_standalone(self, aperature=0.5 * mm,
-                                centerpositionZ=40 * mm,
-                                distanceplates=20 * mm):
+    def spectrometer_standalone(
+        self, aperature=0.5 * mm, centerpositionZ=40 * mm, distanceplates=20 * mm
+    ):
         voltage = self.voltage
         # Dimensions of metal plates
         plateX = 1 * mm
@@ -336,14 +360,26 @@ class spectrometerSimCalibration():
         # x-shift
         x2 = -3 * mm
         x1 = x2 + distanceplates
-        plate1 = wp.Box(xsize=plateX, ysize=plateY,
-                        zsize=plateZ, xcent=x1
-                        , ycent=0, zcent=centerpositionZ,
-                        voltage=-voltage / 2, condid=20)
-        plate2 = wp.Box(xsize=plateX, ysize=plateY,
-                        zsize=plateZ, xcent=x2
-                        , ycent=0, zcent=centerpositionZ,
-                        voltage=voltage / 2, condid=21)
+        plate1 = wp.Box(
+            xsize=plateX,
+            ysize=plateY,
+            zsize=plateZ,
+            xcent=x1,
+            ycent=0,
+            zcent=centerpositionZ,
+            voltage=-voltage / 2,
+            condid=20,
+        )
+        plate2 = wp.Box(
+            xsize=plateX,
+            ysize=plateY,
+            zsize=plateZ,
+            xcent=x2,
+            ycent=0,
+            zcent=centerpositionZ,
+            voltage=voltage / 2,
+            condid=21,
+        )
         # aperture
         #   Dimensions
         apX = 10 * mm
@@ -354,26 +390,36 @@ class spectrometerSimCalibration():
         apYcenter = 0 * mm
         apZcenter = 20 * mm
         # setup
-        aperture1 = wp.Box(xsize=apX, ysize=apY, zsize=apZ,
-                           xcent=apXcenter, ycent=apYcenter,
-                           zcent=apZcenter, voltage=0,
-                           condid=10)
-        aperture2 = wp.Box(xsize=apX, ysize=apY, zsize=apZ,
-                           xcent=-apXcenter,
-                           ycent=apYcenter,
-                           zcent=apZcenter, voltage=0,
-                           condid=11)
+        aperture1 = wp.Box(
+            xsize=apX,
+            ysize=apY,
+            zsize=apZ,
+            xcent=apXcenter,
+            ycent=apYcenter,
+            zcent=apZcenter,
+            voltage=0,
+            condid=10,
+        )
+        aperture2 = wp.Box(
+            xsize=apX,
+            ysize=apY,
+            zsize=apZ,
+            xcent=-apXcenter,
+            ycent=apYcenter,
+            zcent=apZcenter,
+            voltage=0,
+            condid=11,
+        )
 
         return aperture1 + aperture2 + plate1 + plate2
 
     def eKin(self, arr):
-        return np.square(
-            arr) * .5 * 40 * wp.amu / wp.echarge / 1000
+        return np.square(arr) * 0.5 * 40 * wp.amu / wp.echarge / 1000
 
     def eKin2(self, arr1, arr2):
-        'returns an array in keV'
+        "returns an array in keV"
         arrsq = np.add(np.square(arr1), np.square(arr2))
-        return arrsq * .5 * 40 * wp.amu / wp.echarge / 1000
+        return arrsq * 0.5 * 40 * wp.amu / wp.echarge / 1000
 
     #############################
     def simulate(self):
@@ -381,19 +427,18 @@ class spectrometerSimCalibration():
         wp.w3d.solvergeom = wp.w3d.XYZgeom
         wp.top.dt = 1e-9
         # ToDo add warpoptions and add species to json
-        selectedIons = wp.Species(
-            charge_state=1, name='Ar', mass=40 * wp.amu)
+        selectedIons = wp.Species(charge_state=1, name="Ar", mass=40 * wp.amu)
 
         now = datetime.datetime.now()
-        datetimestamp = \
-            datetime.datetime.now().strftime(
-                '%m-%d-%y_%H:%M:%S')
-        date = datetime.datetime.now().strftime('%m-%d-%y')
+        datetimestamp = datetime.datetime.now().strftime("%m-%d-%y_%H:%M:%S")
+        date = datetime.datetime.now().strftime("%m-%d-%y")
 
-        cgm_name = f'/home/timo/Documents/Warp/atap-meqalac-simulations/Spectrometer-Sim/step2/Calibrations/' \
-                   f'{self.particleenergy}eV_' \
-                   f'{self.voltage}V_calibration'
-        wp.setup(prefix=f'{cgm_name}')
+        cgm_name = (
+            f"/home/timo/Documents/Warp/atap-meqalac-simulations/Spectrometer-Sim/step2/Calibrations/"
+            f"{self.particleenergy}eV_"
+            f"{self.voltage}V_calibration"
+        )
+        wp.setup(prefix=f"{cgm_name}")
 
         # Symmetries - there are none
         wp.w3d.l4symtry = False
@@ -406,7 +451,7 @@ class spectrometerSimCalibration():
         wp.w3d.xmmax = 0.1
         wp.w3d.ymmin = -0.002
         wp.w3d.ymmax = 0.002
-        wp.w3d.zmmin = -.015  # dependent on
+        wp.w3d.zmmin = -0.015  # dependent on
         # plateposition
         wp.w3d.zmmax = 0.12
 
@@ -444,7 +489,7 @@ class spectrometerSimCalibration():
         # --- Set up fieldsolver
         solver = wp.MRBlock3D()
         wp.registersolver(solver)
-        solver.mgtol = .5  # 1.0  # Poisson solver tolerance,
+        solver.mgtol = 0.5  # 1.0  # Poisson solver tolerance,
         # in volts
         solver.mgparam = 1.5
         solver.downpasses = 3  # 2
@@ -462,44 +507,38 @@ class spectrometerSimCalibration():
         #############################
         # Comment: ParticleScraper does not store the velocity of
         # a particle, but ZCrossingParticles does. Therefore
-        print('setup geom')
+        print("setup geom")
         z_scintillator = 0.1
         zc_test = ZCrossingParticles(zz=0.01, laccumulate=1)
-        zc = ZCrossingParticles(zz=z_scintillator,
-                                laccumulate=1)
+        zc = ZCrossingParticles(zz=z_scintillator, laccumulate=1)
         conductors = self.spectrometer_standalone()
         # wp.installconductors(conductors)
         # print(f"Installed conductors : {wp.listofallconductors}")
         # recalculate fields
 
         # ParticleScraper # Todo use conducterID for statistics
-        scraper = wp.ParticleScraper(conductors,
-                                     lsavecondid=True)
+        scraper = wp.ParticleScraper(conductors, lsavecondid=True)
         # Setup Scintillator Screen
         scintillatorScreen = wp.ZPlane(
-            zcent=z_scintillator + .0001,
-            voltage=0, condid=30)
+            zcent=z_scintillator + 0.0001, voltage=0, condid=30
+        )
         wp.installconductors(conductors)
         wp.installconductors(scintillatorScreen)
-        sciScraper = wp.ParticleScraper(scintillatorScreen,
-                                        lsaveintercept=True)
+        sciScraper = wp.ParticleScraper(scintillatorScreen, lsaveintercept=True)
         wp.fieldsol(-1)
         #############################
         #   add one Particle
         #############################
-        print('add Particles')
-        vz = math.sqrt(
-            2 * self.particleenergy * wp.echarge / (
-                    40 * wp.amu))
-        selectedIons.addparticles(x=[0], y=[0], z=[0],
-                                  vx=[0], vy=[0],
-                                  vz=[vz],
-                                  lallindomain=True)
+        print("add Particles")
+        vz = math.sqrt(2 * self.particleenergy * wp.echarge / (40 * wp.amu))
+        selectedIons.addparticles(
+            x=[0], y=[0], z=[0], vx=[0], vy=[0], vz=[vz], lallindomain=True
+        )
         # lallindomain in particles/particles.py line 1798
         #############################
         #   plot of E-fields:
         #############################
-        print('efield plots')
+        print("efield plots")
         # # does not plot contours of potential
         # wp.pfzx(fill=1, filled=1, plotphi=0)
         # wp.fma()
@@ -512,11 +551,11 @@ class spectrometerSimCalibration():
         #   running the simulation
         #############################
 
-        print('run Sim')
+        print("run Sim")
         time_time = []
         tmax = 5e-7  # rough calculation
 
-        while (selectedIons.getn() != 0):
+        while selectedIons.getn() != 0:
             self.progressbar(wp.top.time / tmax)
             wp.step(10)
             time_time.append(wp.top.time)
@@ -528,9 +567,8 @@ class spectrometerSimCalibration():
             # color sort by time of birth or energy
             # wp.ptitles("Particles and Fields", "Z [m]", "X [m]")
             # wp.fma()
-            wp.pfzx(fill=1, filled=1, plotphi=1, comp='E',
-                    plotselfe=True, iy=15)
-            selectedIons.color = 'red'
+            wp.pfzx(fill=1, filled=1, plotphi=1, comp="E", plotselfe=True, iy=15)
+            selectedIons.color = "red"
             selectedIons.ppzx()  # shows how the beam changes shape
             wp.fma()  # second frame in cgm file
             print(f"# particles : {selectedIons.getn()}")
@@ -545,16 +583,16 @@ class spectrometerSimCalibration():
         vz = zc.getvz().tolist()
         ekinz = self.eKin(vz).tolist()
         data = {
-            'energy': self.particleenergy,
-            'x': x,
-            'vx': vx,
-            'y': y,
-            'vy': vy,
-            'z': z,
-            'vz': vz,
-            'ekinz': ekinz,
-            'voltage': self.voltage
+            "energy": self.particleenergy,
+            "x": x,
+            "vx": vx,
+            "y": y,
+            "vy": vy,
+            "z": z,
+            "vz": vz,
+            "ekinz": ekinz,
+            "voltage": self.voltage,
         }
-        op = f'{cgm_name}.json'
-        with open(op, 'w') as fp:
+        op = f"{cgm_name}.json"
+        with open(op, "w") as fp:
             json.dump(data, fp)
