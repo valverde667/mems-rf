@@ -232,7 +232,7 @@ restorebeam()
 if loadbeam == '':
     # changes the length of the gist output window.
     wp.w3d.zmmin = 0.0
-    wp.w3d.zmmax = wp.w3dzmmin + framewidth
+    wp.w3d.zmmax = wp.w3d.zmmin + framewidth
 
     wp.top.npmax = 300
     wp.top.inject = 1  # 2 means space-charge limited injection
