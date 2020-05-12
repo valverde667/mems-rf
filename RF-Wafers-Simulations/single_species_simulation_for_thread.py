@@ -740,9 +740,10 @@ while (wp.top.time < tmax and max(Z) < zEnd):
     colors = [wp.red, wp.yellow, wp.green, wp.blue,
               wp.magenta]
     for m, c in zip(mask, colors):
-        wp.plp(selectedIons.getx(), selectedIons.getz(), msize=1.0)
-        # wp.plp(selectedIons.getx()[m], selectedIons.getz()[m], msize=1.0,
-               #color=c)  # the selected ions are changing through time
+        if loadbeam=='':
+            wp.plp(selectedIons.getx()[m], selectedIons.getz()[m], msize=1.0, color=c)  # the selected ions are changing through time
+        else:
+            wp.plp(selectedIons.getx(), selectedIons.getz(), msize=1.0)
     wp.limits(zmin, zmax)
     wp.ptitles("Particles and Fields", "Z [m]", "X [m]")
     wp.fma()
