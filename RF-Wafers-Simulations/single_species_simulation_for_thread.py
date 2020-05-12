@@ -78,12 +78,21 @@ warpoptions.parser.add_argument('--autorun',
                                 dest='autorun',
                                 type=bool, default=False)
 
+#   stores the beam at once the average particle position passed the given positions (list)
+warpoptions.parser.add_argument('--storebeam',
+                                dest='storebeam', default=[])
+
+warpoptions.parser.add_argument('--loadbeam',
+                                dest='loadbeam',
+                                type=str, default='')
+
 import warp as wp
 import numpy as np
 import geometry
 from geometry import RF_stack
 import time
 import json
+import os
 from warp.particles.extpart import ZCrossingParticles
 
 start = time.time()
@@ -112,6 +121,8 @@ freq = warpoptions.options.freq  # RF freq
 emittingRadius = warpoptions.options.emittingRadius
 divergenceAngle = warpoptions.options.divergenceAngle
 name = warpoptions.options.name
+storebeam = warpoptions.options.storebeam
+loadbeam = warpoptions.options.loadbeam
 
 # --- where to store the outputfiles
 cgm_name = name
@@ -123,6 +134,58 @@ if warpoptions.options.path != '':
     step1path = warpoptions.options.path
 
 wp.setup(prefix=f"{step1path}/{cgm_name}")  # , cgmlog= 0)
+
+### read / write functionality #ToDo: move into helper file
+basepath = warpoptions.options.path
+if basepath == '':
+    basepath = f'{step1path}/'
+thisrunID = warpoptions.options.name
+
+def initjson(fp=f'{basepath}{thisrunID}.json'):
+    if not os.path.isfile(fp):
+        print(f'Saving new Json')
+        with open(fp, 'w') as writefile:
+            json.dump({}, writefile, sort_keys=True, indent=1)
+
+
+def readjson(fp=f'{basepath}{thisrunID}.json'):
+    initjson(fp)
+    with open(fp, 'r') as readfile:
+        data = json.load(readfile)
+    return data
+
+
+def writejson(key, value, fp=f'{basepath}{thisrunID}.json'):
+    print(f'Writing Data to json {fp}')
+    writedata = readjson(fp)
+    writedata[key] = value
+    with open(fp, 'w') as writefile:
+        json.dump(writedata, writefile, sort_keys=True, indent=1)
+
+### loading beam functionalitly
+loadedbeamtimeoffset = 0
+
+def restorebeam(nb_beam=-1):
+    if loadbeam != '':
+        rj = readjson(loadbeam)
+        print(rj['storedbeams'])
+        beamdata=rj['storedbeams'][nb_beam]
+        # those things need to be overwritten
+        selectedIons.addparticles(x=beamdata['x'],
+                                  y=beamdata['y'],
+                                  z=beamdata['z'],
+                                  vx=beamdata['vx'],
+                                  vy=beamdata['vy'],
+                                  vz=beamdata['vz'],
+                                  lallindomain=True)
+        global loadedbeamtimeoffset
+        loadedbeamtimeoffset = beamdata['t']
+        wp.w3d.zmmin = beamdata['framecenter'] - framewidth / 2
+        wp.w3d.zmmax = beamdata['framecenter'] + framewidth / 2
+        wp.top.vbeamfrm = selectedIons.getvz().mean()
+        wp.top.inject = 0
+        wp.top.npmax = len(beamdata['z'])
+
 
 # --- Set basic beam parameters
 ibeaminit = 10e-6  # initial beam current may vary up to 25e-6
@@ -162,14 +225,27 @@ wp.w3d.xmmin = 3 / 2 * wp.mm
 wp.w3d.xmmax = 3 / 2 * wp.mm
 wp.w3d.ymmin = 3 / 2 * wp.mm  #
 wp.w3d.ymmax = 3 / 2 * wp.mm
-wp.w3d.zmmin = 0.0
-# changes the length of the gist output window.
-wp.w3d.zmmax = 23 * wp.mm # 10
+framewidth = 23 * wp.mm
+
+restorebeam()
+
+if loadbeam == '':
+    # changes the length of the gist output window.
+    wp.w3d.zmmin = 0.0
+    wp.w3d.zmmax = wp.w3dzmmin + framewidth
+
+    wp.top.npmax = 300
+    wp.top.inject = 1  # 2 means space-charge limited injection
+    wp.top.rinject = 5000
+    wp.top.npinject = 10  # 300  # needed!! macro particles per time step or cell#modified smaller step from 30 on 4/15 to monitor particles correctly. refer to original script
+    wp.top.linj_eperp = False  # Turn on transverse E-fields near emitting surface
+    wp.top.zinject = wp.w3d.zmmin
+    wp.top.vinject = 1.0
 
 # set grid spacing, this is the number of mesh elements in one window
 wp.w3d.nx = 30  # 60.
 wp.w3d.ny = 30  # 60.
-wp.w3d.nz = 180. # 180 for 23 # 6-85 for 10
+wp.w3d.nz = 180.  # 180 for 23 # 6-85 for 10
 # ToDo what and why the following
 if wp.w3d.l4symtry:
     wp.w3d.xmmin = 0.
@@ -179,15 +255,7 @@ if wp.w3d.l2symtry or wp.w3d.l4symtry:
     wp.w3d.ny /= 2
 
 # --- Select plot intervals, etc.
-# ToDo what is this?
-wp.top.npmax = 300
-wp.top.inject = 1  # 2 means space-charge limited injection
-wp.top.rinject = 5000
-wp.top.npinject = 10  # 300  # needed!! macro particles per time step or cell#modified smaller step from 30 on 4/15 to monitor particles correctly. refer to original script
-wp.top.linj_eperp = False  # Turn on transverse E-fields near emitting surface
-wp.top.zinject = wp.w3d.zmmin
-wp.top.vinject = 1.0
-print("--- Ions start at: ", wp.top.zinject)
+# print("--- Ions start at: ", wp.top.zinject)
 
 wp.top.nhist = 5  # Save history data every N time step
 wp.top.itmomnts[0:4] = [0, 1000000, wp.top.nhist,
@@ -201,6 +269,8 @@ wp.top.lhyrmsz = True
 wp.top.lhepsnxz = True
 wp.top.lhepsnyz = True
 wp.top.lhvzrmsz = True
+
+
 
 # --- Set up fieldsolver - 7 means the multigrid solver
 solver = wp.MRBlock3D()
@@ -224,10 +294,13 @@ ID_target = 1
 # --- generates voltage for the RFs
 def gen_volt(toffset=0, frequency=freq):  # 0
     """ A cos voltage function with variable offset"""
+
     def RFvoltage(time):
         return -Vmax * np.cos(
             2 * np.pi * frequency * (time + toffset))
+
     return RFvoltage
+
 
 # --- generates voltage for the ESQs
 def gen_volt_esq(Vesq, inverse=False, toffset=0):
@@ -236,6 +309,7 @@ def gen_volt_esq(Vesq, inverse=False, toffset=0):
             return -Vesq  # *np.sin(2*np.pi*freq*(time+toffset))
         else:
             return Vesq  # *np.sin(2*np.pi*freq*(time+toffset))
+
     return ESQvoltage
 
 
@@ -255,6 +329,7 @@ print(f"RF_offset {RF_offset}")
 ESQ_toffset = 0
 
 Vpos = []
+
 
 # calculating the ideal positions
 def calculateRFwaferpositions():
@@ -297,8 +372,8 @@ def calculateRFwaferpositions():
 calculatedPositionArray = calculateRFwaferpositions()
 # print(calculatedPositionArray)
 positionArray = [[.0036525, .0056525, 0.01323279, 0.01523279],
-                 [0.0233854,0.0253854,0.03420207,0.03620207],
-                 [0.0485042,0.0505042,0.06300143,0.06500143] #timo testrun
+                 [0.0233854, 0.0253854, 0.03420207, 0.03620207],
+                 [0.0485042, 0.0505042, 0.06300143, 0.06500143]  # timo testrun
                  ]
 # for 9kV
 # positionArray = [[.0036525,.0056525,0.01243279,0.01463279],
@@ -311,27 +386,11 @@ positionArray = [[.0036525, .0056525, 0.01323279, 0.01523279],
 # catching it at the plates with peak voltage #april 15
 
 ### Functions for automated wafer position by batch running
-basepath = warpoptions.options.path
-thisrunID = warpoptions.options.name
 markedpositions = []
 markedpositionsenergies = []
 
-def readjson():
-    fp = f'{basepath}{thisrunID}.json'
-    with open(fp, 'r') as readfile:
-        data = json.load(readfile)
-    return data
 
-
-def writejson(key, value):
-    print(f'Writing Data to json {thisrunID}')
-    writedata = readjson()
-    writedata[key] = value
-    with open(f'{basepath}{thisrunID}.json', 'w') as writefile:
-        json.dump(writedata, writefile, sort_keys=True, indent=1)
-
-
-def autoinit():
+def autoinit():  # AUTORUN METHOD
     rj = readjson()
     global positionArray
     waferposloaded = rj["rf_gaps"]
@@ -348,7 +407,7 @@ def autoinit():
     writejson("rfgaps_ideal", calculateRFwaferpositions())
 
 
-def autosave(se):
+def autosave(se):  # AUTORUN METHOD
     # print(f'marked positions {markedpositions}')
     '''se : selected Ions'''
     if warpoptions.options.autorun:
@@ -364,8 +423,43 @@ def autosave(se):
                 return True  # cancels the entire simulation loop
     return False
 
+
 if warpoptions.options.autorun:
     autoinit()
+
+if storebeam != []:
+    import ast
+    res = ast.literal_eval(storebeam)
+    storebeam = res
+    print(f'STOREBEAM {storebeam}')
+    storebeam.sort()
+    storebeam.reverse()
+
+
+def beamsave():
+    if storebeam != []:
+        if selectedIons.getz().mean() >= storebeam[-1]:
+            sbpos = storebeam.pop()
+            print(f'STORING BEAM AT POSTION {sbpos}')
+            # [{'x':..,'y'...,'vz'...}, {}] -> array of dictionaries
+            sb = {
+                'x': selectedIons.getx().tolist(),
+                'y': selectedIons.gety().tolist(),
+                'z': selectedIons.getz().tolist(),
+                'vx': selectedIons.getvx().tolist(),
+                'vy': selectedIons.getvy().tolist(),
+                'vz': selectedIons.getvz().tolist(),
+                't': wp.top.time,
+                'framecenter': selectedIons.getz().mean(),
+                'storemarker': sbpos,
+            }
+            rj = readjson()
+            if "storedbeams" not in rj.keys():
+                writejson("storedbeams", [])
+                rj = readjson()
+            storedbeams = rj["storedbeams"]
+            storedbeams.append(sb)
+            writejson("storedbeams", storedbeams)
 
 
 ### Placing the Wafers
@@ -376,18 +470,18 @@ for i, pa in enumerate(positionArray):
 # setting frequency overwrites the default/waroptions
 # frequency setting;
 voltages = [
-            gen_volt(toffset=RF_offset,frequency=14.8e6),
-            gen_volt(toffset=RF_offset, frequency=14.8e6),
-            gen_volt(toffset=RF_offset, frequency=14.8e6),
-            gen_volt(toffset=RF_offset+9.25E-9, frequency=27e6),
-            gen_volt(toffset=RF_offset+9.25E-9, frequency=27e6),
-            gen_volt(toffset=RF_offset+9.25E-9, frequency=27e6),
-            gen_volt(toffset=RF_offset+9.25E-9, frequency=27e6),
-            gen_volt(toffset=RF_offset+9.25E-9, frequency=27e6),
-            gen_volt(toffset=RF_offset+9.25E-9, frequency=27e6),
-            gen_volt(toffset=RF_offset+9.25E-9, frequency=27e6),
-            gen_volt(toffset=RF_offset+9.25E-9, frequency=27e6),
-            ]
+    gen_volt(toffset=RF_offset + loadedbeamtimeoffset, frequency=14.8e6),
+    gen_volt(toffset=RF_offset + loadedbeamtimeoffset, frequency=14.8e6),
+    gen_volt(toffset=RF_offset + loadedbeamtimeoffset, frequency=14.8e6),
+    gen_volt(toffset=RF_offset + loadedbeamtimeoffset + 9.25E-9, frequency=27e6),
+    gen_volt(toffset=RF_offset + loadedbeamtimeoffset + 9.25E-9, frequency=27e6),
+    gen_volt(toffset=RF_offset + loadedbeamtimeoffset + 9.25E-9, frequency=27e6),
+    gen_volt(toffset=RF_offset + loadedbeamtimeoffset + 9.25E-9, frequency=27e6),
+    gen_volt(toffset=RF_offset + loadedbeamtimeoffset + 9.25E-9, frequency=27e6),
+    gen_volt(toffset=RF_offset + loadedbeamtimeoffset + 9.25E-9, frequency=27e6),
+    gen_volt(toffset=RF_offset + loadedbeamtimeoffset + 9.25E-9, frequency=27e6),
+    gen_volt(toffset=RF_offset + loadedbeamtimeoffset + 9.25E-9, frequency=27e6),
+]
 # add actual stack
 conductors = RF_stack(positionArray, voltages)
 print('CONDUCT DONE')
@@ -451,6 +545,7 @@ def saveBeamSnapshot(z):
                   f"{nextZ} with mean Ekin"
                   f" {avEkin}keV")
             z_snapshots.remove(nextZ)
+
 
 #############################
 
@@ -543,6 +638,7 @@ component2 = 'z'
 # plotf(axes3,component3)
 
 while (wp.top.time < tmax and max(Z) < zEnd):
+    beamsave()
     ### Running the sim
     wp.step(10)
     ### Informations
@@ -574,7 +670,7 @@ while (wp.top.time < tmax and max(Z) < zEnd):
     wp.top.pline1 = "V_RF: {:.0f}".format(
         gen_volt(RF_offset)(wp.top.time))  # Move this where it belongs
     ###### Injection
-    if 0 * wp.ns < wp.top.time < L_bunch:  # changes the beam
+    if 0 * wp.ns < wp.top.time < L_bunch and loadbeam == '':  # changes the beam
         wp.top.finject[0, selectedIons.jslist[0]] = 1
     else:
         wp.top.inject = 0
@@ -644,8 +740,9 @@ while (wp.top.time < tmax and max(Z) < zEnd):
     colors = [wp.red, wp.yellow, wp.green, wp.blue,
               wp.magenta]
     for m, c in zip(mask, colors):
-        wp.plp(selectedIons.getx()[m], selectedIons.getz()[m], msize=1.0,
-               color=c)  # the selected ions are changing through time
+        wp.plp(selectedIons.getx(), selectedIons.getz(), msize=1.0)
+        # wp.plp(selectedIons.getx()[m], selectedIons.getz()[m], msize=1.0,
+               #color=c)  # the selected ions are changing through time
     wp.limits(zmin, zmax)
     wp.ptitles("Particles and Fields", "Z [m]", "X [m]")
     wp.fma()
@@ -695,12 +792,12 @@ wp.ptitles("X(red), Y(blue), R(green)", "Z [m]",
 wp.fma()
 ### Frame, Kinetic Energy at certain Z value
 wp.plg(KE_select, time_time, color=wp.blue)
-wp.limits(0, 70e-9,0,30e3)  # limits(xmin,xmax,ymin,ymax)
+wp.limits(0, 70e-9, 0, 30e3)  # limits(xmin,xmax,ymin,ymax)
 wp.ptitles("Kinetic Energy vs Time")
 wp.fma()
 ### Frame, maximal kinetic energy at certain Z value
 wp.plg(KE_select_Max, time_time, color=wp.blue)
-wp.limits(0, 70e-9,0,30e3)  # limits(xmin,xmax,ymin,ymax)
+wp.limits(0, 70e-9, 0, 30e3)  # limits(xmin,xmax,ymin,ymax)
 wp.ptitles(" Maximal Kinetic Energy vs Time")
 wp.fma()
 # kinetic energy plot
