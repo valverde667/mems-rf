@@ -71,9 +71,13 @@ warpoptions.parser.add_argument(
 warpoptions.parser.add_argument("--autorun", dest="autorun", type=bool, default=False)
 
 #   stores the beam at once the average particle position passed the given positions (list)
-warpoptions.parser.add_argument("--storebeam", dest="storebeam", default=[])
-
+# --storebeam "[0.01, 0.024, 0.045]" uses the --name given for the simulation. Stored beams are ordered.
+# Needs to be an array with stings
+warpoptions.parser.add_argument("--storebeam", dest="storebeam", default="[]")
+# --loadbeam "path/to/file.json"
 warpoptions.parser.add_argument("--loadbeam", dest="loadbeam", type=str, default="")
+# --beamnumber 3  or negative number to count from the back. Stored beams are ordered.
+warpoptions.parser.add_argument("--beamnumber", dest="beamnumber", type=int, default=-1)
 
 import warp as wp
 import numpy as np
@@ -117,6 +121,7 @@ divergenceAngle = warpoptions.options.divergenceAngle
 name = warpoptions.options.name
 storebeam = warpoptions.options.storebeam
 loadbeam = warpoptions.options.loadbeam
+beamnumber = warpoptions.options.beamnumber
 
 # --- where to store the outputfiles
 cgm_name = name
@@ -162,7 +167,7 @@ def writejson(key, value, fp=f"{basepath}{thisrunID}.json"):
 loadedbeamtimeoffset = 0
 
 
-def restorebeam(nb_beam=-1):
+def restorebeam(nb_beam=beamnumber):
     if loadbeam != "":
         rj = readjson(loadbeam)
         print(rj["storedbeams"])
@@ -269,7 +274,6 @@ wp.top.lhyrmsz = True
 wp.top.lhepsnxz = True
 wp.top.lhepsnyz = True
 wp.top.lhvzrmsz = True
-
 
 # --- Set up fieldsolver - 7 means the multigrid solver
 solver = wp.MRBlock3D()
