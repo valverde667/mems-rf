@@ -683,7 +683,7 @@ component2 = "z"
 while wp.top.time < tmax and max(Z) < zEnd:
     beamsave()
     ### Running the sim
-    wp.step(10)
+
     ### Informations
     print(f"first Particle at {max(Z)};" f" simulations stops at {zEnd}")
 
@@ -820,6 +820,7 @@ while wp.top.time < tmax and max(Z) < zEnd:
         break
     ### check if a snapshot should be taken for export for the energy analyzer
     # saveBeamSnapshot(Z.mean())
+    wp.step(10)
 ### END of Simulation
 
 ###### Final Plots
