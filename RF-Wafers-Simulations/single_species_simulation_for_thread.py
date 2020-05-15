@@ -82,11 +82,12 @@ warpoptions.parser.add_argument("--beamnumber", dest="beamnumber", type=int, def
 import warp as wp
 import numpy as np
 import geometry
-from geometry import RF_stack
+from geometry import RF_stack, ESQ_double
 import time
 import json
 import os
 from warp.particles.extpart import ZCrossingParticles
+from matplotlib import pyplot as plt
 
 start = time.time()
 
@@ -227,9 +228,9 @@ wp.top.prwall = (
 )  # prwall slightly bigger than aperture radius so ions can get absorbed by conductors
 
 # --- Set field grid size, this is the width of the window
-wp.w3d.xmmin = 3 / 2 * wp.mm
+wp.w3d.xmmin = -3 / 2 * wp.mm
 wp.w3d.xmmax = 3 / 2 * wp.mm
-wp.w3d.ymmin = 3 / 2 * wp.mm  #
+wp.w3d.ymmin = -3 / 2 * wp.mm  #
 wp.w3d.ymmax = 3 / 2 * wp.mm
 framewidth = 23 * wp.mm
 
@@ -251,6 +252,7 @@ if loadbeam == "":
 # set grid spacing, this is the number of mesh elements in one window
 wp.w3d.nx = 30  # 60.
 wp.w3d.ny = 30  # 60.
+### There are two 35um copper layers on ESQ, so we need high resolution.
 wp.w3d.nz = 180.0  # 180 for 23 # 6-85 for 10
 # ToDo what and why the following
 if wp.w3d.l4symtry:
@@ -392,6 +394,14 @@ def calculateRFwaferpositions():
     return positionArray
 
 
+def rrms():
+    x_dis = selectedIons.getx()
+    y_dis = selectedIons.get()
+    rrms = np.sqrt(np.mean(x_dis ** 2 + y_dis ** 2))
+
+    return rrms
+
+
 # Here it is optional to overwrite the position Array, to
 # simulate the ACTUAL setup:
 calculatedPositionArray = calculateRFwaferpositions()
@@ -514,6 +524,7 @@ conductors = RF_stack(positionArray, voltages)
 print("CONDUCT DONE")
 
 # ToDo: Add ESQ code here
+conductors += ESQ_double([0.0195], [500])
 
 velo = np.sqrt(
     2 * ekininit * selectedIons.charge / selectedIons.mass
@@ -614,6 +625,7 @@ time_time = []
 numsel = []
 KE_select = []
 KE_select_Max = []  # modified 4/16
+RMS = []
 
 Particle_Counts_Above_E = []  # modified 4/17,
 # will list how much Particles have higher E than avg KE at that moment
@@ -691,6 +703,7 @@ while wp.top.time < tmax and max(Z) < zEnd:
     ### collecting data for Particle count vs Time Plot
     time_time.append(wp.top.time)
     numsel.append(len(selectedIons.getke()))
+    RMS.append(rrms())
     ### collecting for kinetic energy plots
     KE_select.append(np.mean(selectedIons.getke()))
     KE_select_Max.append(np.max(selectedIons.getke()))
@@ -851,13 +864,32 @@ wp.fma()
 wp.hpxrms(color=wp.red, titles=0)
 wp.hpyrms(color=wp.blue, titles=0)
 wp.hprrms(color=wp.green, titles=0)
-wp.ptitles("X(red), Y(blue), R(green)", "Z [m]", "X/Y/R [m]", "")
+wp.ptitles("X(red), Y(blue), R(green)", "Time [s]", "X/Y/R [m]", "")
 wp.fma()
 ### Frame, Kinetic Energy at certain Z value
 wp.plg(KE_select, time_time, color=wp.blue)
 wp.limits(0, 70e-9, 0, 30e3)  # limits(xmin,xmax,ymin,ymax)
 wp.ptitles("Kinetic Energy vs Time")
 wp.fma()
+# ### Frame, rms and kinetic energy vs time
+# fig, ax1 = plt.subplots()
+
+# color = "tab:red"
+# ax1.set_xlabel("time [s]")
+# ax1.set_ylabel("RMS", color=color)
+# ax1.plot(time_time, RMS, color=color)
+# ax1.tick_params(axis="y", labelcolor=color)
+
+# ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+
+# color = "tab:blue"
+# ax2.set_ylabel("Kinetic Energy [eV]", color=color)
+# ax2.plot(time_time, KE_select, color=color)
+# ax2.tick_params(axis="y", labelcolor=color)
+
+# fig.tight_layout()  # otherwise the right y-label is slightly clipped
+# plt.show()
+# plt.savefig("RMS & E vs Time.png")
 ### Frame, maximal kinetic energy at certain Z value
 wp.plg(KE_select_Max, time_time, color=wp.blue)
 wp.limits(0, 70e-9, 0, 30e3)  # limits(xmin,xmax,ymin,ymax)

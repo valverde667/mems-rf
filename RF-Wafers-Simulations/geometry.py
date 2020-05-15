@@ -6,14 +6,14 @@ wafer_thickness = 625 * wp.um
 copper_thickness = 35 * wp.um
 
 
-def ESQ_double(centerpositions, voltage, d_wafers=2 * wp.mm):
+def ESQ_double(centerpositions, voltages, d_wafers=2.695 * wp.mm):
     """
     ESQ double, new implementation, April 2020
     timobauer@lbl.com
     :param position: position of the center of the 2 wafers
     :param voltage: applied against ground, wafers are
                     on +/- voltage
-    :param d_wafers: gap between the wafers (width of washers)
+    :param d_wafers: distance between the wafers center (width of washers)
     :return: an ESQ double
     """
     # Dimensions:
@@ -23,7 +23,7 @@ def ESQ_double(centerpositions, voltage, d_wafers=2 * wp.mm):
     d_out_copper = 2 * wp.mm
     quater_gap = 0.25 * wp.mm  # EXPLAIN
 
-    def ESQ(position, invertPolarity):
+    def ESQ(position, invertPolarity, voltage):
         """
         One ESQ wafer
         :param position: of the center of a single ESQ wafer
@@ -95,14 +95,14 @@ def ESQ_double(centerpositions, voltage, d_wafers=2 * wp.mm):
         )
 
     esqs = None
-    for centerposition in centerpositions:
-        esqoffcenter = wafer_thickness / 2 + copper_thickness + d_wafers / 2
+    for i in range(len(centerpositions)):
+        esqoffcenter = d_wafers / 2
         print(
-            f"ESQ POS at: \n {centerposition - esqoffcenter}"
-            f"\n{centerposition + esqoffcenter}"
+            f"ESQ POS at: \n {centerpositions[i] - esqoffcenter}"
+            f"\n{centerpositions[i] + esqoffcenter}"
         )
-        esqs += ESQ(centerposition - esqoffcenter, -1) + ESQ(
-            centerposition + esqoffcenter, +1
+        esqs += ESQ(centerpositions[i] - esqoffcenter, -1, voltages[i]) + ESQ(
+            centerpositions[i] + esqoffcenter, +1, voltages[i] * 1.5
         )
     return esqs
 
