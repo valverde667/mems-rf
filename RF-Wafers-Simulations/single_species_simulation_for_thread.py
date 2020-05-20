@@ -396,10 +396,13 @@ def calculateRFwaferpositions():
 
 def rrms():
     x_dis = selectedIons.getx()
-    y_dis = selectedIons.gety()
+    y_dis = selectedIons.get()
+
+    xrms = np.sqrt(np.mean(x_dis ** 2))
+    yrms = np.sqrt(np.mean(y_dis ** 2))
     rrms = np.sqrt(np.mean(x_dis ** 2 + y_dis ** 2))
 
-    print("RMS: ", rrms)
+    print(f" XRMS: {xrms} \n YRMS: {yrms} \n RRMS: {rrms}")
 
     return rrms
 
