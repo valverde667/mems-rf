@@ -87,7 +87,9 @@ import time
 import json
 import os
 from warp.particles.extpart import ZCrossingParticles
-from matplotlib import pyplot as plt
+
+# # There is no Matplotlib installed on Lawrencium
+# from matplotlib import pyplot as plt
 
 start = time.time()
 
@@ -528,8 +530,32 @@ voltages = [
 conductors = RF_stack(positionArray, voltages)
 print("CONDUCT DONE")
 
-# ToDo: Add ESQ code here
-conductors += ESQ_double([0.0195], [500])
+###
+# ToDo ESQ
+d_wafers = 2.695 * wp.mm
+t_wafer = 625 * wp.um + 35 * 2 * wp.um
+esq_positions = [0.01975, 0.046]
+voltages = [400, 800]
+volt_ratio = warpoptions.options.volt_ratio
+conductors += ESQ_double(esq_positions, voltages, volt_ratio=volt_ratio)
+
+# creat submesh for ESQ
+meshes = []
+for esq_pos in esq_positions:
+
+    solver.root.finalized = 0
+    child_1 = solver.addchild(
+        mins=[wp.w3d.xmmin, wp.w3d.ymmin, esq_pos - d_wafers / 2 - t_wafer / 2,],
+        maxs=[wp.w3d.xmmax, wp.w3d.ymmax, esq_pos - d_wafers / 2 + t_wafer / 2,],
+        refinement=[1, 1, 10],
+    )
+    child_2 = solver.addchild(
+        mins=[wp.w3d.xmmin, wp.w3d.ymmin, esq_pos + d_wafers / 2 - t_wafer / 2,],
+        maxs=[wp.w3d.xmmax, wp.w3d.ymmax, esq_pos + d_wafers / 2 + t_wafer / 2,],
+        refinement=[1, 1, 10],
+    )
+    meshes.append(child_1)
+    meshes.append(child_2)
 
 velo = np.sqrt(
     2 * ekininit * selectedIons.charge / selectedIons.mass

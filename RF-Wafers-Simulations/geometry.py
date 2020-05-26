@@ -6,14 +6,14 @@ wafer_thickness = 625 * wp.um
 copper_thickness = 35 * wp.um
 
 
-def ESQ_double(centerpositions, voltages, d_wafers=2.695 * wp.mm):
+def ESQ_double(centerpositions, voltages, volt_ratio=1.1, d_wafers=2.695 * wp.mm):
     """
     ESQ double, new implementation, April 2020
     timobauer@lbl.com
     :param position: position of the center of the 2 wafers
     :param voltage: applied against ground, wafers are
                     on +/- voltage
-    :param d_wafers: distance between the wafers center (width of washers)
+    :param d_wafers: distance between the wafers center
     :return: an ESQ double
     """
     # Dimensions:
@@ -99,10 +99,10 @@ def ESQ_double(centerpositions, voltages, d_wafers=2.695 * wp.mm):
         esqoffcenter = d_wafers / 2
         print(
             f"ESQ POS at: \n {centerpositions[i] - esqoffcenter}"
-            f"\n{centerpositions[i] + esqoffcenter}"
+            f"\n {centerpositions[i] + esqoffcenter}"
         )
         esqs += ESQ(centerpositions[i] - esqoffcenter, -1, voltages[i]) + ESQ(
-            centerpositions[i] + esqoffcenter, +1, voltages[i] * 1.5
+            centerpositions[i] + esqoffcenter, +1, voltages[i] * volt_ratio
         )
     return esqs
 
