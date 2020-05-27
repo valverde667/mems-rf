@@ -133,7 +133,8 @@ beamnumber = warpoptions.options.beamnumber
 
 # --- where to store the outputfiles
 cgm_name = name
-step1path = "/home/timo/Documents/LBL/Warp/CGM"
+step1path = "."
+# step1path = "/home/timo/Documents/LBL/Warp/CGM"
 # step1path = '/home/cverdoza/Documents/LBL/WARP/berkeleylab-atap-meqalac-simulations/RF-Wafers-Simulations/test'
 
 # overwrite if path is given by command
@@ -217,7 +218,7 @@ wp.derivqty()
 
 # --- Set input parameters describing the 3d simulation
 
-wp.w3d.l4symtry = True  # True
+wp.w3d.l4symtry = False  # True
 wp.w3d.l2symtry = False
 
 # ---   Set boundary conditions
