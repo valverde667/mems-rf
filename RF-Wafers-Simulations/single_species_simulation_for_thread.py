@@ -67,6 +67,11 @@ warpoptions.parser.add_argument(
     "--tstep", dest="timestep", type=float, default="1e-9"
 )  # 1e-11
 
+#   Volt ratio for ESQs @ToDo Zhihao : is this correct?
+warpoptions.parser.add_argument(
+    "--volt_ratio", dest="volt_ratio", type=float, default="1.1"
+)
+
 #   enables some additional code if True
 warpoptions.parser.add_argument("--autorun", dest="autorun", type=bool, default=False)
 

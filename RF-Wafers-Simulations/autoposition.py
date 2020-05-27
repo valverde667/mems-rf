@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 from scipy.optimize import curve_fit
 import lmfit
 
-basepath = "/media/timo/simstore/r5-2.5e-10/"
+basepath = "/media/timo/simstore/r6/"
 simpath = "/home/timo/Documents/LBL/Warp/atap-meqalac-simulations/RF-Wafers-Simulations/single_species_simulation_for_thread.py"
 # setting up
 stepsize = 0.1e-3
