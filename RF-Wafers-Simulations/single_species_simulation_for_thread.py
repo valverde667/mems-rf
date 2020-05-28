@@ -548,7 +548,8 @@ t_wafer = 625 * wp.um + 35 * 2 * wp.um
 esq_positions = [0.01975, 0.046]
 voltages = [400, 800]
 volt_ratio = warpoptions.options.volt_ratio
-conductors += ESQ_double(esq_positions, voltages, volt_ratio=volt_ratio)
+if not warpoptions.options.autorun:
+    conductors += ESQ_double(esq_positions, voltages, volt_ratio=volt_ratio)
 
 # creat submesh for ESQ
 meshes = []
