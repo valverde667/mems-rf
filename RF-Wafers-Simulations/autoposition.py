@@ -116,12 +116,12 @@ def runcomm(com, x):
     os.system(com)
 
 
-def runIDs(IDs, limit=20):
+def runIDs(IDs, limit=20, morecommands=""):
     print(f"starting to run simulation {IDs}")
     time.sleep(1)
     th = []
     for id in IDs:
-        c = f'{basecommand} --name "{id}"'
+        c = f'{basecommand} --name "{id}" ' + morecommands
         th.append(threading.Thread(target=runcomm, args=(c, 1)))
         th[-1].start()
         block(limit)
@@ -165,9 +165,13 @@ def scan(begin, end, stepwidth, activegap, absolute=False):
     print(f"continuing at number {number}")
     for i in range(len(s)):
         markedpositions = []
+        ### Beamsave always 3mm before the gap
+        beamsavepositions = np.array(s[i].copy()) - 3e-3
+        beamsavepositions = beamsavepositions.tolist()
         newIDs.append(str(i + number))
         writejson(newIDs[-1], "rf_gaps", centertoposition(s[i].copy()))
         writejson(newIDs[-1], "centerpositions", s[i].copy())
+        writejson(newIDs[-1], "beamsavepositions", beamsavepositions)
         print(f"s[{i}] : {s[i]}")
         for p in centertoposition(s[i]):
             print(f" P : {p}")
@@ -277,6 +281,9 @@ def optimizepositions(
                 activegap=gap,
                 absolute=True,
             )
+            # beam save / load
+            savebeampositions = []
+
             runIDs(ids, maxcpus)
             block()
             maximumpos, maximumenergy, maxincluded = findmaximum(gap)

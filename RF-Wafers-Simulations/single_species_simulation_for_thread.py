@@ -454,6 +454,9 @@ def autoinit():  # AUTORUN METHOD
     writejson("freq", freq)
     writejson("tstep", warpoptions.options.timestep)
     writejson("rfgaps_ideal", calculateRFwaferpositions())
+    if "beamsavepositions" in rj.keys():
+        global storebeam
+        storebeam = rj["beamsavepositions"]
 
 
 def autosave(se):  # AUTORUN METHOD
@@ -476,11 +479,13 @@ def autosave(se):  # AUTORUN METHOD
 if warpoptions.options.autorun:
     autoinit()
 
+# this needs to be called after autoinit
 if storebeam != []:
-    import ast
+    if type(storebeam) == str:
+        import ast
 
-    res = ast.literal_eval(storebeam)
-    storebeam = res
+        res = ast.literal_eval(storebeam)
+        storebeam = res
     print(f"STOREBEAM {storebeam}")
     storebeam.sort()
     storebeam.reverse()
