@@ -729,9 +729,9 @@ component2 = "z"
 # plotf(axes2,component2)
 # plotf(axes3,component3)
 
+wp.step(1)
 while wp.top.time < tmax and max(Z) < zEnd:
     beamsave()
-    ### Running the sim
 
     ### Informations
     print(f"first Particle at {max(Z)};" f" simulations stops at {zEnd}")
