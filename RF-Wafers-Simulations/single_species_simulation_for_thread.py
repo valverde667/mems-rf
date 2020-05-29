@@ -75,6 +75,9 @@ warpoptions.parser.add_argument(
 #   enables some additional code if True
 warpoptions.parser.add_argument("--autorun", dest="autorun", type=bool, default=False)
 
+# sets wp.steps(#)
+warpoptions.parser.add_argument("--plotsteps", dest="plotsteps", type=int, default=10)
+
 #   stores the beam at once the average particle position passed the given positions (list)
 # --storebeam "[0.01, 0.024, 0.045]" uses the --name given for the simulation. Stored beams are ordered.
 # Needs to be an array with stings
@@ -880,7 +883,7 @@ while wp.top.time < tmax and max(Z) < zEnd:
         break
     ### check if a snapshot should be taken for export for the energy analyzer
     # saveBeamSnapshot(Z.mean())
-    wp.step(1)
+    wp.step(warpoptions.options.plotsteps)
 ### END of Simulation
 
 ###### Final Plots

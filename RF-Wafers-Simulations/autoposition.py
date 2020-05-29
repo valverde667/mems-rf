@@ -18,6 +18,7 @@ bunch_length = 1e-9
 ekininit = 10e3
 freq = 14.8e6  # currently overwritten in def betalambda
 tstep = 1e-11
+plotsteps = 100
 basecommand = (
     f"python3 {simpath}"
     f" --rf_voltage {rf_voltage}"
@@ -27,6 +28,7 @@ basecommand = (
     f" --tstep {tstep}"
     f" --autorun True"
     f" --path {basepath}"
+    f" --plotsteps {plotsteps}"
 )
 #
 """
