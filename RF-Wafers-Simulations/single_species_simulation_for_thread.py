@@ -542,7 +542,6 @@ conductors = RF_stack(positionArray, voltages)
 print("CONDUCT DONE")
 
 ###
-# ToDo ESQ
 d_wafers = 2.695 * wp.mm
 t_wafer = 625 * wp.um + 35 * 2 * wp.um
 esq_positions = [0.01975, 0.046]
@@ -997,6 +996,11 @@ hpnum = selectedIons.hpnum[0]
 
 print("debug", t.shape, hepsny.shape)
 out = np.stack((t, hepsny, hepsnz, hep6d, hekinz, hekin, hxrms, hyrms, hrrms, hpnum))
+
+rt = (time.time() - start) / 60
+print(f"RUNTIME OF THIS SIMULATION: {rt:.0f} minutes")
+if warpoptions.options.autorun:
+    writejson("runtimeminutes", rt)
 
 ### END BELOW HERE IS CODE THAT MIGHT BE USEFUL LATER
 
