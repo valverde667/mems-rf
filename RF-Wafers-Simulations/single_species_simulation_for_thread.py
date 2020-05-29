@@ -173,9 +173,6 @@ def writejson(key, value, fp=f"{basepath}{thisrunID}.json"):
 
 
 ### loading beam functionalitly
-loadedbeamtimeoffset = 0
-
-
 def restorebeam(nb_beam=beamnumber):
     if loadbeam != "":
         rj = readjson(loadbeam)
@@ -191,8 +188,7 @@ def restorebeam(nb_beam=beamnumber):
             vz=beamdata["vz"],
             lallindomain=True,
         )
-        global loadedbeamtimeoffset
-        loadedbeamtimeoffset = beamdata["t"]
+        wp.top.time = beamdata["t"]
         wp.w3d.zmmin = beamdata["framecenter"] - framewidth / 2
         wp.w3d.zmmax = beamdata["framecenter"] + framewidth / 2
         wp.top.vbeamfrm = selectedIons.getvz().mean()
@@ -526,19 +522,19 @@ for i, pa in enumerate(positionArray):
 # setting frequency overwrites the default/waroptions
 # frequency setting;
 voltages = [
-    gen_volt(toffset=RF_offset + loadedbeamtimeoffset, frequency=14.8e6),
-    gen_volt(toffset=RF_offset + loadedbeamtimeoffset, frequency=14.8e6),
-    gen_volt(toffset=RF_offset + loadedbeamtimeoffset, frequency=14.8e6),
-    gen_volt(toffset=RF_offset + loadedbeamtimeoffset + 9.25e-9, frequency=27e6),
-    gen_volt(toffset=RF_offset + loadedbeamtimeoffset + 9.25e-9, frequency=27e6),
-    gen_volt(toffset=RF_offset + loadedbeamtimeoffset + 9.25e-9, frequency=27e6),
-    gen_volt(toffset=RF_offset + loadedbeamtimeoffset + 9.25e-9, frequency=27e6),
-    gen_volt(toffset=RF_offset + loadedbeamtimeoffset + 9.25e-9, frequency=27e6),
-    gen_volt(toffset=RF_offset + loadedbeamtimeoffset + 9.25e-9, frequency=27e6),
-    gen_volt(toffset=RF_offset + loadedbeamtimeoffset + 9.25e-9, frequency=27e6),
-    gen_volt(toffset=RF_offset + loadedbeamtimeoffset + 9.25e-9, frequency=27e6),
+    gen_volt(toffset=RF_offset, frequency=14.8e6),
+    gen_volt(toffset=RF_offset, frequency=14.8e6),
+    gen_volt(toffset=RF_offset, frequency=14.8e6),
+    gen_volt(toffset=RF_offset + 9.25e-9, frequency=27e6),
+    gen_volt(toffset=RF_offset + 9.25e-9, frequency=27e6),
+    gen_volt(toffset=RF_offset + 9.25e-9, frequency=27e6),
+    gen_volt(toffset=RF_offset + 9.25e-9, frequency=27e6),
+    gen_volt(toffset=RF_offset + 9.25e-9, frequency=27e6),
+    gen_volt(toffset=RF_offset + 9.25e-9, frequency=27e6),
+    gen_volt(toffset=RF_offset + 9.25e-9, frequency=27e6),
+    gen_volt(toffset=RF_offset + 9.25e-9, frequency=27e6),
 ]
-rfv = gen_volt(toffset=RF_offset + loadedbeamtimeoffset, frequency=14.8e6)
+rfv = gen_volt(toffset=RF_offset, frequency=14.8e6)
 # add actual stack
 conductors = RF_stack(positionArray, voltages)
 print("CONDUCT DONE")
