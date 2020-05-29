@@ -916,6 +916,11 @@ wp.hpyrms(color=wp.blue, titles=0)
 wp.hprrms(color=wp.green, titles=0)
 wp.ptitles("X(red), Y(blue), R(green)", "Time [s]", "X/Y/R [m]", "")
 wp.fma()
+### Frame, vx and vy plot
+wp.hpvxbar(color=wp.red, titles=0)
+wp.hpvybar(color=wp.blue, titles=0)
+wp.ptitles("X(red), Y(blue), R(green)", "Time [s]", "X/Y/R [m]", "")
+wp.fma()
 ### Frame, Kinetic Energy at certain Z value
 wp.plg(KE_select, time_time, color=wp.blue)
 wp.limits(0, 70e-9, 0, 30e3)  # limits(xmin,xmax,ymin,ymax)
