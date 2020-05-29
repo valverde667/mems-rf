@@ -166,6 +166,8 @@ def readjson(fp=f"{basepath}{thisrunID}.json"):
 
 def writejson(key, value, fp=f"{basepath}{thisrunID}.json"):
     print(f"Writing Data to json {fp}")
+    print("WRITING DATA")
+    print(f" KEY {key} \n VALUE {value}")
     writedata = readjson(fp)
     writedata[key] = value
     with open(fp, "w") as writefile:
