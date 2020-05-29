@@ -736,7 +736,7 @@ component2 = "z"
 # plotf(axes1,component1)
 # plotf(axes2,component2)
 # plotf(axes3,component3)
-if not warpoptions.options.autorun or name[0] == "2":  # workaround
+if warpoptions.options.loadbeam == "":  # workaround
     wp.step(1)
 
 while wp.top.time < tmax and max(Z) < zEnd:
