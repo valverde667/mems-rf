@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 from scipy.optimize import curve_fit
 import lmfit
 
-basepath = "/media/timo/simstore/r6/"
+basepath = "/media/timo/simstore/r7-highrestest/"
 simpath = "/home/timo/Documents/LBL/Warp/atap-meqalac-simulations/RF-Wafers-Simulations/single_species_simulation_for_thread.py"
 # setting up
 stepsize = 0.1e-3
@@ -17,7 +17,7 @@ rf_voltage = 7e3
 bunch_length = 1e-9
 ekininit = 10e3
 freq = 14.8e6  # currently overwritten in def betalambda
-tstep = 5e-10
+tstep = 1e-11
 basecommand = (
     f"python3 {simpath}"
     f" --rf_voltage {rf_voltage}"
@@ -287,10 +287,8 @@ def optimizepositions(
             )
             # beam save / load
             loadfile = ""
-            if gap > 2:
-                loadfile = (
-                    f'--loadbeam "{basepath}{gap-1}006.json" --beamnumber {gap-1-1}'
-                )
+            if gap > 3:
+                loadfile = f'--loadbeam "{basepath}{gap - 1}006.json" --beamnumber {gap - 1 - 2}'
 
             runIDs(ids, maxcpus, morecommands=loadfile)
             block()
