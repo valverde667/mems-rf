@@ -59,7 +59,7 @@ warpoptions.parser.add_argument(
 #   special cgm name - for mass output / scripting
 warpoptions.parser.add_argument("--name", dest="name", type=str, default="unnamedRun")
 
-#   special cgm path - for mass output / scripting
+#   special cgm path - for mass output / scriptingÖ
 warpoptions.parser.add_argument("--path", dest="path", type=str, default="")
 
 #   divergence angle
@@ -464,11 +464,12 @@ def autosave(se):  # AUTORUN METHOD
     """se : selected Ions"""
     if warpoptions.options.autorun:
         if se.getz().max() > markedpositions[0]:
-            print("YES")
+            print(f"STORING BEAM at {se.getz().max()} ")
             ekinmax = se.getke().max()
             ekinav = se.getke().mean()
             markedpositionsenergies.append({"ekinmax": ekinmax, "ekinav": ekinav})
             writejson("markedpositionsenergies", markedpositionsenergies)
+            print("markedpositionsenergies stored")
             del markedpositions[0]
             if len(markedpositions) == 0:
                 print("ENDING SIM")
@@ -537,6 +538,7 @@ voltages = [
     gen_volt(toffset=RF_offset + loadedbeamtimeoffset + 9.25e-9, frequency=27e6),
     gen_volt(toffset=RF_offset + loadedbeamtimeoffset + 9.25e-9, frequency=27e6),
 ]
+rfv = gen_volt(toffset=RF_offset + loadedbeamtimeoffset, frequency=14.8e6)
 # add actual stack
 conductors = RF_stack(positionArray, voltages)
 print("CONDUCT DONE")
@@ -734,8 +736,9 @@ component2 = "z"
 # plotf(axes1,component1)
 # plotf(axes2,component2)
 # plotf(axes3,component3)
+if not warpoptions.options.autorun or name[0] == "2":  # workaround
+    wp.step(1)
 
-wp.step(1)
 while wp.top.time < tmax and max(Z) < zEnd:
     beamsave()
 
@@ -859,7 +862,11 @@ while wp.top.time < tmax and max(Z) < zEnd:
         else:
             wp.plp(selectedIons.getx(), selectedIons.getz(), msize=1.0)
     wp.limits(zmin, zmax)
-    wp.ptitles("Particles and Fields", "Z [m]", "X [m]")
+    wp.ptitles(
+        f"Particles and Fields \ntime {wp.top.time}\n voltage : {rfv(wp.top.time)}",
+        "Z [m]",
+        "X [m]",
+    )
     wp.fma()
     ### Frame, shwoing
     selectedIons.ppxy(
@@ -876,7 +883,7 @@ while wp.top.time < tmax and max(Z) < zEnd:
         break
     ### check if a snapshot should be taken for export for the energy analyzer
     # saveBeamSnapshot(Z.mean())
-    wp.step(10)
+    wp.step(1)
 ### END of Simulation
 
 ###### Final Plots

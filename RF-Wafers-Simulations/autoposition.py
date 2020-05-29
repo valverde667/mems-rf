@@ -17,7 +17,7 @@ rf_voltage = 7e3
 bunch_length = 1e-9
 ekininit = 10e3
 freq = 14.8e6  # currently overwritten in def betalambda
-tstep = 7e-11
+tstep = 5e-10
 basecommand = (
     f"python3 {simpath}"
     f" --rf_voltage {rf_voltage}"
@@ -122,10 +122,14 @@ def runIDs(IDs, limit=20, morecommands=""):
     th = []
     for id in IDs:
         c = f'{basecommand} --name "{id}" ' + morecommands
+        commands = readjson("0000")["commands"]
+        commands.append(c)
+        writejson("0000", "commands", commands)
         th.append(threading.Thread(target=runcomm, args=(c, 1)))
         th[-1].start()
         block(limit)
         # th[-1].join()
+        time.sleep(10)
 
 
 def order(x, y):
@@ -165,8 +169,8 @@ def scan(begin, end, stepwidth, activegap, absolute=False):
     print(f"continuing at number {number}")
     for i in range(len(s)):
         markedpositions = []
-        ### Beamsave always 3mm before the gap
-        beamsavepositions = np.array(s[i].copy()) - 3e-3
+        ### Beamsave always Xmm before the gap
+        beamsavepositions = np.array(s[i].copy()) - 4e-3
         beamsavepositions = beamsavepositions.tolist()
         newIDs.append(str(i + number))
         writejson(newIDs[-1], "rf_gaps", centertoposition(s[i].copy()))
@@ -255,7 +259,7 @@ def optimizepositions(
     endgap,
     ranges=((-0, 1e-3), (-0.1e-3, 0.1e-3)),
     parallelsimulations=5,
-    maxcpus=20,
+    maxcpus=10,
 ):
     """optimzes gaps, ranges gives the number of iterations and their (symmetrical) width"""
     optimalpositions = readjson("0000")["optimalgaps"]
@@ -282,9 +286,13 @@ def optimizepositions(
                 absolute=True,
             )
             # beam save / load
-            savebeampositions = []
+            loadfile = ""
+            if gap > 2:
+                loadfile = (
+                    f'--loadbeam "{basepath}{gap-1}006.json" --beamnumber {gap-1-1}'
+                )
 
-            runIDs(ids, maxcpus)
+            runIDs(ids, maxcpus, morecommands=loadfile)
             block()
             maximumpos, maximumenergy, maxincluded = findmaximum(gap)
             print(f"FOUND THE FOLLOWING, maximum is included: {maxincluded}.")
