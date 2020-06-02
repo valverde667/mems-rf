@@ -883,7 +883,10 @@ while wp.top.time < tmax and max(Z) < zEnd:
         break
     ### check if a snapshot should be taken for export for the energy analyzer
     # saveBeamSnapshot(Z.mean())
-    wp.step(warpoptions.options.plotsteps)
+    if wp.top.inject == 0:
+        wp.step(warpoptions.options.plotsteps)
+    else:
+        wp.step(1)
 ### END of Simulation
 
 ###### Final Plots
