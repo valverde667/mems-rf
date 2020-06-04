@@ -78,10 +78,8 @@ warpoptions.parser.add_argument("--autorun", dest="autorun", type=bool, default=
 # sets wp.steps(#)
 warpoptions.parser.add_argument("--plotsteps", dest="plotsteps", type=int, default=10)
 
-# changes simulation to a "cw-beam" simulation
-warpoptions.parser.add_argument(
-    "--cw-beam", dest="cw_framewidth", type=float, default=0
-)
+# changes simulation to a "cb-beam" simulation
+warpoptions.parser.add_argument("--cb", dest="cb_framewidth", type=float, default=0)
 
 # beam current initial beam current may vary up to 25e-6
 warpoptions.parser.add_argument(
@@ -263,7 +261,7 @@ if loadbeam == "":
     wp.top.npmax = 300  # maximal number of particles (for injection per timestep???)
     wp.top.inject = 1  # 2 means space-charge limited injection
     wp.top.rinject = 5000  # emitting surface curvature
-    wp.top.npinject = 10  # 300  # approximate number of particles injected per step
+    wp.top.npinject = 300  # approximate number of particles injected per step
     wp.top.linj_eperp = False  # Turn on transverse E-fields near emitting surface
     wp.top.zinject = wp.w3d.zmmin
     wp.top.vinject = 1.0  # source voltage
@@ -272,7 +270,13 @@ if loadbeam == "":
 wp.w3d.nx = 30  # 60.
 wp.w3d.ny = 30  # 60.
 ### There are two 35um copper layers on ESQ, so we need high resolution.
+# 180 / 23mm < 8mm⁻¹
 wp.w3d.nz = 180.0  # 180 for 23 # 6-85 for 10
+
+# overwrite if the beam is cb:
+if warpoptions.options.cb_framewidth:
+    wp.w3d.zmmax = warpoptions.options.cb_framewidth
+    wp.w3d.nz = 8e3 * warpoptions.options.cb_framewidth
 
 if wp.w3d.l4symtry:
     wp.w3d.xmmin = 0.0
@@ -566,7 +570,6 @@ if not warpoptions.options.autorun:
 # creat submesh for ESQ
 meshes = []
 for esq_pos in esq_positions:
-
     solver.root.finalized = 0
     child_1 = solver.addchild(
         mins=[wp.w3d.xmmin, wp.w3d.ymmin, esq_pos - d_wafers / 2 - t_wafer / 2,],
@@ -649,6 +652,17 @@ def saveBeamSnapshot(z):
                 f" {avEkin}keV"
             )
             z_snapshots.remove(nextZ)
+
+
+def zcrossing():
+    json_ZC = {
+        "x": zc.getx().tolist(),
+        "y": zc.gety().tolist(),
+        "vx": zc.getvx().tolist(),
+        "vy": zc.getvy().tolist(),
+        "vz": zc.getvz().tolist(),
+        "t": zc.gett().tolist(),
+    }
 
 
 #############################
@@ -784,7 +798,9 @@ while wp.top.time < tmax and max(Z) < zEnd:
     ###### Injection
     if 0 * wp.ns < wp.top.time < L_bunch and loadbeam == "":  # changes the beam
         wp.top.finject[0, selectedIons.jslist[0]] = 1
-    else:
+    elif (
+        not warpoptions.options.cb_framewidth
+    ):  # only disable injection if not continuously
         wp.top.inject = 0
 
     ###### Moving the frame dependent on particle position
@@ -893,10 +909,13 @@ while wp.top.time < tmax and max(Z) < zEnd:
         break
     ### check if a snapshot should be taken for export for the energy analyzer
     # saveBeamSnapshot(Z.mean())
-    if wp.top.inject == 0:
+    if warpoptions.options.cb_framewidth:  # if continous beam, do steps normally
         wp.step(warpoptions.options.plotsteps)
-    else:
+    elif wp.top.inject == 0:  # if there is no injection, do steps normally
+        wp.step(warpoptions.options.plotsteps)
+    else:  # if there is injection going on, make timesteps as fine as possible so that the bunch has the right length
         wp.step(1)
+
 ### END of Simulation
 
 ###### Final Plots
