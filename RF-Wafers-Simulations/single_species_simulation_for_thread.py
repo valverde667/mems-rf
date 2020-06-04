@@ -82,7 +82,7 @@ warpoptions.parser.add_argument("--plotsteps", dest="plotsteps", type=int, defau
 warpoptions.parser.add_argument("--cb", dest="cb_framewidth", type=float, default=0)
 
 # enables a Z-Crossing location, saving particles that are crossing the given z-value
-warpoptions.parser.add_argument("--zcrossing", dest="zzcrossing", type=float, default=0)
+warpoptions.parser.add_argument("--zcrossing", dest="zcrossing", type=float, default=0)
 
 # set maximal running time, this disables other means of ending the simulation
 warpoptions.parser.add_argument("--runtime", dest="runtime", type=float, default=0)
@@ -608,42 +608,42 @@ wp.fieldsol(-1)
 solver.gridmode = 0  # makes the fields oscillate properly at the beginning
 
 #############################
-def saveBeamSnapshot(z):
-    if z_snapshots:  # checks for remaining snapshots
-        nextZ = min(z_snapshots)
-        if z > nextZ:
-            # this is an approximation and in keV
-            avEkin = (
-                np.square(selectedIons.getvz()).mean()
-                * 0.5
-                * warpoptions.options.speciesMass
-                * wp.amu
-                / wp.echarge
-                / 1000
-            )
-            json_Zsnap = {
-                # "ekin" : avEkin,
-                "z_snap_pos": nextZ - lastWafer,
-                "x": selectedIons.getx().tolist(),
-                "y": selectedIons.gety().tolist(),
-                "z": selectedIons.getz().tolist(),
-                "vx": selectedIons.getvx().tolist(),
-                "vy": selectedIons.getvy().tolist(),
-                "vz": selectedIons.getvz().tolist(),
-            }
-            with open(
-                f"{step1path}/{cgm_name}_snap_"
-                f"{(nextZ - lastWafer) / wp.mm:.2f}"
-                f"mm.json",
-                "w",
-            ) as write_file:
-                json.dump(json_Zsnap, write_file, indent=2)
-            print(
-                f"Particle snapshot created at "
-                f"{nextZ} with mean Ekin"
-                f" {avEkin}keV"
-            )
-            z_snapshots.remove(nextZ)
+# def saveBeamSnapshot(z):
+#     if z_snapshots:  # checks for remaining snapshots
+#         nextZ = min(z_snapshots)
+#         if z > nextZ:
+#             # this is an approximation and in keV
+#             avEkin = (
+#                 np.square(selectedIons.getvz()).mean()
+#                 * 0.5
+#                 * warpoptions.options.speciesMass
+#                 * wp.amu
+#                 / wp.echarge
+#                 / 1000
+#             )
+#             json_Zsnap = {
+#                 # "ekin" : avEkin,
+#                 "z_snap_pos": nextZ - lastWafer,
+#                 "x": selectedIons.getx().tolist(),
+#                 "y": selectedIons.gety().tolist(),
+#                 "z": selectedIons.getz().tolist(),
+#                 "vx": selectedIons.getvx().tolist(),
+#                 "vy": selectedIons.getvy().tolist(),
+#                 "vz": selectedIons.getvz().tolist(),
+#             }
+#             with open(
+#                 f"{step1path}/{cgm_name}_snap_"
+#                 f"{(nextZ - lastWafer) / wp.mm:.2f}"
+#                 f"mm.json",
+#                 "w",
+#             ) as write_file:
+#                 json.dump(json_Zsnap, write_file, indent=2)
+#             print(
+#                 f"Particle snapshot created at "
+#                 f"{nextZ} with mean Ekin"
+#                 f" {avEkin}keV"
+#             )
+#             z_snapshots.remove(nextZ)
 
 
 ### track particles after crossing a Z location -
@@ -710,6 +710,7 @@ scraper = wp.ParticleScraper(
 )  # to use until target is fixed to output data properly
 
 # attempt at graphing
+lastWafer = positionArray[-1][-1]
 zEnd = 10 * wp.mm + lastWafer
 if warpoptions.options.runtime:
     zEnd = 1e3
@@ -773,7 +774,7 @@ while wp.top.time < tmax and max(Z) < zEnd:
 
     ### Informations
     print(f"first Particle at {max(Z)*1e3}mm; simulations stops at {zEnd*1e3}mm")
-    print(f"simulation runs for {wp.top.time*1e9:.2f}ns\ntops at {tmax*1e9:.2f}ns")
+    print(f"simulation runs for {wp.top.time*1e9:.2f}ns; stops at {tmax*1e9:.2f}ns")
 
     ###### Collecting data
     ### collecting data for Particle count vs Time Plot
@@ -846,7 +847,7 @@ while wp.top.time < tmax and max(Z) < zEnd:
 
     ### Frame, the instantaneous kinetic energy plot
     KE = selectedIons.getke()
-    print(np.mean(KE))
+    print(f"Mean kinetic Energy : {np.mean(KE)}")
     if len(KE) > 0:
         selectedIons.ppzke(color=wp.blue)
         KEmin, KEmax = KE.min(), KE.max()
