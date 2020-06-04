@@ -17,8 +17,8 @@ rf_voltage = 7e3
 bunch_length = 1e-9
 ekininit = 10e3
 freq = 14.8e6  # currently overwritten in def betalambda
-tstep = 1e-11
-plotsteps = 100
+tstep = 1e-10
+plotsteps = 20
 basecommand = (
     f"python3 {simpath}"
     f" --rf_voltage {rf_voltage}"
@@ -30,6 +30,9 @@ basecommand = (
     f" --path {basepath}"
     f" --plotsteps {plotsteps}"
 )
+#
+savegapsprior = 2  # how many gaps to go back for resstoring >=1
+savedistancetorfunits = 4e-3  # distance between savespot to rf-gap-center
 #
 """
 format of json:
@@ -130,8 +133,9 @@ def runIDs(IDs, limit=20, morecommands=""):
         th.append(threading.Thread(target=runcomm, args=(c, 1)))
         th[-1].start()
         block(limit)
-        # th[-1].join()
-        time.sleep(10)
+        # th[-1].join() # blocking
+        time.sleep(10)  # this timer is here, so should there be an error,
+        # they will be printed one after the other. Impact on simulation time is neglectable.
 
 
 def order(x, y):
@@ -172,7 +176,7 @@ def scan(begin, end, stepwidth, activegap, absolute=False):
     for i in range(len(s)):
         markedpositions = []
         ### Beamsave always Xmm before the gap
-        beamsavepositions = np.array(s[i].copy()) - 4e-3
+        beamsavepositions = np.array(s[i].copy()) - savedistancetorfunits
         beamsavepositions = beamsavepositions.tolist()
         newIDs.append(str(i + number))
         writejson(newIDs[-1], "rf_gaps", centertoposition(s[i].copy()))
@@ -289,8 +293,8 @@ def optimizepositions(
             )
             # beam save / load
             loadfile = ""
-            if gap > 3:
-                loadfile = f'--loadbeam "{basepath}{gap - 1}006.json" --beamnumber {gap - 1 - 2}'
+            if gap > savegapsprior + 1:
+                loadfile = f'--loadbeam "{basepath}{gap - 1}006.json" --beamnumber {gap - 1 - savegapsprior}'
 
             runIDs(ids, maxcpus, morecommands=loadfile)
             block()
