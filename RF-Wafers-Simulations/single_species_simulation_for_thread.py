@@ -84,6 +84,9 @@ warpoptions.parser.add_argument("--cb", dest="cb_framewidth", type=float, defaul
 # enables a Z-Crossing location, saving particles that are crossing the given z-value
 warpoptions.parser.add_argument("--zcrossing", dest="zzcrossing", type=float, default=0)
 
+# set maximal running time, this disables other means of ending the simulation
+warpoptions.parser.add_argument("--runtime", dest="runtime", type=float, default=0)
+
 # beam current initial beam current may vary up to 25e-6
 warpoptions.parser.add_argument(
     "--ibeaminit", dest="ibeaminit", type=float, default=10e-6
@@ -593,6 +596,8 @@ velo = np.sqrt(
 length = positionArray[-1][-1] + 25 * wp.mm
 tmax = length / velo  # this is used for the maximum time for timesteps
 zrunmax = length  # this is used for the maximum distance for timesteps
+if warpoptions.options.runtime:
+    tmax = warpoptions.options.runtime
 
 # Install conductors
 wp.installconductors(conductors)
@@ -706,7 +711,9 @@ scraper = wp.ParticleScraper(
 
 # attempt at graphing
 zEnd = 10 * wp.mm + lastWafer
-print(f"Simulation runs until Z = {zEnd}")
+if warpoptions.options.runtime:
+    zEnd = 1e3
+    print(f"Simulation runs until Z = {zEnd}")
 
 
 def plotf(axes, component, new_page=True):
@@ -765,7 +772,8 @@ while wp.top.time < tmax and max(Z) < zEnd:
     beamsave()
 
     ### Informations
-    print(f"first Particle at {max(Z)};" f" simulations stops at {zEnd}")
+    print(f"first Particle at {max(Z)*1e3}mm; simulations stops at {zEnd*1e3}mm")
+    print(f"simulation runs for {wp.top.time*1e9:.2f}ns\ntops at {tmax*1e9:.2f}ns")
 
     ###### Collecting data
     ### collecting data for Particle count vs Time Plot
