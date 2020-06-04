@@ -81,6 +81,9 @@ warpoptions.parser.add_argument("--plotsteps", dest="plotsteps", type=int, defau
 # changes simulation to a "cb-beam" simulation
 warpoptions.parser.add_argument("--cb", dest="cb_framewidth", type=float, default=0)
 
+# enables a Z-Crossing location, saving particles that are crossing the given z-value
+warpoptions.parser.add_argument("--zcrossing", dest="zzcrossing", type=float, default=0)
+
 # beam current initial beam current may vary up to 25e-6
 warpoptions.parser.add_argument(
     "--ibeaminit", dest="ibeaminit", type=float, default=10e-6
@@ -600,22 +603,6 @@ wp.fieldsol(-1)
 solver.gridmode = 0  # makes the fields oscillate properly at the beginning
 
 #############################
-## ToDo replace this with a beam dump:
-# maybe a complete tracking of all particles might be useful for some applications
-### track particles after crossing a Z location -
-# in this case after the final rf amp
-lastWafer = positionArray[-1][-1]
-zc_pos = lastWafer + 2 * wp.mm
-print(f"recording particles crossing at z = {zc_pos}")
-zc = ZCrossingParticles(zz=zc_pos, laccumulate=1)
-z_snapshots = [
-    lastWafer + 0 * wp.mm,
-    lastWafer + 1 * wp.mm,
-    lastWafer + 2 * wp.mm,
-    lastWafer + 3 * wp.mm,
-]
-
-
 def saveBeamSnapshot(z):
     if z_snapshots:  # checks for remaining snapshots
         nextZ = min(z_snapshots)
@@ -654,15 +641,26 @@ def saveBeamSnapshot(z):
             z_snapshots.remove(nextZ)
 
 
-def zcrossing():
-    json_ZC = {
-        "x": zc.getx().tolist(),
-        "y": zc.gety().tolist(),
-        "vx": zc.getvx().tolist(),
-        "vy": zc.getvy().tolist(),
-        "vz": zc.getvz().tolist(),
-        "t": zc.gett().tolist(),
-    }
+### track particles after crossing a Z location -
+zc_pos = warpoptions.options.zcrossing
+if zc_pos:
+    print(f"recording particles crossing at z = {zc_pos}")
+    zc = ZCrossingParticles(zz=zc_pos, laccumulate=1)
+
+
+def savezcrossing():
+    if zc_pos:
+        zc_data = {
+            "x": zc.getx().tolist(),
+            "y": zc.gety().tolist(),
+            "z": zc_pos,
+            "vx": zc.getvx().tolist(),
+            "vy": zc.getvy().tolist(),
+            "vz": zc.getvz().tolist(),
+            "t": zc.gett().tolist(),
+        }
+        writejson("zcrossing", zc_data)
+        print("STORED Z CROSSING")
 
 
 #############################
@@ -917,6 +915,7 @@ while wp.top.time < tmax and max(Z) < zEnd:
         wp.step(1)
 
 ### END of Simulation
+savezcrossing()
 
 ###### Final Plots
 ### Frame, Particle count vs Time Plot
