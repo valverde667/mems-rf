@@ -59,7 +59,7 @@ warpoptions.parser.add_argument(
 #   special cgm name - for mass output / scripting
 warpoptions.parser.add_argument("--name", dest="name", type=str, default="unnamedRun")
 
-#   special cgm path - for mass output / scriptingÖ
+#   special cgm path - for mass output / scripting
 warpoptions.parser.add_argument("--path", dest="path", type=str, default="")
 
 #   divergence angle
@@ -77,6 +77,16 @@ warpoptions.parser.add_argument("--autorun", dest="autorun", type=bool, default=
 
 # sets wp.steps(#)
 warpoptions.parser.add_argument("--plotsteps", dest="plotsteps", type=int, default=10)
+
+# changes simulation to a "cw-beam" simulation
+warpoptions.parser.add_argument(
+    "--cw-beam", dest="cw_framewidth", type=float, default=0
+)
+
+# beam current initial beam current may vary up to 25e-6
+warpoptions.parser.add_argument(
+    "--ibeaminit", dest="ibeaminit", type=float, default=10e-6
+)
 
 #   stores the beam at once the average particle position passed the given positions (list)
 # --storebeam "[0.01, 0.024, 0.045]" uses the --name given for the simulation. Stored beams are ordered.
@@ -133,6 +143,7 @@ name = warpoptions.options.name
 storebeam = warpoptions.options.storebeam
 loadbeam = warpoptions.options.loadbeam
 beamnumber = warpoptions.options.beamnumber
+ibeaminit = warpoptions.options.ibeaminit
 
 # --- where to store the outputfiles
 cgm_name = name
@@ -169,8 +180,8 @@ def readjson(fp=f"{basepath}{thisrunID}.json"):
 
 def writejson(key, value, fp=f"{basepath}{thisrunID}.json"):
     print(f"Writing Data to json {fp}")
-    print("WRITING DATA")
-    print(f" KEY {key} \n VALUE {value}")
+    # print("WRITING DATA")
+    # print(f" KEY {key} \n VALUE {value}")
     writedata = readjson(fp)
     writedata[key] = value
     with open(fp, "w") as writefile:
@@ -202,7 +213,6 @@ def restorebeam(nb_beam=beamnumber):
 
 
 # --- Set basic beam parameters
-ibeaminit = 10e-6  # initial beam current may vary up to 25e-6
 
 wp.top.a0 = emittingRadius
 wp.top.b0 = emittingRadius
@@ -250,20 +260,20 @@ if loadbeam == "":
     wp.w3d.zmmin = 0.0
     wp.w3d.zmmax = wp.w3d.zmmin + framewidth
 
-    wp.top.npmax = 300
+    wp.top.npmax = 300  # maximal number of particles (for injection per timestep???)
     wp.top.inject = 1  # 2 means space-charge limited injection
-    wp.top.rinject = 5000
-    wp.top.npinject = 10  # 300  # needed!! macro particles per time step or cell#modified smaller step from 30 on 4/15 to monitor particles correctly. refer to original script
+    wp.top.rinject = 5000  # emitting surface curvature
+    wp.top.npinject = 10  # 300  # approximate number of particles injected per step
     wp.top.linj_eperp = False  # Turn on transverse E-fields near emitting surface
     wp.top.zinject = wp.w3d.zmmin
-    wp.top.vinject = 1.0
+    wp.top.vinject = 1.0  # source voltage
 
 # set grid spacing, this is the number of mesh elements in one window
 wp.w3d.nx = 30  # 60.
 wp.w3d.ny = 30  # 60.
 ### There are two 35um copper layers on ESQ, so we need high resolution.
 wp.w3d.nz = 180.0  # 180 for 23 # 6-85 for 10
-# ToDo what and why the following
+
 if wp.w3d.l4symtry:
     wp.w3d.xmmin = 0.0
     wp.w3d.nx /= 2
