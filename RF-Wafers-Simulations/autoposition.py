@@ -1,3 +1,6 @@
+import matplotlib
+
+matplotlib.use("Agg")
 from multiprocessing import Pool
 import numpy as np
 import json, os, threading, time
@@ -6,8 +9,10 @@ from matplotlib import pyplot as plt
 from scipy.optimize import curve_fit
 import lmfit
 
-basepath = "/media/timo/simstore/r7-highrestest/"
-simpath = "/home/timo/Documents/LBL/Warp/atap-meqalac-simulations/RF-Wafers-Simulations/single_species_simulation_for_thread.py"
+# basepath = "/media/timo/simstore/r7-highrestest/"
+basepath = "/home/timo/autoposition/1/"
+# simpath = "/home/timo/Documents/LBL/Warp/atap-meqalac-simulations/RF-Wafers-Simulations/single_species_simulation_for_thread.py"
+simpath = "/home/timo/autoposition/single_species_simulation_for_thread.py"
 # setting up
 stepsize = 0.1e-3
 steps = 20
@@ -17,7 +22,7 @@ rf_voltage = 7e3
 bunch_length = 1e-9
 ekininit = 10e3
 freq = 14.8e6  # currently overwritten in def betalambda
-tstep = 1e-10
+tstep = 1e-11
 plotsteps = 20
 basecommand = (
     f"python3 {simpath}"
@@ -263,8 +268,8 @@ def correction(gap):
 def optimizepositions(
     startgap,
     endgap,
-    ranges=((-0, 1e-3), (-0.1e-3, 0.1e-3)),
-    parallelsimulations=5,
+    ranges=((-0.75e-3, 1e-3), (-0.2e-3, 0.2e-3)),
+    parallelsimulations=8,
     maxcpus=10,
 ):
     """optimzes gaps, ranges gives the number of iterations and their (symmetrical) width"""
