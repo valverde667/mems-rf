@@ -3,7 +3,7 @@ import numpy as np
 import scipy.interpolate
 import scipy.optimize
 
-pathtocalibdata = "/home/timo/Documents/LBL/Warp/atap-meqalac-simulations/Spectrometer-Sim/Step3/Calibrations_N3/"
+pathtocalibdata = "/home/timo/Documents/LBL/Warp/atap-meqalac-simulations/Energy Analyzer/Step3/Calibrations_N3/"
 allfiles = []
 for f in [9]:  # [6, 8, 9]:
     allfiles.append(f"{pathtocalibdata}{f}/calibrationdata_e.json")
@@ -38,7 +38,7 @@ def ixscreen(nrg, volt):
     return val
 
 
-def idefvolt(nrg, xscreen):
+def idefvolt(nrg, xscreen=35.865e-3):
     """interpolates deflector voltage"""
     e, v, x = interpolateddata()
     data = (e, x)
@@ -50,7 +50,7 @@ def idefvolt(nrg, xscreen):
     return val
 
 
-def ienergy(volts, xscreen):
+def ienergy(volts, xscreen=35.865e-3):
     """interpolates deflector voltage"""
     e, v, x = interpolateddata()
     data = (v, x)

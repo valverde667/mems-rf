@@ -59,7 +59,7 @@ warpoptions.parser.add_argument(
 #   special cgm name - for mass output / scripting
 warpoptions.parser.add_argument("--name", dest="name", type=str, default="unnamedRun")
 
-#   special cgm path - for mass output / scriptingÖ
+#   special cgm path - for mass output / scripting
 warpoptions.parser.add_argument("--path", dest="path", type=str, default="")
 
 #   divergence angle
@@ -77,6 +77,20 @@ warpoptions.parser.add_argument("--autorun", dest="autorun", type=bool, default=
 
 # sets wp.steps(#)
 warpoptions.parser.add_argument("--plotsteps", dest="plotsteps", type=int, default=10)
+
+# changes simulation to a "cb-beam" simulation
+warpoptions.parser.add_argument("--cb", dest="cb_framewidth", type=float, default=0)
+
+# enables a Z-Crossing location, saving particles that are crossing the given z-value
+warpoptions.parser.add_argument("--zcrossing", dest="zcrossing", type=float, default=0)
+
+# set maximal running time, this disables other means of ending the simulation
+warpoptions.parser.add_argument("--runtime", dest="runtime", type=float, default=0)
+
+# beam current initial beam current may vary up to 25e-6
+warpoptions.parser.add_argument(
+    "--ibeaminit", dest="ibeaminit", type=float, default=10e-6
+)
 
 #   stores the beam at once the average particle position passed the given positions (list)
 # --storebeam "[0.01, 0.024, 0.045]" uses the --name given for the simulation. Stored beams are ordered.
@@ -133,6 +147,7 @@ name = warpoptions.options.name
 storebeam = warpoptions.options.storebeam
 loadbeam = warpoptions.options.loadbeam
 beamnumber = warpoptions.options.beamnumber
+ibeaminit = warpoptions.options.ibeaminit
 
 # --- where to store the outputfiles
 cgm_name = name
@@ -169,8 +184,8 @@ def readjson(fp=f"{basepath}{thisrunID}.json"):
 
 def writejson(key, value, fp=f"{basepath}{thisrunID}.json"):
     print(f"Writing Data to json {fp}")
-    print("WRITING DATA")
-    print(f" KEY {key} \n VALUE {value}")
+    # print("WRITING DATA")
+    # print(f" KEY {key} \n VALUE {value}")
     writedata = readjson(fp)
     writedata[key] = value
     with open(fp, "w") as writefile:
@@ -202,7 +217,6 @@ def restorebeam(nb_beam=beamnumber):
 
 
 # --- Set basic beam parameters
-ibeaminit = 10e-6  # initial beam current may vary up to 25e-6
 
 wp.top.a0 = emittingRadius
 wp.top.b0 = emittingRadius
@@ -250,20 +264,26 @@ if loadbeam == "":
     wp.w3d.zmmin = 0.0
     wp.w3d.zmmax = wp.w3d.zmmin + framewidth
 
-    wp.top.npmax = 300
+    wp.top.npmax = 300  # maximal number of particles (for injection per timestep???)
     wp.top.inject = 1  # 2 means space-charge limited injection
-    wp.top.rinject = 5000
-    wp.top.npinject = 10  # 300  # needed!! macro particles per time step or cell#modified smaller step from 30 on 4/15 to monitor particles correctly. refer to original script
+    wp.top.rinject = 5000  # emitting surface curvature
+    wp.top.npinject = 300  # approximate number of particles injected per step
     wp.top.linj_eperp = False  # Turn on transverse E-fields near emitting surface
     wp.top.zinject = wp.w3d.zmmin
-    wp.top.vinject = 1.0
+    wp.top.vinject = 1.0  # source voltage
 
 # set grid spacing, this is the number of mesh elements in one window
 wp.w3d.nx = 30  # 60.
 wp.w3d.ny = 30  # 60.
 ### There are two 35um copper layers on ESQ, so we need high resolution.
+# 180 / 23mm < 8mm⁻¹
 wp.w3d.nz = 180.0  # 180 for 23 # 6-85 for 10
-# ToDo what and why the following
+
+# overwrite if the beam is cb:
+if warpoptions.options.cb_framewidth:
+    wp.w3d.zmmax = warpoptions.options.cb_framewidth
+    wp.w3d.nz = 8e3 * warpoptions.options.cb_framewidth
+
 if wp.w3d.l4symtry:
     wp.w3d.xmmin = 0.0
     wp.w3d.nx /= 2
@@ -604,7 +624,6 @@ if not warpoptions.options.autorun:
 # creat submesh for ESQ
 meshes = []
 for esq_pos in esq_positions:
-
     solver.root.finalized = 0
     child_1 = solver.addchild(
         mins=[wp.w3d.xmmin, wp.w3d.ymmin, esq_pos - d_wafers / 2 - t_wafer / 2,],
@@ -625,6 +644,8 @@ velo = np.sqrt(
 length = positionArray[-1][-1] + 25 * wp.mm
 tmax = length / velo  # this is used for the maximum time for timesteps
 zrunmax = length  # this is used for the maximum distance for timesteps
+if warpoptions.options.runtime:
+    tmax = warpoptions.options.runtime
 
 # Install conductors
 wp.installconductors(conductors)
@@ -635,58 +656,64 @@ wp.fieldsol(-1)
 solver.gridmode = 0  # makes the fields oscillate properly at the beginning
 
 #############################
-## ToDo replace this with a beam dump:
-# maybe a complete tracking of all particles might be useful for some applications
+# def saveBeamSnapshot(z):
+#     if z_snapshots:  # checks for remaining snapshots
+#         nextZ = min(z_snapshots)
+#         if z > nextZ:
+#             # this is an approximation and in keV
+#             avEkin = (
+#                 np.square(selectedIons.getvz()).mean()
+#                 * 0.5
+#                 * warpoptions.options.speciesMass
+#                 * wp.amu
+#                 / wp.echarge
+#                 / 1000
+#             )
+#             json_Zsnap = {
+#                 # "ekin" : avEkin,
+#                 "z_snap_pos": nextZ - lastWafer,
+#                 "x": selectedIons.getx().tolist(),
+#                 "y": selectedIons.gety().tolist(),
+#                 "z": selectedIons.getz().tolist(),
+#                 "vx": selectedIons.getvx().tolist(),
+#                 "vy": selectedIons.getvy().tolist(),
+#                 "vz": selectedIons.getvz().tolist(),
+#             }
+#             with open(
+#                 f"{step1path}/{cgm_name}_snap_"
+#                 f"{(nextZ - lastWafer) / wp.mm:.2f}"
+#                 f"mm.json",
+#                 "w",
+#             ) as write_file:
+#                 json.dump(json_Zsnap, write_file, indent=2)
+#             print(
+#                 f"Particle snapshot created at "
+#                 f"{nextZ} with mean Ekin"
+#                 f" {avEkin}keV"
+#             )
+#             z_snapshots.remove(nextZ)
+
+
 ### track particles after crossing a Z location -
-# in this case after the final rf amp
-lastWafer = positionArray[-1][-1]
-zc_pos = lastWafer + 2 * wp.mm
-print(f"recording particles crossing at z = {zc_pos}")
-zc = ZCrossingParticles(zz=zc_pos, laccumulate=1)
-z_snapshots = [
-    lastWafer + 0 * wp.mm,
-    lastWafer + 1 * wp.mm,
-    lastWafer + 2 * wp.mm,
-    lastWafer + 3 * wp.mm,
-]
+zc_pos = warpoptions.options.zcrossing
+if zc_pos:
+    print(f"recording particles crossing at z = {zc_pos}")
+    zc = ZCrossingParticles(zz=zc_pos, laccumulate=1)
 
 
-def saveBeamSnapshot(z):
-    if z_snapshots:  # checks for remaining snapshots
-        nextZ = min(z_snapshots)
-        if z > nextZ:
-            # this is an approximation and in keV
-            avEkin = (
-                np.square(selectedIons.getvz()).mean()
-                * 0.5
-                * warpoptions.options.speciesMass
-                * wp.amu
-                / wp.echarge
-                / 1000
-            )
-            json_Zsnap = {
-                # "ekin" : avEkin,
-                "z_snap_pos": nextZ - lastWafer,
-                "x": selectedIons.getx().tolist(),
-                "y": selectedIons.gety().tolist(),
-                "z": selectedIons.getz().tolist(),
-                "vx": selectedIons.getvx().tolist(),
-                "vy": selectedIons.getvy().tolist(),
-                "vz": selectedIons.getvz().tolist(),
-            }
-            with open(
-                f"{step1path}/{cgm_name}_snap_"
-                f"{(nextZ - lastWafer) / wp.mm:.2f}"
-                f"mm.json",
-                "w",
-            ) as write_file:
-                json.dump(json_Zsnap, write_file, indent=2)
-            print(
-                f"Particle snapshot created at "
-                f"{nextZ} with mean Ekin"
-                f" {avEkin}keV"
-            )
-            z_snapshots.remove(nextZ)
+def savezcrossing():
+    if zc_pos:
+        zc_data = {
+            "x": zc.getx().tolist(),
+            "y": zc.gety().tolist(),
+            "z": zc_pos,
+            "vx": zc.getvx().tolist(),
+            "vy": zc.getvy().tolist(),
+            "vz": zc.getvz().tolist(),
+            "t": zc.gett().tolist(),
+        }
+        writejson("zcrossing", zc_data)
+        print("STORED Z CROSSING")
 
 
 #############################
@@ -731,8 +758,11 @@ scraper = wp.ParticleScraper(
 )  # to use until target is fixed to output data properly
 
 # attempt at graphing
+lastWafer = positionArray[-1][-1]
 zEnd = 10 * wp.mm + lastWafer
-print(f"Simulation runs until Z = {zEnd}")
+if warpoptions.options.runtime:
+    zEnd = 1e3
+    print(f"Simulation runs until Z = {zEnd}")
 
 
 def plotf(axes, component, new_page=True):
@@ -792,7 +822,8 @@ while wp.top.time < tmax and max(Z) < zEnd:
     beamsave()
 
     ### Informations
-    print(f"first Particle at {max(Z)};" f" simulations stops at {zEnd}")
+    print(f"first Particle at {max(Z)*1e3}mm; simulations stops at {zEnd*1e3}mm")
+    print(f"simulation runs for {wp.top.time*1e9:.2f}ns; stops at {tmax*1e9:.2f}ns")
 
     ###### Collecting data
     ### collecting data for Particle count vs Time Plot
@@ -823,7 +854,9 @@ while wp.top.time < tmax and max(Z) < zEnd:
     ###### Injection
     if 0 * wp.ns < wp.top.time < L_bunch and loadbeam == "":  # changes the beam
         wp.top.finject[0, selectedIons.jslist[0]] = 1
-    else:
+    elif (
+        not warpoptions.options.cb_framewidth
+    ):  # only disable injection if not continuously
         wp.top.inject = 0
 
     ###### Moving the frame dependent on particle position
@@ -863,7 +896,7 @@ while wp.top.time < tmax and max(Z) < zEnd:
 
     ### Frame, the instantaneous kinetic energy plot
     KE = selectedIons.getke()
-    print(np.mean(KE))
+    print(f"Mean kinetic Energy : {np.mean(KE)}")
     if len(KE) > 0:
         selectedIons.ppzke(color=wp.blue)
         KEmin, KEmax = KE.min(), KE.max()
@@ -932,11 +965,15 @@ while wp.top.time < tmax and max(Z) < zEnd:
         break
     ### check if a snapshot should be taken for export for the energy analyzer
     # saveBeamSnapshot(Z.mean())
-    if wp.top.inject == 0:
+    if warpoptions.options.cb_framewidth:  # if continous beam, do steps normally
         wp.step(warpoptions.options.plotsteps)
-    else:
-        wp.step(plotsteps)
+    elif wp.top.inject == 0:  # if there is no injection, do steps normally
+        wp.step(warpoptions.options.plotsteps)
+    else:  # if there is injection going on, make timesteps as fine as possible so that the bunch has the right length
+        wp.step(1)
+
 ### END of Simulation
+savezcrossing()
 
 ###### Final Plots
 ### Frame, Particle count vs Time Plot

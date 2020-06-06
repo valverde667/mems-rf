@@ -1,3 +1,6 @@
+import matplotlib
+
+matplotlib.use("Agg")
 from multiprocessing import Pool
 import numpy as np
 import json, os, threading, time
@@ -6,8 +9,10 @@ from matplotlib import pyplot as plt
 from scipy.optimize import curve_fit
 import lmfit
 
-basepath = "/media/timo/simstore/r7-highrestest/"
-simpath = "/home/timo/Documents/LBL/Warp/atap-meqalac-simulations/RF-Wafers-Simulations/single_species_simulation_for_thread.py"
+# basepath = "/media/timo/simstore/r7-highrestest/"
+basepath = "/home/timo/autoposition/1/"
+# simpath = "/home/timo/Documents/LBL/Warp/atap-meqalac-simulations/RF-Wafers-Simulations/single_species_simulation_for_thread.py"
+simpath = "/home/timo/autoposition/single_species_simulation_for_thread.py"
 # setting up
 stepsize = 0.1e-3
 steps = 20
@@ -18,7 +23,7 @@ bunch_length = 1e-9
 ekininit = 10e3
 freq = 14.8e6  # currently overwritten in def betalambda
 tstep = 1e-11
-plotsteps = 100
+plotsteps = 20
 basecommand = (
     f"python3 {simpath}"
     f" --rf_voltage {rf_voltage}"
@@ -30,6 +35,9 @@ basecommand = (
     f" --path {basepath}"
     f" --plotsteps {plotsteps}"
 )
+#
+savegapsprior = 2  # how many gaps to go back for resstoring >=1
+savedistancetorfunits = 4e-3  # distance between savespot to rf-gap-center
 #
 """
 format of json:
@@ -130,8 +138,9 @@ def runIDs(IDs, limit=20, morecommands=""):
         th.append(threading.Thread(target=runcomm, args=(c, 1)))
         th[-1].start()
         block(limit)
-        # th[-1].join()
-        time.sleep(10)
+        # th[-1].join() # blocking
+        time.sleep(10)  # this timer is here, so should there be an error,
+        # they will be printed one after the other. Impact on simulation time is neglectable.
 
 
 def order(x, y):
@@ -172,7 +181,7 @@ def scan(begin, end, stepwidth, activegap, absolute=False):
     for i in range(len(s)):
         markedpositions = []
         ### Beamsave always Xmm before the gap
-        beamsavepositions = np.array(s[i].copy()) - 4e-3
+        beamsavepositions = np.array(s[i].copy()) - savedistancetorfunits
         beamsavepositions = beamsavepositions.tolist()
         newIDs.append(str(i + number))
         writejson(newIDs[-1], "rf_gaps", centertoposition(s[i].copy()))
@@ -259,8 +268,8 @@ def correction(gap):
 def optimizepositions(
     startgap,
     endgap,
-    ranges=((-0, 1e-3), (-0.1e-3, 0.1e-3)),
-    parallelsimulations=5,
+    ranges=((-0.75e-3, 1e-3), (-0.2e-3, 0.2e-3)),
+    parallelsimulations=8,
     maxcpus=10,
 ):
     """optimzes gaps, ranges gives the number of iterations and their (symmetrical) width"""
@@ -289,8 +298,8 @@ def optimizepositions(
             )
             # beam save / load
             loadfile = ""
-            if gap > 3:
-                loadfile = f'--loadbeam "{basepath}{gap - 1}006.json" --beamnumber {gap - 1 - 2}'
+            if gap > savegapsprior + 1:
+                loadfile = f'--loadbeam "{basepath}{gap - 1}006.json" --beamnumber {gap - 1 - savegapsprior}'
 
             runIDs(ids, maxcpus, morecommands=loadfile)
             block()
