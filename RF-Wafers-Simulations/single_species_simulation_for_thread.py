@@ -651,6 +651,8 @@ zc_pos = warpoptions.options.zcrossing
 if zc_pos:
     print(f"recording particles crossing at z = {zc_pos}")
     zc = ZCrossingParticles(zz=zc_pos, laccumulate=1)
+    zc_start_position = 0.1e-3
+    zc_start = ZCrossingParticles(zz=zc_start_position, laccumulate=1)
 
 
 def savezcrossing():
@@ -663,8 +665,20 @@ def savezcrossing():
             "vy": zc.getvy().tolist(),
             "vz": zc.getvz().tolist(),
             "t": zc.gett().tolist(),
+            "tbirth": zc.tbirth.tolist(),
         }
         writejson("zcrossing", zc_data)
+        zc_start_data = {
+            "x": zc_start.getx().tolist(),
+            "y": zc_start.gety().tolist(),
+            "z": zc_start_position,
+            "vx": zc_start.getvx().tolist(),
+            "vy": zc_start.getvy().tolist(),
+            "vz": zc_start.getvz().tolist(),
+            "t": zc_start.gett().tolist(),
+            "tbirth": zc_start.tbirth.tolist(),
+        }
+        writejson("zcrossing_start", zc_data)
         print("STORED Z CROSSING")
 
 
@@ -773,9 +787,13 @@ while wp.top.time < tmax and max(Z) < zEnd:
     beamsave()
 
     ### Informations
-    print(f"first Particle at {max(Z)*1e3}mm; simulations stops at {zEnd*1e3}mm")
-    print(f"simulation runs for {wp.top.time*1e9:.2f}ns; stops at {tmax*1e9:.2f}ns")
-
+    print(
+        f"first Particle at {max(Z)*1e3}mm; simulations stops at {zEnd*1e3}mm; == {max(Z)/zEnd*100:.2f}%"
+    )
+    print(
+        f"simulation runs for {wp.top.time*1e9:.2f}ns; stops at {tmax*1e9:.2f}ns == {wp.top.time/tmax*100:.3f}%"
+    )
+    print(f"Number of particles : {len(selectedIons.getz())}")
     ###### Collecting data
     ### collecting data for Particle count vs Time Plot
     time_time.append(wp.top.time)
