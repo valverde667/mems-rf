@@ -43,7 +43,7 @@ warpoptions.parser.add_argument(
 
 #   frequency of the RF
 warpoptions.parser.add_argument(
-    "--freq", dest="freq", type=float, default="13.56e6"
+    "--freq", dest="freq", type=float, default="14.8e6"
 )  # 27e6
 
 #   emitting radius
