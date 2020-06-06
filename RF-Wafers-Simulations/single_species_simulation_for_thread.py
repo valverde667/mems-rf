@@ -829,10 +829,9 @@ component2 = "z"
 # plotf(axes2,component2)
 # plotf(axes3,component3)
 if warpoptions.options.loadbeam == "":  # workaround
-    wp.step(30)
+    wp.step(1)  # This is needed, so that selectedIons exists
 
 while wp.top.time < tmax and max(Z) < zEnd:
-    # wp.step(plotsteps)
     beamsave()
 
     ### Informations
