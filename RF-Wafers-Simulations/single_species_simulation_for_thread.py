@@ -69,7 +69,7 @@ warpoptions.parser.add_argument(
 
 #   Volt ratio for ESQs @ToDo Zhihao : is this correct?
 warpoptions.parser.add_argument(
-    "--volt_ratio", dest="volt_ratio", type=float, default="1.1"
+    "--volt_ratio", dest="volt_ratio", type=float, default="1.04"
 )
 
 #   enables some additional code if True
@@ -602,7 +602,7 @@ print("CONDUCT DONE")
 # conductors += ESQ_double([0.18935], [500])#8th and 9th current
 # conductors += ESQ_double([0.21462], [500])#9th and 10th current
 # conductors += ESQ_double([0.22971], [500])#10th and 11th current
-d_wafers = 2.695 * wp.mm
+d_wafers = 1.695 * wp.mm
 t_wafer = 625 * wp.um + 35 * 2 * wp.um
 esq_positions = [
     0.01975,
@@ -624,16 +624,17 @@ if not warpoptions.options.autorun:
 # creat submesh for ESQ
 meshes = []
 for esq_pos in esq_positions:
+
     solver.root.finalized = 0
     child_1 = solver.addchild(
-        mins=[wp.w3d.xmmin, wp.w3d.ymmin, esq_pos - d_wafers / 2 - t_wafer / 2,],
-        maxs=[wp.w3d.xmmax, wp.w3d.ymmax, esq_pos - d_wafers / 2 + t_wafer / 2,],
-        refinement=[1, 1, 10],
+        mins=[wp.w3d.xmmin, wp.w3d.ymmin, esq_pos - d_wafers / 2 - t_wafer * 4 / 7,],
+        maxs=[wp.w3d.xmmax, wp.w3d.ymmax, esq_pos - d_wafers / 2 + t_wafer * 4 / 7,],
+        refinement=[1, 1, 5],
     )
     child_2 = solver.addchild(
-        mins=[wp.w3d.xmmin, wp.w3d.ymmin, esq_pos + d_wafers / 2 - t_wafer / 2,],
-        maxs=[wp.w3d.xmmax, wp.w3d.ymmax, esq_pos + d_wafers / 2 + t_wafer / 2,],
-        refinement=[1, 1, 10],
+        mins=[wp.w3d.xmmin, wp.w3d.ymmin, esq_pos + d_wafers / 2 - t_wafer * 4 / 7,],
+        maxs=[wp.w3d.xmmax, wp.w3d.ymmax, esq_pos + d_wafers / 2 + t_wafer * 4 / 7,],
+        refinement=[1, 1, 5],
     )
     meshes.append(child_1)
     meshes.append(child_2)
