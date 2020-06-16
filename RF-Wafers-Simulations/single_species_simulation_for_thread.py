@@ -18,7 +18,7 @@ warpoptions.parser.add_argument(
 
 #   voltage on the RF gaps at the peak of the sinusoid
 warpoptions.parser.add_argument(
-    "--rf_voltage", dest="Vmax", type=float, default="10000"
+    "--rf_voltage", dest="Vmax", type=float, default="7000"
 )  # will be between 4000 and 10000
 
 # voltage on the Vesq
@@ -64,7 +64,7 @@ warpoptions.parser.add_argument("--path", dest="path", type=str, default="")
 
 #   divergence angle
 warpoptions.parser.add_argument(
-    "--tstep", dest="timestep", type=float, default="1e-10"
+    "--tstep", dest="timestep", type=float, default="1e-9"
 )  # 1e-11
 
 #   Volt ratio for ESQs @ToDo Zhihao : is this correct?
@@ -76,7 +76,7 @@ warpoptions.parser.add_argument(
 warpoptions.parser.add_argument("--autorun", dest="autorun", type=bool, default=False)
 
 # sets wp.steps(#)
-warpoptions.parser.add_argument("--plotsteps", dest="plotsteps", type=int, default=10)
+warpoptions.parser.add_argument("--plotsteps", dest="plotsteps", type=int, default=20)
 
 # changes simulation to a "cb-beam" simulation
 warpoptions.parser.add_argument("--cb", dest="cb_framewidth", type=float, default=0)
