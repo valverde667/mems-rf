@@ -64,7 +64,7 @@ warpoptions.parser.add_argument("--path", dest="path", type=str, default="")
 
 #   divergence angle
 warpoptions.parser.add_argument(
-    "--tstep", dest="timestep", type=float, default="1e-9"
+    "--tstep", dest="timestep", type=float, default="1e-10"
 )  # 1e-11
 
 #   Volt ratio for ESQs @ToDo Zhihao : is this correct?
@@ -153,7 +153,7 @@ ibeaminit = warpoptions.options.ibeaminit
 cgm_name = name
 step1path = "."
 # step1path = "/home/timo/Documents/LBL/Warp/CGM"
-step1path = "/home/cverdoza/Documents/LBL/WARP/berkeleylab-atap-meqalac-simulations/RF-Wafers-Simulations/test"
+# step1path = "/home/cverdoza/Documents/LBL/WARP/berkeleylab-atap-meqalac-simulations/RF-Wafers-Simulations/test"
 
 # overwrite if path is given by command
 if warpoptions.options.path != "":
@@ -218,12 +218,12 @@ def restorebeam(nb_beam=beamnumber):
 
 # --- Set basic beam parameters
 
-wp.top.a0 = emittingRadius
-wp.top.b0 = emittingRadius
-wp.top.ap0 = divergenceAngle
-wp.top.bp0 = divergenceAngle
+wp.top.ainject = emittingRadius
+wp.top.binject = emittingRadius
+wp.top.apinject = divergenceAngle
+wp.top.bpinject = divergenceAngle
 wp.top.vbeam = 0.0e0
-wp.top.emit = 9.45e-7
+# wp.top.emit = 9.45e-7
 wp.top.ibeam = ibeaminit
 wp.top.ekin = ekininit
 wp.top.zion = selectedIons.charge_state
@@ -265,11 +265,14 @@ if loadbeam == "":
     wp.w3d.zmmax = wp.w3d.zmmin + framewidth
 
     wp.top.npmax = 300  # maximal number of particles (for injection per timestep???)
-    wp.top.inject = 1  # 2 means space-charge limited injection
-    wp.top.rinject = 5000  # emitting surface curvature
     wp.top.npinject = 300  # approximate number of particles injected per step
+    wp.top.inject = 1  # 2 means space-charge limited injection
+    # wp.top.rinject = 5000  # emitting surface curvature
+
     wp.top.linj_eperp = False  # Turn on transverse E-fields near emitting surface
     wp.top.zinject = wp.w3d.zmmin
+    wp.top.xinject = 0
+    wp.top.yinject = 0
     wp.top.vinject = 1.0  # source voltage
 
 # set grid spacing, this is the number of mesh elements in one window
@@ -294,7 +297,7 @@ if wp.w3d.l2symtry or wp.w3d.l4symtry:
 # --- Select plot intervals, etc.
 # print("--- Ions start at: ", wp.top.zinject)
 
-wp.top.nhist = 5  # Save history data every N time step
+wp.top.nhist = 1  # Save history data every N time step
 wp.top.itmomnts[0:4] = [0, 1000000, wp.top.nhist, 0]  # Calculate moments every N steps
 # --- Save time histories of various quantities versus z.
 wp.top.lhpnumz = True
@@ -436,36 +439,6 @@ def rrms():
     return rrms
 
 
-# Here it is optional to overwrite the position Array, to
-# simulate the ACTUAL setup:
-calculatedPositionArray = calculateRFwaferpositions()
-# print(calculatedPositionArray)
-positionArray = [
-    [0.0036525, 0.00634749, 0.01243267, 0.01512737],
-    [0.024352, 0.027048, 0.03800207, 0.04000207],
-    [0.051852263, 0.05458263, 0.06740239, 0.07009839],  # timo testrun
-    [0.075152, 0.077852, 0.084844, 0.087544],  # commented 5_9
-    [0.095053, 0.097753, 0.105814, 0.108514],
-    [0.117173, 0.119863, 0.129031, 0.131721],
-    [0.141367, 0.144057, 0.154164, 0.156854],
-    [0.167375, 0.170065, 0.180987, 0.183677],  # for 27 MHz 8th unit
-    [0.195017, 0.197707, 0.209454, 0.212144],  # for 27 MHz 9th unit
-    [0.216870, 0.219560, 0.224479, 0.227169],  # 10th unit being initial esq
-    [0.232249, 0.234939, 0.240209, 0.242899],  # 11th unit being initial esq
-    [0.248318, 0.251008, 0.256604, 0.259294]  # 12th unit
-    #    [0.160754, 0.163444, 0.167614, 0.170304],#for 54 MHz 8th unit
-    #    [0.174629, 0.177319, 0.181848, 0.184538],#for 54 MHz 9th unit
-]
-# for 9kV
-# positionArray = [[.0036525,.0056525,0.01243279,0.01463279],
-#                  [0.0211854,0.0233854,0.03130207,0.03330207],
-#                  [0.04460842,0.0460842,0.06009143,0.062009143]
-#                        ]
-# for 7kV
-
-
-# catching it at the plates with peak voltage #april 15
-
 ### Functions for automated wafer position by batch running
 markedpositions = []
 markedpositionsenergies = []
@@ -551,6 +524,36 @@ def beamsave():
 
 
 ### Placing the Wafers
+# Here it is optional to overwrite the position Array, to
+# simulate the ACTUAL setup:
+calculatedPositionArray = calculateRFwaferpositions()
+# print(calculatedPositionArray)
+positionArray = [
+    [0.0036525, 0.00634749, 0.01243267, 0.01512737],
+    [0.024352, 0.027048, 0.03800207, 0.04000207],
+    [0.051852263, 0.05458263, 0.06740239, 0.07009839],  # timo testrun
+    [0.075152, 0.077852, 0.084844, 0.087544],  # commented 5_9
+    [0.095053, 0.097753, 0.105814, 0.108514],
+    [0.117173, 0.119863, 0.129031, 0.131721],
+    [0.141367, 0.144057, 0.154164, 0.156854],
+    [0.167375, 0.170065, 0.180987, 0.183677],  # for 27 MHz 8th unit
+    [0.195017, 0.197707, 0.209454, 0.212144],  # for 27 MHz 9th unit
+    [0.216870, 0.219560, 0.224479, 0.227169],  # 10th unit being initial esq
+    [0.232249, 0.234939, 0.240209, 0.242899],  # 11th unit being initial esq
+    [0.248318, 0.251008, 0.256604, 0.259294]  # 12th unit
+    #    [0.160754, 0.163444, 0.167614, 0.170304],#for 54 MHz 8th unit
+    #    [0.174629, 0.177319, 0.181848, 0.184538],#for 54 MHz 9th unit
+]
+# for 9kV
+# positionArray = [[.0036525,.0056525,0.01243279,0.01463279],
+#                  [0.0211854,0.0233854,0.03130207,0.03330207],
+#                  [0.04460842,0.0460842,0.06009143,0.062009143]
+#                        ]
+# for 7kV
+
+
+# catching it at the plates with peak voltage #april 15
+
 for i, pa in enumerate(positionArray):
     print(f"Unit {i} placed at {pa}")
 
@@ -590,33 +593,22 @@ rfv = gen_volt(toffset=RF_offset, frequency=14.8e6)
 conductors = RF_stack(positionArray, voltages)
 print("CONDUCT DONE")
 
-###
-
-# conductors += ESQ_double([0.0195], [500])#1st and 2nd
-# conductors += ESQ_double([0.0459], [500])#2nd and 3rd
-# conductors += ESQ_double([0.07263], [500])#3rd and 4th
-# conductors += ESQ_double([0.0913], [500])#4th and 5th
-# conductors += ESQ_double([0.1129], [500])#5th and 6th
-# conductors += ESQ_double([0.13655], [500])#6th and 7th
-# conductors += ESQ_double([0.16212], [500])#7th and 8th "5-30 "
-# conductors += ESQ_double([0.18935], [500])#8th and 9th current
-# conductors += ESQ_double([0.21462], [500])#9th and 10th current
-# conductors += ESQ_double([0.22971], [500])#10th and 11th current
+### add ESQs
 d_wafers = 1.695 * wp.mm
 t_wafer = 625 * wp.um + 35 * 2 * wp.um
 esq_positions = [
     0.01975,
     0.0459,
-    0.0913,
-    0.1129,
-    0.113655,
-    0.16212,
-    0.18935,
-    0.21462,
-    0.22971,
-    0.2451,
+    # 0.0913,
+    # 0.1129,
+    # 0.113655,
+    # 0.16212,
+    # 0.18935,
+    # 0.21462,
+    # 0.22971,
+    # 0.2451,
 ]
-voltages = [500, 500, 500, 500, 500, 500, 500, 500, 500, 500]
+voltages = [300, -800]
 volt_ratio = warpoptions.options.volt_ratio
 if not warpoptions.options.autorun:
     conductors += ESQ_double(esq_positions, voltages, volt_ratio=volt_ratio)
