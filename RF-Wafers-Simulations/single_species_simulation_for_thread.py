@@ -153,13 +153,14 @@ ibeaminit = warpoptions.options.ibeaminit
 cgm_name = name
 step1path = "."
 # step1path = "/home/timo/Documents/LBL/Warp/CGM"
-step1path = "/home/cverdoza/Documents/LBL/WARP/berkeleylab-atap-meqalac-simulations/RF-Wafers-Simulations/test"
+#step1path = "/home/cverdoza/Documents/LBL/WARP/berkeleylab-atap-meqalac-simulations/RF-Wafers-Simulations/test"
+step1path = "/home/carlos/bin/cgm"
 
 # overwrite if path is given by command
 if warpoptions.options.path != "":
     step1path = warpoptions.options.path
 
-wp.setup(prefix=f"{step1path}/{cgm_name}")  # , cgmlog= 0)
+wp.setup(prefix=f"{step1path}/{cgm_name}")# , cgmlog= 0)
 
 ### read / write functionality #ToDo: move into helper file
 basepath = warpoptions.options.path
@@ -450,11 +451,12 @@ positionArray = [
     [0.141367, 0.144057, 0.154164, 0.156854],
     [0.167375, 0.170065, 0.180987, 0.183677],  # for 27 MHz 8th unit
     [0.195017, 0.197707, 0.209454, 0.212144],  # for 27 MHz 9th unit
-    [0.216870, 0.219560, 0.224479, 0.227169],  # 10th unit being initial esq
-    [0.232249, 0.234939, 0.240209, 0.242899],  # 11th unit being initial esq
-    [0.248318, 0.251008, 0.256604, 0.259294]  # 12th unit
-    #    [0.160754, 0.163444, 0.167614, 0.170304],#for 54 MHz 8th unit
-    #    [0.174629, 0.177319, 0.181848, 0.184538],#for 54 MHz 9th unit
+    [0.226921, 0.229611, 0.242085, 0.244775],#10th 27Mhz
+    [0.257573, 0.260263, 0.27343, 0.27612], #11th unit 27Mhz
+    [0.289546, 0.292236, 0.306017, 0.308707],#12th unit 27 Mhz
+    [0.3215, 0.32419, 0.3381, 0.34079],#13th unit optimization try 3[0
+    [0.355475, 0.358165, 0.37318, 0.37587],#for 27 Mhz 14th
+    [0.382195, 0.384885, 0.391369, 0.394051]#15th unit 54 MHz
 ]
 # for 9kV
 # positionArray = [[.0036525,.0056525,0.01243279,0.01463279],
@@ -565,21 +567,14 @@ voltages = [
     gen_volt(toffset=RF_offset, frequency=27e6),
     gen_volt(toffset=RF_offset, frequency=27e6),
     gen_volt(toffset=RF_offset, frequency=27e6),
-    gen_volt(
-        toffset=RF_offset, frequency=27e6
-    ),  # last updated 5/1 #commented#changed to 54 without offset 5_29
-    gen_volt(
-        toffset=RF_offset, frequency=27e6
-    ),  # last updated 5/1 #commented#changed to 27 without offset 5_30
-    gen_volt(toffset=RF_offset + 9.25e-9, frequency=54e6),
-    gen_volt(toffset=RF_offset + 9.25e-9, frequency=54e6),
-    gen_volt(toffset=RF_offset + 9.25e-9, frequency=54e6),
-    # gen_volt(toffset=RF_offset +  + 9.25e-9, frequency=27e6),
-    # gen_volt(toffset=RF_offset +  + 9.25e-9, frequency=27e6),
-    # gen_volt(toffset=RF_offset +  + 9.25e-9, frequency=27e6),
-    # gen_volt(toffset=RF_offset +  + 9.25e-9, frequency=27e6),
-    # gen_volt(toffset=RF_offset +  + 9.25e-9, frequency=27e6),
-    # gen_volt(toffset=RF_offset +  + 9.25e-9, frequency=27e6),
+    gen_volt(toffset=RF_offset, frequency=27e6),  # last updated 5/1 #commented#changed to 54 without offset 5_29
+    gen_volt(toffset=RF_offset, frequency=27e6),  # last updated 5/1 #commented#changed to 27 without offset 5_30
+    gen_volt(toffset=RF_offset, frequency=27e6),
+    gen_volt(toffset=RF_offset, frequency=27e6),#11th unit 27Mhz
+    gen_volt(toffset=RF_offset, frequency=27e6),#12th unit 27MHz0
+    gen_volt(toffset=RF_offset, frequency=27e6),#13th unit 27Mhz
+    gen_volt(toffset=RF_offset, frequency=27e6), #27Mhz 14
+    gen_volt(toffset=RF_offset + 9.2586e-9, frequency=54e6),#15 unit 
 ]
 # add actual stack
 conductors = RF_stack(positionArray, voltages)
@@ -592,31 +587,25 @@ print("CONDUCT DONE")
 
 ###
 
-# conductors += ESQ_double([0.0195], [500])#1st and 2nd
-# conductors += ESQ_double([0.0459], [500])#2nd and 3rd
-# conductors += ESQ_double([0.07263], [500])#3rd and 4th
-# conductors += ESQ_double([0.0913], [500])#4th and 5th
-# conductors += ESQ_double([0.1129], [500])#5th and 6th
-# conductors += ESQ_double([0.13655], [500])#6th and 7th
-# conductors += ESQ_double([0.16212], [500])#7th and 8th "5-30 "
-# conductors += ESQ_double([0.18935], [500])#8th and 9th current
-# conductors += ESQ_double([0.21462], [500])#9th and 10th current
-# conductors += ESQ_double([0.22971], [500])#10th and 11th current
 d_wafers = 2.695 * wp.mm
 t_wafer = 625 * wp.um + 35 * 2 * wp.um
 esq_positions = [
     0.01975,
     0.0459,
+    #0.07263,#gap in between third and 4th
     0.0913,
     0.1129,
     0.113655,
     0.16212,
     0.18935,
-    0.21462,
-    0.22971,
-    0.2451,
+    0.219534,
+    0.251174,# 11th unit 27 MHz
+    0.282833,#12th unit 27Mz
+    0.315104, #13th unit 27 Mhz 
+    0.348133, #14th unit 27 Mhz
+    0.379033, #awaiting 15th unit gap ESQ
 ]
-voltages = [500, 500, 500, 500, 500, 500, 500, 500, 500, 500]
+voltages = [100, -200, 300, 400, 500, 500, 500, 500, 500, 500, 500, 500, 500]
 volt_ratio = warpoptions.options.volt_ratio
 if not warpoptions.options.autorun:
     conductors += ESQ_double(esq_positions, voltages, volt_ratio=volt_ratio)
