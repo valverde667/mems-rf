@@ -64,7 +64,7 @@ warpoptions.parser.add_argument("--path", dest="path", type=str, default="")
 
 #   divergence angle
 warpoptions.parser.add_argument(
-    "--tstep", dest="timestep", type=float, default="1e-9"
+    "--tstep", dest="timestep", type=float, default="1e-10"
 )  # 1e-11
 
 #   Volt ratio for ESQs @ToDo Zhihao : is this correct?
@@ -153,18 +153,14 @@ ibeaminit = warpoptions.options.ibeaminit
 cgm_name = name
 step1path = "."
 # step1path = "/home/timo/Documents/LBL/Warp/CGM"
-<<<<<<< HEAD
-#step1path = "/home/cverdoza/Documents/LBL/WARP/berkeleylab-atap-meqalac-simulations/RF-Wafers-Simulations/test"
-step1path = "/home/carlos/bin/cgm"
-=======
 # step1path = "/home/cverdoza/Documents/LBL/WARP/berkeleylab-atap-meqalac-simulations/RF-Wafers-Simulations/test"
->>>>>>> 7fab2a13b85d710e832480d47b8ad009fcb8e431
+step1path = "/home/carlos/bin/cgm"
 
 # overwrite if path is given by command
 if warpoptions.options.path != "":
     step1path = warpoptions.options.path
 
-wp.setup(prefix=f"{step1path}/{cgm_name}")# , cgmlog= 0)
+wp.setup(prefix=f"{step1path}/{cgm_name}")  # , cgmlog= 0)
 
 ### read / write functionality #ToDo: move into helper file
 basepath = warpoptions.options.path
@@ -223,10 +219,6 @@ def restorebeam(nb_beam=beamnumber):
 
 # --- Set basic beam parameters
 
-wp.top.ainject = emittingRadius
-wp.top.binject = emittingRadius
-wp.top.apinject = divergenceAngle
-wp.top.bpinject = divergenceAngle
 wp.top.vbeam = 0.0e0
 # wp.top.emit = 9.45e-7
 wp.top.ibeam = ibeaminit
@@ -269,16 +261,21 @@ if loadbeam == "":
     wp.w3d.zmmin = 0.0
     wp.w3d.zmmax = wp.w3d.zmmin + framewidth
 
-    wp.top.npmax = 300  # maximal number of particles (for injection per timestep???)
-    wp.top.npinject = 300  # approximate number of particles injected per step
+    wp.top.npmax = 800  # maximal number of particles (for injection per timestep???)
     wp.top.inject = 1  # 2 means space-charge limited injection
-    # wp.top.rinject = 5000  # emitting surface curvature
+    wp.top.npinject = 200  # approximate number of particles injected per step
 
+    wp.top.ainject = emittingRadius
+    wp.top.binject = emittingRadius
+    wp.top.apinject = divergenceAngle
+    wp.top.bpinject = divergenceAngle
+    # wp.top.rinject = 5000  # emitting surface curvature
     wp.top.linj_eperp = False  # Turn on transverse E-fields near emitting surface
-    wp.top.zinject = wp.w3d.zmmin
+    wp.top.vinject = 1.0  # source voltage
+
     wp.top.xinject = 0
     wp.top.yinject = 0
-    wp.top.vinject = 1.0  # source voltage
+    wp.top.zinject = wp.w3d.zmmin
 
 # set grid spacing, this is the number of mesh elements in one window
 wp.w3d.nx = 30  # 60.
@@ -444,7 +441,6 @@ def rrms():
     return rrms
 
 
-<<<<<<< HEAD
 # Here it is optional to overwrite the position Array, to
 # simulate the ACTUAL setup:
 calculatedPositionArray = calculateRFwaferpositions()
@@ -459,12 +455,12 @@ positionArray = [
     [0.141367, 0.144057, 0.154164, 0.156854],
     [0.167375, 0.170065, 0.180987, 0.183677],  # for 27 MHz 8th unit
     [0.195017, 0.197707, 0.209454, 0.212144],  # for 27 MHz 9th unit
-    [0.226921, 0.229611, 0.242085, 0.244775],#10th 27Mhz
-    [0.257573, 0.260263, 0.27343, 0.27612], #11th unit 27Mhz
-    [0.289546, 0.292236, 0.306017, 0.308707],#12th unit 27 Mhz
-    [0.3215, 0.32419, 0.3381, 0.34079],#13th unit optimization try 3[0
-    [0.355475, 0.358165, 0.37318, 0.37587],#for 27 Mhz 14th
-    [0.382195, 0.384885, 0.391369, 0.394051]#15th unit 54 MHz
+    [0.226921, 0.229611, 0.242085, 0.244775],  # 10th 27Mhz
+    [0.257573, 0.260263, 0.27343, 0.27612],  # 11th unit 27Mhz
+    [0.289546, 0.292236, 0.306017, 0.308707],  # 12th unit 27 Mhz
+    [0.3215, 0.32419, 0.3381, 0.34079],  # 13th unit optimization try 3[0
+    [0.355475, 0.358165, 0.37318, 0.37587],  # for 27 Mhz 14th
+    [0.382195, 0.384885, 0.391369, 0.394051],  # 15th unit 54 MHz
 ]
 # for 9kV
 # positionArray = [[.0036525,.0056525,0.01243279,0.01463279],
@@ -476,8 +472,6 @@ positionArray = [
 
 # catching it at the plates with peak voltage #april 15
 
-=======
->>>>>>> 7fab2a13b85d710e832480d47b8ad009fcb8e431
 ### Functions for automated wafer position by batch running
 markedpositions = []
 markedpositionsenergies = []
@@ -607,14 +601,18 @@ voltages = [
     gen_volt(toffset=RF_offset, frequency=27e6),
     gen_volt(toffset=RF_offset, frequency=27e6),
     gen_volt(toffset=RF_offset, frequency=27e6),
-    gen_volt(toffset=RF_offset, frequency=27e6),  # last updated 5/1 #commented#changed to 54 without offset 5_29
-    gen_volt(toffset=RF_offset, frequency=27e6),  # last updated 5/1 #commented#changed to 27 without offset 5_30
+    gen_volt(
+        toffset=RF_offset, frequency=27e6
+    ),  # last updated 5/1 #commented#changed to 54 without offset 5_29
+    gen_volt(
+        toffset=RF_offset, frequency=27e6
+    ),  # last updated 5/1 #commented#changed to 27 without offset 5_30
     gen_volt(toffset=RF_offset, frequency=27e6),
-    gen_volt(toffset=RF_offset, frequency=27e6),#11th unit 27Mhz
-    gen_volt(toffset=RF_offset, frequency=27e6),#12th unit 27MHz0
-    gen_volt(toffset=RF_offset, frequency=27e6),#13th unit 27Mhz
-    gen_volt(toffset=RF_offset, frequency=27e6), #27Mhz 14
-    gen_volt(toffset=RF_offset + 9.2586e-9, frequency=54e6),#15 unit 
+    gen_volt(toffset=RF_offset, frequency=27e6),  # 11th unit 27Mhz
+    gen_volt(toffset=RF_offset, frequency=27e6),  # 12th unit 27MHz0
+    gen_volt(toffset=RF_offset, frequency=27e6),  # 13th unit 27Mhz
+    gen_volt(toffset=RF_offset, frequency=27e6),  # 27Mhz 14
+    gen_volt(toffset=RF_offset + 9.2586e-9, frequency=54e6),  # 15 unit
 ]
 # add actual stack
 conductors = RF_stack(positionArray, voltages)
@@ -625,46 +623,28 @@ rfv = gen_volt(toffset=RF_offset, frequency=14.8e6)
 conductors = RF_stack(positionArray, voltages)
 print("CONDUCT DONE")
 
-<<<<<<< HEAD
 ###
 
 d_wafers = 2.695 * wp.mm
-=======
-### add ESQs
-d_wafers = 1.695 * wp.mm
->>>>>>> 7fab2a13b85d710e832480d47b8ad009fcb8e431
 t_wafer = 625 * wp.um + 35 * 2 * wp.um
 esq_positions = [
     0.01975,
     0.0459,
-<<<<<<< HEAD
-    #0.07263,#gap in between third and 4th
-    0.0913,
-    0.1129,
-    0.113655,
-    0.16212,
-    0.18935,
-    0.219534,
-    0.251174,# 11th unit 27 MHz
-    0.282833,#12th unit 27Mz
-    0.315104, #13th unit 27 Mhz 
-    0.348133, #14th unit 27 Mhz
-    0.379033, #awaiting 15th unit gap ESQ
-]
-voltages = [100, -200, 300, 400, 500, 500, 500, 500, 500, 500, 500, 500, 500]
-=======
-    # 0.0913,
-    # 0.1129,
-    # 0.113655,
+    # 0.07263,#gap in between third and 4th
+    0.0912985,
+    0.11285,
+    0.136544,
     # 0.16212,
     # 0.18935,
-    # 0.21462,
-    # 0.22971,
-    # 0.2451,
+    # 0.219534,
+    # 0.251174,  # 11th unit 27 MHz
+    # 0.282833,  # 12th unit 27Mz
+    # 0.315104,  # 13th unit 27 Mhz
+    # 0.348133,  # 14th unit 27 Mhz
+    # 0.379033,  # awaiting 15th unit gap ESQ
 ]
-voltages = [300, -800]
->>>>>>> 7fab2a13b85d710e832480d47b8ad009fcb8e431
-volt_ratio = warpoptions.options.volt_ratio
+voltages = [100, -200, 400, -500, 500, 500, 500, 500, 500, 500, 500, 500]
+volt_ratio = [1.04, 1.05, 1, 1, 1.02]
 if not warpoptions.options.autorun:
     conductors += ESQ_double(esq_positions, voltages, volt_ratio=volt_ratio)
 
@@ -1069,6 +1049,11 @@ wp.hpxrms(color=wp.red, titles=0)
 wp.hpyrms(color=wp.blue, titles=0)
 wp.hprrms(color=wp.green, titles=0)
 wp.ptitles("X(red), Y(blue), R(green)", "Time [s]", "X/Y/R [m]", "")
+wp.fma()
+### Frame, rms envelope plot
+wp.pzenvx(color=wp.red, titles=0)
+wp.pzenvy(color=wp.blue, titles=0)
+wp.ptitles("X(red), Y(blue)", "Z [m]", "X/Y [m]", "")
 wp.fma()
 ### Frame, vx and vy plot
 wp.hpvxbar(color=wp.red, titles=0)

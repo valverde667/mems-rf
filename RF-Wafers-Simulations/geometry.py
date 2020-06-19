@@ -6,7 +6,7 @@ wafer_thickness = 625 * wp.um
 copper_thickness = 35 * wp.um
 
 
-def ESQ_double(centerpositions, voltages, volt_ratio=1.1, d_wafers=2.695 * wp.mm):
+def ESQ_double(centerpositions, voltages, volt_ratio, d_wafers=2.695 * wp.mm):
     """
     ESQ double, new implementation, April 2020
     timobauer@lbl.com
@@ -102,7 +102,7 @@ def ESQ_double(centerpositions, voltages, volt_ratio=1.1, d_wafers=2.695 * wp.mm
             f"\n {centerpositions[i] + esqoffcenter}"
         )
         esqs += ESQ(centerpositions[i] - esqoffcenter, -1, voltages[i]) + ESQ(
-            centerpositions[i] + esqoffcenter, +1, voltages[i] * volt_ratio
+            centerpositions[i] + esqoffcenter, +1, voltages[i] * volt_ratio[i]
         )
     return esqs
 
