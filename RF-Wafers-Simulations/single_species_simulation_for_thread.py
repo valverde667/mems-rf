@@ -454,13 +454,13 @@ positionArray = [
     [0.117173, 0.119863, 0.129031, 0.131721],
     [0.141367, 0.144057, 0.154164, 0.156854],
     [0.167375, 0.170065, 0.180987, 0.183677],  # for 27 MHz 8th unit
-    [0.195017, 0.197707, 0.209454, 0.212144],  # for 27 MHz 9th unit
-    [0.226921, 0.229611, 0.242085, 0.244775],  # 10th 27Mhz
-    [0.257573, 0.260263, 0.27343, 0.27612],  # 11th unit 27Mhz
-    [0.289546, 0.292236, 0.306017, 0.308707],  # 12th unit 27 Mhz
-    [0.3215, 0.32419, 0.3381, 0.34079],  # 13th unit optimization try 3[0
-    [0.355475, 0.358165, 0.37318, 0.37587],  # for 27 Mhz 14th
-    [0.382195, 0.384885, 0.391369, 0.394051],  # 15th unit 54 MHz
+   # [0.195017, 0.197707, 0.209454, 0.212144],  # for 27 MHz 9th unit
+   # [0.226921, 0.229611, 0.242085, 0.244775],  # 10th 27Mhz
+    #[0.257573, 0.260263, 0.27343, 0.27612],  # 11th unit 27Mhz
+    #[0.289546, 0.292236, 0.306017, 0.308707],  # 12th unit 27 Mhz
+    #[0.3215, 0.32419, 0.3381, 0.34079],  # 13th unit optimization try 3[0
+    #[0.355475, 0.358165, 0.37318, 0.37587],  # for 27 Mhz 14th
+   # [0.382195, 0.384885, 0.391369, 0.394051],  # 15th unit 54 MHz
 ]
 # for 9kV
 # positionArray = [[.0036525,.0056525,0.01243279,0.01463279],
@@ -555,38 +555,6 @@ def beamsave():
             storedbeams.append(sb)
             writejson("storedbeams", storedbeams)
 
-
-### Placing the Wafers
-# Here it is optional to overwrite the position Array, to
-# simulate the ACTUAL setup:
-calculatedPositionArray = calculateRFwaferpositions()
-# print(calculatedPositionArray)
-positionArray = [
-    [0.0036525, 0.00634749, 0.01243267, 0.01512737],
-    [0.024352, 0.027048, 0.03800207, 0.04000207],
-    [0.051852263, 0.05458263, 0.06740239, 0.07009839],  # timo testrun
-    [0.075152, 0.077852, 0.084844, 0.087544],  # commented 5_9
-    [0.095053, 0.097753, 0.105814, 0.108514],
-    [0.117173, 0.119863, 0.129031, 0.131721],
-    [0.141367, 0.144057, 0.154164, 0.156854],
-    [0.167375, 0.170065, 0.180987, 0.183677],  # for 27 MHz 8th unit
-    [0.195017, 0.197707, 0.209454, 0.212144],  # for 27 MHz 9th unit
-    [0.216870, 0.219560, 0.224479, 0.227169],  # 10th unit being initial esq
-    [0.232249, 0.234939, 0.240209, 0.242899],  # 11th unit being initial esq
-    [0.248318, 0.251008, 0.256604, 0.259294]  # 12th unit
-    #    [0.160754, 0.163444, 0.167614, 0.170304],#for 54 MHz 8th unit
-    #    [0.174629, 0.177319, 0.181848, 0.184538],#for 54 MHz 9th unit
-]
-# for 9kV
-# positionArray = [[.0036525,.0056525,0.01243279,0.01463279],
-#                  [0.0211854,0.0233854,0.03130207,0.03330207],
-#                  [0.04460842,0.0460842,0.06009143,0.062009143]
-#                        ]
-# for 7kV
-
-
-# catching it at the plates with peak voltage #april 15
-
 for i, pa in enumerate(positionArray):
     print(f"Unit {i} placed at {pa}")
 
@@ -604,37 +572,36 @@ voltages = [
     gen_volt(
         toffset=RF_offset, frequency=27e6
     ),  # last updated 5/1 #commented#changed to 54 without offset 5_29
-    gen_volt(
-        toffset=RF_offset, frequency=27e6
-    ),  # last updated 5/1 #commented#changed to 27 without offset 5_30
-    gen_volt(toffset=RF_offset, frequency=27e6),
-    gen_volt(toffset=RF_offset, frequency=27e6),  # 11th unit 27Mhz
-    gen_volt(toffset=RF_offset, frequency=27e6),  # 12th unit 27MHz0
-    gen_volt(toffset=RF_offset, frequency=27e6),  # 13th unit 27Mhz
-    gen_volt(toffset=RF_offset, frequency=27e6),  # 27Mhz 14
-    gen_volt(toffset=RF_offset + 9.2586e-9, frequency=54e6),  # 15 unit
+   # gen_volt(
+   #     toffset=RF_offset, frequency=27e6
+   # ),  # last updated 5/1 #commented#changed to 27 without offset 5_30
+   # gen_volt(toffset=RF_offset, frequency=27e6),
+   # gen_volt(toffset=RF_offset, frequency=27e6),  # 11th unit 27Mhz
+   # gen_volt(toffset=RF_offset, frequency=27e6),  # 12th unit 27MHz0
+   # gen_volt(toffset=RF_offset, frequency=27e6),  # 13th unit 27Mhz
+   # gen_volt(toffset=RF_offset, frequency=27e6),  # 27Mhz 14
+   # gen_volt(toffset=RF_offset + 9.2586e-9, frequency=54e6),  # 15 unit
 ]
 # add actual stack
 conductors = RF_stack(positionArray, voltages)
 
 print("CONDUCT DONE")
 rfv = gen_volt(toffset=RF_offset, frequency=14.8e6)
-# add actual stack
+###add ctual stack
 conductors = RF_stack(positionArray, voltages)
 print("CONDUCT DONE")
 
-###
-
+#add esqs
 d_wafers = 2.695 * wp.mm
 t_wafer = 625 * wp.um + 35 * 2 * wp.um
 esq_positions = [
-    0.01975,
-    0.0459,
-    # 0.07263,#gap in between third and 4th
-    0.0912985,
-    0.11285,
-    0.136544,
-    # 0.16212,
+     0.01975,
+     0.0459,
+     # 0.07263,#gap in between third and 4th
+     0.0912985,
+     0.11285,
+     0.136544,
+     0.16212,
     # 0.18935,
     # 0.219534,
     # 0.251174,  # 11th unit 27 MHz
@@ -643,8 +610,8 @@ esq_positions = [
     # 0.348133,  # 14th unit 27 Mhz
     # 0.379033,  # awaiting 15th unit gap ESQ
 ]
-voltages = [100, -200, 400, -500, 500, 500, 500, 500, 500, 500, 500, 500]
-volt_ratio = [1.04, 1.05, 1, 1, 1.02]
+voltages = [100, -200, 400, -500, 500, 500]# 500, 500, 500, 500, 500, 500, 500]
+volt_ratio = [1.04, 1.05, 1, 1, 1.02, 1,]# 1, 1, 1, 1, 1, 1, 1]
 if not warpoptions.options.autorun:
     conductors += ESQ_doublet(esq_positions, voltages, volt_ratio=volt_ratio)
 
