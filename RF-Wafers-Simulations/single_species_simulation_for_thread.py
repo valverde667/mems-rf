@@ -104,7 +104,7 @@ warpoptions.parser.add_argument("--beamnumber", dest="beamnumber", type=int, def
 import warp as wp
 import numpy as np
 import geometry
-from geometry import RF_stack, ESQ_double
+from geometry import RF_stack, ESQ_doublet
 import time
 import json
 import os
@@ -646,7 +646,7 @@ esq_positions = [
 voltages = [100, -200, 400, -500, 500, 500, 500, 500, 500, 500, 500, 500]
 volt_ratio = [1.04, 1.05, 1, 1, 1.02]
 if not warpoptions.options.autorun:
-    conductors += ESQ_double(esq_positions, voltages, volt_ratio=volt_ratio)
+    conductors += ESQ_doublet(esq_positions, voltages, volt_ratio=volt_ratio)
 
 # creat submesh for ESQ
 meshes = []
