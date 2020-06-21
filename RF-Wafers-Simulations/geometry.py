@@ -6,25 +6,9 @@ wafer_thickness = 625 * wp.um
 copper_thickness = 35 * wp.um
 
 
-def ESQ_double(centerpositions, voltages, volt_ratio, d_wafers=2.695 * wp.mm):
+####
+def ESQ(position, invertPolarity, voltage):
     """
-    ESQ double, new implementation, April 2020
-    timobauer@lbl.com
-    :param position: position of the center of the 2 wafers
-    :param voltage: applied against ground, wafers are
-                    on +/- voltage
-    :param d_wafers: distance between the wafers center
-    :return: an ESQ double
-    """
-    # Dimensions:
-    d_beamhole = 1 * wp.mm
-    wafer_thickness = 625 * wp.um
-    copper_thickness = 35 * wp.um
-    d_out_copper = 2 * wp.mm
-    quater_gap = 0.25 * wp.mm  # EXPLAIN
-
-    def ESQ(position, invertPolarity, voltage):
-        """
         One ESQ wafer
         :param position: of the center of a single ESQ wafer
         :param invertPolarity: inverts polarity,
@@ -32,67 +16,101 @@ def ESQ_double(centerpositions, voltages, volt_ratio, d_wafers=2.695 * wp.mm):
         :return: a single ESQ wafer
         """
 
-        # A this is an Annulus with the
-        # dimensions of the PCB for subtraction later.
-        pcb = wp.ZAnnulus(
-            rmin=d_beamhole / 2 + copper_thickness,
-            rmax=10 * wp.mm,
-            zcent=position,
-            length=wafer_thickness,
-        )
+    # Dimensions:
+    d_beamhole = 1 * wp.mm
+    wafer_thickness = 625 * wp.um
+    copper_thickness = 35 * wp.um
+    d_out_copper = 2 * wp.mm
+    quater_gap = 0.25 * wp.mm  # EXPLAIN
 
-        def quarter(
-            orientation,
-            qvolt=voltage,
-            rmin=d_beamhole,
-            rmax=d_out_copper,
-            zLength=wafer_thickness + 2 * copper_thickness,
-            gap=250 * wp.um,
-        ):
-            """
+    # A this is an Annulus with the
+    # dimensions of the PCB for subtraction later.
+    pcb = wp.ZAnnulus(
+        rmin=d_beamhole / 2 + copper_thickness,
+        rmax=10 * wp.mm,
+        zcent=position,
+        length=wafer_thickness,
+    )
+
+    def quarter(
+        orientation,
+        qvolt=voltage,
+        rmin=d_beamhole,
+        rmax=d_out_copper,
+        zLength=wafer_thickness + 2 * copper_thickness,
+        gap=250 * wp.um,
+    ):
+        """
             orientation:
                3
                y
             0  o x 2
                1
             """
-            zsigns = [[1, 1], [1, -1], [-1, -1], [-1, 1]]
-            rot = 2 * wp.pi / 8
-            annulus = wp.ZAnnulus(
-                rmin=d_beamhole / 2,
-                rmax=d_out_copper / 2,
-                length=wafer_thickness + 2 * copper_thickness,
-                voltage=qvolt,
-                zcent=position,
-            )
-            planeA = wp.Plane(
-                z0=gap,
-                zsign=zsigns[orientation][0],
-                theta=2 * wp.pi / 4,
-                # z-x this stays fixed
-                phi=(3 + 2 * orientation) * rot,  # z-y
-                voltage=qvolt,
-                zcent=0,
-            )
-            planeB = wp.Plane(
-                z0=gap,
-                zsign=zsigns[orientation][1],
-                theta=2 * wp.pi / 4,
-                # z-x this stays fixed
-                phi=(5 + 2 * orientation) * rot,  # z-y
-                voltage=qvolt,
-                zcent=0,
-            )
-            return annulus - planeA - planeB
-
-        signedV = invertPolarity * voltage
-        return (
-            quarter(0, signedV)
-            + quarter(1, -signedV)
-            + quarter(2, signedV)
-            + quarter(3, -signedV)
-            - pcb
+        zsigns = [[1, 1], [1, -1], [-1, -1], [-1, 1]]
+        rot = 2 * wp.pi / 8
+        annulus = wp.ZAnnulus(
+            rmin=d_beamhole / 2,
+            rmax=d_out_copper / 2,
+            length=wafer_thickness + 2 * copper_thickness,
+            voltage=qvolt,
+            zcent=position,
         )
+        planeA = wp.Plane(
+            z0=gap,
+            zsign=zsigns[orientation][0],
+            theta=2 * wp.pi / 4,
+            # z-x this stays fixed
+            phi=(3 + 2 * orientation) * rot,  # z-y
+            voltage=qvolt,
+            zcent=0,
+        )
+        planeB = wp.Plane(
+            z0=gap,
+            zsign=zsigns[orientation][1],
+            theta=2 * wp.pi / 4,
+            # z-x this stays fixed
+            phi=(5 + 2 * orientation) * rot,  # z-y
+            voltage=qvolt,
+            zcent=0,
+        )
+        return annulus - planeA - planeB
+
+    signedV = invertPolarity * voltage
+    return (
+        quarter(0, signedV)
+        + quarter(1, -signedV)
+        + quarter(2, signedV)
+        + quarter(3, -signedV)
+        - pcb
+    )
+
+
+def doublESQ(centerpositions, voltages):
+
+    esqs = None
+    for i in range(len(centerpositions)):
+        esqoffcenter = (wafer_thickness + copper_thickness) / 2
+        print(
+            f"ESQ POS at: \n {centerpositions[i] - esqoffcenter}"
+            f"\n {centerpositions[i] + esqoffcenter}"
+        )
+        esqs += ESQ(centerpositions[i] - esqoffcenter, -1, voltages[i]) + ESQ(
+            centerpositions[i] + esqoffcenter, -1, voltages[i]
+        )
+    return esqs
+
+
+def ESQ_doublet(centerpositions, voltages, volt_ratio, d_wafers=2.695 * wp.mm):
+    """
+    ESQ doublet, new implementation, April 2020
+    timobauer@lbl.com
+    :param position: position of the center of the 2 wafers
+    :param voltage: applied against ground, wafers are
+                    on +/- voltage
+    :param d_wafers: gap between the wafers (width of washers)
+    :return: an ESQ double
+    """
 
     esqs = None
     for i in range(len(centerpositions)):
