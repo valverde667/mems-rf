@@ -1,4 +1,5 @@
 import warpoptions
+import os
 
 #   only specify the parameters you want to change from their default values
 #   the input will look like:
@@ -151,10 +152,7 @@ ibeaminit = warpoptions.options.ibeaminit
 
 # --- where to store the outputfiles
 cgm_name = name
-step1path = "."
-# step1path = "/home/timo/Documents/LBL/Warp/CGM"
-# step1path = "/home/cverdoza/Documents/LBL/WARP/berkeleylab-atap-meqalac-simulations/RF-Wafers-Simulations/test"
-step1path = "/home/carlos/bin/cgm"
+step1path = os.getcwd()
 
 # overwrite if path is given by command
 if warpoptions.options.path != "":
@@ -243,14 +241,12 @@ wp.w3d.boundxy = wp.neumann
 # ---   for particles
 wp.top.pbound0 = wp.absorb
 wp.top.pboundnz = wp.absorb
-wp.top.prwall = (
-    1 * wp.mm
-)  # prwall slightly bigger than aperture radius so ions can get absorbed by conductors
+wp.top.prwall = (1 * wp.mm)
 
 # --- Set field grid size, this is the width of the window
 wp.w3d.xmmin = -3 / 2 * wp.mm
 wp.w3d.xmmax = 3 / 2 * wp.mm
-wp.w3d.ymmin = -3 / 2 * wp.mm  #
+wp.w3d.ymmin = -3 / 2 * wp.mm
 wp.w3d.ymmax = 3 / 2 * wp.mm
 framewidth = 23 * wp.mm
 
@@ -277,6 +273,7 @@ if loadbeam == "":
     wp.top.yinject = 0
     wp.top.zinject = wp.w3d.zmmin
 
+raise Exception()
 # set grid spacing, this is the number of mesh elements in one window
 wp.w3d.nx = 30  # 60.
 wp.w3d.ny = 30  # 60.
@@ -1185,7 +1182,7 @@ wp.plg(conductors.get_energy_histogram)
 wp.fma()
 
 wp.plg(conductors.plot_energy_histogram)
-wp.fma() 
+wp.fma()
 
 wp.plg(conductors.get_current_history)
 wp.fma()
