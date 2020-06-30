@@ -18,7 +18,7 @@ warpoptions.parser.add_argument(
 
 #   voltage on the RF gaps at the peak of the sinusoid
 warpoptions.parser.add_argument(
-    "--rf_voltage", dest="Vmax", type=float, default="10000"
+    "--rf_voltage", dest="Vmax", type=float, default="7000"
 )  # will be between 4000 and 10000
 
 # voltage on the Vesq
@@ -64,19 +64,19 @@ warpoptions.parser.add_argument("--path", dest="path", type=str, default="")
 
 #   divergence angle
 warpoptions.parser.add_argument(
-    "--tstep", dest="timestep", type=float, default="1e-9"
+    "--tstep", dest="timestep", type=float, default="1e-10"
 )  # 1e-11
 
 #   Volt ratio for ESQs @ToDo Zhihao : is this correct?
 warpoptions.parser.add_argument(
-    "--volt_ratio", dest="volt_ratio", type=float, default="1.1"
+    "--volt_ratio", dest="volt_ratio", type=float, default="1.04"
 )
 
 #   enables some additional code if True
 warpoptions.parser.add_argument("--autorun", dest="autorun", type=bool, default=False)
 
 # sets wp.steps(#)
-warpoptions.parser.add_argument("--plotsteps", dest="plotsteps", type=int, default=10)
+warpoptions.parser.add_argument("--plotsteps", dest="plotsteps", type=int, default=20)
 
 # changes simulation to a "cb-beam" simulation
 warpoptions.parser.add_argument("--cb", dest="cb_framewidth", type=float, default=0)
@@ -104,7 +104,7 @@ warpoptions.parser.add_argument("--beamnumber", dest="beamnumber", type=int, def
 import warp as wp
 import numpy as np
 import geometry
-from geometry import RF_stack, ESQ_double
+from geometry import RF_stack, ESQ_doublet
 import time
 import json
 import os
@@ -153,7 +153,8 @@ ibeaminit = warpoptions.options.ibeaminit
 cgm_name = name
 step1path = "."
 # step1path = "/home/timo/Documents/LBL/Warp/CGM"
-step1path = "/home/cverdoza/Documents/LBL/WARP/berkeleylab-atap-meqalac-simulations/RF-Wafers-Simulations/test"
+# step1path = "/home/cverdoza/Documents/LBL/WARP/berkeleylab-atap-meqalac-simulations/RF-Wafers-Simulations/test"
+step1path = "/home/carlos/bin/cgm"
 
 # overwrite if path is given by command
 if warpoptions.options.path != "":
@@ -218,12 +219,8 @@ def restorebeam(nb_beam=beamnumber):
 
 # --- Set basic beam parameters
 
-wp.top.a0 = emittingRadius
-wp.top.b0 = emittingRadius
-wp.top.ap0 = divergenceAngle
-wp.top.bp0 = divergenceAngle
 wp.top.vbeam = 0.0e0
-wp.top.emit = 9.45e-7
+# wp.top.emit = 9.45e-7
 wp.top.ibeam = ibeaminit
 wp.top.ekin = ekininit
 wp.top.zion = selectedIons.charge_state
@@ -264,13 +261,21 @@ if loadbeam == "":
     wp.w3d.zmmin = 0.0
     wp.w3d.zmmax = wp.w3d.zmmin + framewidth
 
-    wp.top.npmax = 300  # maximal number of particles (for injection per timestep???)
+    wp.top.npmax = 800  # maximal number of particles (for injection per timestep???)
     wp.top.inject = 1  # 2 means space-charge limited injection
-    wp.top.rinject = 5000  # emitting surface curvature
-    wp.top.npinject = 300  # approximate number of particles injected per step
+    wp.top.npinject = 200  # approximate number of particles injected per step
+
+    wp.top.ainject = emittingRadius
+    wp.top.binject = emittingRadius
+    wp.top.apinject = divergenceAngle
+    wp.top.bpinject = divergenceAngle
+    # wp.top.rinject = 5000  # emitting surface curvature
     wp.top.linj_eperp = False  # Turn on transverse E-fields near emitting surface
-    wp.top.zinject = wp.w3d.zmmin
     wp.top.vinject = 1.0  # source voltage
+
+    wp.top.xinject = 0
+    wp.top.yinject = 0
+    wp.top.zinject = wp.w3d.zmmin
 
 # set grid spacing, this is the number of mesh elements in one window
 wp.w3d.nx = 30  # 60.
@@ -294,7 +299,7 @@ if wp.w3d.l2symtry or wp.w3d.l4symtry:
 # --- Select plot intervals, etc.
 # print("--- Ions start at: ", wp.top.zinject)
 
-wp.top.nhist = 5  # Save history data every N time step
+wp.top.nhist = 1  # Save history data every N time step
 wp.top.itmomnts[0:4] = [0, 1000000, wp.top.nhist, 0]  # Calculate moments every N steps
 # --- Save time histories of various quantities versus z.
 wp.top.lhpnumz = True
@@ -449,12 +454,13 @@ positionArray = [
     [0.117173, 0.119863, 0.129031, 0.131721],
     [0.141367, 0.144057, 0.154164, 0.156854],
     [0.167375, 0.170065, 0.180987, 0.183677],  # for 27 MHz 8th unit
-    [0.195017, 0.197707, 0.209454, 0.212144],  # for 27 MHz 9th unit
-    [0.216870, 0.219560, 0.224479, 0.227169],  # 10th unit being initial esq
-    [0.232249, 0.234939, 0.240209, 0.242899],  # 11th unit being initial esq
-    [0.248318, 0.251008, 0.256604, 0.259294]  # 12th unit
-    #    [0.160754, 0.163444, 0.167614, 0.170304],#for 54 MHz 8th unit
-    #    [0.174629, 0.177319, 0.181848, 0.184538],#for 54 MHz 9th unit
+   # [0.195017, 0.197707, 0.209454, 0.212144],  # for 27 MHz 9th unit
+   # [0.226921, 0.229611, 0.242085, 0.244775],  # 10th 27Mhz
+    #[0.257573, 0.260263, 0.27343, 0.27612],  # 11th unit 27Mhz
+    #[0.289546, 0.292236, 0.306017, 0.308707],  # 12th unit 27 Mhz
+    #[0.3215, 0.32419, 0.3381, 0.34079],  # 13th unit optimization try 3[0
+    #[0.355475, 0.358165, 0.37318, 0.37587],  # for 27 Mhz 14th
+   # [0.382195, 0.384885, 0.391369, 0.394051],  # 15th unit 54 MHz
 ]
 # for 9kV
 # positionArray = [[.0036525,.0056525,0.01243279,0.01463279],
@@ -549,8 +555,6 @@ def beamsave():
             storedbeams.append(sb)
             writejson("storedbeams", storedbeams)
 
-
-### Placing the Wafers
 for i, pa in enumerate(positionArray):
     print(f"Unit {i} placed at {pa}")
 
@@ -568,72 +572,63 @@ voltages = [
     gen_volt(
         toffset=RF_offset, frequency=27e6
     ),  # last updated 5/1 #commented#changed to 54 without offset 5_29
-    gen_volt(
-        toffset=RF_offset, frequency=27e6
-    ),  # last updated 5/1 #commented#changed to 27 without offset 5_30
-    gen_volt(toffset=RF_offset + 9.25e-9, frequency=54e6),
-    gen_volt(toffset=RF_offset + 9.25e-9, frequency=54e6),
-    gen_volt(toffset=RF_offset + 9.25e-9, frequency=54e6),
-    # gen_volt(toffset=RF_offset +  + 9.25e-9, frequency=27e6),
-    # gen_volt(toffset=RF_offset +  + 9.25e-9, frequency=27e6),
-    # gen_volt(toffset=RF_offset +  + 9.25e-9, frequency=27e6),
-    # gen_volt(toffset=RF_offset +  + 9.25e-9, frequency=27e6),
-    # gen_volt(toffset=RF_offset +  + 9.25e-9, frequency=27e6),
-    # gen_volt(toffset=RF_offset +  + 9.25e-9, frequency=27e6),
+   # gen_volt(
+   #     toffset=RF_offset, frequency=27e6
+   # ),  # last updated 5/1 #commented#changed to 27 without offset 5_30
+   # gen_volt(toffset=RF_offset, frequency=27e6),
+   # gen_volt(toffset=RF_offset, frequency=27e6),  # 11th unit 27Mhz
+   # gen_volt(toffset=RF_offset, frequency=27e6),  # 12th unit 27MHz0
+   # gen_volt(toffset=RF_offset, frequency=27e6),  # 13th unit 27Mhz
+   # gen_volt(toffset=RF_offset, frequency=27e6),  # 27Mhz 14
+   # gen_volt(toffset=RF_offset + 9.2586e-9, frequency=54e6),  # 15 unit
 ]
 # add actual stack
 conductors = RF_stack(positionArray, voltages)
 
 print("CONDUCT DONE")
 rfv = gen_volt(toffset=RF_offset, frequency=14.8e6)
-# add actual stack
+###add ctual stack
 conductors = RF_stack(positionArray, voltages)
 print("CONDUCT DONE")
 
-###
-
-# conductors += ESQ_double([0.0195], [500])#1st and 2nd
-# conductors += ESQ_double([0.0459], [500])#2nd and 3rd
-# conductors += ESQ_double([0.07263], [500])#3rd and 4th
-# conductors += ESQ_double([0.0913], [500])#4th and 5th
-# conductors += ESQ_double([0.1129], [500])#5th and 6th
-# conductors += ESQ_double([0.13655], [500])#6th and 7th
-# conductors += ESQ_double([0.16212], [500])#7th and 8th "5-30 "
-# conductors += ESQ_double([0.18935], [500])#8th and 9th current
-# conductors += ESQ_double([0.21462], [500])#9th and 10th current
-# conductors += ESQ_double([0.22971], [500])#10th and 11th current
+#add esqs
 d_wafers = 2.695 * wp.mm
 t_wafer = 625 * wp.um + 35 * 2 * wp.um
 esq_positions = [
-    0.01975,
-    0.0459,
-    0.0913,
-    0.1129,
-    0.113655,
-    0.16212,
-    0.18935,
-    0.21462,
-    0.22971,
-    0.2451,
+     0.01975,
+     0.0459,
+     # 0.07263,#gap in between third and 4th
+     0.0912985,
+     0.11285,
+     0.136544,
+     0.16212,
+    # 0.18935,
+    # 0.219534,
+    # 0.251174,  # 11th unit 27 MHz
+    # 0.282833,  # 12th unit 27Mz
+    # 0.315104,  # 13th unit 27 Mhz
+    # 0.348133,  # 14th unit 27 Mhz
+    # 0.379033,  # awaiting 15th unit gap ESQ
 ]
-voltages = [500, 500, 500, 500, 500, 500, 500, 500, 500, 500]
-volt_ratio = warpoptions.options.volt_ratio
+voltages = [100, -200, 400, -500, 500, 500]# 500, 500, 500, 500, 500, 500, 500]
+volt_ratio = [1.04, 1.05, 1, 1, 1.02, 1,]# 1, 1, 1, 1, 1, 1, 1]
 if not warpoptions.options.autorun:
-    conductors += ESQ_double(esq_positions, voltages, volt_ratio=volt_ratio)
+    conductors += ESQ_doublet(esq_positions, voltages, volt_ratio=volt_ratio)
 
 # creat submesh for ESQ
 meshes = []
 for esq_pos in esq_positions:
+
     solver.root.finalized = 0
     child_1 = solver.addchild(
-        mins=[wp.w3d.xmmin, wp.w3d.ymmin, esq_pos - d_wafers / 2 - t_wafer / 2,],
-        maxs=[wp.w3d.xmmax, wp.w3d.ymmax, esq_pos - d_wafers / 2 + t_wafer / 2,],
-        refinement=[1, 1, 10],
+        mins=[wp.w3d.xmmin, wp.w3d.ymmin, esq_pos - d_wafers / 2 - t_wafer * 4 / 7,],
+        maxs=[wp.w3d.xmmax, wp.w3d.ymmax, esq_pos - d_wafers / 2 + t_wafer * 4 / 7,],
+        refinement=[1, 1, 5],
     )
     child_2 = solver.addchild(
-        mins=[wp.w3d.xmmin, wp.w3d.ymmin, esq_pos + d_wafers / 2 - t_wafer / 2,],
-        maxs=[wp.w3d.xmmax, wp.w3d.ymmax, esq_pos + d_wafers / 2 + t_wafer / 2,],
-        refinement=[1, 1, 10],
+        mins=[wp.w3d.xmmin, wp.w3d.ymmin, esq_pos + d_wafers / 2 - t_wafer * 4 / 7,],
+        maxs=[wp.w3d.xmmax, wp.w3d.ymmax, esq_pos + d_wafers / 2 + t_wafer * 4 / 7,],
+        refinement=[1, 1, 5],
     )
     meshes.append(child_1)
     meshes.append(child_2)
@@ -1021,6 +1016,11 @@ wp.hpxrms(color=wp.red, titles=0)
 wp.hpyrms(color=wp.blue, titles=0)
 wp.hprrms(color=wp.green, titles=0)
 wp.ptitles("X(red), Y(blue), R(green)", "Time [s]", "X/Y/R [m]", "")
+wp.fma()
+### Frame, rms envelope plot
+wp.pzenvx(color=wp.red, titles=0)
+wp.pzenvy(color=wp.blue, titles=0)
+wp.ptitles("X(red), Y(blue)", "Z [m]", "X/Y [m]", "")
 wp.fma()
 ### Frame, vx and vy plot
 wp.hpvxbar(color=wp.red, titles=0)
