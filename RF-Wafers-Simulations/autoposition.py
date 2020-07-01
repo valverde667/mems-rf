@@ -427,7 +427,8 @@ def findmaximumplots(highestgap):
     for gap in range(2, highestgap + 1):
         maximumpos, maximumenergy, maxincluded = findmaximum(gap, axs[gap - 2])
     plt.tight_layout()
-    plt.savefig(f"{basepath}findingmaximum.png", dpi=300)
+    # plt.savefig(f"{basepath}findingmaximum.png", dpi=300)
+    plt.savefig(f"{basepath}findingmaximum.svg")
 
 
 def block(maxthreads=1):
