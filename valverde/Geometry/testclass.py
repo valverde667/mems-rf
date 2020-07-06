@@ -16,7 +16,7 @@ wp.w3d.ymmax = 4*mm
 wp.w3d.ymmin = -4*mm
 wp.w3d.ny = 100
 
-wp.w3d.zmmax = 6*mm
+wp.w3d.zmmax = 12*mm
 wp.w3d.zmmin = 0
 wp.w3d.nz = 250
 
@@ -31,21 +31,18 @@ solver = wp.MRBlock3D()
 solver.mgtol = 1e-4
 wp.registersolver(solver)
 
-class Plate(object):
-    def __init__(self, xcentr=0, ycentr=0, zcentr=0,
-                 length=1, width=1, height=1
+class Ring(object):
+    def __init__(self, rmin=1*mm, rmax=1.5*mm, length=2*mm,
+                 zcent=0
                  ):
-        self.xcentr = xcentr
-        self.ycentr = ycentr
-        self.zcentr = zcentr
+        self.rmin = rmin
+        self.rmax = rmax
         self.length = length
-        self.width = width
-        self.height = height
+        self.zcent = zcent
 
-    def getconductor(self, Voltage):
-        conductor = wp.Box(xsize=self.height, ysize=self.width, zsize=self.length,
-                           xcent=self.xcentr, ycent=self.ycentr,zcent=self.zcentr,
-                           voltage=Voltage)
+    def createconductor(self, voltage):
+        conductor = wp.ZAnnulus(rmin=rinner, rmax=router, length=length,
+                          zcent=zc1, voltage=voltage)
 
         return conductor
 
@@ -54,8 +51,8 @@ V = 10*kV
 rinner = 1*mm
 router = 1.5*mm
 length = 1*mm
-zc1 = 2*mm
-zc2 = 4*mm
+zc1 = 3*mm
+zc2 = 8*mm
 
 plate1 = wp.ZAnnulus(rmin=rinner, rmax=router, length=length,
                   zcent=zc1, voltage=V)
@@ -71,24 +68,46 @@ wp.installconductor(plate1)
 wp.installconductor(plate2)
 wp.fieldsol(-1)
 
-# wp.winon()
-# plate1.draw(color='fg', filled=True)
-# plate2.drawzx(color='fg', filled=True)
-# wp.pfzx()
-# wp.pfzx(scale=1, plotselfe=1, comp='x')
-# wp.limits(wp.w3d.zmmin, wp.w3d.zmmax)
-# wp.fma()
+wp.winon()
+plate1.draw(color='fg', filled=True)
+plate2.drawzx(color='fg', filled=True)
+wp.pfzx()
+wp.pfzx(scale=1, plotselfe=1, comp='x')
+wp.limits(wp.w3d.zmmin, wp.w3d.zmmax)
+wp.fma()
 
-phizx = wp.getphi()[1:, 1, :]
-Ex = wp.getselfe(comp='x')[1:, 1, :]
-Ez = wp.getselfe(comp='z')[1:, 1, :]
-z,x = np.meshgrid(wp.w3d.zmesh, wp.w3d.xmesh[1:])
+phizx = wp.getphi()[1:-1, 1, 1:-1]
+Ex = wp.getselfe(comp='x')[1:-1, 1, 1:-1]
+Ez = wp.getselfe(comp='z')[1:-1, 1, 1:-1]
+z,x = np.meshgrid(wp.w3d.zmesh[1:-1], wp.w3d.xmesh[1:-1]) #ignore endpoints
 
 fig,ax = plt.subplots()
-#phiax = ax.contour(z, x, phizx)
-Exax = ax.contour(z, x, Ex, levels=20)
-excb = plt.colorbar(Exax, extend='both')
-ax.set_xlabel('z')
-ax.set_ylabel('x')
+phiax = ax.contour(z/mm, x/mm, phizx, levels=15)
+#--Find 0 contour if exists (it should)
+zeroindex = np.where(phiax.levels==0)[0][0]
+phiaxcp = plt.colorbar(phiax, extend='both')
+phiax.collections[zeroindex].set_linestyle('dashed')
+phiax.collections[zeroindex].set_color('r')
+ax.set_xlim(-1,13)
+ax.set_ylim(-5, 5)
+ax.set_xlabel('z [mm]')
+ax.set_ylabel('x [mm]')
+phiaxcp.set_label(r'$\Phi$')
 plt.tight_layout()
+plt.savefig('phi.png')
+plt.show()
+
+fig,ax = plt.subplots()
+Exax = ax.contour(z/mm, x/mm, Ex, levels=15)
+excb = plt.colorbar(Exax, extend='both')
+zeroindex = np.where(Exax.levels==0)[0][0]
+excb.set_label(r'$E_x$')
+Exax.collections[zeroindex].set_linestyle('dashed')
+Exax.collections[zeroindex].set_color('r')
+ax.set_xlim(-1,13)
+ax.set_ylim(-5, 5)
+ax.set_xlabel('z [mm]')
+ax.set_ylabel('x [mm]')
+plt.tight_layout()
+plt.savefig('Ex.png')
 plt.show()
