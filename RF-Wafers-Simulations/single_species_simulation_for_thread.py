@@ -101,14 +101,21 @@ warpoptions.parser.add_argument("--loadbeam", dest="loadbeam", type=str, default
 # --beamnumber 3  or negative number to count from the back. Stored beams are ordered.
 warpoptions.parser.add_argument("--beamnumber", dest="beamnumber", type=int, default=-1)
 
-import warp as wp
+#--Python packages
 import numpy as np
-import geometry
-from geometry import RF_stack, ESQ_doublet
+import matplotlib.pyplots as plt
 import time
 import json
 import os
+
+#--Import third-party packages
+import warp as wp
 from warp.particles.extpart import ZCrossingParticles
+
+#--Import custom packages
+from geometry import RF_stack, ESQ_doublet
+
+
 
 # # There is no Matplotlib installed on Lawrencium
 # from matplotlib import pyplot as plt
@@ -1185,7 +1192,7 @@ wp.plg(conductors.get_energy_histogram)
 wp.fma()
 
 wp.plg(conductors.plot_energy_histogram)
-wp.fma() 
+wp.fma()
 
 wp.plg(conductors.get_current_history)
 wp.fma()
