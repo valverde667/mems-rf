@@ -76,38 +76,54 @@ wp.pfzx(scale=1, plotselfe=1, comp='x')
 wp.limits(wp.w3d.zmmin, wp.w3d.zmmax)
 wp.fma()
 
-phizx = wp.getphi()[1:-1, 1, 1:-1]
-Ex = wp.getselfe(comp='x')[1:-1, 1, 1:-1]
-Ez = wp.getselfe(comp='z')[1:-1, 1, 1:-1]
+#--Find index where y=0
+#Check if it exists
+if (0 in wp.w3d.ymesh):
+    yindex = np.where(wp.w3d.ymesh==0)[0][0]
+#if not find closest positive grid point
+else:
+    yindex = np.where(wp.w3d.ymesh>0)[0][0]
+
+phizx = wp.getphi()[1:-1, yindex, 1:-1]
+Ex = wp.getselfe(comp='x')[1:-1, yindex, 1:-1]
+Ez = wp.getselfe(comp='z')[1:-1, yindex, 1:-1]
 z,x = np.meshgrid(wp.w3d.zmesh[1:-1], wp.w3d.xmesh[1:-1]) #ignore endpoints
 
 fig,ax = plt.subplots()
-phiax = ax.contour(z/mm, x/mm, phizx, levels=15)
+phiax = ax.contour(z/mm, x/mm, phizx, levels=40)
 #--Find 0 contour if exists (it should)
 zeroindex = np.where(phiax.levels==0)[0][0]
 phiaxcp = plt.colorbar(phiax, extend='both')
+
 phiax.collections[zeroindex].set_linestyle('dashed')
 phiax.collections[zeroindex].set_color('r')
 ax.set_xlim(-1,13)
 ax.set_ylim(-5, 5)
+
+ax.set_title(r'$\Phi(x, y=0, z)$ vs z')
 ax.set_xlabel('z [mm]')
 ax.set_ylabel('x [mm]')
-phiaxcp.set_label(r'$\Phi$')
+phiaxcp.set_label(r'$\Phi(x, y=0, z)$')
+
 plt.tight_layout()
 plt.savefig('phi.png')
 plt.show()
 
 fig,ax = plt.subplots()
-Exax = ax.contour(z/mm, x/mm, Ex, levels=15)
+Exax = ax.contour(z/mm, x/mm, Ex, levels=40)
 excb = plt.colorbar(Exax, extend='both')
 zeroindex = np.where(Exax.levels==0)[0][0]
-excb.set_label(r'$E_x$')
+
+excb.set_label(r'$E_x(x, y=0, z)$')
 Exax.collections[zeroindex].set_linestyle('dashed')
 Exax.collections[zeroindex].set_color('r')
+
 ax.set_xlim(-1,13)
 ax.set_ylim(-5, 5)
+ax.set_title(r'$E_x(x, y=0, z)$ vs z')
 ax.set_xlabel('z [mm]')
 ax.set_ylabel('x [mm]')
+
 plt.tight_layout()
 plt.savefig('Ex.png')
 plt.show()
