@@ -159,9 +159,7 @@ ibeaminit = warpoptions.options.ibeaminit
 # --- where to store the outputfiles
 cgm_name = name
 step1path = "."
-# step1path = "/home/timo/Documents/LBL/Warp/CGM"
-# step1path = "/home/cverdoza/Documents/LBL/WARP/berkeleylab-atap-meqalac-simulations/RF-Wafers-Simulations/test"
-step1path = "/home/carlos/bin/cgm"
+step1path = os.getcwd()
 
 # overwrite if path is given by command
 if warpoptions.options.path != "":
