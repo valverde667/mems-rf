@@ -1,3 +1,5 @@
 *.rtf
 *.png
 single_species_simulation_for_thread_copy.py
+Pierce_diode.py
+FODO3D.py
