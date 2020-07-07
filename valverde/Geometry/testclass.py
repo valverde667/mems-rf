@@ -68,13 +68,76 @@ wp.installconductor(plate1)
 wp.installconductor(plate2)
 wp.fieldsol(-1)
 
-wp.winon()
-plate1.draw(color='fg', filled=True)
-plate2.drawzx(color='fg', filled=True)
-wp.pfzx()
-wp.pfzx(scale=1, plotselfe=1, comp='x')
-wp.limits(wp.w3d.zmmin, wp.w3d.zmmax)
-wp.fma()
+# wp.winon()
+#
+# plate1.drawzy(color='fg', filled=True)
+# wp.limits(wp.w3d.xmmin, wp.w3d.xmmax, wp.w3d.ymmin, wp.w3d.ymmax)
+# plate2.drawzx(color='fg', filled=True)
+# wp.pfzx()
+# wp.pfzx(scale=1, plotselfe=1, comp='x')
+# wp.fma()
+
+#--Plot conductors in xy using zero contours
+# Find z-index where first conductor lives
+x = wp.w3d.xmesh
+y = wp.w3d.ymesh
+z = wp.w3d.zmesh
+
+
+zindexrange = np.where((z>2.5*mm) & (z<3.5*mm))
+zindex = zindexrange[0][int(len(zindexrange)/2)] #take center point of range
+potential = wp.getphi()[1:-1, 1:-1, zindex]
+
+fig, ax = plt.subplots()
+ax.set_xlim(-5,5)
+ax.set_ylim(-5,5)
+ax.set_xlabel('x [mm]')
+ax.set_ylabel('y [mm]')
+ax.set_title(r'$\Phi(x,y)$')
+
+X,Y = np.meshgrid(y[1:-1], x[1:-1])
+cont = ax.contourf(X/mm, Y/mm, potential, levels=50)
+
+if (V in cont.levels ):
+    index = np.where(cont.levels == V)[0][0]
+else:
+    print("V not in levels")
+
+cont.collections[-1].set_linestyle('dashed')
+cont.collections[-1].set_color('r')
+plt.tight_layout()
+plt.show()
+
+
+
+Ex = wp.getselfe(comp='x')[1:-1, 1:-1, zindex]
+Ey = wp.getselfe(comp='y')[1:-1, 1:-1, zindex]
+
+E = Ex + Ey
+
+X,Y = np.meshgrid(y[1:-1], x[1:-1])
+
+fig, ax = plt.subplots()
+ax.set_xlabel('x [mm]')
+ax.set_ylabel('y [mm]')
+ax.set_title(r'$E_x + E_y$')
+ax.set_xlim(-5, 5)
+ax.set_ylim(-5, 5)
+
+contx = ax.contourf(X/mm, Y/mm, E, levels=50)
+#--Find 0 contour
+if (0 in contx.levels):
+    zeroindex = np.where(contx.levels==0)[0][0]
+else:
+    print("Zero contour doesn't exist")
+
+contx.collections[zeroindex].set_linestyle('dashed')
+contx.collections[zeroindex].set_color('r')
+
+
+plt.tight_layout()
+plt.show()
+
 
 #--Find index where y=0
 #Check if it exists
@@ -108,6 +171,7 @@ phiaxcp.set_label(r'$\Phi(x, y=0, z)$')
 plt.tight_layout()
 plt.savefig('phi.png')
 plt.show()
+
 
 fig,ax = plt.subplots()
 Exax = ax.contour(z/mm, x/mm, Ex, levels=40)
