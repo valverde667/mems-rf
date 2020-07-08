@@ -38,6 +38,7 @@ basecommand = (
 #
 savegapsprior = 2  # how many gaps to go back for resstoring >=1
 savedistancetorfunits = 4e-3  # distance between savespot to rf-gap-center
+stopifincluded = True  # Simulation stops if maximum lies within simulated spectrum
 #
 """
 format of json:
@@ -316,7 +317,14 @@ def optimizepositions(
             writejson("0000", "optimalgaps", optimalpositions)
             writejson("0000", "optimalenergies", optimalenergies)
             print(optimalpositions)
-            time.sleep(5)
+            # check if maximum is in the checked interval
+            if maxincluded and stopifincluded:
+                print(f"Maximum is found at {maximumpos}")
+                time.sleep(5)
+                break
+            else:
+                print(f"Looking for maximum at {maximumpos}")
+                time.sleep(5)
         if gap > 2:
             try:
                 infoplots()
@@ -419,7 +427,8 @@ def findmaximumplots(highestgap):
     for gap in range(2, highestgap + 1):
         maximumpos, maximumenergy, maxincluded = findmaximum(gap, axs[gap - 2])
     plt.tight_layout()
-    plt.savefig(f"{basepath}findingmaximum.png", dpi=300)
+    # plt.savefig(f"{basepath}findingmaximum.png", dpi=300)
+    plt.savefig(f"{basepath}findingmaximum.svg")
 
 
 def block(maxthreads=1):
