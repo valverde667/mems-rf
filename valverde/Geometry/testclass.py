@@ -23,9 +23,9 @@ wp.w3d.nz = 250
 
 wp.w3d.solvergeom = wp.w3d.XYZgeom
 
-wp.w3d.bound0 = wp.dirichlet
-wp.w3d.boundnz = wp.dirichlet
-wp.w3d.boundxy = wp.dirichlet
+wp.w3d.bound0 = wp.neumann
+wp.w3d.boundnz = wp.neumann
+wp.w3d.boundxy = wp.neumann
 
 solver = wp.MRBlock3D()
 solver.mgtol = 1e-4
