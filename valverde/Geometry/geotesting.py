@@ -34,9 +34,9 @@ solver = wp.MRBlock3D()
 solver.mgtol = 1e-4
 
 #--Boundary conditions
-wp.w3d.bound0 = wp.dirichlet
-wp.w3d.boundnz = wp.dirichlet
-wp.w3d.boundxy = wp.dirichlet
+wp.w3d.bound0 = wp.neumann
+wp.w3d.boundnz = wp.neumann
+wp.w3d.boundxy = wp.neumann
 
 #--Register
 wp.registersolver(solver)
@@ -53,20 +53,40 @@ wp.generate()
 wp.installconductor(esq)
 wp.fieldsol(-1)
 
+x, y, z = wp.w3d.xmesh, wp.w3d.ymesh, wp.w3d.zmesh
 #--Find zero indices
 #zero x-index
-if (0 in wp.w3d.xmesh):
-    zerox = np.where(wp.w3d.xmesh==0)[0][0]
+if (0 in x):
+    zerox = np.where(x==0)[0][0]
 else:
-    zerox = np.where(wp.w3d.xmesh>0)[0][0]
+    zerox = np.where(x>0)[0][0]
 #zero y-index
-if (0 in wp.w3d.xmesh):
-    zeroy = np.where(wp.w3d.ymesh==0)[0][0]
+if (0 in y):
+    zeroy = np.where(y==0)[0][0]
 else:
-    zeroy = np.where(wp.w3d.ymesh>0)[0][0]
+    zeroy = np.where(y>0)[0][0]
 
 #--Find z-index where ESQ center is
-if (center in wp.w3d.zmesh):
-    zcenterindex = np.where(wp.w3d.zmesh==center)[0][0]
+if (center in z):
+    zcenterindex = np.where(z==center)[0][0]
 else:
-    zcenterindex = np.where(wp.w3d.zmesh>center)[0][0]
+    zcenterindex = np.where(z>center)[0][0]
+
+
+# wp.winon()
+# wp.pfxy(iz=zcenterindex)
+# wp.fma()
+# wp.winon()
+# wp.limits(wp.w3d.zmmin/mm, wp.w3d.zmmax/mm, wp.w3d.xmmin/mm, wp.w3d.xmmax/mm)
+# esq.drawzx(color='fg', filled=True)
+# wp.fma()
+#
+X,Y = np.meshgrid(x,y)
+phi = wp.getphi()[:, :, zcenterindex]
+
+fig, ax = plt.subplots()
+ax.set_xlabel('x [mm]')
+ax.set_ylabel('y [mm]')
+cont = ax.contour(X/mm, Y/mm, phi, levels=30 )
+contcb = fig.colorbar(cont, extend='both', shrink=0.8)
+plt.show()
