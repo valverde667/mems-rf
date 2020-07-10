@@ -87,6 +87,14 @@ phi = wp.getphi()[:, :, zcenterindex]
 fig, ax = plt.subplots()
 ax.set_xlabel('x [mm]')
 ax.set_ylabel('y [mm]')
-cont = ax.contour(X/mm, Y/mm, phi, levels=30 )
+ax.set_title('Potential of ESQ in x-y')
+cont = ax.contour(X/mm, Y/mm, phi, levels=50 )
 contcb = fig.colorbar(cont, extend='both', shrink=0.8)
+#Set zero contour to red -- line
+zerocontour = np.where(cont.levels==0)[0][0]
+zerocontour = cont.collections[zerocontour]
+zerocontour.set_color('r')
+zerocontour.set_linestyle('dashed')
+zerocontour.set_linewidth(0.5)
+
 plt.show()
