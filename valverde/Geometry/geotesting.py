@@ -81,6 +81,7 @@ else:
 # esq.drawzx(color='fg', filled=True)
 # wp.fma()
 #
+
 X,Y = np.meshgrid(x,y)
 phi = wp.getphi()[:, :, zcenterindex]
 
@@ -89,8 +90,10 @@ fig, ax = plt.subplots()
 ax.set_xlabel('x [mm]')
 ax.set_ylabel('y [mm]')
 ax.set_title('Potential of ESQ in x-y')
+
 cont = ax.contour(X/mm, Y/mm, phi, levels=50 )
 contcb = fig.colorbar(cont, extend='both', shrink=0.8)
+
 #Set zero contour to red -- line
 zerocontour = np.where(cont.levels==0)[0][0]
 zerocontour = cont.collections[zerocontour]
@@ -121,4 +124,70 @@ zerocontour.set_color('r')
 zerocontour.set_linestyle('dashed')
 zerocontour.set_linewidth(0.5)
 
+plt.show()
+
+#--Plot Electric fields
+Ex = wp.getselfe(comp='x')
+Ey = wp.getselfe(comp='y')
+Ez = wp.getselfe(comp='z')
+
+#--Plot Ex field in x-y and z-x
+Exxy = Ex[:,:,zcenterindex]
+X,Y = np.meshgrid(x,y)
+
+fig, ax = plt.subplots()
+#x-y plot
+ax.set_title(r'$E_x$ in x-y')
+ax.set_xlabel('x [mm]')
+ax.set_ylabel('y [mm]')
+xycont = ax.contour(X/mm, Y/mm, Exxy, levels=50)
+xycontcb = fig.colorbar(xycont, extend='both', shrink=0.8)
+
+#Set zero contour to red -- line
+zerocontour = np.where(xycont.levels==0)[0][0]
+zerocontour = xycont.collections[zerocontour]
+zerocontour.set_color('r')
+zerocontour.set_linestyle('dashed')
+zerocontour.set_linewidth(0.5)
+plt.tight_layout()
+plt.show()
+
+#z-x plot
+Exzx = Ex[:,zeroy,:]
+Z,X = np.meshgrid(z,x)
+
+fig,ax = plt.subplots()
+ax.set_title(r'$E_x$ in z-x')
+ax.set_xlabel('z [mm]')
+ax.set_ylabel('x [mm]')
+zxcont = ax.contour(Z/mm, X/mm, Exzx, levels=50)
+zxcontcb = fig.colorbar(zxcont, extend='both', shrink=0.8)
+
+#Set zero contour to red -- line
+zerocontour = np.where(zxcont.levels==0)[0][0]
+zerocontour = zxcont.collections[zerocontour]
+zerocontour.set_color('r')
+zerocontour.set_linestyle('dashed')
+zerocontour.set_linewidth(0.5)
+plt.tight_layout()
+plt.show()
+
+#--Plot Ez
+Ezzx = Ez[:,zeroy,:]
+Z,X = np.meshgrid(z,x)
+
+fig,ax = plt.subplots()
+ax.set_title(r'$E_z$ in z-x')
+ax.set_xlabel('z [mm]')
+ax.set_ylabel('x [mm]')
+zxcont = ax.contour(Z/mm, X/mm, Ezzx, levels=50)
+zxcontcb = fig.colorbar(zxcont, extend='both', shrink=0.8)
+
+#Set zero contour to red -- line
+zerocontour = np.where(zxcont.levels==0)[0][0]
+zerocontour = zxcont.collections[zerocontour]
+zerocontour.set_color('r')
+zerocontour.set_linestyle('dashed')
+zerocontour.set_linewidth(0.5)
+plt.tight_layout()
 plt.show()
