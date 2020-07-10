@@ -84,12 +84,36 @@ else:
 X,Y = np.meshgrid(x,y)
 phi = wp.getphi()[:, :, zcenterindex]
 
+#--Plot potential in xy at z=center of esq
 fig, ax = plt.subplots()
 ax.set_xlabel('x [mm]')
 ax.set_ylabel('y [mm]')
 ax.set_title('Potential of ESQ in x-y')
 cont = ax.contour(X/mm, Y/mm, phi, levels=50 )
 contcb = fig.colorbar(cont, extend='both', shrink=0.8)
+#Set zero contour to red -- line
+zerocontour = np.where(cont.levels==0)[0][0]
+zerocontour = cont.collections[zerocontour]
+zerocontour.set_color('r')
+zerocontour.set_linestyle('dashed')
+zerocontour.set_linewidth(0.5)
+
+plt.show()
+
+
+#--Plot z-x Potential
+Z,X = np.meshgrid(z,x)
+phi = wp.getphi()[:,zeroy,:]
+
+fig, ax = plt.subplots()
+ax.set_xlabel('z [mm]')
+ax.set_ylabel('x [mm]')
+ax.set_title('Potential of ESQ in z-x')
+
+phi = wp.getphi()[:,zeroy,:]
+cont = ax.contour(Z/mm, X/mm, phi, levels=50 )
+contcb = fig.colorbar(cont, extend='both', shrink=0.8)
+
 #Set zero contour to red -- line
 zerocontour = np.where(cont.levels==0)[0][0]
 zerocontour = cont.collections[zerocontour]
