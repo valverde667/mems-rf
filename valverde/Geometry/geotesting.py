@@ -73,9 +73,13 @@ else:
     zcenterindex = np.where(z>center)[0][0]
 
 
-# wp.winon()
-# wp.pfxy(iz=zcenterindex)
-# wp.fma()
+wp.winon(0)
+esq.drawzx()
+wp.fma()
+
+esq.drawxy(iz=zcenterindex)
+wp.fma()
+raise Exception()
 # wp.winon()
 # wp.limits(wp.w3d.zmmin/mm, wp.w3d.zmmax/mm, wp.w3d.xmmin/mm, wp.w3d.xmmax/mm)
 # esq.drawzx(color='fg', filled=True)
@@ -101,6 +105,8 @@ zerocontour.set_color('r')
 zerocontour.set_linestyle('dashed')
 zerocontour.set_linewidth(0.5)
 
+plt.tight_layout()
+plt.savefig(os.getcwd() + '/phixy.png')
 plt.show()
 
 
@@ -124,6 +130,8 @@ zerocontour.set_color('r')
 zerocontour.set_linestyle('dashed')
 zerocontour.set_linewidth(0.5)
 
+plt.tight_layout()
+plt.savefig(os.getcwd() + '/phizx.png')
 plt.show()
 
 #--Plot Electric fields
@@ -150,6 +158,7 @@ zerocontour.set_color('r')
 zerocontour.set_linestyle('dashed')
 zerocontour.set_linewidth(0.5)
 plt.tight_layout()
+plt.savefig(os.getcwd() + '/Exxy.png')
 plt.show()
 
 #z-x plot
@@ -170,6 +179,7 @@ zerocontour.set_color('r')
 zerocontour.set_linestyle('dashed')
 zerocontour.set_linewidth(0.5)
 plt.tight_layout()
+plt.savefig(os.getcwd() + '/Exzx.png')
 plt.show()
 
 #--Plot Ez
@@ -190,4 +200,5 @@ zerocontour.set_color('r')
 zerocontour.set_linestyle('dashed')
 zerocontour.set_linewidth(0.5)
 plt.tight_layout()
+plt.savefig(os.getcwd() + '/Ezzx.png')
 plt.show()
