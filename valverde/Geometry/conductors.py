@@ -224,7 +224,7 @@ def RF_stack(stackPositions, voltages):
     # stackPositions = [[.002, .004, .008, .010]]
     stacks = []
     for s, v in zip(stackPositions, voltages):
-        stack = wafer(s[0], 0) + wafer(s[1], v) + wafer(s[2], v) + wafer(s[3], 0)
+        stack = wafer(s[0], 0) + wafer(s[1], v[0]) + wafer(s[2], v[1]) + wafer(s[3], 0)
         stacks.append(stack)
     return wp.sum(stacks)
 
