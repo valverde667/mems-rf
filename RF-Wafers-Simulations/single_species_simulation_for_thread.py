@@ -621,7 +621,7 @@ esq_positions = [
      0.282833,  # 11th and 12th gap
      0.315104,  # 12th and 13th gap
      0.348133,  # 13th and 14th gap
-     0.379033,  # 14th and 15th gap 
+     0.379033,  # 14th and 15th gap
      0.397363,  # 15th and 16th gap
      0.416256,  # 16th and 17th gap
      0.4357,    # 17th and 18th gap
