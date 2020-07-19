@@ -62,6 +62,7 @@ def readjson(ID):
         with open(f"{basepath}{ID}.json", "r") as readfile:
             data = json.load(readfile)
     else:
+        print("json file not found, returning empty dictionary")
         data = {}
     return data
 
