@@ -1,5 +1,5 @@
+#Python packages
 import matplotlib
-
 matplotlib.use("Agg")
 from multiprocessing import Pool
 import numpy as np
@@ -10,9 +10,11 @@ from scipy.optimize import curve_fit
 import lmfit
 
 # basepath = "/media/timo/simstore/r7-highrestest/"
-basepath = "/home/timo/autoposition/1/"
+# basepath = "/home/timo/autoposition/1/"
+basepath = os.getcwd()+"/"
 # simpath = "/home/timo/Documents/LBL/Warp/atap-meqalac-simulations/RF-Wafers-Simulations/single_species_simulation_for_thread.py"
-simpath = "/home/timo/autoposition/single_species_simulation_for_thread.py"
+# simpath = "/home/timo/autoposition/single_species_simulation_for_thread.py"
+simpath = os.getcwd() + '/single_species_simulation_for_thread.py'
 # setting up
 stepsize = 0.1e-3
 steps = 20
