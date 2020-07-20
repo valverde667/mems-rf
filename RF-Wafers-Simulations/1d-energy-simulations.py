@@ -1,5 +1,5 @@
 import streamlit as st
-import MEQALAC
+import MEQALAC.simulation as meqsim
 from matplotlib import pyplot as plt
 
 st.title("STS 50 0d simulations of energy distribution")
@@ -30,12 +30,12 @@ real_frequency = (
 steps = st.sidebar.number_input("time steps in gaps", 1, 100, 1, step=1)
 gaps = st.sidebar.number_input("number of  gaps", 1, 2, 1, step=1)
 
-beam = MEQALAC.simulation.beam_setup(initial_energy, 10000, beam_length)
-pos = MEQALAC.simulation.wafer_setup(
+beam = meqsim.beam_setup(initial_energy, 10000, beam_length)
+pos = meqsim.wafer_setup(
     E=initial_energy, V=design_voltage, f=design_frequency, N=gaps
 )
 
-t = MEQALAC.simulation.trace_particles(
+t = meqsim.trace_particles(
     pos=pos,
     f=real_frequency,
     V=real_voltage,
