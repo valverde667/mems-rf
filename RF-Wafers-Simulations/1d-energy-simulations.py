@@ -26,11 +26,11 @@ real_voltage = st.sidebar.number_input("real voltage/gap", 0.1, 15e3, 7e3, step=
 real_frequency = (
     st.sidebar.number_input("real frequency", 10.0, 20.0, 14.86, step=0.01) * 1e6
 )
-
+packages = st.sidebar.number_input("Number of particles", 1, 10000, 1, step=1)
 steps = st.sidebar.number_input("time steps in gaps", 1, 100, 1, step=1)
 gaps = st.sidebar.number_input("number of  gaps", 1, 2, 1, step=1)
 
-beam = meqsim.beam_setup(initial_energy, 10000, beam_length)
+beam = meqsim.beam_setup(initial_energy, packages, beam_length)
 pos = meqsim.wafer_setup(
     E=initial_energy, V=design_voltage, f=design_frequency, N=gaps
 )
