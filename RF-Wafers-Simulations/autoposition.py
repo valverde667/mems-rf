@@ -1,5 +1,6 @@
-#Python packages
+# Python packages
 import matplotlib
+
 matplotlib.use("Agg")
 from multiprocessing import Pool
 import numpy as np
@@ -11,10 +12,10 @@ import lmfit
 
 # basepath = "/media/timo/simstore/r7-highrestest/"
 # basepath = "/home/timo/autoposition/1/"
-basepath = os.getcwd()+"/"
+basepath = os.getcwd() + "/"
 # simpath = "/home/timo/Documents/LBL/Warp/atap-meqalac-simulations/RF-Wafers-Simulations/single_species_simulation_for_thread.py"
 # simpath = "/home/timo/autoposition/single_species_simulation_for_thread.py"
-simpath = os.getcwd() + '/single_species_simulation_for_thread.py'
+simpath = os.getcwd() + "/single_species_simulation_for_thread.py"
 # setting up
 stepsize = 0.1e-3
 steps = 20
@@ -99,8 +100,10 @@ def betalambda(energy, activegap=1):
     rfunit = int(activegap / 2)
     if rfunit < 4:  # adaptation to current design
         f = 14.8e6
-    else:
+    elif rfunit >= 4 and rfunit < 15:
         f = 27e6
+    else:
+        f = 54e6
     # bl = np.sqrt((ekin + rf_voltage) * elementary_charge / (40 * atomic_mass)) / 2 / f
     bl = np.sqrt((energy) * elementary_charge / (40 * atomic_mass)) / 2 / f
     return bl
