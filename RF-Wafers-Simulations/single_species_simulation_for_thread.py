@@ -101,20 +101,20 @@ warpoptions.parser.add_argument("--loadbeam", dest="loadbeam", type=str, default
 # --beamnumber 3  or negative number to count from the back. Stored beams are ordered.
 warpoptions.parser.add_argument("--beamnumber", dest="beamnumber", type=int, default=-1)
 
-#--Python packages
+# --Python packages
 import numpy as np
 import matplotlib.pyplot as plt
 import time
 import json
 import os
 
-#--Import third-party packages
+# --Import third-party packages
 import warp as wp
 from warp.particles.extpart import ZCrossingParticles
 
-#--Import custom packages
+# --Import custom packages
+import geometry
 from geometry import RF_stack, ESQ_doublet
-
 
 
 # # There is no Matplotlib installed on Lawrencium
@@ -159,7 +159,9 @@ ibeaminit = warpoptions.options.ibeaminit
 # --- where to store the outputfiles
 cgm_name = name
 step1path = "."
-step1path = os.getcwd()
+# step1path = os.getcwd()
+step1path = "/home/cverdoza/Documents/LBL/WARP/berkeleylab-atap-meqalac-simulations/RF-Wafers-Simulations/test"
+
 
 # overwrite if path is given by command
 if warpoptions.options.path != "":
@@ -466,10 +468,11 @@ positionArray = [
     [0.3215, 0.32419, 0.3381, 0.34079],  # 13th unit optimization try 3[0
     [0.355475, 0.358165, 0.37318, 0.37587],  # for 27 Mhz 14th
     [0.382195, 0.384885, 0.391369, 0.394051],  # 15th unit 54 MHz
-    [0.400666, 0.403356, 0.410117, 0.412807], #16th unit 54Mhz
-    [0.419704, 0.422394, 0.429436, 0.432126], #17th unit 54Mhz
-    [0.439274, 0.441964, 0.449257, 0.451947], #18th unit 54Mhz
-    [0.459364, 0.462054, 0.469613, 0.472303], #19th unit 54Mhz
+    [0.400666, 0.403356, 0.410117, 0.412807],  # 16th unit 54Mhz
+    [0.419704, 0.422394, 0.429436, 0.432126],  # 17th unit 54Mhz
+    [0.439274, 0.441964, 0.449257, 0.451947],  # 18th unit 54Mhz
+    [0.459364, 0.462054, 0.469613, 0.472303],  # 19th unit 54Mhz
+    [0.479982, 0.482672, 0.49049, 0.49318],
 ]
 # for 9kV
 # positionArray = [[.0036525,.0056525,0.01243279,0.01463279],
@@ -564,6 +567,7 @@ def beamsave():
             storedbeams.append(sb)
             writejson("storedbeams", storedbeams)
 
+
 for i, pa in enumerate(positionArray):
     print(f"Unit {i} placed at {pa}")
 
@@ -589,11 +593,12 @@ voltages = [
     gen_volt(toffset=RF_offset, frequency=27e6),  # 12th unit 27MHz0
     gen_volt(toffset=RF_offset, frequency=27e6),  # 13th unit 27Mhz
     gen_volt(toffset=RF_offset, frequency=27e6),  # 27Mhz 14
-    gen_volt(toffset=RF_offset + 9.2586e-9, frequency=54e6), #15th unit 54 Mhz
-    gen_volt(toffset=RF_offset + 9.2586e-9, frequency=54e6), #16th unit 54 Mhz
-    gen_volt(toffset=RF_offset + 9.2586e-9, frequency=54e6), #17th unit 54 Mhz
-    gen_volt(toffset=RF_offset + 9.2586e-9, frequency=54e6), #18th unit 54 Mhz
-    gen_volt(toffset=RF_offset + 9.2586e-9, frequency=54e6), #19th unit 54 Mhz
+    gen_volt(toffset=RF_offset + 9.2586e-9, frequency=54e6),  # 15th unit 54 Mhz
+    gen_volt(toffset=RF_offset + 9.2586e-9, frequency=54e6),  # 16th unit 54 Mhz
+    gen_volt(toffset=RF_offset + 9.2586e-9, frequency=54e6),  # 17th unit 54 Mhz
+    gen_volt(toffset=RF_offset + 9.2586e-9, frequency=54e6),  # 18th unit 54 Mhz
+    gen_volt(toffset=RF_offset + 9.2586e-9, frequency=54e6),  # 19th unit 54 Mhz
+    gen_volt(toffset=RF_offset + 9.2586e-9, frequency=54e6),  # 20th unit 54 Mhz
 ]
 # add actual stack
 conductors = RF_stack(positionArray, voltages)
@@ -604,31 +609,70 @@ rfv = gen_volt(toffset=RF_offset, frequency=14.8e6)
 conductors = RF_stack(positionArray, voltages)
 print("CONDUCT DONE")
 
-#add esqs
+# add esqs
 d_wafers = 2.695 * wp.mm
 t_wafer = 625 * wp.um + 35 * 2 * wp.um
 esq_positions = [
-     0.01975,
-     0.0459,
-     # 0.07263,#gap in between third and 4th
-     0.0912985,
-     0.11285,
-     0.136544,
-     0.16212,
-     0.18935,   # 8th and 9th gap
-     0.219534,  # 9th and 10th gap
-     0.251174,  # 10th and 11th gap
-     0.282833,  # 11th and 12th gap
-     0.315104,  # 12th and 13th gap
-     0.348133,  # 13th and 14th gap
-     0.379033,  # 14th and 15th gap
-     0.397363,  # 15th and 16th gap
-     0.416256,  # 16th and 17th gap
-     0.4357,    # 17th and 18th gap
-     0.455656,  # 18th and 19th gap
+    0.01975,
+    0.0459,
+    # 0.07263,#gap in between third and 4th
+    0.0912985,
+    0.11285,
+    0.136544,
+    0.16212,
+    0.18935,  # 8th and 9th gap
+    0.219534,  # 9th and 10th gap
+    0.251174,  # 10th and 11th gap
+    0.282833,  # 11th and 12th gap
+    0.315104,  # 12th and 13th gap
+    0.348133,  # 13th and 14th gap
+    0.379033,  # 14th and 15th gap
+    0.397363,  # 15th and 16th gap
+    0.416256,  # 16th and 17th gap
+    0.4357,  # 17th and 18th gap
+    0.455656,  # 18th and 19th gap
+    0.476143,  # 19th and 20th gap
 ]
-voltages = [100, -200, 400, -500, 500, 500, -500, 550, 500, 500, 500, 500, 500, 500, 500, 500, 500]
-volt_ratio = [1.04, 1.05, 1, 1, 1.02, 1.02, 1.05, 1.04, 1.04, 1.04, 1.04, 1.04, 1.04, 1.04, 1.04, 1.04, 1.04]
+voltages = [
+    100,
+    -200,
+    400,
+    -500,
+    500,
+    500,
+    -500,
+    550,
+    500,
+    500,
+    500,
+    500,
+    500,
+    500,
+    500,
+    500,
+    500,
+    500,
+]
+volt_ratio = [
+    1.04,
+    1.05,
+    1,
+    1,
+    1.02,
+    1.02,
+    1.05,
+    1.04,
+    1.04,
+    1.04,
+    1.04,
+    1.04,
+    1.04,
+    1.04,
+    1.04,
+    1.04,
+    1.04,
+    1.04,
+]
 if not warpoptions.options.autorun:
     conductors += ESQ_doublet(esq_positions, voltages, volt_ratio=volt_ratio)
 
