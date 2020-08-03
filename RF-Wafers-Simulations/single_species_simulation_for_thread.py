@@ -160,8 +160,8 @@ ibeaminit = warpoptions.options.ibeaminit
 cgm_name = name
 step1path = "."
 # step1path = os.getcwd()
-step1path = "/home/cverdoza/Documents/LBL/WARP/berkeleylab-atap-meqalac-simulations/RF-Wafers-Simulations/test"
-
+#step1path = "/home/cverdoza/Documents/LBL/WARP/berkeleylab-atap-meqalac-simulations/RF-Wafers-Simulations/test"
+step1path = "/home/carlos/bin/cgm/"
 
 # overwrite if path is given by command
 if warpoptions.options.path != "":
