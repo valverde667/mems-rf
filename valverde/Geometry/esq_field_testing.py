@@ -11,8 +11,8 @@ wp.w3d.xmmin = -2 * mm
 wp.w3d.xmmax = 2 * mm
 wp.w3d.nx = 100
 
-wp.w3d.ymmin = -1 * mm
-wp.w3d.ymmax = 1 * mm
+wp.w3d.ymmin = -2 * mm
+wp.w3d.ymmax = 2 * mm
 wp.w3d.ny = 100
 
 wp.w3d.zmmin = 0
@@ -24,44 +24,29 @@ wp.registersolver(solver)
 
 
 def esq(voltage, radius=0.5 * mm, center=1 * mm, zc=3 * mm, length=2 * mm):
-    # --Create pole in quadrant 1
+    # --Create top pole
     pole1 = wp.ZCylinder(
-        radius=radius,
-        length=length,
-        voltage=voltage,
-        xcent=center,
-        ycent=center,
-        zcent=zc,
+        radius=radius, length=length, voltage=voltage, xcent=0, ycent=center, zcent=zc,
     )
 
-    # --Create pole in quadrant 2
+    # --Create left pole
     pole2 = wp.ZCylinder(
         radius=radius,
         length=length,
         voltage=-voltage,
         xcent=-center,
-        ycent=center,
+        ycent=0,
         zcent=zc,
     )
 
-    # --Create pole in quadrant 3
+    # --Create bottom pole
     pole3 = wp.ZCylinder(
-        radius=radius,
-        length=length,
-        voltage=voltage,
-        xcent=-center,
-        ycent=-center,
-        zcent=zc,
+        radius=radius, length=length, voltage=voltage, xcent=0, ycent=-center, zcent=zc,
     )
 
-    # --Create pole in quadrant 4
+    # --Create right pole
     pole4 = wp.ZCylinder(
-        radius=radius,
-        length=length,
-        voltage=-voltage,
-        xcent=center,
-        ycent=-center,
-        zcent=zc,
+        radius=radius, length=length, voltage=-voltage, xcent=center, ycent=0, zcent=zc,
     )
 
     # --Add elements for total quadrupole
@@ -74,7 +59,6 @@ def esq(voltage, radius=0.5 * mm, center=1 * mm, zc=3 * mm, length=2 * mm):
 voltage = 1 * kV
 quad = esq(voltage)
 wp.installconductors(quad)
-
 wp.generate()
 
 x, y, z = wp.w3d.xmesh, wp.w3d.ymesh, wp.w3d.zmesh
@@ -82,6 +66,22 @@ x, y, z = wp.w3d.xmesh, wp.w3d.ymesh, wp.w3d.zmesh
 xzeroindex = np.transpose(np.where(x == 0))[0, 0]
 yzeroindex = np.transpose(np.where(y == 0))[0, 0]
 zcenterindex = np.transpose(np.where(z == 3 * mm))[0, 0]
+
+wp.setup()
+quad.drawzx(filled=True)
+wp.limits(0, 10 * mm, -2 * mm, 2 * mm)
+wp.fma()
+quad.drawxy(filled=True)
+wp.fma()
+wp.limits(-2 * mm, 2 * mm, -2 * mm, 2 * mm)
+wp.pfxy(iz=yzeroindex,)
+wp.fma()
+wp.pfzx(fill=1, filled=1)
+wp.fma()
+
+raise Exception()
+
+
 phixy = wp.getphi()[:, :, zcenterindex]
 
 fig, ax = plt.subplots()
