@@ -1,10 +1,14 @@
 import warpoptions
-
 #   only specify the parameters you want to change from their default values
 #   the input will look like:
 """
 python3 single-species-simulation.py --esq_voltage=500 --fraction=.8 --speciesMass=20 --ekininit=15e3
 """
+
+dt_string = "29.1"
+
+
+
 
 #   bunch length
 warpoptions.parser.add_argument(
@@ -18,7 +22,7 @@ warpoptions.parser.add_argument(
 
 #   voltage on the RF gaps at the peak of the sinusoid
 warpoptions.parser.add_argument(
-    "--rf_voltage", dest="Vmax", type=float, default="7000"
+    "--rf_voltage", dest="Vmax", type=float, default="8000"
 )  # will be between 4000 and 10000
 
 # voltage on the Vesq
@@ -38,7 +42,7 @@ warpoptions.parser.add_argument(
 
 #   injection energy in eV
 warpoptions.parser.add_argument(
-    "--ekininit", dest="ekininit", type=float, default="10e3"
+    "--ekininit", dest="ekininit", type=float, default="8e3"
 )
 
 #   frequency of the RF
@@ -48,23 +52,29 @@ warpoptions.parser.add_argument(
 
 #   emitting radius
 warpoptions.parser.add_argument(
-    "--emit", dest="emittingRadius", type=float, default=".25e-3"
+    "--emit", dest="emittingRadius", type=float, default="0.3e-3"
 )  # .37e-3 #.25
 
 #   divergence angle
 warpoptions.parser.add_argument(
-    "--diva", dest="divergenceAngle", type=float, default="5e-3"
+    "--diva", dest="divergenceAngle", type=float, default="9e-3"
 )
+from datetime import datetime
+
+# datetime object containing current date and time
+now = datetime.now()
+# dd/mm/YY H:M:S
+
 
 #   special cgm name - for mass output / scripting
-warpoptions.parser.add_argument("--name", dest="name", type=str, default="unnamedRun")
+warpoptions.parser.add_argument("--name", dest="name", type=str, default=dt_string)
 
 #   special cgm path - for mass output / scripting
 warpoptions.parser.add_argument("--path", dest="path", type=str, default="")
 
 #   divergence angle
 warpoptions.parser.add_argument(
-    "--tstep", dest="timestep", type=float, default="1e-10"
+    "--tstep", dest="timestep", type=float, default="1e-8"
 )  # 1e-11
 
 #   Volt ratio for ESQs @ToDo Zhihao : is this correct?
@@ -76,7 +86,7 @@ warpoptions.parser.add_argument(
 warpoptions.parser.add_argument("--autorun", dest="autorun", type=bool, default=False)
 
 # sets wp.steps(#)
-warpoptions.parser.add_argument("--plotsteps", dest="plotsteps", type=int, default=20)
+warpoptions.parser.add_argument("--plotsteps", dest="plotsteps", type=int, default=1)
 
 # changes simulation to a "cb-beam" simulation
 warpoptions.parser.add_argument("--cb", dest="cb_framewidth", type=float, default=0)
@@ -101,20 +111,20 @@ warpoptions.parser.add_argument("--loadbeam", dest="loadbeam", type=str, default
 # --beamnumber 3  or negative number to count from the back. Stored beams are ordered.
 warpoptions.parser.add_argument("--beamnumber", dest="beamnumber", type=int, default=-1)
 
-# --Python packages
+#--Python packages
 import numpy as np
 import matplotlib.pyplot as plt
 import time
 import json
 import os
 
-# --Import third-party packages
+#--Import third-party packages
 import warp as wp
 from warp.particles.extpart import ZCrossingParticles
 
-# --Import custom packages
+#--Import custom packages
+from geometry_test7 import RF_stack, ESQ_doublet, ESQ_singlet
 import geometry
-from geometry import RF_stack, ESQ_doublet
 
 
 # # There is no Matplotlib installed on Lawrencium
@@ -159,9 +169,7 @@ ibeaminit = warpoptions.options.ibeaminit
 # --- where to store the outputfiles
 cgm_name = name
 step1path = "."
-# step1path = os.getcwd()
-#step1path = "/home/cverdoza/Documents/LBL/WARP/berkeleylab-atap-meqalac-simulations/RF-Wafers-Simulations/test"
-step1path = "/home/carlos/bin/cgm/"
+step1path = os.getcwd()
 
 # overwrite if path is given by command
 if warpoptions.options.path != "":
@@ -227,7 +235,7 @@ def restorebeam(nb_beam=beamnumber):
 # --- Set basic beam parameters
 
 wp.top.vbeam = 0.0e0
-# wp.top.emit = 9.45e-7
+wp.top.emit = 1.42E-6
 wp.top.ibeam = ibeaminit
 wp.top.ekin = ekininit
 wp.top.zion = selectedIons.charge_state
@@ -255,11 +263,11 @@ wp.top.prwall = (
 )  # prwall slightly bigger than aperture radius so ions can get absorbed by conductors
 
 # --- Set field grid size, this is the width of the window
-wp.w3d.xmmin = -3 / 2 * wp.mm
-wp.w3d.xmmax = 3 / 2 * wp.mm
-wp.w3d.ymmin = -3 / 2 * wp.mm  #
-wp.w3d.ymmax = 3 / 2 * wp.mm
-framewidth = 23 * wp.mm
+wp.w3d.xmmin = -2 * wp.mm
+wp.w3d.xmmax = 2 * wp.mm
+wp.w3d.ymmin = -2 * wp.mm  #
+wp.w3d.ymmax = 2 * wp.mm
+framewidth = 60 * wp.mm
 
 restorebeam()
 
@@ -268,28 +276,28 @@ if loadbeam == "":
     wp.w3d.zmmin = 0.0
     wp.w3d.zmmax = wp.w3d.zmmin + framewidth
 
-    wp.top.npmax = 800  # maximal number of particles (for injection per timestep???)
+    wp.top.npmax = 8000  # maximal number of particles (for injection per timestep???)
     wp.top.inject = 1  # 2 means space-charge limited injection
-    wp.top.npinject = 200  # approximate number of particles injected per step
+    wp.top.npinject = 200 # approximate number of particles injected per step
 
     wp.top.ainject = emittingRadius
     wp.top.binject = emittingRadius
     wp.top.apinject = divergenceAngle
     wp.top.bpinject = divergenceAngle
-    # wp.top.rinject = 5000  # emitting surface curvature
+    #wp.top.rinject = 5000  # emitting surface curvature
     wp.top.linj_eperp = False  # Turn on transverse E-fields near emitting surface
-    wp.top.vinject = 1.0  # source voltage
+    wp.top.vinject = 1  # source voltage
 
     wp.top.xinject = 0
     wp.top.yinject = 0
     wp.top.zinject = wp.w3d.zmmin
 
 # set grid spacing, this is the number of mesh elements in one window
-wp.w3d.nx = 30  # 60.
-wp.w3d.ny = 30  # 60.
+wp.w3d.nx = 30 #60. < for higher resolution
+wp.w3d.ny = 30 #60.
 ### There are two 35um copper layers on ESQ, so we need high resolution.
 # 180 / 23mm < 8mm⁻¹
-wp.w3d.nz = 180.0  # 180 for 23 # 6-85 for 10
+wp.w3d.nz = 150.0  # 180 for 23 # 6-85 for 10
 
 # overwrite if the beam is cb:
 if warpoptions.options.cb_framewidth:
@@ -453,26 +461,6 @@ def rrms():
 calculatedPositionArray = calculateRFwaferpositions()
 # print(calculatedPositionArray)
 positionArray = [
-    [0.0036525, 0.00634749, 0.01243267, 0.01512737],
-    [0.024352, 0.027048, 0.03800207, 0.04000207],
-    [0.051852263, 0.05458263, 0.06740239, 0.07009839],  # timo testrun
-    [0.075152, 0.077852, 0.084844, 0.087544],  # commented 5_9
-    [0.095053, 0.097753, 0.105814, 0.108514],
-    [0.117173, 0.119863, 0.129031, 0.131721],
-    [0.141367, 0.144057, 0.154164, 0.156854],
-    [0.167375, 0.170065, 0.180987, 0.183677],  # for 27 MHz 8th unit
-    [0.195017, 0.197707, 0.209454, 0.212144],  # for 27 MHz 9th unit
-    [0.226921, 0.229611, 0.242085, 0.244775],  # 10th 27Mhz
-    [0.257573, 0.260263, 0.27343, 0.27612],  # 11th unit 27Mhz
-    [0.289546, 0.292236, 0.306017, 0.308707],  # 12th unit 27 Mhz
-    [0.3215, 0.32419, 0.3381, 0.34079],  # 13th unit optimization try 3[0
-    [0.355475, 0.358165, 0.37318, 0.37587],  # for 27 Mhz 14th
-    [0.382195, 0.384885, 0.391369, 0.394051],  # 15th unit 54 MHz
-    [0.400666, 0.403356, 0.410117, 0.412807],  # 16th unit 54Mhz
-    [0.419704, 0.422394, 0.429436, 0.432126],  # 17th unit 54Mhz
-    [0.439274, 0.441964, 0.449257, 0.451947],  # 18th unit 54Mhz
-    [0.459364, 0.462054, 0.469613, 0.472303],  # 19th unit 54Mhz
-    [0.479982, 0.482672, 0.49049, 0.49318],
 ]
 # for 9kV
 # positionArray = [[.0036525,.0056525,0.01243279,0.01463279],
@@ -567,114 +555,96 @@ def beamsave():
             storedbeams.append(sb)
             writejson("storedbeams", storedbeams)
 
-
 for i, pa in enumerate(positionArray):
     print(f"Unit {i} placed at {pa}")
 
 # Voltages for each RF UNIT
 # setting frequency overwrites the default/waroptions
 # frequency setting;
-voltages = [
-    gen_volt(toffset=RF_offset, frequency=14.8e6),
-    gen_volt(toffset=RF_offset, frequency=14.8e6),
-    gen_volt(toffset=RF_offset, frequency=14.8e6),
-    gen_volt(toffset=RF_offset, frequency=27e6),
-    gen_volt(toffset=RF_offset, frequency=27e6),
-    gen_volt(toffset=RF_offset, frequency=27e6),
-    gen_volt(toffset=RF_offset, frequency=27e6),
-    gen_volt(
-        toffset=RF_offset, frequency=27e6
-    ),  # last updated 5/1 #commented#changed to 54 without offset 5_29
-    gen_volt(
-        toffset=RF_offset, frequency=27e6
-    ),  # last updated 5/1 #commented#changed to 27 without offset 5_30
-    gen_volt(toffset=RF_offset, frequency=27e6),
-    gen_volt(toffset=RF_offset, frequency=27e6),  # 11th unit 27Mhz
-    gen_volt(toffset=RF_offset, frequency=27e6),  # 12th unit 27MHz0
-    gen_volt(toffset=RF_offset, frequency=27e6),  # 13th unit 27Mhz
-    gen_volt(toffset=RF_offset, frequency=27e6),  # 27Mhz 14
-    gen_volt(toffset=RF_offset + 9.2586e-9, frequency=54e6),  # 15th unit 54 Mhz
-    gen_volt(toffset=RF_offset + 9.2586e-9, frequency=54e6),  # 16th unit 54 Mhz
-    gen_volt(toffset=RF_offset + 9.2586e-9, frequency=54e6),  # 17th unit 54 Mhz
-    gen_volt(toffset=RF_offset + 9.2586e-9, frequency=54e6),  # 18th unit 54 Mhz
-    gen_volt(toffset=RF_offset + 9.2586e-9, frequency=54e6),  # 19th unit 54 Mhz
-    gen_volt(toffset=RF_offset + 9.2586e-9, frequency=54e6),  # 20th unit 54 Mhz
-]
+
 # add actual stack
-conductors = RF_stack(positionArray, voltages)
+conductors = [] #RF_stack(positionArray, voltages)
 
 print("CONDUCT DONE")
 rfv = gen_volt(toffset=RF_offset, frequency=14.8e6)
 ###add ctual stack
-conductors = RF_stack(positionArray, voltages)
+conductors = [] #RF_stack(positionArray, voltages)
 print("CONDUCT DONE")
 
-# add esqs
+#add esqs
 d_wafers = 2.695 * wp.mm
 t_wafer = 625 * wp.um + 35 * 2 * wp.um
-esq_positions = [
-    0.01975,
-    0.0459,
-    # 0.07263,#gap in between third and 4th
-    0.0912985,
-    0.11285,
-    0.136544,
-    0.16212,
-    0.18935,  # 8th and 9th gap
-    0.219534,  # 9th and 10th gap
-    0.251174,  # 10th and 11th gap
-    0.282833,  # 11th and 12th gap
-    0.315104,  # 12th and 13th gap
-    0.348133,  # 13th and 14th gap
-    0.379033,  # 14th and 15th gap
-    0.397363,  # 15th and 16th gap
-    0.416256,  # 16th and 17th gap
-    0.4357,  # 17th and 18th gap
-    0.455656,  # 18th and 19th gap
-    0.476143,  # 19th and 20th gap
-]
-voltages = [
-    100,
-    -200,
-    400,
-    -500,
-    500,
-    500,
-    -500,
-    550,
-    500,
-    500,
-    500,
-    500,
-    500,
-    500,
-    500,
-    500,
-    500,
-    500,
-]
-volt_ratio = [
-    1.04,
-    1.05,
-    1,
-    1,
-    1.02,
-    1.02,
-    1.05,
-    1.04,
-    1.04,
-    1.04,
-    1.04,
-    1.04,
-    1.04,
-    1.04,
-    1.04,
-    1.04,
-    1.04,
-    1.04,
-]
-if not warpoptions.options.autorun:
-    conductors += ESQ_doublet(esq_positions, voltages, volt_ratio=volt_ratio)
+
+V_esq = [100,-250,250,-105,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,50,-75,0,0]#,500,500,500,500]
+d_drift = 1e-3
+d_esq =1.59e-3 
+d_beginning=0
+V_total = np.zeros(len(V_esq)*2+1)
+d_total=np.zeros(len(V_esq)*2+1)
+esq_positions=np.zeros(len(V_esq))
+k=0
+for i in range(len(V_esq)*2+1):
+	if i==0:
+    		d_total[i]=d_drift+d_beginning
+    		V_total[i]=0
+	elif i%2 == 0:
+    		d_total[i]=d_total[i-1]+d_drift
+    		V_total[i]=0
+	else:
+    		d_total[i]=d_total[i-1]+d_esq
+    		esq_positions[k]=d_total[i]
+    		k=k+1
+    		V_total[i]=V_esq[int((i-1)/2)]
+voltages=np.zeros(len(V_esq))
+invertPolarity=np.zeros(len(V_esq))
+for i in range(len(V_esq)):
+    voltages[i]=abs(V_esq[i])
+    if (V_esq[i]<0):
+        invertPolarity[i]=-1
+    else: 
+        invertPolarity[i]=1
+        
+        
+print(len(V_esq))
+print(invertPolarity)
+print(voltages)
+
+
+esq0 = ESQ_singlet(esq_positions[0], invertPolarity[0], voltages[0])
+esq1 = ESQ_singlet(esq_positions[1], invertPolarity[1], voltages[1])
+esq2 = ESQ_singlet(esq_positions[2], invertPolarity[2], voltages[2])
+esq3 = ESQ_singlet(esq_positions[3], invertPolarity[3], voltages[3])
+esq4 = ESQ_singlet(esq_positions[4], invertPolarity[4], voltages[4])
+esq5 = ESQ_singlet(esq_positions[5], invertPolarity[5], voltages[5])
+esq6 = ESQ_singlet(esq_positions[6], invertPolarity[6], voltages[6])
+esq7 = ESQ_singlet(esq_positions[7], invertPolarity[7], voltages[7])
+esq8 = ESQ_singlet(esq_positions[8], invertPolarity[8], voltages[8])
+esq9 = ESQ_singlet(esq_positions[9], invertPolarity[9], voltages[9])
+esq10 = ESQ_singlet(esq_positions[10], invertPolarity[10], voltages[10])
+esq11 = ESQ_singlet(esq_positions[11], invertPolarity[11], voltages[11])
+esq12 = ESQ_singlet(esq_positions[12], invertPolarity[12], voltages[12])
+esq13 = ESQ_singlet(esq_positions[13], invertPolarity[13], voltages[13])
+esq14 = ESQ_singlet(esq_positions[14], invertPolarity[14], voltages[14])
+esq15 = ESQ_singlet(esq_positions[15], invertPolarity[15], voltages[15])
+esq16 = ESQ_singlet(esq_positions[16], invertPolarity[16], voltages[16])
+esq17 = ESQ_singlet(esq_positions[17], invertPolarity[17], voltages[17])
+esq18 = ESQ_singlet(esq_positions[18], invertPolarity[18], voltages[18])
+esq19 = ESQ_singlet(esq_positions[19], invertPolarity[19], voltages[19])
+esq20 = ESQ_singlet(esq_positions[20], invertPolarity[20], voltages[20])
+esq21 = ESQ_singlet(esq_positions[21], invertPolarity[21], voltages[21])
+esq22 = ESQ_singlet(esq_positions[22], invertPolarity[22], voltages[22])
+esq23 = ESQ_singlet(esq_positions[23], invertPolarity[23], voltages[23])
+#conductors=[]
+#for i in range(len(V_esq)):
+#	esq=ESQ_singlet(esq_positions[i], invertPolarity[i], voltages[i])
+#	conductors=conductors +[esq]
+
+conductors=esq0+esq1+esq2+esq3+esq4+esq5+esq6+esq7+esq8+esq9+esq10+esq11+esq12+esq13+esq14+esq15+esq16+esq17+esq18+esq19+esq20+esq21+esq22+esq23
+
+wp.installconductors(conductors)
+wp.fieldsol(-1)
+
+
 
 # creat submesh for ESQ
 meshes = []
@@ -693,11 +663,11 @@ for esq_pos in esq_positions:
     )
     meshes.append(child_1)
     meshes.append(child_2)
-
+ 
 velo = np.sqrt(
     2 * ekininit * selectedIons.charge / selectedIons.mass
 )  # used to calculate tmax
-length = positionArray[-1][-1] + 25 * wp.mm
+length = esq_positions[-1] + 5 * wp.mm
 tmax = length / velo  # this is used for the maximum time for timesteps
 zrunmax = length  # this is used for the maximum distance for timesteps
 if warpoptions.options.runtime:
@@ -769,6 +739,7 @@ def savezcrossing():
             "vy": zc.getvy().tolist(),
             "vz": zc.getvz().tolist(),
             "t": zc.gett().tolist(),
+            "tbirth": zc.tbirth.tolist(),
         }
         writejson("zcrossing", zc_data)
         zc_start_data = {
@@ -779,6 +750,7 @@ def savezcrossing():
             "vy": zc_start.getvy().tolist(),
             "vz": zc_start.getvz().tolist(),
             "t": zc_start.gett().tolist(),
+            "tbirth": zc_start.tbirth.tolist(),
         }
         writejson("zcrossing_start", zc_data)
         print("STORED Z CROSSING")
@@ -826,7 +798,7 @@ scraper = wp.ParticleScraper(
 )  # to use until target is fixed to output data properly
 
 # attempt at graphing
-lastWafer = positionArray[-1][-1]
+lastWafer = esq_positions[-1]
 zEnd = 10 * wp.mm + lastWafer
 if warpoptions.options.runtime:
     zEnd = 1e3
@@ -1021,15 +993,58 @@ while wp.top.time < tmax and max(Z) < zEnd:
         "X [m]",
     )
     wp.fma()
+    
+        ## adding Y:
+    
+    
+    
+    mask = []
+    for i in range(
+        len(tarray) - 1
+    ):  # the length of tarray must be changing overtime which changes the mask which recolors the particles
+        m = (selectedIons.tbirth > tarray[i]) * (selectedIons.tbirth < tarray[i + 1])
+        mask.append(m)
+        # plot particles on top of fild plot, sort by birthtime and color them accordingly
+    colors = [wp.red, wp.yellow, wp.green, wp.blue, wp.magenta]
+    for m, c in zip(mask, colors):
+        if loadbeam == "":
+            wp.plp(
+                selectedIons.gety()[m], selectedIons.getz()[m], msize=1.0, color=c
+            )  # the selected ions are changing through time
+        else:
+            wp.plp(selectedIons.gety(), selectedIons.getz(), msize=1.0)
+    wp.limits(zmin, zmax)
+    wp.ptitles(
+        f"Particles and Fields \ntime {wp.top.time}\n voltage : {rfv(wp.top.time)}",
+        "Z [m]",
+        "Y [m]",
+    )
+    wp.fma()
+    
+    
     ### Frame, shwoing
     selectedIons.ppxy(
-        color=wp.red, titles=0
+        color=wp.red
     )  # ppxy (particle plot x horizontal axis, y on vertical axis
-    wp.limits(-R, R)
-    wp.ylimits(-R, R)
+    wp.limits(-R*2, R*2)
+    wp.ylimits(-R*2, R*2)
     wp.plg(Y, X, type="dash")
     wp.fma()
     ###
+    
+    
+    
+    wp.pzepsx()
+    wp.fma()
+
+    wp.pzepsnx()
+    wp.fma()
+
+    wp.pzepsny()
+    wp.fma()
+    wp.pfzx(fill=1, filled=1, plotphi=1)  # plots contours of potential
+    wp.fma()  # second frame in cgm file
+
     # autosave(selectedIons)
     if autosave(selectedIons):
         print(f"Postion {selectedIons.getz().max()}")
@@ -1070,6 +1085,27 @@ wp.ptitles(
     "Fraction of Surviving Particles",
 )
 wp.fma()
+
+
+wp.pzepsx()
+wp.fma()
+
+wp.pzepsnx()
+wp.fma()
+
+wp.pzepsny()
+wp.fma()
+wp.pzepsnz()
+wp.fma()
+
+wp.hpenvx(color=wp.red, titles=0)
+#wp.fma()
+
+wp.hpenvy(color=wp.blue, titles=0)
+wp.ptitles("X(red), Y(blue)", "Time [s]", "X, Y [m]", "")
+wp.fma()
+
+
 ### Frame, rms envelope plot
 wp.hpxrms(color=wp.red, titles=0)
 wp.hpyrms(color=wp.blue, titles=0)
@@ -1082,9 +1118,9 @@ wp.pzenvy(color=wp.blue, titles=0)
 wp.ptitles("X(red), Y(blue)", "Z [m]", "X/Y [m]", "")
 wp.fma()
 ### Frame, vx and vy plot
-wp.hpvxbar(color=wp.red, titles=0)
-wp.hpvybar(color=wp.blue, titles=0)
-wp.ptitles("X(red), Y(blue), R(green)", "Time [s]", "X/Y/R [m]", "")
+wp.hpvxbar(color=wp.red)
+wp.hpvybar(color=wp.blue)
+#wp.ptitles("X(red), Y(blue), R(green)", "Time [s]", "X/Y/R [m]", "")
 wp.fma()
 ### Frame, Kinetic Energy at certain Z value
 wp.plg(KE_select, time_time, color=wp.blue)
