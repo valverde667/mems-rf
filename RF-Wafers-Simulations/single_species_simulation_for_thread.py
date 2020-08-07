@@ -769,7 +769,6 @@ def savezcrossing():
             "vy": zc.getvy().tolist(),
             "vz": zc.getvz().tolist(),
             "t": zc.gett().tolist(),
-            "tbirth": zc.tbirth.tolist(),
         }
         writejson("zcrossing", zc_data)
         zc_start_data = {
@@ -780,7 +779,6 @@ def savezcrossing():
             "vy": zc_start.getvy().tolist(),
             "vz": zc_start.getvz().tolist(),
             "t": zc_start.gett().tolist(),
-            "tbirth": zc_start.tbirth.tolist(),
         }
         writejson("zcrossing_start", zc_data)
         print("STORED Z CROSSING")
