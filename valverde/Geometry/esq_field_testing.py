@@ -7,24 +7,28 @@ kV = wp.kV
 mm = wp.mm
 um = 1e-6
 
-wp.w3d.xmmin = -2 * mm
-wp.w3d.xmmax = 2 * mm
-wp.w3d.nx = 100
+wp.w3d.xmmin = -4 * mm
+wp.w3d.xmmax = 4 * mm
+wp.w3d.nx = 300
 
-wp.w3d.ymmin = -2 * mm
-wp.w3d.ymmax = 2 * mm
-wp.w3d.ny = 100
+wp.w3d.ymmin = -4 * mm
+wp.w3d.ymmax = 4 * mm
+wp.w3d.ny = 300
 
-wp.w3d.zmmin = 0
+wp.w3d.zmmin = -5 * mm
 wp.w3d.zmmax = 5 * mm
-wp.w3d.nz = 300
+wp.w3d.nz = 600
+
+wp.w3d.bound0 = wp.neumann
+wp.w3d.boundnz = wp.neumann
+wp.w3d.boundxy = wp.neumann
 
 solver = wp.MRBlock3D()
 wp.registersolver(solver)
 
 
 class ESQ:
-    def __init__(self, radius=0.5 * mm, zc=3 * mm, length=625 * um):
+    def __init__(self, radius=1.33 * mm, zc=2.2 * mm, length=1.59):
 
         self.radius = radius
         self.zc = zc
@@ -89,24 +93,25 @@ def esq(voltage, radius=0.5 * mm, center=1 * mm, zc=3 * mm, length=625 * um):
     return quad
 
 
-voltage = 1 * kV
+voltage = 0.5 * kV
 xycent = 1 * mm
-separation = 0.7 * mm
-zc = 3 * mm
-length = 625 * um
-conductor = ESQ()
-quadclass1, components = conductor.generate(
+separation = 1 * mm
+zc = 2.2 * mm
+length = 1.59 * um
+leftconductor = ESQ(zc=-zc)
+leftquad, leftcomponents = leftconductor.generate(
     voltage=voltage, xcent=xycent, ycent=xycent, data=True
 )
 
-conductor1 = ESQ(zc=zc + length / 2 + separation + length / 2)
-quadclass2, components2 = conductor1.generate(
+rightconductor = ESQ(zc=zc)
+rightquad, rightcomponents = rightconductor.generate(
     voltage=-voltage, xcent=xycent, ycent=xycent, data=True
 )
 
 # quad = esq(voltage)
 
-wp.installconductors(quadclass1, quadclass2)
+wp.installconductor(leftquad)
+wp.installconductor(rightquad)
 wp.generate()
 
 x, y, z = wp.w3d.xmesh, wp.w3d.ymesh, wp.w3d.zmesh
@@ -139,17 +144,18 @@ zcenterindex = np.transpose(np.where(z == 3 * mm))[0, 0]
 # wp.fma()
 
 wp.setup()
-quadclass1.drawzx(filled=True)
-quadclass2.drawzx(filled=True)
-wp.limits(0, 10 * mm, -2 * mm, 2 * mm)
+rightquad.drawzx(filled=True)
+leftquad.drawzx(filled=True)
 wp.fma()
-quadclass1.drawxy(filled=True)
+leftquad.drawxy(filled=True)
+rightquad.drawxy(filled=True)
 wp.fma()
-wp.pfxy(iz=yzeroindex,)
+wp.pfxy(iz=yzeroindex)
 wp.fma()
 wp.pfzx()
 wp.fma()
 
+raise Exception()
 phi = wp.getphi()
 phixy = wp.getphi()[:, :, zcenterindex]
 Ex = wp.getselfe(comp="x")
