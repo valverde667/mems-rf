@@ -165,6 +165,8 @@ ax.set_xlabel("z [mm]")
 ax.set_ylabel(r"$E_x(dx, 0, z)$/dx [V mm$^{-2}$]")
 ax.set_title(r"$E_x$ Gradient One Grid-cell Off-axis vs z")
 ax.scatter(z / mm, gradex / mm / mm, s=1.2)
+ax.axhline(y=0, c="k", lw=0.5)
+ax.axvline(x=0, c="k", lw=0.5)
 
 # add ESQ
 esq1left = -zc - length / 2
