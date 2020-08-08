@@ -9,15 +9,15 @@ um = 1e-6
 
 wp.w3d.xmmin = -4 * mm
 wp.w3d.xmmax = 4 * mm
-wp.w3d.nx = 300
+wp.w3d.nx = 150
 
 wp.w3d.ymmin = -4 * mm
 wp.w3d.ymmax = 4 * mm
-wp.w3d.ny = 300
+wp.w3d.ny = 150
 
 wp.w3d.zmmin = -5 * mm
 wp.w3d.zmmax = 5 * mm
-wp.w3d.nz = 600
+wp.w3d.nz = 400
 
 wp.w3d.bound0 = wp.neumann
 wp.w3d.boundnz = wp.neumann
@@ -28,7 +28,7 @@ wp.registersolver(solver)
 
 
 class ESQ:
-    def __init__(self, radius=1.33 * mm, zc=2.2 * mm, length=1.59):
+    def __init__(self, radius=0.75 * mm, zc=2.2 * mm, length=1.59 * mm):
 
         self.radius = radius
         self.zc = zc
@@ -60,44 +60,44 @@ class ESQ:
             return conductor, components
 
 
-def esq(voltage, radius=0.5 * mm, center=1 * mm, zc=3 * mm, length=625 * um):
-    # --Create top pole
-    pole1 = wp.ZCylinder(
-        radius=radius, length=length, voltage=voltage, xcent=0, ycent=center, zcent=zc,
-    )
-
-    # --Create left pole
-    pole2 = wp.ZCylinder(
-        radius=radius,
-        length=length,
-        voltage=-voltage,
-        xcent=-center,
-        ycent=0,
-        zcent=zc,
-    )
-
-    # --Create bottom pole
-    pole3 = wp.ZCylinder(
-        radius=radius, length=length, voltage=voltage, xcent=0, ycent=-center, zcent=zc,
-    )
-
-    # --Create right pole
-    pole4 = wp.ZCylinder(
-        radius=radius, length=length, voltage=-voltage, xcent=center, ycent=0, zcent=zc,
-    )
-
-    # --Add elements for total quadrupole
-
-    quad = pole1 + pole2 + pole3 + pole4
-
-    return quad
+# def esq(voltage, radius=0.5 * mm, center=1 * mm, zc=3 * mm, length=625 * um):
+#     # --Create top pole
+#     pole1 = wp.ZCylinder(
+#         radius=radius, length=length, voltage=voltage, xcent=0, ycent=center, zcent=zc,
+#     )
+#
+#     # --Create left pole
+#     pole2 = wp.ZCylinder(
+#         radius=radius,
+#         length=length,
+#         voltage=-voltage,
+#         xcent=-center,
+#         ycent=0,
+#         zcent=zc,
+#     )
+#
+#     # --Create bottom pole
+#     pole3 = wp.ZCylinder(
+#         radius=radius, length=length, voltage=voltage, xcent=0, ycent=-center, zcent=zc,
+#     )
+#
+#     # --Create right pole
+#     pole4 = wp.ZCylinder(
+#         radius=radius, length=length, voltage=-voltage, xcent=center, ycent=0, zcent=zc,
+#     )
+#
+#     # --Add elements for total quadrupole
+#
+#     quad = pole1 + pole2 + pole3 + pole4
+#
+#     return quad
 
 
 voltage = 0.5 * kV
-xycent = 1 * mm
+xycent = 1.3 * mm
 separation = 1 * mm
 zc = 2.2 * mm
-length = 1.59 * um
+length = 1.59 * mm
 leftconductor = ESQ(zc=-zc)
 leftquad, leftcomponents = leftconductor.generate(
     voltage=voltage, xcent=xycent, ycent=xycent, data=True
