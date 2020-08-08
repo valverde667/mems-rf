@@ -142,20 +142,19 @@ zcenterindex = np.transpose(np.where(z == 3 * mm))[0, 0]
 # wp.fma()
 # wp.pfzx(fill=1, filled=1)
 # wp.fma()
+#
+# wp.setup()
+# rightquad.drawzx(filled=True)
+# leftquad.drawzx(filled=True)
+# wp.fma()
+# leftquad.drawxy(filled=True)
+# rightquad.drawxy(filled=True)
+# wp.fma()
+# wp.pfxy(iz=yzeroindex)
+# wp.fma()
+# wp.pfzx()
+# wp.fma()
 
-wp.setup()
-rightquad.drawzx(filled=True)
-leftquad.drawzx(filled=True)
-wp.fma()
-leftquad.drawxy(filled=True)
-rightquad.drawxy(filled=True)
-wp.fma()
-wp.pfxy(iz=yzeroindex)
-wp.fma()
-wp.pfzx()
-wp.fma()
-
-raise Exception()
 phi = wp.getphi()
 phixy = wp.getphi()[:, :, zcenterindex]
 Ex = wp.getselfe(comp="x")
@@ -168,11 +167,11 @@ ax.set_title(r"$E_x$ Gradient One Grid-cell Off-axis vs z")
 ax.scatter(z / mm, gradex / mm / mm, s=1.2)
 
 # add ESQ
-esq1left = zc - length / 2
-esq1right = zc + length / 2
+esq1left = -zc - length / 2
+esq1right = -zc + length / 2
 
-esq2left = zc + length / 2 + separation
-esq2right = zc + length / 2 + separation + length
+esq2left = zc - length / 2
+esq2right = zc + length / 2
 ax.axvline(x=esq1left / mm, c="b", lw=0.8, ls="--", label="First ESQ")
 ax.axvline(x=esq1right / mm, c="b", lw=0.8, ls="--")
 ax.axvline(x=esq2left / mm, c="r", lw=0.8, ls="--", label="Second ESQ")
