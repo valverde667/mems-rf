@@ -92,6 +92,11 @@ warpoptions.parser.add_argument(
     "--ibeaminit", dest="ibeaminit", type=float, default=10e-6
 )
 
+# offset to make beam bunch asynchronous
+warpoptions.parser.add_argument(
+    "--beamdelay", dest="beamdelay", type=float, default=0.0
+)
+
 #   stores the beam at once the average particle position passed the given positions (list)
 # --storebeam "[0.01, 0.024, 0.045]" uses the --name given for the simulation. Stored beams are ordered.
 # Needs to be an array with stings
@@ -155,6 +160,7 @@ storebeam = warpoptions.options.storebeam
 loadbeam = warpoptions.options.loadbeam
 beamnumber = warpoptions.options.beamnumber
 ibeaminit = warpoptions.options.ibeaminit
+beamdelay = warpoptions.options.beamdelay
 
 # --- where to store the outputfiles
 cgm_name = name
@@ -923,7 +929,7 @@ while wp.top.time < tmax and max(Z) < zEnd:
         gen_volt(RF_offset)(wp.top.time)
     )  # Move this where it belongs
     ###### Injection
-    if 0 * wp.ns < wp.top.time < L_bunch and loadbeam == "":  # changes the beam
+    if 0 * wp.ns < (wp.top.time-beamdelay) < L_bunch and loadbeam == "":  # changes the beam
         wp.top.finject[0, selectedIons.jslist[0]] = 1
     elif (
         not warpoptions.options.cb_framewidth
