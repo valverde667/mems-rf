@@ -60,6 +60,23 @@ class ESQ:
             return conductor, components
 
 
+class Wall:
+    def __init__(self, rextent=100 * w3d.xmmax, zextent=0.1 * mm):
+        self.rextent = rextent
+        self.zextent = zextent
+
+    def generate(self, apperture, voltage, zcenter):
+        conductor = ZAnnulus(
+            rmin=apperture,
+            voltage=voltage,
+            zcent=zcenter,
+            rmax=self.rextent,
+            length=self.zextent,
+        )
+
+        return conductor
+
+
 # def esq(voltage, radius=0.5 * mm, center=1 * mm, zc=3 * mm, length=625 * um):
 #     # --Create top pole
 #     pole1 = wp.ZCylinder(
@@ -98,15 +115,17 @@ xycent = 1.3 * mm
 separation = 1 * mm
 zc = 2.2 * mm
 length = 1.59 * mm
+
+
 leftconductor = ESQ(zc=-zc)
 leftquad, leftcomponents = leftconductor.generate(
     voltage=voltage, xcent=xycent, ycent=xycent, data=True
 )
-
 rightconductor = ESQ(zc=zc)
 rightquad, rightcomponents = rightconductor.generate(
     voltage=-voltage, xcent=xycent, ycent=xycent, data=True
 )
+
 
 # quad = esq(voltage)
 
