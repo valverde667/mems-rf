@@ -2,11 +2,40 @@
 Example Pierce diode with subsequest solenoid transport.
 Hot plate source emitting singly ionized potassium.
 """
+import warpoptions
+
+warpoptions.parser.add_argument(
+    "--defVoltage", dest="defVoltage", type=float, default=5500
+)
+warpoptions.parser.add_argument(
+    "--minEnergy", dest="minEnergy", type=float, default="5000"
+)
+warpoptions.parser.add_argument(
+    "--maxEnergy", dest="maxEnergy", type=float, default="110000"
+)
+warpoptions.parser.add_argument(
+    "--energyStep", dest="energyStep", type=float, default="1000"
+)
+warpoptions.parser.add_argument(
+    "--manySingleParticles", dest="manySingleParticles", type=bool, default=True
+)
+warpoptions.parser.add_argument("--autorun", dest="autorun", type=bool, default=False)
 from warp import *
+
+defVoltage = int(warpoptions.options.defVoltage)
+minEnergy = warpoptions.options.minEnergy
+maxEnergy = warpoptions.options.maxEnergy
+energyStep = warpoptions.options.energyStep
+manySingleParticles = warpoptions.options.manySingleParticles
+autorun = warpoptions.options.autorun
+"""As warp is imported again in *_utils the warpotiuons are getting deleted"""
+
+from EnergyAnalyzer_version2_utils import *
 from warp.particles.extpart import ZCrossingParticles
 import numpy as np
 import json
-from EnergyAnalyzer_version2_utils import *
+
+print("IMPORT DONE")
 
 top.pline1 = "Energy analyzer Version 2"
 top.runmaker = "Timo Bauer"
@@ -53,7 +82,7 @@ w3d.xmmax = 30e-3
 w3d.ymmin = -1e-3
 w3d.ymmax = 1e-3
 w3d.zmmin = -15e-3
-w3d.zmmax = 140e-3
+w3d.zmmax = 220e-3
 
 # w3d.xmmin = -15e-3
 # w3d.xmmax = 100e-3
@@ -61,7 +90,7 @@ w3d.zmmax = 140e-3
 # --- Field grid dimensions - note that nx and ny must be even.
 w3d.nx = 300
 w3d.ny = 5
-w3d.nz = 500
+w3d.nz = 600
 
 # --- Set the time step size. This needs to be small enough to satisfy the Courant limit.
 top.dt = 1e-9  # 7e-10
@@ -69,7 +98,7 @@ top.dt = 1e-9  # 7e-10
 # --- Specify injection of the particles
 top.inject = 1  # 2 means space-charge limited injection
 # top.rinject = source_curvature_radius # Source radius of curvature
-top.npinject = 0#5  # Approximate number of particles injected each step
+top.npinject = 0  # 5  # Approximate number of particles injected each step
 top.vinject = 5
 top.ekin = 5
 # w3d.l_inj_exact = true
@@ -82,27 +111,59 @@ registersolver(solver)
 
 ### FLAGS
 calibration = False
-manysingleparticles = True
+manysingleparticles = manySingleParticles
 
 ### Set up geometry
 
-deflector = slit_before_plates() + deflectionPlates(5500)
+deflector = slit_before_plates() + deflectionPlates(defVoltage)
 installconductor(deflector)
 scraper_deflector = ParticleScraper(deflector)
 
 if calibration:
-    filter = tiltedInfiniteBox(z_front=0.1, x_front=3e-3, thickness=5e-3, angle=4.28400412 * deg, voltage=0)
+    print("THIS IS A CALIBRATION RUN")
+    filter = tiltedInfiniteBox(
+        z_front=0.15, x_front=3e-3, thickness=5e-3, angle=4.28400412 * deg, voltage=0
+    )
     installconductor(filter)
     scraper_filter = ParticleScraper(filter, lsavecondid=True, lsaveintercept=True)
-else:
-    slitpos = list(zip([0.09912104,0.09956524,0.09934374,0.09978553], [0.01246544,0.00653563,0.00949254,0.00359491]))
-    filter = slittedTiltedBox(slitpos, 4.28400412 * deg, 1e-3, 25e-3, 60e-3, 1, 0)
+elif manysingleparticles:
+    print("Manysingleperticles")
+    slitpos = list(
+        zip(
+            [
+                0.14881289556724275,
+                0.14903371305719695,
+                0.14925250810373805,
+                0.14946926590540766,
+            ],
+            [
+                0.01844911191517665,
+                0.01550132661243859,
+                0.01258053975520402,
+                0.009686948934350039,
+            ],
+        )
+    )
+    filter = slittedTiltedBox(
+        entranceSlits=slitpos,
+        angle=7.62 * deg,
+        slitwidth=1e-3,
+        z_dim=30e-3,
+        x_dim=60e-3,
+        y_dim=1,
+        voltage=0,
+    )
     installconductor(filter)
     scraper_filter = ParticleScraper(filter, lsavecondid=True, lsaveintercept=True)
     #
-    target = tiltedInfiniteBox(z_front=0.1+0.025+0.01, x_front=3e-3, thickness=5e-3, angle=4.28400412 * deg, voltage=0)
+    target = tiltedInfiniteBox(
+        z_front=0.21, x_front=3e-3, thickness=5e-3, angle=7.62 * deg, voltage=0
+    )
     installconductor(target)
     scraper_target = ParticleScraper(target, lsavecondid=True, lsaveintercept=True)
+    # add an additional scraper just to remove particles that dont hit the highest slit anyways
+    toohighXplane = XPlane(xcent=25e-3, condid=40)
+    # tooHighXscraper = ParticleScraper(toohighXplane)
 
 # top.pline1 = ("Injected beam. Semi-Gaus. %dx%d. npinject=%d, dt=%d"%(w3d.nx, w3d.nz, top.npinject, top.dt))
 
@@ -110,64 +171,85 @@ package("w3d")
 generate()
 
 # --- Open up plotting windows
-winon(0)
-winon(1)
+if not autorun:
+    winon(0)
+    winon(1)
 
 
 @callfromafterstep
 def beamplots(final=False):
-    # print(beam.gety())
-    if top.it % 4 == 0:
-        window(0)
-        fma()
-        pfzx(
-            fill=1,
-            filled=1,
-            plotphi=1,
-            comp="E",
-            plotselfe=1,
-            inverted=1,
-            cond=1,
-            titles=False,
-        )
-        beam.ppzx(titles=False)
-        #deflector.draw(filled=100, color="red")
-        #filter.draw(filled=150, color="red")
-        ptitles("Example")
-        refresh()
-    #
+    if not autorun:
+        if top.it % 4 == 0:
+            window(0)
+            fma()
+            pfzx(
+                fill=1,
+                filled=1,
+                plotphi=1,
+                comp="E",
+                plotselfe=1,
+                inverted=1,
+                cond=1,
+                titles=False,
+            )
+            beam.ppzx(titles=False)
+            # deflector.draw(filled=100, color="red")
+            # filter.draw(filled=150, color="red")
+            ptitles(f"Voltage +- {defVoltage}")
+            refresh()
+        #
 
-    if top.it == 3:
-        window(1)
-        pfzx(
-            fill=1,
-            filled=1,
-            plotphi=1,
-            comp="E",  # "x",
-            plotselfe=1,
-            inverted=1,
-            cond=1,
-            titles=False,
-        )
-        deflector.draw(filled=150, color="red")
-        filter.draw(filled=1, color="red")
-        refresh()
+        if top.it == 3:
+            window(1)
+            pfzx(
+                fill=1,
+                filled=1,
+                plotphi=1,
+                comp="E",  # "x",
+                plotselfe=1,
+                inverted=1,
+                cond=1,
+                titles=False,
+            )
+            deflector.draw(filled=150, color="red")
+            filter.draw(filled=1, color="red")
+            refresh()
 
-    if top.it % 2 == 0:
-        window(1)
-        beam.ppzx(titles=False)
-        refresh()
+        if top.it % 2 == 0:
+            window(1)
+            beam.ppzx(titles=False)
+            refresh()
 
-    if final:
-        window(1)
-        beam.ppzx(titles=False)
-        refresh()
-        fma()
-        print("Saving plots")
-        window(1)
-        beam.ppzx(titles=False)
-        refresh()
-        fma()
+        if final:
+            window(1)
+            beam.ppzx(titles=False)
+            refresh()
+            fma()
+            print("Saving plots")
+            window(1)
+            beam.ppzx(titles=False)
+            refresh()
+            fma()
+    elif autorun:  ## IF WE ARE AUTORUNNING
+        if top.it == 2:
+            pfzx(
+                fill=1,
+                filled=1,
+                plotphi=1,
+                comp="E",  # "x",
+                plotselfe=1,
+                inverted=1,
+                cond=1,
+                titles=False,
+            )
+            # deflector.draw(filled=150, color="red")
+            # filter.draw(filled=1, color="red")
+            beam.ppzx(titles=False)
+        if top.it % 10 == 0:
+            beam.ppzx(titles=False)
+        if final:
+            print("Final Frame")
+            fma()
 
 
 def examplebeamplots():
@@ -195,10 +277,8 @@ def nonlinearsource():
     x = random.normal(bunch_centroid_position[0], bunch_rms_size[0], NP)
     y = random.normal(bunch_centroid_position[1], bunch_rms_size[1], NP)
     z = bunch_centroid_position[2]
-    vx = random.normal(bunch_centroid_velocity[0], bunch_rms_velocity[0],
-                       NP)
-    vy = random.normal(bunch_centroid_velocity[1], bunch_rms_velocity[1],
-                       NP)
+    vx = random.normal(bunch_centroid_velocity[0], bunch_rms_velocity[0], NP)
+    vy = random.normal(bunch_centroid_velocity[1], bunch_rms_velocity[1], NP)
     vz = picmi.warp.clight * np.sqrt(1 - 1.0 / (beam_gamma ** 2))
     beam.wspecies.addparticles(
         x=x, y=y, z=z, vx=vx, vy=vy, vz=vz, gi=1.0 / beam_gamma, w=bunch_w
@@ -224,6 +304,7 @@ def singleParticleInjection(energy=100000, n_beams=3):
         lallindomain=True,
     )
 
+
 def particleDistributionInjection(n_beams=4):
     amp = 1e-9
     ppers = amp / echarge
@@ -246,14 +327,33 @@ def particleDistributionInjection(n_beams=4):
                 np.linspace(0, (n_beams - 1) * 3e-3, n_beams)
                 + constant(-beam_radius, beam_radius)
             ),
-            y=np.array([0]) * n_beams + constant(-beam_radius,
-                                                 beam_radius),
+            y=np.array([0]) * n_beams + constant(-beam_radius, beam_radius),
             z=[0] * n_beams,
             vx=[0] * n_beams,
             vy=[0] * n_beams,
             vz=[velocity(energy)] * n_beams,
             lallindomain=True,
         )
+
+
+def beamwithdiverganceInjection(energy=100000, maxdivergence=10e-3, n_beams=4):
+    def calcVX(x, uz):
+        return x / 0.0005 * maxdivergence * uz
+
+    def velocity(ekin):
+        return np.sqrt(2 * ekin * echarge / (40 * amu))
+
+    for xx in np.arange(-0.5e-3, 0.5e-3, 1 / 100 * 1e-3):
+        for x_n_beam in range(n_beams):
+            beam.addparticles(
+                x=[xx + x_n_beam * 3e-3],
+                y=[0],
+                z=[0],
+                vx=calcVX(xx, velocity(energy)),
+                vy=[0],
+                vz=[velocity(energy)],
+                lallindomain=True,
+            )
 
 
 def zcrossing_save(zc, name):
@@ -284,22 +384,43 @@ if calibration:
     while beam.getn() or top.it == 0:
         step(1)
     # lost COND ID: top.pidlost[:, -1]
-    lostangles = arctan(top.uxplost / top.uzplost)
-    print(f"Angles : {lostangles[:4]}\n"
-          f"Angles deg : {lostangles[:4] / deg}\n"
-          f"Energies : {energy(top.uzplost)[:4]}\n"
-          f"z pos : {top.zplost[:4]}\n"
-          f"x pos : {top.xplost[:4]}\n")
-if manysingleparticles:
+    # lostangles = arctan(top.uxplost / top.uzplost)
+    # print(f"Angles : {lostangles[:4]}\n"
+    #       f"Angles deg : {lostangles[:4] / deg}\n"
+    #       f"Energies : {energy(top.uzplost)[:4]}\n"
+    #       f"z pos : {top.zplost[:4]}\n"
+    #       f"x pos : {top.xplost[:4]}\n")
+    jsondata = lostByConductor().copy()
+    savejson(jsondata, f"RENAME_ME.json")
+    jsondata["angles"] = list(
+        arctan(np.array(jsondata["ux"]) / np.array(jsondata["uz"]))
+    )
+    jsondata["angles_deg"] = list(
+        arctan(np.array(jsondata["ux"]) / np.array(jsondata["uz"])) / deg
+    )
+    jsondata["z_energy"] = list(energy(jsondata["uz"]))
+    savejson(jsondata, f"RENAME_ME.json")
+elif manysingleparticles:
+    jsondata = {
+        "voltage": defVoltage,
+        "minEnergy": minEnergy,
+        "maxEnergy": maxEnergy,
+        "energyStep": energyStep,
+    }
     step(1)
-    for e in np.arange(120e3,40000,-1000):
-        singleParticleInjection(energy=e,n_beams=4)
+    for e in np.arange(maxEnergy, minEnergy, -energyStep):
+        # singleParticleInjection(energy=e, n_beams=4)
+        beamwithdiverganceInjection(e, maxdivergence=10e-3)
         step(5)
     while beam.getn():
         step(1)
-    uz, ux, uy, zz, xx, yy = lostByConductor()
-    print(f"PASSED Particles : {len(uz)}")
-    print(f"PASSED ENERGY : {energy(np.array(uz))}")
+    print(beam.getn())
+    # jsondata["uz"], jsondata["ux"], jsondata["uy"], jsondata["zz"], jsondata["xx"], jsondata["yy"] = lostByConductor()
+    jsondata = lostByConductor().copy()
+    print(f'PASSED Particles : {len(jsondata["uz"])}')
+    print(f'PASSED ENERGY : {energy(np.array(jsondata["uz"]))}')
+    print(jsondata.keys())
+    savejson(jsondata, f"./{defVoltage}.json")
 
 else:
     singleParticleInjection(energy=100000, n_beams=4)
@@ -307,12 +428,18 @@ else:
         step(1)
     # lost COND ID: top.pidlost[:, -1]
     lostangles = arctan(top.uxplost / top.uzplost)
-    print(f"Angles : {lostangles[:4]}\n"
-          f"Angles deg : {lostangles[:4] / deg}\n"
-          f"Energies : {energy(top.uzplost)[:4]}\n"
-          f"z pos : {top.zplost[:4]}\n"
-          f"x pos : {top.xplost[:4]}\n")
+    print(
+        f"Angles : {lostangles[:4]}\n"
+        f"Angles deg : {lostangles[:4] / deg}\n"
+        f"Energies : {energy(top.uzplost)[:4]}\n"
+        f"z pos : {top.zplost[:4]}\n"
+        f"x pos : {top.xplost[:4]}\n"
+    )
 beamplots(True)
+histogramOfPassedParticles(
+    f"{defVoltage}.json", defVoltage, "1mm wide beam\nNo divergence"
+)
+os.system("play -q -n synth 0.1 sin 880")
 time.sleep(5)
 
 # # ZCrossings

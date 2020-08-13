@@ -166,8 +166,6 @@ beamdelay = warpoptions.options.beamdelay
 cgm_name = name
 step1path = "."
 # step1path = os.getcwd()
-#step1path = "/home/cverdoza/Documents/LBL/WARP/berkeleylab-atap-meqalac-simulations/RF-Wafers-Simulations/test"
-step1path = "/home/carlos/bin/cgm/"
 
 # overwrite if path is given by command
 if warpoptions.options.path != "":
@@ -230,6 +228,21 @@ def restorebeam(nb_beam=beamnumber):
         wp.top.npmax = len(beamdata["z"])
 
 
+writejson("bunchlength", L_bunch)
+writejson("Vmax", Vmax)
+writejson("Vesq", Vesq)
+writejson("ekininit", ekininit)
+writejson("frequency", freq)
+writejson("emitting_Radus", emittingRadius)
+writejson("divergance_Angle", divergenceAngle)
+writejson("name", name)
+writejson("beamnumber", beamnumber)
+writejson("ibeaminit", ibeaminit)
+writejson("beamdelay", beamdelay)
+writejson("tstep", warpoptions.options.timestep)
+
+# writejson("",)
+
 # --- Set basic beam parameters
 
 wp.top.vbeam = 0.0e0
@@ -266,6 +279,7 @@ wp.w3d.xmmax = 3 / 2 * wp.mm
 wp.w3d.ymmin = -3 / 2 * wp.mm  #
 wp.w3d.ymmax = 3 / 2 * wp.mm
 framewidth = 23 * wp.mm
+
 
 restorebeam()
 
@@ -309,6 +323,8 @@ if wp.w3d.l2symtry or wp.w3d.l4symtry:
     wp.w3d.ymmin = 0.0
     wp.w3d.ny /= 2
 
+writejson("nz", wp.w3d.nz)
+writejson("framewidth", wp.w3d.zmmax - wp.w3d.zmmin)
 # --- Select plot intervals, etc.
 # print("--- Ions start at: ", wp.top.zinject)
 
@@ -376,7 +392,7 @@ print(
 # RF should be maximal when particles arrive
 # time for the cos to travel there minus the time the
 # particles take
-RF_offset = centerOfFirstRFGap / wp.clight - tParticlesAtCenterFirstGap
+RF_offset = centerOfFirstRFGap / wp.clight - tParticlesAtCenterFirstGap - beamdelay
 print(f"RF_offset {RF_offset}")
 ESQ_toffset = 0
 
@@ -487,6 +503,7 @@ positionArray = [
 #                        ]
 # for 7kV
 
+writejson("waferpositions", positionArray)
 
 # catching it at the plates with peak voltage #april 15
 
@@ -681,6 +698,9 @@ volt_ratio = [
 ]
 if not warpoptions.options.autorun:
     conductors += ESQ_doublet(esq_positions, voltages, volt_ratio=volt_ratio)
+    writejson("ESQ_positions", esq_positions)
+    writejson("ESQ_voltage", voltages)
+    writejson("ESQ_volt_ratio", volt_ratio)
 
 # creat submesh for ESQ
 meshes = []
@@ -791,6 +811,40 @@ def savezcrossing():
 
 
 #############################
+# zcrossing after every gap
+p0 = [x[3] + 1e-3 for x in positionArray]
+p1 = [x[1] + 1e-3 for x in positionArray]
+zcs_pos = [positionArray[0][0] - 1e-3] + p0 + p1
+print(f"Saving positions: {zcs_pos}")
+time.sleep(3)
+zcs_pos.sort()
+zcs_staple = zcs_pos.copy()
+zcs_staple.reverse()
+zcs = [ZCrossingParticles(zz=sp, laccumulate=1) for sp in zcs_pos]
+
+
+@wp.callfromafterstep
+def allzcrossing():
+    if len(zcs_staple):
+        if min(selectedIons.getz()) > zcs_staple[-1]:
+            zcs_data = []
+            zcs_staple.pop()
+            for zcc, pos in zip(zcs, zcs_pos):
+                zcs_data.append(
+                    {
+                        "x": zcc.getx().tolist(),
+                        "y": zcc.gety().tolist(),
+                        "z": pos,
+                        "vx": zcc.getvx().tolist(),
+                        "vy": zcc.getvy().tolist(),
+                        "vz": zcc.getvz().tolist(),
+                        "t": zcc.gett().tolist(),
+                    }
+                )
+            writejson("allzcrossing", zcs_data)
+            print("Json Saved")
+            time.sleep(3)
+
 
 # I want contour plots for levels between 0 and 1kV
 # contours = range(0, int(Vesq), int(Vesq/10))
@@ -891,7 +945,7 @@ component2 = "z"
 if warpoptions.options.loadbeam == "":  # workaround
     wp.step(1)  # This is needed, so that selectedIons exists
 
-while wp.top.time < tmax and max(Z) < zEnd:
+while wp.top.time < tmax and selectedIons.getn() and max(Z) < zEnd:
     beamsave()
 
     ### Informations
@@ -929,7 +983,7 @@ while wp.top.time < tmax and max(Z) < zEnd:
         gen_volt(RF_offset)(wp.top.time)
     )  # Move this where it belongs
     ###### Injection
-    if 0 * wp.ns < (wp.top.time-beamdelay) < L_bunch and loadbeam == "":  # changes the beam
+    if 0 * wp.ns < wp.top.time < L_bunch and loadbeam == "":  # changes the beam
         wp.top.finject[0, selectedIons.jslist[0]] = 1
     elif (
         not warpoptions.options.cb_framewidth
