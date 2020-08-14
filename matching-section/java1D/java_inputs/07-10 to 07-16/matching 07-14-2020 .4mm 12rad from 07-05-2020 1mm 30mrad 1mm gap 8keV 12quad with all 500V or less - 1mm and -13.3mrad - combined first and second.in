@@ -1,0 +1,15 @@
+Current (A)= 1.0E-5
+Energy (V)= 8000.0
+Mass (u)= 40.0
+Emittance (m-rad)= 9.45E-7
+a(0) = 0.0004
+a'(0) = 0.012
+b(0) = 0.0004
+b'(0) = 0.012
+numsteps = 100
+numelements = 21
+aperture = 0.0011
+elementnames = D1, ESQ1, D2, ESQ2, D3, ESQ3, D4, ESQ4, D5, ESQ5, D6, ESQ6, D7, ESQ7, D8, ESQ8, D9, ESQ9, D10, ESQ10, D11
+elementtypes = drift, quad, drift, quad, drift, quad, drift, quad, drift, quad, drift, quad, drift, quad, drift, quad, drift, quad, drift, quad, drift, quad, drift, quad, drift, quad, drift
+elementlengths = 1E-3, 1.59E-3, 1E-3, 1.59E-3, 1E-3, 1.59E-3, 1E-3, 1.59E-3, 1E-3, 1.59E-3, 1E-3, 1.59E-3, 1E-3, 1.59E-3, 1E-3, 1.59E-3, 1E-3, 1.59E-3, 1E-3, 1.59E-3, 1E-3, 1.59E-3, 1E-3, 1.59E-3, 8.5E-2, 1.59E-3, 1E-3
+quadvoltages = 0.0, 4.970205E2, 0.0, -5E2, 0.0, -4.956E2, 0.0, 4.964E2, 0.0, 2.157362E2, 0.0, 4.899836E1, 0.0, -4.239225E2, 0.0, 1.501443E2, 0.0, 5.1359E1, 0.0, -2.374783E2, 0.0, 4.184324E2, 0.0, -1.901278E2, 0.0, 1.197E2, 0.0
