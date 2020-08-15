@@ -3,7 +3,6 @@
 *cgmlog
 *.pyc
 tmp.*
-*.txt
 *.npy
 *.pkl
 *.mp4
