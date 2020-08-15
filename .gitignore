@@ -5,7 +5,6 @@
 tmp.*
 *.txt
 *.npy
-*.pdf
 *.pkl
 *.mp4
 *.webm
