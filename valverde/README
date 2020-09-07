@@ -1,1 +1,13 @@
+This directory acts as a separate testing bed for parts of the meqalac simulation
+code.
 
+Files
+
+-workingnotes.docx: A set of notes I keep to document useful code snippets,
+questions, future improvements, etc.
+
+Directories
+
+-Geometry: This directory is where I test code for creating the meqalac geometry.
+These test include directly testing conductors loaded onto the mesh as well as
+program structure and algorithms for better coding. 
