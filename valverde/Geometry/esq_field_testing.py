@@ -1,3 +1,5 @@
+"""Load ESQ-doublet and calculate effective length."""
+
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -7,27 +9,64 @@ kV = wp.kV
 mm = wp.mm
 um = 1e-6
 
-wp.w3d.xmmin = -2.5 * mm
-wp.w3d.xmmax = 2.5 * mm
+# -- Full 3D settings
+wp.w3d.xmmin = -2.4 * mm
+wp.w3d.xmmax = 2.4 * mm
 wp.w3d.nx = 150
 
-wp.w3d.ymmin = -2.5 * mm
-wp.w3d.ymmax = 2.5 * mm
+wp.w3d.ymmin = -2.4 * mm
+wp.w3d.ymmax = 2.4 * mm
 wp.w3d.ny = 150
 
 wp.w3d.zmmin = -5.9 * mm
 wp.w3d.zmmax = 5.9 * mm
-wp.w3d.nz = 400
+wp.w3d.nz = 600
+# --
 
-wp.w3d.bound0 = wp.neumann
-wp.w3d.boundnz = wp.neumann
-wp.w3d.boundxy = wp.neumann
+# # -- Four-fold Symmetry
+# wp.w3d.xmmin = -2.4 * mm
+# wp.w3d.xmmax = 2.4 * mm
+# wp.w3d.nx = 50
+#
+# wp.w3d.ymmin = -2.4 * mm
+# wp.w3d.ymmax = 2.4 * mm
+# wp.w3d.ny = 50
+#
+# wp.w3d.zmmin = -5.9 * mm
+# wp.w3d.zmmax = 5.9 * mm
+# wp.w3d.nz = 200
+
+
+wp.w3d.bound0 = wp.dirichlet
+wp.w3d.boundnz = wp.dirichlet
+wp.w3d.boundxy = wp.dirichlet
 
 solver = wp.MRBlock3D()
 wp.registersolver(solver)
 
 
 class ESQ:
+    """
+    Creates an ESQ object comprised of four solid cylinders extenind in z.
+
+    Attributes
+    ----------
+    radius : float
+        raidus of cylindrical ectrode.
+    zc : float
+        Center of electrode. The extent of the electrode is the half-total
+        length in the positive and negative direction of zc.
+    length : float
+        Length of electrode.
+
+    Methods
+    -------
+    pole(voltage, xcent, ycent)
+        Creates the individual electrode using Warp's ZCylinder
+    generate(voltage, xcent, ycent, data=False)
+        Combines four poles to create esq object.
+    """
+
     def __init__(self, radius=0.75 * mm, zc=2.2 * mm, length=1.59 * mm):
 
         self.radius = radius
@@ -35,6 +74,25 @@ class ESQ:
         self.length = length
 
     def pole(self, voltage, xcent, ycent):
+        """Create individual electrode for ESQ
+
+        Parameters
+        ----------
+        voltage : float
+            Voltage of condctor.
+        xcent : float
+            Center of electrode in x
+        ycent : float
+            Center of electrode in y
+
+        Returns
+        -------
+        conductor : Warp object
+            The return is a cylinder extending in z with length "length"
+            centered at zc extending to (zc - length/2, zc + length/2) with
+            voltage "voltage."
+        """
+
         conductor = wp.ZCylinder(
             voltage=voltage,
             xcent=xcent,
@@ -46,26 +104,60 @@ class ESQ:
         return conductor
 
     def generate(self, voltage, xcent, ycent, data=False):
+        """Combine four electrodes to form ESQ.
+
+        Note that in the xy-plane the voltage for the top/bottom electrode is
+        set to +.
+        """
+        # Create four poles
         top = self.pole(voltage=voltage, xcent=0, ycent=ycent)
         bottom = self.pole(voltage=voltage, xcent=0, ycent=-ycent)
         left = self.pole(voltage=-voltage, xcent=-xcent, ycent=0)
         right = self.pole(voltage=-voltage, xcent=xcent, ycent=0)
 
-        components = [top, bottom, left, right]
+        # Combine poles into single ESQ
         conductor = top + bottom + left + right
 
-        if data == False:
-            return conductor
-        else:
-            return conductor, components
+        return conductor
 
 
 class Wall:
-    def __init__(self, rextent=100 * wp.w3d.xmmax, zextent=0.5 * mm):
+    """Creates a solid cylinder with a hole bored through along z.
+
+    Attributes
+    ----------
+    rextent : float
+        Extent of conductor in r.
+    zextent : float
+        Length of conductor in z
+
+    Methods
+    -------
+    generate(apperture, voltage, zcenter)
+         Creates a solid cylinder with a hole.
+    """
+
+    def __init__(self, rextent=100 * wp.w3d.xmmax, zextent=0.1 * mm):
         self.rextent = rextent
         self.zextent = zextent
 
     def generate(self, apperture, voltage, zcenter):
+        """Creates Warp conductor
+
+        Parameters
+        ----------
+        apperture : float
+            This will be inner radius of apperture (radius of hole).
+        voltage : float
+            Voltage of conductor.
+        zcenter : float
+            Where center of conductor is places.
+
+        Returns
+        -------
+        condcutor : Warp conductor
+            Returns a solid cylinder with a an apperture hole bored through.
+        """
         wall = wp.ZCylinder(
             voltage=voltage, zcent=zcenter, length=self.zextent, radius=wp.w3d.xmmax
         )
@@ -84,39 +176,6 @@ class Wall:
         return conductor
 
 
-# def esq(voltage, radius=0.5 * mm, center=1 * mm, zc=3 * mm, length=625 * um):
-#     # --Create top pole
-#     pole1 = wp.ZCylinder(
-#         radius=radius, length=length, voltage=voltage, xcent=0, ycent=center, zcent=zc,
-#     )
-#
-#     # --Create left pole
-#     pole2 = wp.ZCylinder(
-#         radius=radius,
-#         length=length,
-#         voltage=-voltage,
-#         xcent=-center,
-#         ycent=0,
-#         zcent=zc,
-#     )
-#
-#     # --Create bottom pole
-#     pole3 = wp.ZCylinder(
-#         radius=radius, length=length, voltage=voltage, xcent=0, ycent=-center, zcent=zc,
-#     )
-#
-#     # --Create right pole
-#     pole4 = wp.ZCylinder(
-#         radius=radius, length=length, voltage=-voltage, xcent=center, ycent=0, zcent=zc,
-#     )
-#
-#     # --Add elements for total quadrupole
-#
-#     quad = pole1 + pole2 + pole3 + pole4
-#
-#     return quad
-
-
 voltage = 0.5 * kV
 xycent = 1.3 * mm
 separation = 2 * mm
@@ -125,7 +184,7 @@ zc = separation / 2 + length / 2
 
 wallvoltage = 0 * kV
 aperture = 0.55 * mm
-walllength = 0.5 * mm
+walllength = 0.1 * mm
 wallzcent = separation / 2 + length + separation + walllength / 2
 
 
@@ -147,6 +206,7 @@ wp.installconductor(leftquad)
 wp.installconductor(rightquad)
 wp.installconductor(leftwall)
 wp.installconductor(rightwall)
+
 wp.generate()
 
 x, y, z = wp.w3d.xmesh, wp.w3d.ymesh, wp.w3d.zmesh
@@ -161,18 +221,20 @@ else:
     zcenterindex = int(len(zcenter) / 2)
 
 #
-# wp.setup()
-# leftquad.drawzx(filled=True)
-# rightquad.drawzx(filled=True)
-# rightwall.drawzx(filled=True)
-# leftwall.drawzx(filled=True)
-# wp.fma()
-# leftquad.drawxy(filled=True)
-# wp.fma()
-# wp.pfxy(iz=yzeroindex, fill=1, filled=1)
-# wp.fma()
-# wp.pfzx(fill=1, filled=1)
-# wp.fma()
+wp.setup()
+leftquad.drawzx(filled=True)
+rightquad.drawzx(filled=True)
+rightwall.drawzx(filled=True)
+leftwall.drawzx(filled=True)
+wp.fma()
+leftquad.drawxy(filled=True)
+wp.fma()
+wp.pfxy(iz=208, fill=1, filled=1)
+wp.fma()
+wp.pfzx(fill=1, filled=1)
+wp.fma()
+
+raise Exception()
 
 phi = wp.getphi()
 phixy = wp.getphi()[:, :, zcenterindex]
@@ -181,9 +243,9 @@ gradex = Ex[xzeroindex + 1, yzeroindex, :] / wp.w3d.dx
 
 fig, ax = plt.subplots()
 ax.set_xlabel("z [mm]")
-ax.set_ylabel(r"$E_x(dx, 0, z)$/dx [V mm$^{-2}$]")
+ax.set_ylabel(r"$E_x(dx, 0, z)$/dx [kV mm$^{-2}$]")
 ax.set_title(r"$E_x$ Gradient One Grid-cell Off-axis vs z")
-ax.scatter(z / mm, gradex / mm / mm, s=1.2)
+ax.scatter(z / mm, gradex / kV / 1e6, s=1.2)
 ax.axhline(y=0, c="k", lw=0.5)
 ax.axvline(x=0, c="k", lw=0.5)
 
@@ -203,6 +265,7 @@ ax.axvline(x=(wallzcent + walllength / 2) / mm, c="grey", lw=0.8, ls="--")
 ax.axvline(x=-(wallzcent + walllength / 2) / mm, c="grey", lw=0.8, ls="--")
 plt.legend()
 plt.show()
+
 
 # fig, ax = plt.subplots()
 # ax.set_xlabel("x [mm]")
