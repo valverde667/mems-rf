@@ -1,46 +1,37 @@
-"""Load ESQ-doublet and calculate effective length."""
+"""Model ESQ doublet in Warp and pull information. Plotting the ESQ gradient
+along with field strength is done. Calculating effective length of quadrupole.
+Also, different quadrupole designs are used: solid cylinder rods (ESQ), hollow
+cylindrical shell rods (ESQGrant), and Timo's design. """
 
 import numpy as np
 import matplotlib.pyplot as plt
 
 import warp as wp
 
+# Useful constants
 kV = wp.kV
 mm = wp.mm
 um = 1e-6
 
-# -- Full 3D settings
+# Create mesh
 wp.w3d.xmmin = -2.4 * mm
 wp.w3d.xmmax = 2.4 * mm
-wp.w3d.nx = 150
+wp.w3d.nx = 200
 
 wp.w3d.ymmin = -2.4 * mm
 wp.w3d.ymmax = 2.4 * mm
-wp.w3d.ny = 150
+wp.w3d.ny = 200
 
 wp.w3d.zmmin = -5.9 * mm
 wp.w3d.zmmax = 5.9 * mm
-wp.w3d.nz = 600
-# --
+wp.w3d.nz = 700
 
-# # -- Four-fold Symmetry
-# wp.w3d.xmmin = -2.4 * mm
-# wp.w3d.xmmax = 2.4 * mm
-# wp.w3d.nx = 50
-#
-# wp.w3d.ymmin = -2.4 * mm
-# wp.w3d.ymmax = 2.4 * mm
-# wp.w3d.ny = 50
-#
-# wp.w3d.zmmin = -5.9 * mm
-# wp.w3d.zmmax = 5.9 * mm
-# wp.w3d.nz = 200
-
-
+# Add boundary conditions
 wp.w3d.bound0 = wp.dirichlet
 wp.w3d.boundnz = wp.dirichlet
 wp.w3d.boundxy = wp.dirichlet
 
+wp.w3d.l4symtry = True
 solver = wp.MRBlock3D()
 wp.registersolver(solver)
 
@@ -145,7 +136,7 @@ class ESQGrant:
     """
 
     def __init__(
-        self, radius=0.75 * mm, thickness=10 * um, zc=2.2 * mm, length=1.59 * mm
+        self, radius=0.75 * mm, thickness=0.1 * mm, zc=2.2 * mm, length=1.59 * mm
     ):
 
         self.radius = radius
@@ -272,18 +263,18 @@ class Wall:
         return conductor
 
 
+# Set paraemeeters for conductors
 voltage = 0.5 * kV
 xycent = 1.3 * mm
 separation = 2 * mm
 length = 1.59 * mm
 zc = separation / 2 + length / 2
-
 wallvoltage = 0 * kV
 aperture = 0.55 * mm
 walllength = 0.1 * mm
 wallzcent = separation / 2 + length + separation + walllength / 2
 
-
+# Create left and right quads
 leftconductor = ESQGrant(zc=-zc)
 leftquad = leftconductor.generate(
     voltage=voltage, xcent=xycent, ycent=xycent, data=True
@@ -292,17 +283,15 @@ rightconductor = ESQGrant(zc=zc)
 rightquad = rightconductor.generate(
     voltage=-voltage, xcent=xycent, ycent=xycent, data=True
 )
-
+# Create left and right grounded walls
 leftwall = Wall().generate(apperture=aperture, voltage=wallvoltage, zcenter=-wallzcent)
 rightwall = Wall().generate(apperture=aperture, voltage=wallvoltage, zcenter=wallzcent)
 
-# quad = esq(voltage)
-
+# Install Conductors and generate mesh
 wp.installconductor(leftquad)
 wp.installconductor(rightquad)
 wp.installconductor(leftwall)
 wp.installconductor(rightwall)
-
 wp.generate()
 
 x, y, z = wp.w3d.xmesh, wp.w3d.ymesh, wp.w3d.zmesh
@@ -316,7 +305,7 @@ else:
     zcenter = z[mask]
     zcenterindex = int(len(zcenter) / 2)
 
-#
+# Create plots using Warp. Useful for quick-checking
 wp.setup()
 leftquad.drawzx(filled=True)
 rightquad.drawzx(filled=True)
@@ -330,11 +319,13 @@ wp.fma()
 wp.pfzx(fill=1, filled=1)
 wp.fma()
 
+# Grab Fields
 phi = wp.getphi()
 phixy = wp.getphi()[:, :, zcenterindex]
 Ex = wp.getselfe(comp="x")
 gradex = Ex[xzeroindex + 1, yzeroindex, :] / wp.w3d.dx
 
+# Create plot of Ex gradient
 fig, ax = plt.subplots()
 ax.set_xlabel("z [mm]")
 ax.set_ylabel(r"$E_x(dx, 0, z)$/dx [kV mm$^{-2}$]")
@@ -343,10 +334,9 @@ ax.scatter(z / mm, gradex / kV / 1e6, s=1.2)
 ax.axhline(y=0, c="k", lw=0.5)
 ax.axvline(x=0, c="k", lw=0.5)
 
-# add ESQ
+# add ESQ markers to plot
 esq1left = -zc - length / 2
 esq1right = -zc + length / 2
-
 esq2left = zc - length / 2
 esq2right = zc + length / 2
 ax.axvline(x=esq1left / mm, c="b", lw=0.8, ls="--", label="First ESQ")
