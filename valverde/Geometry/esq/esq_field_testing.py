@@ -16,14 +16,14 @@ um = 1e-6
 # Create mesh
 wp.w3d.xmmin = -2.4 * mm
 wp.w3d.xmmax = 2.4 * mm
-wp.w3d.nx = 200
+wp.w3d.nx = 150
 
 wp.w3d.ymmin = -2.4 * mm
 wp.w3d.ymmax = 2.4 * mm
-wp.w3d.ny = 200
+wp.w3d.ny = 150
 
-wp.w3d.zmmin = -5.9 * mm
-wp.w3d.zmmax = 5.9 * mm
+wp.w3d.zmmin = -6 * mm
+wp.w3d.zmmax = 6 * mm
 wp.w3d.nz = 700
 
 # Add boundary conditions
@@ -294,10 +294,30 @@ wp.installconductor(leftwall)
 wp.installconductor(rightwall)
 wp.generate()
 
-x, y, z = wp.w3d.xmesh, wp.w3d.ymesh, wp.w3d.zmesh
 
-xzeroindex = np.transpose(np.where(x == 0))[0, 0]
-yzeroindex = np.transpose(np.where(y == 0))[0, 0]
+def getindex(mesh, value, spacing):
+    """Find index in mesh for or closest to specified value."""
+
+    # Create array of indices
+    indices = np.where((mesh > (value - spacing)) & (mesh < (value + spacing)))[0]
+
+    # Compute differences of the indexed mesh value with desired value
+    difference = []
+    for index in indices:
+        diff = np.sqrt((mesh[index] ** 2 - value ** 2) ** 2)
+        difference.append(diff)
+
+    # Smalles element of difference i will be the index closest to value in indices
+    i = np.argmin(difference)
+    index = indices[i]
+
+    return index
+
+
+x, y, z = wp.w3d.xmesh, wp.w3d.ymesh, wp.w3d.zmesh
+zzeroindex = np.where(abs(z) < 1e-8)[0][0]
+
+# Find index for esq center
 if zc in z:
     zcenterindex = np.transpose(np.where(z == zc))[0, 0]
 else:
@@ -323,7 +343,7 @@ wp.fma()
 phi = wp.getphi()
 phixy = wp.getphi()[:, :, zcenterindex]
 Ex = wp.getselfe(comp="x")
-gradex = Ex[xzeroindex + 1, yzeroindex, :] / wp.w3d.dx
+gradex = Ex[1, 0, :] / wp.w3d.dx
 
 # Create plot of Ex gradient
 fig, ax = plt.subplots()
