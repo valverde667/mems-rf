@@ -5,6 +5,8 @@ cylindrical shell rods (ESQGrant), and Timo's design. """
 
 import numpy as np
 import matplotlib.pyplot as plt
+import scipy.integrate as integrate
+import sys
 
 import warp as wp
 
@@ -296,36 +298,89 @@ wp.generate()
 
 
 def getindex(mesh, value, spacing):
-    """Find index in mesh for or closest to specified value."""
+    """Find index in mesh for or mesh-value closest to specified value
 
-    # Create array of indices
+    Function finds index corresponding closest to 'value' in 'mesh'. The spacing
+    parameter should be enough for the range [value-spacing, value+spacing] to
+    encompass nearby mesh-entries .
+
+    Parameters
+    ----------
+    mesh : ndarray
+        1D array that will be used to find entry closest to value
+    value : float
+        This is the number that is searched for in mesh.
+    spacing : float
+        Dictates the range of values that will fall into the region holding the
+        desired value in mesh. Best to overshoot with this parameter and make
+        a broad range.
+
+    Returns
+    -------
+    index : int
+        Index for the mesh-value closest to the desired value.
+    """
+
+    # Check if value is already in mesh
+    if value in mesh:
+        return np.where(mesh == value)[0][0]
+    else:
+        pass
+
+    # Create array of possible indices
     indices = np.where((mesh > (value - spacing)) & (mesh < (value + spacing)))[0]
 
-    # Compute differences of the indexed mesh value with desired value
+    # Compute differences of the indexed mesh-value with desired value
     difference = []
     for index in indices:
         diff = np.sqrt((mesh[index] ** 2 - value ** 2) ** 2)
         difference.append(diff)
 
-    # Smalles element of difference i will be the index closest to value in indices
+    # Smallest element will be the index closest to value in indices
     i = np.argmin(difference)
     index = indices[i]
 
     return index
 
 
+def efflength(gradient, dl):
+    """Calculate effective quadrupole length
+
+    Function calculates the effective length of a quadrupole by integrating the
+    the gradient array using step size dl. G* is used by taking the max value
+    of the gradient. The integral is then divided by this value giving an
+    effective length.
+
+    Parameters
+    ----------
+    gradient : ndarray
+        1D-array of field gradient
+    dl : flaot
+        integration step size
+
+    Returns
+    -------
+    ell : float
+        calculated effective length
+    """
+
+    # Evaluate G*
+    Gstar = max(gradient)
+    # Evaluate integral of gradient
+    integral = integrate.simps(gradient, dx=dl)
+
+    # Evaluate effective length
+    ell = integral / Gstar
+
+    return ell
+
+
+# Rename meshes and find indices
 x, y, z = wp.w3d.xmesh, wp.w3d.ymesh, wp.w3d.zmesh
-zzeroindex = np.where(abs(z) < 1e-8)[0][0]
+zzeroindex = getindex(z, 0.0, wp.w3d.dz)
+zcenterindex = getindex(z, zc, wp.w3d.dz)
 
-# Find index for esq center
-if zc in z:
-    zcenterindex = np.transpose(np.where(z == zc))[0, 0]
-else:
-    mask = (z >= zc) & (z <= zc)
-    zcenter = z[mask]
-    zcenterindex = int(len(zcenter) / 2)
-
-# Create plots using Warp. Useful for quick-checking
+# Create Warp plots. Useful for quick-checking
 wp.setup()
 leftquad.drawzx(filled=True)
 rightquad.drawzx(filled=True)
@@ -368,6 +423,27 @@ ax.axvline(x=-(wallzcent - walllength / 2) / mm, c="grey", lw=0.8, ls="--")
 ax.axvline(x=(wallzcent + walllength / 2) / mm, c="grey", lw=0.8, ls="--")
 ax.axvline(x=-(wallzcent + walllength / 2) / mm, c="grey", lw=0.8, ls="--")
 plt.legend()
+plt.show()
+
+# Plot and calculate effective length
+# Integrate over right esq. Note, this gradient is negative.
+dEdx = abs(gradex[zzeroindex:])
+ell = efflength(dEdx, wp.w3d.dz)
+print("Effective Length = ", ell / mm)
+# Plot integrand
+fig, ax = plt.subplots()
+ax.set_title("Integrand For Effective Length")
+ax.set_ylabel(r"$|E(x=dx,y=0,z)$/dx| [kV mm$^{-2}$]")
+ax.set_xlabel("z [mm]")
+ax.scatter(z[zzeroindex:] / mm, dEdx / kV / 1000 / 1000, s=0.5)
+# Annotate
+ax.axhline(y=0, lw=0.5, c="k")
+ax.axvline(x=esq2left / mm, c="r", lw=0.8, ls="--", label="ESQ Edges")
+ax.axvline(x=esq2right / mm, c="r", lw=0.8, ls="--")
+ax.axvline(x=(wallzcent - walllength / 2) / mm, c="grey", lw=0.8, ls="--", label="Wall")
+ax.axvline(x=(wallzcent + walllength / 2) / mm, c="grey", lw=0.8, ls="--")
+ax.legend()
+plt.savefig("ell-integrand.svg", dpi=300)
 plt.show()
 
 
