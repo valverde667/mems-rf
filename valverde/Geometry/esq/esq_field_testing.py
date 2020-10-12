@@ -6,6 +6,7 @@ cylindrical shell rods (ESQGrant), and Timo's design. """
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.integrate as integrate
+import conductors as cond
 import sys
 
 import warp as wp
@@ -27,6 +28,19 @@ wp.w3d.ny = 150
 wp.w3d.zmmin = -6 * mm
 wp.w3d.zmmax = 6 * mm
 wp.w3d.nz = 700
+
+# # Timo-Create mesh
+# wp.w3d.xmmin = -1.5 * mm
+# wp.w3d.xmmax = 1.5 * mm
+# wp.w3d.nx = 150
+#
+# wp.w3d.ymmin = -1.5 * mm
+# wp.w3d.ymmax = 1.5 * mm
+# wp.w3d.ny = 150
+#
+# wp.w3d.zmmin = -4 * mm
+# wp.w3d.zmmax = 4 * mm
+# wp.w3d.nz = 700
 
 # Add boundary conditions
 wp.w3d.bound0 = wp.dirichlet
@@ -270,6 +284,7 @@ voltage = 0.5 * kV
 xycent = 1.3 * mm
 separation = 2 * mm
 length = 1.59 * mm
+# length = cond.wafer_thickness + 2 * cond.copper_thickness #Timo esq
 zc = separation / 2 + length / 2
 wallvoltage = 0 * kV
 aperture = 0.55 * mm
@@ -285,6 +300,10 @@ rightconductor = ESQGrant(zc=zc)
 rightquad = rightconductor.generate(
     voltage=-voltage, xcent=xycent, ycent=xycent, data=True
 )
+
+# # For Timo Conductors
+# leftquad = cond.ESQ(position=-zc, invertPolarity=-1, voltage=voltage)
+# rightquad = cond.ESQ(position=zc, invertPolarity=1, voltage=voltage)
 # Create left and right grounded walls
 leftwall = Wall().generate(apperture=aperture, voltage=wallvoltage, zcenter=-wallzcent)
 rightwall = Wall().generate(apperture=aperture, voltage=wallvoltage, zcenter=wallzcent)
@@ -294,6 +313,11 @@ wp.installconductor(leftquad)
 wp.installconductor(rightquad)
 wp.installconductor(leftwall)
 wp.installconductor(rightwall)
+
+# Multipole settings
+wp.w3d.nmom = 10
+wp.w3d.nzmom = wp.w3d.nz
+
 wp.generate()
 
 
@@ -381,18 +405,20 @@ zzeroindex = getindex(z, 0.0, wp.w3d.dz)
 zcenterindex = getindex(z, zc, wp.w3d.dz)
 
 # Create Warp plots. Useful for quick-checking
-wp.setup()
-leftquad.drawzx(filled=True)
-rightquad.drawzx(filled=True)
-rightwall.drawzx(filled=True)
-leftwall.drawzx(filled=True)
-wp.fma()
-leftquad.drawxy(filled=True)
-wp.fma()
-wp.pfxy(iz=208, fill=1, filled=1)
-wp.fma()
-wp.pfzx(fill=1, filled=1)
-wp.fma()
+warpplots = False
+if warpplots:
+    wp.setup()
+    leftquad.drawzx(filled=True)
+    rightquad.drawzx(filled=True)
+    rightwall.drawzx(filled=True)
+    leftwall.drawzx(filled=True)
+    wp.fma()
+    leftquad.drawxy(filled=True)
+    wp.fma()
+    wp.pfxy(iz=zcenterindex, fill=1, filled=1)
+    wp.fma()
+    wp.pfzx(fill=1, filled=1)
+    wp.fma()
 
 # Grab Fields
 phi = wp.getphi()
@@ -423,6 +449,7 @@ ax.axvline(x=-(wallzcent - walllength / 2) / mm, c="grey", lw=0.8, ls="--")
 ax.axvline(x=(wallzcent + walllength / 2) / mm, c="grey", lw=0.8, ls="--")
 ax.axvline(x=-(wallzcent + walllength / 2) / mm, c="grey", lw=0.8, ls="--")
 plt.legend()
+plt.savefig("full-mesh.svg", dpi=400)
 plt.show()
 
 # Plot and calculate effective length
@@ -443,7 +470,7 @@ ax.axvline(x=esq2right / mm, c="r", lw=0.8, ls="--")
 ax.axvline(x=(wallzcent - walllength / 2) / mm, c="grey", lw=0.8, ls="--", label="Wall")
 ax.axvline(x=(wallzcent + walllength / 2) / mm, c="grey", lw=0.8, ls="--")
 ax.legend()
-plt.savefig("ell-integrand.svg", dpi=300)
+plt.savefig("integrand.svg", dpi=300)
 plt.show()
 
 
