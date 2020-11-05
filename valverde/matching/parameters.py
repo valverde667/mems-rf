@@ -2,6 +2,7 @@
 
 import numpy as np
 import scipy.constants as SC
+from math import sqrt
 
 import warp as wp
 import MEQALAC.simulation as meqsim
@@ -80,6 +81,41 @@ def calc_perveance(current, energy, mass, return_density=True, charge_state=+1):
         return perveance, term2
     else:
         return perveance
+
+
+def calc_emittance(inj_radius, inj_temperature, inj_energy):
+    """Function will calculate emittance of beam at injection.
+
+    The function assumes that the transverse emittances are equal and that
+    initial transverse correlations between positions and angle are zero. For
+    example <xx'> = 0.
+
+    Parameters
+    ----------
+    inj_radius : float
+        The raidus of the aperture at injection assumed to be in units of
+        meters.
+
+    inj_temperature : float
+        Temperature of beam at injection assumed to be in units of eV.
+
+    inj_energy : float
+        Energy of beam at injectioin assumed to be in units of eV.
+
+    Returns
+    -------
+    emittance : float
+        Emittance of beam at injection given in units of mm-mrad.
+
+    """
+
+    # Evaluate prefactor
+    prefact = 2 * sqrt(2)
+
+    # Calculate emittance
+    emittance = prefact * inj_radius * sqrt(inj_temperature / inj_energy)
+
+    return emittance
 
 
 print("Perveance and lambda is:")
