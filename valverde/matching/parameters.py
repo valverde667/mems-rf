@@ -10,13 +10,16 @@ import MEQALAC.simulation as meqsim
 # Define useful constants
 amu = SC.physical_constants["atomic mass constant energy equivalent in MeV"][0] * 1e6
 uA = 1e-6  # microampers
+mm = 1e-3  # milimeters
 permitivity_freesapce = 8.85e-12
 
 # Beam Specifications
-injection_energy = 8 * wp.kV
+inj_energy = 8 * wp.kV
 charge_state = +1
+species = "Ar"
 Ar_mass = 40 * amu
-injection_current = 10 * uA
+inj_current = 10 * uA
+inj_radius = 0.5 * mm
 
 
 def calc_perveance(current, energy, mass, return_density=True, charge_state=+1):
@@ -117,6 +120,23 @@ def calc_emittance(inj_radius, inj_temperature, inj_energy):
 
     return emittance
 
+
+# Evaluate parameters
+perveance, charge_density = calc_perveance(inj_current, inj_energy, Ar_mass,)
+
+emittance = calc_emittance(inj_radius, inj_temperature, inj_energy)
+
+# Create dictionary of parameters
+param_dict = {
+    "species": species,
+    "mass": mass,
+    "inj_energy": inj_energy,
+    "inj_current": inj_current,
+    "inj_radius": inj_radius,
+    "Q": perveance,
+    "emittance": emittance,
+    "charge_density": charge_density,
+}
 
 print("Perveance and lambda is:")
 print(calc_perveance(injection_current, injection_energy, Ar_mass))
