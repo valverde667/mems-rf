@@ -3,6 +3,7 @@
 import numpy as np
 import scipy.constants as SC
 from math import sqrt
+import argparse
 
 import warp as wp
 import MEQALAC.simulation as meqsim
@@ -86,7 +87,7 @@ def calc_perveance(current, energy, mass, return_density=True, charge_state=+1):
         return perveance
 
 
-def calc_emittance(inj_radius, inj_temperature, inj_energy):
+def calc_emittance(inj_energy, inj_temperature, inj_radius):
     """Function will calculate emittance of beam at injection.
 
     The function assumes that the transverse emittances are equal and that
@@ -121,22 +122,59 @@ def calc_emittance(inj_radius, inj_temperature, inj_energy):
     return emittance
 
 
-# Evaluate parameters
-perveance, charge_density = calc_perveance(inj_current, inj_energy, Ar_mass,)
+def main():
+    # Evaluate parameters
+    perveance, charge_density = calc_perveance(inj_current, inj_energy, Ar_mass,)
 
-emittance = calc_emittance(inj_radius, inj_temperature, inj_energy)
+    emittance = calc_emittance(inj_energy, inj_temperature, inj_radius)
 
-# Create dictionary of parameters
-param_dict = {
-    "species": species,
-    "mass": mass,
-    "inj_energy": inj_energy,
-    "inj_current": inj_current,
-    "inj_radius": inj_radius,
-    "Q": perveance,
-    "emittance": emittance,
-    "charge_density": charge_density,
-}
+    # Create dictionary of parameters
+    param_dict = {
+        "species": species,
+        "mass": Ar_mass,
+        "inj_energy": inj_energy,
+        "inj_current": inj_current,
+        "inj_radius": inj_radius,
+        "Q": perveance,
+        "emittance": emittance,
+        "charge_density": charge_density,
+    }
 
-print("Perveance and lambda is:")
-print(calc_perveance(injection_current, injection_energy, Ar_mass))
+    return param_dict
+
+
+if __name__ == "__main__":
+    p = argparse.ArgumentParser(description="Parameters for KV-envelope solver")
+    p.add_argument(
+        "-E", "--inj_energy", default=8 * wp.kV, type=float, help="Injection energy"
+    )
+    p.add_argument(
+        "-i", "--inj_current", default=10 * uA, type=float, help="Injection current"
+    )
+    p.add_argument(
+        "-t", "--inj_temperature", default=0.5, type=float, help="Injection temperature"
+    )
+    p.add_argument(
+        "-rp", "--inj_radius", default=0.5 * mm, type=float, help="Injection radius"
+    )
+
+    # Collect arguments
+    args = p.parse_args()
+
+    # Assign values
+    inj_energy = args.inj_energy
+    inj_temperature = args.inj_temperature
+    inj_current = args.inj_current
+    inj_radius = args.inj_radius
+
+    # Evaluate parameters and grab dictionary
+    param_dict = main()
+
+    # Print values
+    for key, val in zip(param_dict.keys(), param_dict.values()):
+        if key == "mass":
+            val = val / amu
+        else:
+            pass
+
+        print("--{} : {}".format(key, val))
