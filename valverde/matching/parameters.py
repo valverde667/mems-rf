@@ -12,7 +12,7 @@ import MEQALAC.simulation as meqsim
 amu = SC.physical_constants["atomic mass constant energy equivalent in MeV"][0] * 1e6
 uA = 1e-6  # microampers
 mm = 1e-3  # milimeters
-permitivity_freesapce = 8.85e-12
+permitivity_freespace = 8.85e-12
 
 # Beam Specifications
 inj_energy = 8 * wp.kV
@@ -66,7 +66,7 @@ def calc_perveance(current, energy, mass, return_density=True, charge_state=+1):
     """
 
     # Calculate term1 consisting of mostly constants
-    term1 = wp.echarge * charge_state / 2 / np.pi / permitivity_freesapce
+    term1 = wp.echarge * charge_state / 2 / np.pi / permitivity_freespace
 
     # Calculate variables gamma, beta
     gamma = (energy + mass) / mass
