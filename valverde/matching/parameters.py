@@ -20,6 +20,7 @@ charge_state = +1
 species = "Ar"
 Ar_mass = 40 * amu
 inj_current = 10 * uA
+inj_temperature = 0.5
 inj_radius = 0.5 * mm
 
 
