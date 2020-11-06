@@ -3,6 +3,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-import paramters as params
+import parameters
 
-# Read in parameters frome paramter script.
+# Read in parameters frome paramters script.
+param_dict = parameters.main()
