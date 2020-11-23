@@ -124,8 +124,10 @@ def calc_emittance(inj_energy, inj_temperature, inj_radius):
 
 
 def main():
+    # Set globals
+    global inj_energy, inj_current, Ar_mass, inj_energy, inj_temperature
     # Evaluate parameters
-    perveance, charge_density = calc_perveance(inj_current, inj_energy, Ar_mass,)
+    perveance, charge_density = calc_perveance(inj_current, inj_energy, Ar_mass)
 
     emittance = calc_emittance(inj_energy, inj_temperature, inj_radius)
 
