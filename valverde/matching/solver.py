@@ -3,6 +3,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.constants as const
+import pdb
 
 import parameters
 
@@ -103,7 +104,7 @@ def solve_KV():
 
         # Update v_x and v_y first.
         vx[n] = (term + term1x) * ds + vx[n - 1]
-        vy[n] = (term + term1y) * ds + uy[n - 1]
+        vy[n] = (term + term1y) * ds + vy[n - 1]
 
         # Use updated v to update u
         ux[n] = vx[n] * ds + ux[n - 1]
