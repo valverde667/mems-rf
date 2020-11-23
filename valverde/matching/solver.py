@@ -95,11 +95,15 @@ def solve_KV():
     # Main loop to update equation. Loop through matrix and update entries.
     for n in range(1, len(soln_matrix)):
         # Evaluate term present in both equations
-        term = 2 * Q / (ux[n - 1] + uy[n - 1]) + pow(emittance, 2) / pow(ux[n - 1], 3)
+        term = 2 * Q / (ux[n - 1] + uy[n - 1])
+
+        # Evaluate terms for x and y
+        term1x = pow(emittance, 2) / pow(ux[n - 1], 3) - karray[n - 1] * ux[n - 1]
+        term1y = pow(emittance, 2) / pow(uy[n - 1], 3) + karray[n - 1] * uy[n - 1]
 
         # Update v_x and v_y first.
-        vx[n] = (term - karray[n] * ux[n - 1]) * ds + vx[n - 1]
-        vy[n] = (term + karray[n] * uy[n - 1]) * ds + uy[n - 1]
+        vx[n] = (term + term1x) * ds + vx[n - 1]
+        vy[n] = (term + term1y) * ds + uy[n - 1]
 
         # Use updated v to update u
         ux[n] = vx[n] * ds + ux[n - 1]
@@ -117,8 +121,8 @@ k = 5.7e4
 emittance = param_dict["emittance"]
 ux_initial = param_dict["inj_radius"]
 uy_initial = param_dict["inj_radius"]
-vx_initial = 0.5
-vy_initial = -0.5
+vx_initial = 5 * const.milli
+vy_initial = -5 * const.milli
 
 # Set up solver paramters
 d = (2 / 3) * const.milli
@@ -139,3 +143,29 @@ soln_matrix[0, :] = ux_initial, uy_initial, vx_initial, vy_initial
 karray = hard_edge_kappa(k, s)
 # Call solver
 solve_KV()
+
+# --Plotting outputs
+# Grab x,x',y,and y'
+x = soln_matrix[:, 0]
+y = soln_matrix[:, 1]
+xprime = soln_matrix[:, 2]
+yprime = soln_matrix[:, 3]
+
+# Create plots
+fig, ax = plt.subplots(nrows=2, sharex=True)
+ax[0].plot(s / const.milli, x / const.milli, c="k")
+ax[0].set_ylabel(r"$r_x(s)$ [mm]")
+
+ax[1].plot(s / const.milli, xprime, c="k")
+ax[1].set_xlabel(r"$s$ [mm]")
+ax[1].set_ylabel(r"$r_x'(s)$ [mm]")
+plt.show()
+
+fig, ax = plt.subplots(nrows=2, sharex=True)
+ax[0].plot(s / const.milli, y / const.milli, c="k")
+ax[0].set_ylabel(r"$r_y'(s)$")
+
+ax[1].plot(s / const.milli, yprime, c="k")
+ax[1].set_xlabel(r"$s$ [mm]")
+ax[1].set_ylabel(r"$r_y'(s)$")
+plt.show()
