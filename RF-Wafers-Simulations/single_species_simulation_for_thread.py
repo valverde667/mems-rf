@@ -474,35 +474,7 @@ def rrms():
 # simulate the ACTUAL setup:
 calculatedPositionArray = calculateRFwaferpositions()
 # print(calculatedPositionArray)
-positionArray = [
-    [0.0036525, 0.00634749, 0.01243267, 0.01512737],
-    [0.024352, 0.027048, 0.03800207, 0.04000207],
-    [0.051852263, 0.05458263, 0.06740239, 0.07009839],  # timo testrun
-    [0.075152, 0.077852, 0.084844, 0.087544],  # commented 5_9
-    [0.095053, 0.097753, 0.105814, 0.108514],
-    [0.117173, 0.119863, 0.129031, 0.131721],
-    [0.141367, 0.144057, 0.154164, 0.156854],
-    [0.167375, 0.170065, 0.180987, 0.183677],  # for 27 MHz 8th unit
-    [0.195017, 0.197707, 0.209454, 0.212144],  # for 27 MHz 9th unit
-    [0.226921, 0.229611, 0.242085, 0.244775],  # 10th 27Mhz
-    [0.257573, 0.260263, 0.27343, 0.27612],  # 11th unit 27Mhz
-    [0.289546, 0.292236, 0.306017, 0.308707],  # 12th unit 27 Mhz
-    [0.3215, 0.32419, 0.3381, 0.34079],  # 13th unit optimization try 3[0
-    [0.355475, 0.358165, 0.37318, 0.37587],  # for 27 Mhz 14th
-    [0.382195, 0.384885, 0.391369, 0.394051],  # 15th unit 54 MHz
-    [0.400666, 0.403356, 0.410117, 0.412807],  # 16th unit 54Mhz
-    [0.419704, 0.422394, 0.429436, 0.432126],  # 17th unit 54Mhz
-    [0.439274, 0.441964, 0.449257, 0.451947],  # 18th unit 54Mhz
-    [0.459364, 0.462054, 0.469613, 0.472303],  # 19th unit 54Mhz
-    [0.479982, 0.482672, 0.49049, 0.49318],
-]
-# for 9kV
-# positionArray = [[.0036525,.0056525,0.01243279,0.01463279],
-#                  [0.0211854,0.0233854,0.03130207,0.03330207],
-#                  [0.04460842,0.0460842,0.06009143,0.062009143]
-#                        ]
-# for 7kV
-
+positionArray = [[0.004, 0.006, 0.012, 0.015]]
 writejson("waferpositions", positionArray)
 
 # catching it at the plates with peak voltage #april 15
@@ -597,32 +569,7 @@ for i, pa in enumerate(positionArray):
 # Voltages for each RF UNIT
 # setting frequency overwrites the default/waroptions
 # frequency setting;
-voltages = [
-    gen_volt(toffset=RF_offset, frequency=14.8e6),
-    gen_volt(toffset=RF_offset, frequency=14.8e6),
-    gen_volt(toffset=RF_offset, frequency=14.8e6),
-    gen_volt(toffset=RF_offset, frequency=27e6),
-    gen_volt(toffset=RF_offset, frequency=27e6),
-    gen_volt(toffset=RF_offset, frequency=27e6),
-    gen_volt(toffset=RF_offset, frequency=27e6),
-    gen_volt(
-        toffset=RF_offset, frequency=27e6
-    ),  # last updated 5/1 #commented#changed to 54 without offset 5_29
-    gen_volt(
-        toffset=RF_offset, frequency=27e6
-    ),  # last updated 5/1 #commented#changed to 27 without offset 5_30
-    gen_volt(toffset=RF_offset, frequency=27e6),
-    gen_volt(toffset=RF_offset, frequency=27e6),  # 11th unit 27Mhz
-    gen_volt(toffset=RF_offset, frequency=27e6),  # 12th unit 27MHz0
-    gen_volt(toffset=RF_offset, frequency=27e6),  # 13th unit 27Mhz
-    gen_volt(toffset=RF_offset, frequency=27e6),  # 27Mhz 14
-    gen_volt(toffset=RF_offset + 9.2586e-9, frequency=54e6),  # 15th unit 54 Mhz
-    gen_volt(toffset=RF_offset + 9.2586e-9, frequency=54e6),  # 16th unit 54 Mhz
-    gen_volt(toffset=RF_offset + 9.2586e-9, frequency=54e6),  # 17th unit 54 Mhz
-    gen_volt(toffset=RF_offset + 9.2586e-9, frequency=54e6),  # 18th unit 54 Mhz
-    gen_volt(toffset=RF_offset + 9.2586e-9, frequency=54e6),  # 19th unit 54 Mhz
-    gen_volt(toffset=RF_offset + 9.2586e-9, frequency=54e6),  # 20th unit 54 Mhz
-]
+voltages = [gen_volt(toffset=RF_offset, frequency=14.8e6)]
 # add actual stack
 conductors = RF_stack(positionArray, voltages)
 
@@ -635,67 +582,9 @@ print("CONDUCT DONE")
 # add esqs
 d_wafers = 2.695 * wp.mm
 t_wafer = 625 * wp.um + 35 * 2 * wp.um
-esq_positions = [
-    0.01975,
-    0.0459,
-    # 0.07263,#gap in between third and 4th
-    0.0912985,
-    0.11285,
-    0.136544,
-    0.16212,
-    0.18935,  # 8th and 9th gap
-    0.219534,  # 9th and 10th gap
-    0.251174,  # 10th and 11th gap
-    0.282833,  # 11th and 12th gap
-    0.315104,  # 12th and 13th gap
-    0.348133,  # 13th and 14th gap
-    0.379033,  # 14th and 15th gap
-    0.397363,  # 15th and 16th gap
-    0.416256,  # 16th and 17th gap
-    0.4357,  # 17th and 18th gap
-    0.455656,  # 18th and 19th gap
-    0.476143,  # 19th and 20th gap
-]
-voltages = [
-    100,
-    -200,
-    400,
-    -500,
-    500,
-    500,
-    -500,
-    550,
-    500,
-    500,
-    500,
-    500,
-    500,
-    500,
-    500,
-    500,
-    500,
-    500,
-]
-volt_ratio = [
-    1.04,
-    1.05,
-    1,
-    1,
-    1.02,
-    1.02,
-    1.05,
-    1.04,
-    1.04,
-    1.04,
-    1.04,
-    1.04,
-    1.04,
-    1.04,
-    1.04,
-    1.04,
-    1.04,
-    1.04,
-]
+esq_positions = [0.01975]
+voltages = [100]
+volt_ratio = [1.04]
 if not warpoptions.options.autorun:
     conductors += ESQ_doublet(esq_positions, voltages, volt_ratio=volt_ratio)
     writejson("ESQ_positions", esq_positions)
@@ -736,45 +625,6 @@ wp.installconductors(conductors)
 wp.fieldsol(-1)
 
 solver.gridmode = 0  # makes the fields oscillate properly at the beginning
-
-#############################
-# def saveBeamSnapshot(z):
-#     if z_snapshots:  # checks for remaining snapshots
-#         nextZ = min(z_snapshots)
-#         if z > nextZ:
-#             # this is an approximation and in keV
-#             avEkin = (
-#                 np.square(selectedIons.getvz()).mean()
-#                 * 0.5
-#                 * warpoptions.options.speciesMass
-#                 * wp.amu
-#                 / wp.echarge
-#                 / 1000
-#             )
-#             json_Zsnap = {
-#                 # "ekin" : avEkin,
-#                 "z_snap_pos": nextZ - lastWafer,
-#                 "x": selectedIons.getx().tolist(),
-#                 "y": selectedIons.gety().tolist(),
-#                 "z": selectedIons.getz().tolist(),
-#                 "vx": selectedIons.getvx().tolist(),
-#                 "vy": selectedIons.getvy().tolist(),
-#                 "vz": selectedIons.getvz().tolist(),
-#             }
-#             with open(
-#                 f"{step1path}/{cgm_name}_snap_"
-#                 f"{(nextZ - lastWafer) / wp.mm:.2f}"
-#                 f"mm.json",
-#                 "w",
-#             ) as write_file:
-#                 json.dump(json_Zsnap, write_file, indent=2)
-#             print(
-#                 f"Particle snapshot created at "
-#                 f"{nextZ} with mean Ekin"
-#                 f" {avEkin}keV"
-#             )
-#             z_snapshots.remove(nextZ)
-
 
 ### track particles after crossing a Z location -
 zc_pos = warpoptions.options.zcrossing
@@ -1236,68 +1086,6 @@ if warpoptions.options.autorun:
     writejson("runtimeminutes", rt)
 
 ### END BELOW HERE IS CODE THAT MIGHT BE USEFUL LATER
-
-# store files in certain folder related to filename - not used here
-# atap_path = Path(r'/home/timo/Documents/Warp/Sims/') #insert your path here
-
-# Convert data into JSON serializable..............................................#nsp = len(x)#"number_surviving_particles" : nsp,fs = len(x)/m, "fraction_particles" : fs,Ve = str(Vesq), se = list(geometry.start_ESQ_gaps), ee = list(geometry.end_ESQ_gaps), "ESQ_start" : se,"ESQ_end" : ee,"Vesq" : Ve,
-# t = list(time_time)
-# ke = list(KE_select)
-# z = list(Z)
-# m = max(numsel)
-# L = str(L_bunch)
-# n = Units * 2
-# fA = str(V_arrival)
-# sM = int(speciesMass)
-# eK = int(ekininit)
-# fq = int(freq)
-# em = str(emittingRadius)
-# dA = str(divergenceAngle)
-# pt = list(numsel)
-# sa = list(geometry.start_accel_gaps)
-# ea = list(geometry.end_accel_gaps)
-# json_data = {
-#     "data": {
-#         "max_particles": m,
-#         "time": t,
-#         "kinetic_energy": ke,
-#         "z_values": z,
-#         "particles_overtime": pt,
-#         "RF_start": sa,
-#         "RF_end": ea
-#     },
-#     "parameter_dict": {
-#
-#         "Vmax": Vmax,
-#         "L_bunch": L,
-#         "numRF": n,
-#         'Units': Units,
-#         "V_arrival": fA,
-#         "speciesMass": sM,
-#         "ekininit": eK,
-#         "freq": fq,
-#         "emittingRadius": em,
-#         "divergenceAngle": dA
-#
-#     }
-# }
-
-# Timo
-# ZCrossing store closed for autorunner
-# json_ZC = {
-#     "x": zc.getx().tolist(),
-#     "y": zc.gety().tolist(),
-#     "vx": zc.getvx().tolist(),
-#     "vy": zc.getvy().tolist(),
-#     "vz": zc.getvz().tolist(),
-#     "t": zc.gett().tolist(),
-# }
-# with open(f"{step1path}/{cgm_name}_zc.json",
-#           "w") as write_file:
-#     json.dump(json_ZC, write_file, indent=2)
-# now_end = time.time()
-# print(f"Runtime in seconds is {now_end - start}")
-
 # Optional plots:
 """#plot history of scraped particles plot for conductors
 wp.plg(conductors.get_energy_histogram)
