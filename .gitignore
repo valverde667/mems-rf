@@ -1,6 +1,6 @@
 *~
-*cgm
-*cgmlog
+*.cgm
+*.cgmlog
 *.pyc
 tmp.*
 *.npy
