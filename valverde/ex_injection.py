@@ -22,7 +22,8 @@ wp.top.dt = 1e-10
 wp.top.tstop = 200 * wp.top.dt
 
 # Set species of particle
-ions = wp.Species(charge_state=0, name="Ar")
+ions = wp.Species(charge_state=1, name="Ar")
+new_ions = wp.Species(charge_state=1, name="N")
 
 # Set up boundary conditions  for simulation and specify geometry
 wp.w3d.solvergeom = wp.w3d.XYZgeom
@@ -33,31 +34,32 @@ wp.top.pbound0 = wp.absorb
 wp.top.pboundnz = wp.absorb
 
 # Set up particle input quantities
-wp.top.ns = 1  # Number of species
-wp.top.np_s = [10]  # Number of particles by species
-wp.top.ibeam_s = [10e-6]  # Current magnitude of particles by species
+wp.top.ns = 2  # Number of species
+# wp.top.npmax = 10
+# wp.top.np_s = [10, 10]  # Number of particles by species
+wp.top.ibeam_s = [10e-6, 10e-6]  # Current magnitude of particles by species
 # wp.top.ekin_s = [7 * wp.kV]  # Kinetic energy of particles by species
-wp.top.vbeam = 1e6
-wp.top.aion_s = [18]  # Atomic number of particle by species
-wp.top.zion_s = [2]  # Charge state of particle by species
+wp.top.vbeam_s = [1e6, 1.8e6 * np.random.rand()]
+wp.top.aion_s = [18, 7]  # Atomic number of particle by species
+wp.top.zion_s = [1, 1]  # Charge state of particle by species
 wp.derivqty()  # Evaluate global constants used in Warp
 
-wp.top.lsavelostpart = True  # Save lost particles
+wp.top.lsavelostpart = False  # Save lost particles
 
 # Set up injection/beam parameters
 wp.top.inject = 1  # Constant current injection
-wp.top.ainject = 0.1 * wp.mm  # Width of injection in x
-wp.top.binject = 0.1 * wp.mm  # Width of injection in y
+wp.top.ainject = 1 * wp.mm  # Width of injection in x
+wp.top.binject = 1 * wp.mm  # Width of injection in y
 wp.top.apinject = 0 * wp.mm  # Convergence angle of injection in x
 wp.top.bpinject = 0 * wp.mm  # Convergence angle of injection in y
-wp.top.npinje_s = [1]  # Number of particles injected per species
+wp.top.npinje_s = [1, 2]  # Number of particles injected per species
 wp.top.zinject = wp.w3d.zmmin  # z-location of injection
 wp.top.vinject = 0  # Injector voltage
 
 # Initialize field solver
 solver = wp.MRBlock3D()
 wp.registersolver(solver)
-solver.ldosolve = False  # Turn off spacecharge
+solver.ldosolve = True  # Turn off spacecharge
 solver.mgtol = 1
 solver.mgparam = 1.5
 solver.downpasses = 2
@@ -79,6 +81,7 @@ Y = R * np.cos(t)
 while wp.top.time < wp.top.tstop:
     # Create particle plot in xy
     ions.ppxy(color=wp.red, msize=10)
+    new_ions.ppxy(color=wp.blue, msize=10)
     wp.limits(x.min(), x.max(), y.min(), y.max())
     # Add beam pipe to plot as dashed line
     wp.plg(Y, X, type="dash")
@@ -86,6 +89,7 @@ while wp.top.time < wp.top.tstop:
 
     # Create particle plot in xz
     ions.ppzx(color=wp.red, msize=10)
+    new_ions.ppzx(color=wp.blue, msize=10)
     wp.limits(z.min(), z.max(), x.min(), x.max())
     wp.fma()
 
