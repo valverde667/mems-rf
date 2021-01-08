@@ -22,9 +22,8 @@ wp.top.dt = 1e-10
 wp.top.tstop = 200 * wp.top.dt
 
 # Set species of particle
-ions = wp.Species(charge_state=1, name="Ar")
-new_ions = wp.Species(charge_state=1, name="N")
-
+ions = wp.Species(type=wp.Argon, charge_state=1, name="Ar")
+new_ions = wp.Species(type=wp.Nitrogen, charge_state=1, name="N")
 # Set up boundary conditions  for simulation and specify geometry
 wp.w3d.solvergeom = wp.w3d.XYZgeom
 wp.w3d.bound0 = wp.neumann
@@ -40,11 +39,12 @@ wp.top.ns = 2  # Number of species
 wp.top.ibeam_s = [10e-6, 10e-6]  # Current magnitude of particles by species
 # wp.top.ekin_s = [7 * wp.kV]  # Kinetic energy of particles by species
 wp.top.vbeam_s = [1e6, 1.8e6 * np.random.rand()]
-wp.top.aion_s = [18, 7]  # Atomic number of particle by species
-wp.top.zion_s = [1, 1]  # Charge state of particle by species
 wp.derivqty()  # Evaluate global constants used in Warp
 
 wp.top.lsavelostpart = False  # Save lost particles
+
+# Set up history settings
+lspeciesmoments = True  # Save mmnts for both species and combined mmntss (last entry)
 
 # Set up injection/beam parameters
 wp.top.inject = 1  # Constant current injection
@@ -59,7 +59,7 @@ wp.top.vinject = 0  # Injector voltage
 # Initialize field solver
 solver = wp.MRBlock3D()
 wp.registersolver(solver)
-solver.ldosolve = True  # Turn off spacecharge
+solver.ldosolve = False  # Turn off spacecharge
 solver.mgtol = 1
 solver.mgparam = 1.5
 solver.downpasses = 2
@@ -78,6 +78,7 @@ X = R * np.sin(t)
 Y = R * np.cos(t)
 
 # Main loop. Inject particles and create cgm plots
+# pdb.set_trace()
 while wp.top.time < wp.top.tstop:
     # Create particle plot in xy
     ions.ppxy(color=wp.red, msize=10)
