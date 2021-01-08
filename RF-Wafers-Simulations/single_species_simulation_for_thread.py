@@ -151,6 +151,12 @@ selectedIons = wp.Species(
     mass=warpoptions.options.speciesMass * wp.amu,
     color=wp.green,
 )
+ions = wp.Species(
+    charge_state=1,
+    name="Og",
+    mass=warpoptions.options.speciesMass * wp.amu,
+    color=wp.blue,
+)
 ekininit = warpoptions.options.ekininit
 freq = warpoptions.options.freq  # RF freq
 emittingRadius = warpoptions.options.emittingRadius
@@ -288,9 +294,11 @@ if loadbeam == "":
     wp.w3d.zmmin = 0.0
     wp.w3d.zmmax = wp.w3d.zmmin + framewidth
 
-    wp.top.npmax = 800  # maximal number of particles (for injection per timestep???)
+    wp.top.npmax = 5  # maximal number of particles (for injection per timestep???)
+    wp.top.ns = 2  # numper of species
+    wp.top.np_s = [5, 2]
     wp.top.inject = 1  # 2 means space-charge limited injection
-    wp.top.npinject = 200  # approximate number of particles injected per step
+    wp.top.npinject = 1  # approximate number of particles injected per step
 
     wp.top.ainject = emittingRadius
     wp.top.binject = emittingRadius
@@ -474,7 +482,7 @@ def rrms():
 # simulate the ACTUAL setup:
 calculatedPositionArray = calculateRFwaferpositions()
 # print(calculatedPositionArray)
-positionArray = [[0.004, 0.006, 0.012, 0.015]]
+positionArray = [[0.001, 0.003, 0.09, 0.011]]
 writejson("waferpositions", positionArray)
 
 # catching it at the plates with peak voltage #april 15
@@ -795,157 +803,171 @@ component2 = "z"
 if warpoptions.options.loadbeam == "":  # workaround
     wp.step(1)  # This is needed, so that selectedIons exists
 
-while wp.top.time < tmax and selectedIons.getn() and max(Z) < zEnd:
+while wp.top.time < tmax * 0.075 and selectedIons.getn() and max(Z) < zEnd:
     beamsave()
 
-    ### Informations
-    print(
-        f"first Particle at {max(Z)*1e3}mm; simulations stops at {zEnd*1e3}mm; == {max(Z)/zEnd*100:.2f}%"
-    )
-    print(
-        f"simulation runs for {wp.top.time*1e9:.2f}ns; stops at {tmax*1e9:.2f}ns == {wp.top.time/tmax*100:.3f}%"
-    )
-    print(f"Number of particles : {len(selectedIons.getz())}")
-    ###### Collecting data
-    ### collecting data for Particle count vs Time Plot
-    time_time.append(wp.top.time)
-    numsel.append(len(selectedIons.getke()))
-    RMS.append(rrms())
-    ### collecting for kinetic energy plots
-    KE_select.append(np.mean(selectedIons.getke()))
-    KE_select_Max.append(np.max(selectedIons.getke()))
-    # Particle_Count = len(selectedIons.getke())  #Particle Count at this time interval
-    KE = selectedIons.getke()
-    # print(f"KE in this loop is = {KE}")
-    Particle_Count_Over_Avg_KE = 0  # Set to zero at each moment as time elapses
-    for i in range(len(selectedIons.getke())):  # goes through each particle
-        Avg_KE = np.mean(selectedIons.getke())
-        # print(f"Mean KE in this for loop is = {Avg_KE}")
-        KE_i = selectedIons.getke()[i]
-        # print(f"KE in this for loop is = {KE_i}")     # obtains KE of said particle
-        if KE_i > Avg_KE:  # checks to see if KE of particle is greater than avg KE
-            Particle_Count_Over_Avg_KE += 1  # adds to count of particles above avg KE
-    Particle_Counts_Above_E.append(Particle_Count_Over_Avg_KE)
-    # particles in beam plot
-    # accounts for all particles at that moment in time
-
-    wp.top.pline1 = "V_RF: {:.0f}".format(
-        gen_volt(RF_offset)(wp.top.time)
-    )  # Move this where it belongs
-    ###### Injection
-    if 0 * wp.ns < wp.top.time < L_bunch and loadbeam == "":  # changes the beam
-        wp.top.finject[0, selectedIons.jslist[0]] = 1
-    elif (
-        not warpoptions.options.cb_framewidth
-    ):  # only disable injection if not continuously
-        wp.top.inject = 0
-
-    ###### Moving the frame dependent on particle position
-    Z = selectedIons.getz()
-    if (
-        Z.mean() > zmid
-    ):  # if the mean distance the particles have travelled is greater than the middle of the frame do this: MODIFIED 4/15
-        # the velocity of the frame is equal to the mean velocity of the ions
-        wp.top.vbeamfrm = selectedIons.getvz().mean()
-        # wp.top.vbeamfrm = selectedIons.getvz().max()
-        solver.gridmode = 0  # ToDo Test if this is needed
-    # Todo is this needed? wp.top.zbeam is always zero
-    zmin = wp.top.zbeam + wp.w3d.zmmin
-    zmax = (
-        wp.top.zbeam + wp.w3d.zmmax
-    )  # trying to get rid of extra length at the end of the simulation, this is wasting computing power
-    # wp.top.zbeam+wp.w3d.zmmax #scales the window length #redefines the end of the simulation tacks on the 53mm
-
-    ###### Plotting
-    ### Frame, showing
-    wp.pfxy(
-        fill=1,
-        filled=1,
-        plotselfe=True,
-        comp="x",
-        # added on 4/2 by Carlos
-        titles=0,
-    )
-    wp.ptitles(f"xy plot of E_x", f"z mean: {Z.mean()}", "x", "y")
-    wp.fma()
-    ### Frame, showing
-    wp.pfxy(fill=1, filled=1, plotselfe=True, comp="z", titles=0)
-    wp.ptitles(f"xy plot of E_z", f"z mean: {Z.mean()}", "x", "y")
-    wp.fma()
+    # ### Informations
+    # print(
+    #     f"first Particle at {max(Z)*1e3}mm; simulations stops at {zEnd*1e3}mm; == {max(Z)/zEnd*100:.2f}%"
+    # )
+    # print(
+    #     f"simulation runs for {wp.top.time*1e9:.2f}ns; stops at {tmax*1e9:.2f}ns == {wp.top.time/tmax*100:.3f}%"
+    # )
+    # print(f"Number of particles : {len(selectedIons.getz())}")
+    # ###### Collecting data
+    # ### collecting data for Particle count vs Time Plot
+    # time_time.append(wp.top.time)
+    # numsel.append(len(selectedIons.getke()))
+    # RMS.append(rrms())
+    # ### collecting for kinetic energy plots
+    # KE_select.append(np.mean(selectedIons.getke()))
+    # KE_select_Max.append(np.max(selectedIons.getke()))
+    # # Particle_Count = len(selectedIons.getke())  #Particle Count at this time interval
+    # KE = selectedIons.getke()
+    # # print(f"KE in this loop is = {KE}")
+    # Particle_Count_Over_Avg_KE = 0  # Set to zero at each moment as time elapses
+    # for i in range(len(selectedIons.getke())):  # goes through each particle
+    #     Avg_KE = np.mean(selectedIons.getke())
+    #     # print(f"Mean KE in this for loop is = {Avg_KE}")
+    #     KE_i = selectedIons.getke()[i]
+    #     # print(f"KE in this for loop is = {KE_i}")     # obtains KE of said particle
+    #     if KE_i > Avg_KE:  # checks to see if KE of particle is greater than avg KE
+    #         Particle_Count_Over_Avg_KE += 1  # adds to count of particles above avg KE
+    # Particle_Counts_Above_E.append(Particle_Count_Over_Avg_KE)
+    # # particles in beam plot
+    # # accounts for all particles at that moment in time
     #
-    # plotf(axes1,component1, z mean: {Z.mean()}) # Todo Carlos, can this be removed?
-
-    ### Frame, the instantaneous kinetic energy plot
-    KE = selectedIons.getke()
-    print(f"Mean kinetic Energy : {np.mean(KE)}")
-    if len(KE) > 0:
-        selectedIons.ppzke(color=wp.blue)
-        KEmin, KEmax = KE.min(), KE.max()
-        while KEmax - KEmin > deltaKE:
-            deltaKE += 10e3
-    wp.ylimits(
-        0.95 * KEmin, 0.95 * KEmin + deltaKE
-    )  # is this fraction supposed to match with V_arrival?
-    wp.fma()
-    ### Frame the side view field plot
-    # plotf(axes2,component2, z mean: {Z.mean()})
+    # wp.top.pline1 = "V_RF: {:.0f}".format(
+    #     gen_volt(RF_offset)(wp.top.time)
+    # )  # Move this where it belongs
+    # ###### Injection
+    # if 0 * wp.ns < wp.top.time < L_bunch and loadbeam == "":  # changes the beam
+    #     wp.top.finject[0, selectedIons.jslist[0]] = 1
+    # elif (
+    #     not warpoptions.options.cb_framewidth
+    # ):  # only disable injection if not continuously
+    #     wp.top.inject = 0
+    #
+    # ###### Moving the frame dependent on particle position
+    Z = selectedIons.getz()
+    # if (
+    #     Z.mean() > zmid
+    # ):  # if the mean distance the particles have travelled is greater than the middle of the frame do this: MODIFIED 4/15
+    #     # the velocity of the frame is equal to the mean velocity of the ions
+    #     wp.top.vbeamfrm = selectedIons.getvz().mean()
+    #     # wp.top.vbeamfrm = selectedIons.getvz().max()
+    #     solver.gridmode = 0  # ToDo Test if this is needed
+    # # Todo is this needed? wp.top.zbeam is always zero
+    # zmin = wp.top.zbeam + wp.w3d.zmmin
+    # zmax = (
+    #     wp.top.zbeam + wp.w3d.zmmax
+    # )  # trying to get rid of extra length at the end of the simulation, this is wasting computing power
+    # # wp.top.zbeam+wp.w3d.zmmax #scales the window length #redefines the end of the simulation tacks on the 53mm
+    #
+    # ###### Plotting
+    # ### Frame, showing
+    # wp.pfxy(
+    #     fill=1,
+    #     filled=1,
+    #     plotselfe=True,
+    #     comp="x",
+    #     # added on 4/2 by Carlos
+    #     titles=0,
+    # )
+    # wp.ptitles(f"xy plot of E_x", f"z mean: {Z.mean()}", "x", "y")
     # wp.fma()
-    ### Frame, showing
-    plotf("xy", "E", 1)
-    ### Frame, showing
-    plotf("xy", "z", 1)
-    ### Frame, showing the side view plot of Ez and the electrical components
-    wp.pfzx(
-        fill=1,
-        filled=1,
-        plotselfe=True,
-        comp="z",
-        titles=0,
-        cmin=-1.2 * Vmax / geometry.gapGNDRF,
-        cmax=1.2 * Vmax / geometry.gapGNDRF,
-    )
-    # sort by birthtime
-    t_birth_min = selectedIons.tbirth.min()
-    t_birth_max = selectedIons.tbirth.max()
-    tarray = np.linspace(t_birth_min, t_birth_max, 6)
-    # mask to sort particles by birthtime
-    mask = []
-    for i in range(
-        len(tarray) - 1
-    ):  # the length of tarray must be changing overtime which changes the mask which recolors the particles
-        m = (selectedIons.tbirth > tarray[i]) * (selectedIons.tbirth < tarray[i + 1])
-        mask.append(m)
-        # plot particles on top of fild plot, sort by birthtime and color them accordingly
-    colors = [wp.red, wp.yellow, wp.green, wp.blue, wp.magenta]
-    for m, c in zip(mask, colors):
-        if loadbeam == "":
-            wp.plp(
-                selectedIons.getx()[m], selectedIons.getz()[m], msize=1.0, color=c
-            )  # the selected ions are changing through time
-        else:
-            wp.plp(selectedIons.getx(), selectedIons.getz(), msize=1.0)
-    wp.limits(zmin, zmax)
-    wp.ptitles(
-        f"Particles and Fields \ntime {wp.top.time}\n voltage : {rfv(wp.top.time)}",
-        "Z [m]",
-        "X [m]",
-    )
-    wp.fma()
-    ### Frame, shwoing
-    selectedIons.ppxy(
-        color=wp.red, titles=0
-    )  # ppxy (particle plot x horizontal axis, y on vertical axis
-    wp.limits(-R, R)
-    wp.ylimits(-R, R)
-    wp.plg(Y, X, type="dash")
-    wp.fma()
-    ###
-    # autosave(selectedIons)
-    if autosave(selectedIons):
-        print(f"Postion {selectedIons.getz().max()}")
-        break
+    # ### Frame, showing
+    # wp.pfxy(fill=1, filled=1, plotselfe=True, comp="z", titles=0)
+    # wp.ptitles(f"xy plot of E_z", f"z mean: {Z.mean()}", "x", "y")
+    # wp.fma()
+    # #
+    # # plotf(axes1,component1, z mean: {Z.mean()}) # Todo Carlos, can this be removed?
+    #
+    # ### Frame, the instantaneous kinetic energy plot
+    # KE = selectedIons.getke()
+    # print(f"Mean kinetic Energy : {np.mean(KE)}")
+    # if len(KE) > 0:
+    #     selectedIons.ppzke(color=wp.blue)
+    #     KEmin, KEmax = KE.min(), KE.max()
+    #     while KEmax - KEmin > deltaKE:
+    #         deltaKE += 10e3
+    # wp.ylimits(
+    #     0.95 * KEmin, 0.95 * KEmin + deltaKE
+    # )  # is this fraction supposed to match with V_arrival?
+    # wp.fma()
+    # ### Frame the side view field plot
+    # # plotf(axes2,component2, z mean: {Z.mean()})
+    # # wp.fma()
+    # ### Frame, showing
+    # plotf("xy", "E", 1)
+    # ### Frame, showing
+    # plotf("xy", "z", 1)
+    # ### Frame, showing the side view plot of Ez and the electrical components
+    # wp.pfzx(
+    #     fill=1,
+    #     filled=1,
+    #     plotselfe=True,
+    #     comp="z",
+    #     titles=0,
+    #     cmin=-1.2 * Vmax / geometry.gapGNDRF,
+    #     cmax=1.2 * Vmax / geometry.gapGNDRF,
+    # )
+    # # sort by birthtime
+    # t_birth_min = selectedIons.tbirth.min()
+    # t_birth_max = selectedIons.tbirth.max()
+    # tarray = np.linspace(t_birth_min, t_birth_max, 6)
+    # # mask to sort particles by birthtime
+    # mask = []
+    # for i in range(
+    #     len(tarray) - 1
+    # ):  # the length of tarray must be changing overtime which changes the mask which recolors the particles
+    #     m = (selectedIons.tbirth > tarray[i]) * (selectedIons.tbirth < tarray[i + 1])
+    #     mask.append(m)
+    #     # plot particles on top of fild plot, sort by birthtime and color them accordingly
+    # colors = [wp.red, wp.yellow, wp.green, wp.blue, wp.magenta]
+    # for m, c in zip(mask, colors):
+    #     if loadbeam == "":
+    #         wp.plp(
+    #             selectedIons.getx()[m], selectedIons.getz()[m], msize=1.0, color=c
+    #         )  # the selected ions are changing through time
+    #     else:
+    #         wp.plp(selectedIons.getx(), selectedIons.getz(), msize=1.0)
+    # wp.limits(zmin, zmax)
+    # wp.ptitles(
+    #     f"Particles and Fields \ntime {wp.top.time}\n voltage : {rfv(wp.top.time)}",
+    #     "Z [m]",
+    #     "X [m]",
+    # )
+    # wp.fma()
+    # ### Frame, shwoing
+    # selectedIons.ppxy(
+    #     color=wp.red, titles=0
+    # )  # ppxy (particle plot x horizontal axis, y on vertical axis
+    # wp.limits(-R, R)
+    # wp.ylimits(-R, R)
+    # wp.plg(Y, X, type="dash")
+    # wp.fma()
+    # ###
+    # # autosave(selectedIons)
+    # if autosave(selectedIons):
+    #     print(f"Postion {selectedIons.getz().max()}")
+    #     break
     ### check if a snapshot should be taken for export for the energy analyzer
     # saveBeamSnapshot(Z.mean())
+    wp.fma()
+    selectedIons.ppxy(color=wp.red, msize=10)
+    ions.ppxy(color=wp.blue, msize=10)
+    wp.limits(-R, R)
+    wp.limits(-R, R)
+    wp.plg(Y, X, type="dash")
+    wp.fma()
+
+    selectedIons.ppzx(color=wp.red, msize=10)
+    ions.ppzx(color=wp.blue, msize=10)
+    wp.limits(-R, R)
+    wp.limits(wp.w3d.zmmin, wp.w3d.zmmax)
+    wp.fma()
+
     if warpoptions.options.cb_framewidth:  # if continous beam, do steps normally
         wp.step(warpoptions.options.plotsteps)
     elif wp.top.inject == 0:  # if there is no injection, do steps normally
