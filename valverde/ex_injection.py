@@ -45,7 +45,9 @@ wp.top.lsavelostpart = False  # Save lost particles
 
 # Set up history settings
 lspeciesmoments = True  # Save mmnts for both species and combined mmnts (last entry)
+wp.top.nhist = 1  # Set history saving to every timestep. Defaults at 5.
 wp.top.lhvzofz = True  # Turn on history of vz
+
 # Set up injection/beam parameters
 wp.top.inject = 1  # Constant current injection
 wp.top.ainject = 1 * wp.mm  # Width of injection in x
