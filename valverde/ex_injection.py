@@ -71,7 +71,10 @@ wp.generate()  # Create mesh
 x, y, z = wp.w3d.xmesh, wp.w3d.ymesh, wp.w3d.zmesh  # Set variable names for ease
 wp.step()  # Step 1 to inject first particle
 
-wp.setup()  # Initialize plotting
+# Initialize plotting. Setup two cgm files for xy and zx particle plots.
+wp.setup()
+wp.winon(winnum=1, suffix="xy", xon=0)
+wp.winon(winnum=2, suffix="zx", xon=0)
 
 # Make a circle to show the beam pipe
 R = 0.5 * wp.mm  # Beam radius
@@ -83,14 +86,17 @@ Y = R * np.cos(t)
 # pdb.set_trace()
 while wp.top.time < wp.top.tstop:
     # Create particle plot in xy
+    wp.window(1)
     ions.ppxy(color=wp.red, msize=10)
     new_ions.ppxy(color=wp.blue, msize=10)
     wp.limits(x.min(), x.max(), y.min(), y.max())
+
     # Add beam pipe to plot as dashed line
     wp.plg(Y, X, type="dash")
     wp.fma()
 
     # Create particle plot in xz
+    wp.window(2)
     ions.ppzx(color=wp.red, msize=10)
     new_ions.ppzx(color=wp.blue, msize=10)
     wp.limits(z.min(), z.max(), x.min(), x.max())
