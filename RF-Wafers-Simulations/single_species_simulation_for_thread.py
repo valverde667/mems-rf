@@ -124,6 +124,24 @@ from geometry import RF_stack, ESQ_doublet
 
 start = time.time()
 
+# Initialize input variables
+L_bunch = warpoptions.options.Lbunch
+Units = warpoptions.options.Units
+Vmax = warpoptions.options.Vmax  # RF voltage
+Vesq = warpoptions.options.Vesq
+V_arrival = warpoptions.options.V_arrival  # fraction total voltage gained each gap
+ekininit = warpoptions.options.ekininit
+freq = warpoptions.options.freq  # RF freq
+emittingRadius = warpoptions.options.emittingRadius
+divergenceAngle = warpoptions.options.divergenceAngle
+name = warpoptions.options.name
+storebeam = warpoptions.options.storebeam
+loadbeam = warpoptions.options.loadbeam
+beamnumber = warpoptions.options.beamnumber
+ibeaminit = warpoptions.options.ibeaminit
+beamdelay = warpoptions.options.beamdelay
+
+
 # Specify  simulation mesh
 wp.w3d.solvergeom = wp.w3d.XYZgeom
 wp.w3d.xmmin = -3 / 2 * wp.mm
@@ -142,37 +160,23 @@ wp.w3d.nz = 180.0
 wp.top.ssnpid = wp.nextpid()
 wp.top.tbirthpid = wp.nextpid()
 
-# set input parameters
-L_bunch = warpoptions.options.Lbunch
-Units = warpoptions.options.Units
-Vmax = warpoptions.options.Vmax  # RF voltage
-Vesq = warpoptions.options.Vesq
-V_arrival = (
-    warpoptions.options.V_arrival
-)  # fraction of the total voltage gained across each gap
+# Create Species
 speciesMass = warpoptions.options.speciesMass * wp.amu
 selectedIons = wp.Species(
+    type=wp.Nitrogen,
     charge_state=1,
-    name="Ar",
-    mass=warpoptions.options.speciesMass * wp.amu,
-    color=wp.green,
-)
-ions = wp.Species(
-    charge_state=1,
-    name="Og",
+    name="N+",
     mass=warpoptions.options.speciesMass * wp.amu,
     color=wp.blue,
 )
-ekininit = warpoptions.options.ekininit
-freq = warpoptions.options.freq  # RF freq
-emittingRadius = warpoptions.options.emittingRadius
-divergenceAngle = warpoptions.options.divergenceAngle
-name = warpoptions.options.name
-storebeam = warpoptions.options.storebeam
-loadbeam = warpoptions.options.loadbeam
-beamnumber = warpoptions.options.beamnumber
-ibeaminit = warpoptions.options.ibeaminit
-beamdelay = warpoptions.options.beamdelay
+ions = wp.Species(
+    type=wp.Dinitrogen,
+    charge_state=1,
+    name="N2+",
+    mass=warpoptions.options.speciesMass * wp.amu,
+    color=wp.green,
+)
+
 
 # --- where to store the outputfiles
 cgm_name = name
