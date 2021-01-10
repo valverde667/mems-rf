@@ -224,7 +224,15 @@ wp.w3d.nx = 30  # 60.
 wp.w3d.ny = 30  # 60.
 wp.w3d.nz = 180.0
 
-# --- keep track of when the particles are born
+# Set boundary conditions
+wp.w3d.bound0 = wp.neumann
+wp.w3d.boundnz = wp.neumann
+wp.w3d.boundxy = wp.neumann
+wp.top.pbound0 = wp.absorb
+wp.top.pboundnz = wp.absorb
+wp.top.prwall = 1 * wp.mm
+
+# keep track of when the particles are born
 wp.top.ssnpid = wp.nextpid()
 wp.top.tbirthpid = wp.nextpid()
 
@@ -271,21 +279,6 @@ wp.top.zion = selectedIons.charge_state
 wp.top.lrelativ = False
 wp.top.linj_efromgrid = True
 wp.derivqty()
-
-
-# ---   Set boundary conditions
-
-# ---   for field solve
-wp.w3d.bound0 = wp.neumann
-wp.w3d.boundnz = wp.neumann
-wp.w3d.boundxy = wp.neumann
-
-# ---   for particles
-wp.top.pbound0 = wp.absorb
-wp.top.pboundnz = wp.absorb
-wp.top.prwall = (
-    1 * wp.mm
-)  # prwall slightly bigger than aperture radius so ions can get absorbed by conductors
 
 if loadbeam == "":
 
