@@ -300,8 +300,7 @@ ID_ESQ = 100
 ID_RF = 201
 ID_target = 1
 
-
-# --- generates voltage for the RFs
+# Conductor utility functions
 def gen_volt(toffset=0, frequency=freq):  # 0
     """ A cos voltage function with variable offset"""
 
@@ -311,7 +310,6 @@ def gen_volt(toffset=0, frequency=freq):  # 0
     return RFvoltage
 
 
-# --- generates voltage for the ESQs
 def gen_volt_esq(Vesq, inverse=False, toffset=0):
     def ESQvoltage(time):
         if inverse:
@@ -322,7 +320,7 @@ def gen_volt_esq(Vesq, inverse=False, toffset=0):
     return ESQvoltage
 
 
-# --- calculate the distances and time offset for the RFs
+# Calculate the distances and time offset for the RFs
 centerOfFirstRFGap = 5 * wp.mm
 tParticlesAtCenterFirstGap = centerOfFirstRFGap / wp.sqrt(
     2 * ekininit * selectedIons.charge / selectedIons.mass
@@ -514,42 +512,7 @@ for i, pa in enumerate(positionArray):
 voltages = [gen_volt(toffset=RF_offset, frequency=14.8e6)]
 # add actual stack
 conductors = RF_stack(positionArray, voltages)
-
 print("CONDUCT DONE")
-rfv = gen_volt(toffset=RF_offset, frequency=14.8e6)
-###add ctual stack
-conductors = RF_stack(positionArray, voltages)
-print("CONDUCT DONE")
-
-# add esqs
-d_wafers = 2.695 * wp.mm
-t_wafer = 625 * wp.um + 35 * 2 * wp.um
-esq_positions = [0.01975]
-voltages = [100]
-volt_ratio = [1.04]
-if not warpoptions.options.autorun:
-    conductors += ESQ_doublet(esq_positions, voltages, volt_ratio=volt_ratio)
-    writejson("ESQ_positions", esq_positions)
-    writejson("ESQ_voltage", voltages)
-    writejson("ESQ_volt_ratio", volt_ratio)
-
-# creat submesh for ESQ
-meshes = []
-for esq_pos in esq_positions:
-
-    solver.root.finalized = 0
-    child_1 = solver.addchild(
-        mins=[wp.w3d.xmmin, wp.w3d.ymmin, esq_pos - d_wafers / 2 - t_wafer * 4 / 7,],
-        maxs=[wp.w3d.xmmax, wp.w3d.ymmax, esq_pos - d_wafers / 2 + t_wafer * 4 / 7,],
-        refinement=[1, 1, 5],
-    )
-    child_2 = solver.addchild(
-        mins=[wp.w3d.xmmin, wp.w3d.ymmin, esq_pos + d_wafers / 2 - t_wafer * 4 / 7,],
-        maxs=[wp.w3d.xmmax, wp.w3d.ymmax, esq_pos + d_wafers / 2 + t_wafer * 4 / 7,],
-        refinement=[1, 1, 5],
-    )
-    meshes.append(child_1)
-    meshes.append(child_2)
 
 velo = np.sqrt(
     2 * ekininit * selectedIons.charge / selectedIons.mass
