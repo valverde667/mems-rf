@@ -18,8 +18,7 @@ wp.w3d.zmmax = 2 * wp.mm
 wp.w3d.nx, wp.w3d.ny = 100, 100
 wp.w3d.nz = 200
 
-wp.top.dt = 1e-10
-wp.top.tstop = 200 * wp.top.dt
+wp.top.dt = 1e-9
 
 # Specify solver geometry and boundary conditions
 wp.w3d.solvergeom = wp.w3d.XYZgeom
@@ -30,7 +29,6 @@ wp.w3d.boundxy = wp.neumann
 # Specify and register solver
 solver = wp.MRBlock3D()
 wp.registersolver(solver)
-solver.ldosolve = False  # Turn off spacecharge
 solver.mgtol = 1
 solver.mgparam = 1.5
 solver.downpasses = 2
@@ -72,7 +70,7 @@ def get_voltage(time):
 
     global Vmax, frequency
 
-    voltage = Vmax * np.sin(frequency * time)
+    voltage = Vmax * np.cos(frequency * time)
     return voltage
 
 
@@ -93,7 +91,7 @@ def inv_get_voltage(time):
 
     global Vmax, frequency
 
-    voltage = Vmax * np.sin(frequency * time)
+    voltage = Vmax * np.cos(frequency * time)
     return -1 * voltage
 
 
@@ -114,9 +112,29 @@ right = wp.ZAnnulus(
 )
 
 # Install conductors on mesh
-wp.installconductors(left, right)
-
+wp.installconductors(left)
+wp.installconductors(right)
+wp.step()
 wp.fieldsol(-1)
 
+# Calculate time for one period and set simulation time to stop then.
+period = 1 / frequency
+wp.top.tstop = period
+# Create cgm setup for potential contours
+wp.setup()
+wp.winon(winnum=1, suffix="pfzx", xon=0)
+wp.winon(winnum=2, suffix="pot", xon=0)
+while wp.top.time < wp.top.tstop:
+    # Plot potential contours and conductors
+    wp.window(1)
+    wp.pfzx(fill=1, filled=1, plotphi=1)
+    wp.limits(z.min(), z.max(), x.min(), x.max())
+    wp.fma()
 
-####
+    wp.window(2)
+    potential = wp.getphi()[75, 75, :]
+    wp.plg(z, potential)
+    wp.limits(z.min(), z.max(), 0, Vmax)
+    wp.fma()
+
+    wp.step()
