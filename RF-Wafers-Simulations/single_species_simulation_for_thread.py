@@ -528,7 +528,7 @@ wp.installconductors(conductors)
 
 # Recalculate the fields
 wp.fieldsol(-1)
-
+solver.gridmode = 0
 ### track particles after crossing a Z location -
 zc_pos = warpoptions.options.zcrossing
 if zc_pos:
