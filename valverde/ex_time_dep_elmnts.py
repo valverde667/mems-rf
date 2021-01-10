@@ -76,4 +76,47 @@ def get_voltage(time):
     return voltage
 
 
+def inv_get_voltage(time):
+    """Calculate voltage at current time and invert it.
+
+    Parameters
+    ----------
+    time : float
+        Current simulation time.
+
+    Returns
+    -------
+    voltage : float
+        Current voltage using sinusoidal varying voltage.
+
+    """
+
+    global Vmax, frequency
+
+    voltage = Vmax * np.sin(frequency * time)
+    return -1 * voltage
+
+
+# Create left and right conductors
+left = wp.ZAnnulus(
+    rmin=0.8 * wp.mm,
+    rmax=1.1 * wp.mm,
+    length=0.2 * wp.mm,
+    zcent=-1 * wp.mm,
+    voltage=get_voltage,
+)
+right = wp.ZAnnulus(
+    rmin=0.8 * wp.mm,
+    rmax=1.1 * wp.mm,
+    length=0.2 * wp.mm,
+    zcent=1 * wp.mm,
+    voltage=inv_get_voltage,
+)
+
+# Install conductors on mesh
+wp.installconductors(left, right)
+
+wp.fieldsol(-1)
+
+
 ####
