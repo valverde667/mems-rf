@@ -112,6 +112,7 @@ import matplotlib.pyplot as plt
 import time
 import json
 import os
+import pdb
 
 # --Import third-party packages
 import warp as wp
@@ -121,16 +122,21 @@ from warp.particles.extpart import ZCrossingParticles
 import geometry
 from geometry import RF_stack, ESQ_doublet
 
-
-# # There is no Matplotlib installed on Lawrencium
-# from matplotlib import pyplot as plt
-
 start = time.time()
 
+# Specify  simulation mesh
 wp.w3d.solvergeom = wp.w3d.XYZgeom
-# Timesteps
+wp.w3d.xmmin = -3 / 2 * wp.mm
+wp.w3d.xmmax = 3 / 2 * wp.mm
+wp.w3d.ymmin = -3 / 2 * wp.mm
+wp.w3d.ymmax = 3 / 2 * wp.mm
+framewidth = 23 * wp.mm
+wp.w3d.zmmin = 0.0
+wp.w3d.zmmax = wp.w3d.zmmin + framewidth
 wp.top.dt = warpoptions.options.timestep
-# 10-9 for short; 10e-11 for a nice one;
+wp.w3d.nx = 30  # 60.
+wp.w3d.ny = 30  # 60.
+wp.w3d.nz = 180.0
 
 # --- keep track of when the particles are born
 wp.top.ssnpid = wp.nextpid()
@@ -290,9 +296,6 @@ framewidth = 23 * wp.mm
 restorebeam()
 
 if loadbeam == "":
-    # changes the length of the gist output window.
-    wp.w3d.zmmin = 0.0
-    wp.w3d.zmmax = wp.w3d.zmmin + framewidth
 
     wp.top.npmax = 5  # maximal number of particles (for injection per timestep???)
     wp.top.ns = 2  # numper of species
@@ -312,27 +315,7 @@ if loadbeam == "":
     wp.top.yinject = 0
     wp.top.zinject = wp.w3d.zmmin
 
-# set grid spacing, this is the number of mesh elements in one window
-wp.w3d.nx = 30  # 60.
-wp.w3d.ny = 30  # 60.
-### There are two 35um copper layers on ESQ, so we need high resolution.
-# 180 / 23mm < 8mm⁻¹
-wp.w3d.nz = 180.0  # 180 for 23 # 6-85 for 10
 
-# overwrite if the beam is cb:
-if warpoptions.options.cb_framewidth:
-    wp.w3d.zmmax = warpoptions.options.cb_framewidth
-    wp.w3d.nz = 8e3 * warpoptions.options.cb_framewidth
-
-if wp.w3d.l4symtry:
-    wp.w3d.xmmin = 0.0
-    wp.w3d.nx /= 2
-if wp.w3d.l2symtry or wp.w3d.l4symtry:
-    wp.w3d.ymmin = 0.0
-    wp.w3d.ny /= 2
-
-writejson("nz", wp.w3d.nz)
-writejson("framewidth", wp.w3d.zmmax - wp.w3d.zmmin)
 # --- Select plot intervals, etc.
 # print("--- Ions start at: ", wp.top.zinject)
 
@@ -674,7 +657,6 @@ p0 = [x[3] + 1e-3 for x in positionArray]
 p1 = [x[1] + 1e-3 for x in positionArray]
 zcs_pos = [positionArray[0][0] - 1e-3] + p0 + p1
 print(f"Saving positions: {zcs_pos}")
-time.sleep(3)
 zcs_pos.sort()
 zcs_staple = zcs_pos.copy()
 zcs_staple.reverse()
@@ -720,7 +702,7 @@ wp.fma()  # second frame in cgm file
 zmin = wp.w3d.zmmin
 zmax = wp.w3d.zmmax
 zmid = 0.5 * (zmax + zmin)
-
+raise Exception()
 # make a circle to show the beam pipe
 R = 0.5 * wp.mm  # beam radius
 t = np.linspace(0, 2 * np.pi, 100)
