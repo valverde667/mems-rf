@@ -595,7 +595,6 @@ def allzcrossing():
                 )
             writejson("allzcrossing", zcs_data)
             print("Json Saved")
-            time.sleep(3)
 
 
 # I want contour plots for levels between 0 and 1kV
@@ -685,6 +684,7 @@ wp.winon(winnum=4, suffix="stats", xon=False)
 while wp.top.time < tmax * 0.5:
     # Plot particle trajectory in zx
     wp.window(2)
+    wp.pfzx(fill=1, filled=1, plotphi=1)
     selectedIons.ppzx(color=wp.blue, msize=10)
     ions.ppzx(color=wp.red, msize=10)
     wp.limits(z.min(), z.max(), x.min(), x.max())
