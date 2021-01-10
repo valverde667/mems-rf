@@ -57,7 +57,7 @@ warpoptions.parser.add_argument(
 )
 
 #   special cgm name - for mass output / scripting
-warpoptions.parser.add_argument("--name", dest="name", type=str, default="unnamedRun")
+warpoptions.parser.add_argument("--name", dest="name", type=str, default="multions")
 
 #   special cgm path - for mass output / scripting
 warpoptions.parser.add_argument("--path", dest="path", type=str, default="")
@@ -234,7 +234,7 @@ wp.top.prwall = 1 * wp.mm
 
 # Create Species
 selectedIons = wp.Species(type=wp.Nitrogen, charge_state=1, name="N+", color=wp.blue,)
-ions = wp.Species(type=wp.Dinitrogen, charge_state=1, name="N2+", color=wp.green,)
+ions = wp.Species(type=wp.Dinitrogen, charge_state=1, name="N2+", color=wp.red,)
 
 # keep track of when the particles are born
 wp.top.ssnpid = wp.nextpid()
@@ -293,7 +293,7 @@ solver.uppasses = 2
 # Generate the PIC code (allocate storage, load ptcls, t=0 plots, etc.)
 wp.package("w3d")
 wp.generate()
-
+x, y, z = wp.w3d.xmesh, wp.w3d.ymesh, wp.w3d.zmesh
 ESQs = []
 RFs = []
 ID_ESQ = 100
@@ -678,31 +678,30 @@ def plotf(axes, component, new_page=True):
 if warpoptions.options.loadbeam == "":  # workaround
     wp.step(1)  # This is needed, so that selectedIons exists
 
-while wp.top.time < tmax:
-    beamsave()
-
+# Create cgm windows for plotting
+wp.winon(winnum=2, suffix="pzx", xon=False)
+wp.winon(winnum=3, suffix="pxy", xon=False)
+wp.winon(winnum=4, suffix="stats", xon=False)
+while wp.top.time < tmax * 0.5:
+    # Plot particle trajectory in zx
+    wp.window(2)
+    selectedIons.ppzx(color=wp.blue, msize=10)
+    ions.ppzx(color=wp.red, msize=10)
+    wp.limits(z.min(), z.max(), x.min(), x.max())
     wp.fma()
-    selectedIons.ppxy(color=wp.red, msize=10)
-    ions.ppxy(color=wp.blue, msize=10)
-    wp.limits(-R, R)
-    wp.limits(-R, R)
+
+    # Plot particle trajectory in xy
+    wp.window(3)
+    selectedIons.ppxy(color=wp.blue, msize=10)
+    ions.ppxy(color=wp.red, msize=10)
+    wp.limits(x.min(), x.max(), y.min(), y.max())
     wp.plg(Y, X, type="dash")
     wp.fma()
 
-    selectedIons.ppzx(color=wp.red, msize=10)
-    ions.ppzx(color=wp.blue, msize=10)
-    wp.limits(-R, R)
-    wp.limits(wp.w3d.zmmin, wp.w3d.zmmax)
-    wp.fma()
-
-    if warpoptions.options.cb_framewidth:  # if continous beam, do steps normally
-        wp.step(warpoptions.options.plotsteps)
-    elif wp.top.inject == 0:  # if there is no injection, do steps normally
-        wp.step(warpoptions.options.plotsteps)
-    else:  # if there is injection going on, make timesteps as fine as possible so that the bunch has the right length
-        wp.step(1)
+    wp.step(1)
 
 ### END of Simulation
+raise Exception()
 savezcrossing()
 
 ###### Final Plots
