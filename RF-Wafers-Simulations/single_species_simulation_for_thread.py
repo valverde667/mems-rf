@@ -237,7 +237,6 @@ wp.top.ssnpid = wp.nextpid()
 wp.top.tbirthpid = wp.nextpid()
 
 # Create Species
-speciesMass = warpoptions.options.speciesMass * wp.amu
 selectedIons = wp.Species(type=wp.Nitrogen, charge_state=1, name="N+", color=wp.blue,)
 ions = wp.Species(type=wp.Dinitrogen, charge_state=1, name="N2+", color=wp.green,)
 
@@ -257,37 +256,22 @@ writejson("tstep", warpoptions.options.timestep)
 
 # writejson("",)
 
-# --- Set basic beam parameters
+# Set Injection Parameters for injector and beam
+wp.top.ns = 2
+wp.top.npmax = 5  # maximal number of particles (for injection per timestep???)
+wp.top.ns = 2  # numper of species
+wp.top.np_s = [5, 2]
+wp.top.inject = 1  # Constant current injection
+wp.top.npinje_s = [1, 1]  # Number of particles injected per step by species
+wp.top.ainject = emittingRadius
+wp.top.binject = emittingRadius
+wp.top.apinject = divergenceAngle
+wp.top.bpinject = divergenceAngle
+wp.top.vinject = 1.0  # source voltage
 
-wp.top.vbeam = 0.0e0
-# wp.top.emit = 9.45e-7
-wp.top.ibeam = ibeaminit
-wp.top.ekin = ekininit
-wp.top.zion = selectedIons.charge_state
-wp.top.lrelativ = False
-wp.top.linj_efromgrid = True
+wp.top.ibeam_s = [ibeaminit, ibeaminit]
+wp.top.ekin_s = [ekininit, ekininit]
 wp.derivqty()
-
-if loadbeam == "":
-
-    wp.top.npmax = 5  # maximal number of particles (for injection per timestep???)
-    wp.top.ns = 2  # numper of species
-    wp.top.np_s = [5, 2]
-    wp.top.inject = 1  # 2 means space-charge limited injection
-    wp.top.npinject = 1  # approximate number of particles injected per step
-
-    wp.top.ainject = emittingRadius
-    wp.top.binject = emittingRadius
-    wp.top.apinject = divergenceAngle
-    wp.top.bpinject = divergenceAngle
-    # wp.top.rinject = 5000  # emitting surface curvature
-    wp.top.linj_eperp = False  # Turn on transverse E-fields near emitting surface
-    wp.top.vinject = 1.0  # source voltage
-
-    wp.top.xinject = 0
-    wp.top.yinject = 0
-    wp.top.zinject = wp.w3d.zmmin
-
 
 # --- Select plot intervals, etc.
 # print("--- Ions start at: ", wp.top.zinject)
