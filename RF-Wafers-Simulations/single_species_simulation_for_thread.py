@@ -238,20 +238,8 @@ wp.top.tbirthpid = wp.nextpid()
 
 # Create Species
 speciesMass = warpoptions.options.speciesMass * wp.amu
-selectedIons = wp.Species(
-    type=wp.Nitrogen,
-    charge_state=1,
-    name="N+",
-    mass=warpoptions.options.speciesMass * wp.amu,
-    color=wp.blue,
-)
-ions = wp.Species(
-    type=wp.Dinitrogen,
-    charge_state=1,
-    name="N2+",
-    mass=warpoptions.options.speciesMass * wp.amu,
-    color=wp.green,
-)
+selectedIons = wp.Species(type=wp.Nitrogen, charge_state=1, name="N+", color=wp.blue,)
+ions = wp.Species(type=wp.Dinitrogen, charge_state=1, name="N2+", color=wp.green,)
 
 
 writejson("bunchlength", L_bunch)
@@ -359,7 +347,7 @@ def gen_volt_esq(Vesq, inverse=False, toffset=0):
 # --- calculate the distances and time offset for the RFs
 centerOfFirstRFGap = 5 * wp.mm
 tParticlesAtCenterFirstGap = centerOfFirstRFGap / wp.sqrt(
-    2 * ekininit * selectedIons.charge / speciesMass
+    2 * ekininit * selectedIons.charge / selectedIons.mass
 )
 print(
     f"Particles need {tParticlesAtCenterFirstGap * 1e6}us"
@@ -403,7 +391,7 @@ def calculateRFwaferpositions():
                 (ekininit + V_arrival * Vmax * (2 * i + 1))
                 * 2
                 * selectedIons.charge
-                / speciesMass
+                / selectedIons.mass
             )
             * 1
             / freq
@@ -416,7 +404,7 @@ def calculateRFwaferpositions():
                 (ekininit + V_arrival * Vmax * (2 * i + 2))
                 * 2
                 * selectedIons.charge
-                / speciesMass
+                / selectedIons.mass
             )
             * 1
             / freq
