@@ -232,14 +232,13 @@ wp.top.pbound0 = wp.absorb
 wp.top.pboundnz = wp.absorb
 wp.top.prwall = 1 * wp.mm
 
-# keep track of when the particles are born
-wp.top.ssnpid = wp.nextpid()
-wp.top.tbirthpid = wp.nextpid()
-
 # Create Species
 selectedIons = wp.Species(type=wp.Nitrogen, charge_state=1, name="N+", color=wp.blue,)
 ions = wp.Species(type=wp.Dinitrogen, charge_state=1, name="N2+", color=wp.green,)
 
+# keep track of when the particles are born
+wp.top.ssnpid = wp.nextpid()
+wp.top.tbirthpid = wp.nextpid()
 
 writejson("bunchlength", L_bunch)
 writejson("Vmax", Vmax)
@@ -254,13 +253,11 @@ writejson("ibeaminit", ibeaminit)
 writejson("beamdelay", beamdelay)
 writejson("tstep", warpoptions.options.timestep)
 
-# writejson("",)
-
 # Set Injection Parameters for injector and beam
 wp.top.ns = 2
 wp.top.npmax = 5  # maximal number of particles (for injection per timestep???)
 wp.top.ns = 2  # numper of species
-wp.top.np_s = [5, 2]
+# wp.top.np_s = [5, 2]
 wp.top.inject = 1  # Constant current injection
 wp.top.npinje_s = [1, 1]  # Number of particles injected per step by species
 wp.top.ainject = emittingRadius
@@ -273,12 +270,9 @@ wp.top.ibeam_s = [ibeaminit, ibeaminit]
 wp.top.ekin_s = [ekininit, ekininit]
 wp.derivqty()
 
-# --- Select plot intervals, etc.
-# print("--- Ions start at: ", wp.top.zinject)
-
+# Setup Histories and moment calculations
+wp.top.lspeciesmoments = True
 wp.top.nhist = 1  # Save history data every N time step
-wp.top.itmomnts[0:4] = [0, 1000000, wp.top.nhist, 0]  # Calculate moments every N steps
-# --- Save time histories of various quantities versus z.
 wp.top.lhpnumz = True
 wp.top.lhcurrz = True
 wp.top.lhrrmsz = True
@@ -288,7 +282,7 @@ wp.top.lhepsnxz = True
 wp.top.lhepsnyz = True
 wp.top.lhvzrmsz = True
 
-# --- Set up fieldsolver - 7 means the multigrid solver
+# Set up fieldsolver
 solver = wp.MRBlock3D()
 wp.registersolver(solver)
 solver.mgtol = 1.0  # Poisson solver tolerance, in volts
@@ -296,7 +290,7 @@ solver.mgparam = 1.5
 solver.downpasses = 2
 solver.uppasses = 2
 
-# --- Generate the PIC code (allocate storage, load ptcls, t=0 plots, etc.)
+# Generate the PIC code (allocate storage, load ptcls, t=0 plots, etc.)
 wp.package("w3d")
 wp.generate()
 
