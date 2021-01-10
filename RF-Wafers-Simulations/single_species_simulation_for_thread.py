@@ -124,59 +124,9 @@ from geometry import RF_stack, ESQ_doublet
 
 start = time.time()
 
-# Initialize input variables
-L_bunch = warpoptions.options.Lbunch
-Units = warpoptions.options.Units
-Vmax = warpoptions.options.Vmax  # RF voltage
-Vesq = warpoptions.options.Vesq
-V_arrival = warpoptions.options.V_arrival  # fraction total voltage gained each gap
-ekininit = warpoptions.options.ekininit
-freq = warpoptions.options.freq  # RF freq
-emittingRadius = warpoptions.options.emittingRadius
-divergenceAngle = warpoptions.options.divergenceAngle
+# Utility definitions
 name = warpoptions.options.name
-storebeam = warpoptions.options.storebeam
-loadbeam = warpoptions.options.loadbeam
 beamnumber = warpoptions.options.beamnumber
-ibeaminit = warpoptions.options.ibeaminit
-beamdelay = warpoptions.options.beamdelay
-
-
-# Specify  simulation mesh
-wp.w3d.solvergeom = wp.w3d.XYZgeom
-wp.w3d.xmmin = -3 / 2 * wp.mm
-wp.w3d.xmmax = 3 / 2 * wp.mm
-wp.w3d.ymmin = -3 / 2 * wp.mm
-wp.w3d.ymmax = 3 / 2 * wp.mm
-framewidth = 23 * wp.mm
-wp.w3d.zmmin = 0.0
-wp.w3d.zmmax = wp.w3d.zmmin + framewidth
-wp.top.dt = warpoptions.options.timestep
-wp.w3d.nx = 30  # 60.
-wp.w3d.ny = 30  # 60.
-wp.w3d.nz = 180.0
-
-# --- keep track of when the particles are born
-wp.top.ssnpid = wp.nextpid()
-wp.top.tbirthpid = wp.nextpid()
-
-# Create Species
-speciesMass = warpoptions.options.speciesMass * wp.amu
-selectedIons = wp.Species(
-    type=wp.Nitrogen,
-    charge_state=1,
-    name="N+",
-    mass=warpoptions.options.speciesMass * wp.amu,
-    color=wp.blue,
-)
-ions = wp.Species(
-    type=wp.Dinitrogen,
-    charge_state=1,
-    name="N2+",
-    mass=warpoptions.options.speciesMass * wp.amu,
-    color=wp.green,
-)
-
 
 # --- where to store the outputfiles
 cgm_name = name
@@ -195,7 +145,7 @@ if basepath == "":
     basepath = f"{step1path}/"
 thisrunID = warpoptions.options.name
 
-
+# Utility Functions
 def initjson(fp=f"{basepath}{thisrunID}.json"):
     if not os.path.isfile(fp):
         print(f"Saving new Json")
@@ -244,6 +194,58 @@ def restorebeam(nb_beam=beamnumber):
         wp.top.npmax = len(beamdata["z"])
 
 
+# Initialize input variables
+L_bunch = warpoptions.options.Lbunch
+Units = warpoptions.options.Units
+Vmax = warpoptions.options.Vmax  # RF voltage
+Vesq = warpoptions.options.Vesq
+V_arrival = warpoptions.options.V_arrival  # fraction total voltage gained each gap
+ekininit = warpoptions.options.ekininit
+freq = warpoptions.options.freq  # RF freq
+emittingRadius = warpoptions.options.emittingRadius
+divergenceAngle = warpoptions.options.divergenceAngle
+storebeam = warpoptions.options.storebeam
+loadbeam = warpoptions.options.loadbeam
+ibeaminit = warpoptions.options.ibeaminit
+beamdelay = warpoptions.options.beamdelay
+
+
+# Specify  simulation mesh
+wp.w3d.solvergeom = wp.w3d.XYZgeom
+wp.w3d.xmmin = -3 / 2 * wp.mm
+wp.w3d.xmmax = 3 / 2 * wp.mm
+wp.w3d.ymmin = -3 / 2 * wp.mm
+wp.w3d.ymmax = 3 / 2 * wp.mm
+framewidth = 23 * wp.mm
+wp.w3d.zmmin = 0.0
+wp.w3d.zmmax = wp.w3d.zmmin + framewidth
+wp.top.dt = warpoptions.options.timestep
+wp.w3d.nx = 30  # 60.
+wp.w3d.ny = 30  # 60.
+wp.w3d.nz = 180.0
+
+# --- keep track of when the particles are born
+wp.top.ssnpid = wp.nextpid()
+wp.top.tbirthpid = wp.nextpid()
+
+# Create Species
+speciesMass = warpoptions.options.speciesMass * wp.amu
+selectedIons = wp.Species(
+    type=wp.Nitrogen,
+    charge_state=1,
+    name="N+",
+    mass=warpoptions.options.speciesMass * wp.amu,
+    color=wp.blue,
+)
+ions = wp.Species(
+    type=wp.Dinitrogen,
+    charge_state=1,
+    name="N2+",
+    mass=warpoptions.options.speciesMass * wp.amu,
+    color=wp.green,
+)
+
+
 writejson("bunchlength", L_bunch)
 writejson("Vmax", Vmax)
 writejson("Vesq", Vesq)
@@ -270,10 +272,6 @@ wp.top.lrelativ = False
 wp.top.linj_efromgrid = True
 wp.derivqty()
 
-# --- Set input parameters describing the 3d simulation
-
-wp.w3d.l4symtry = False  # True
-wp.w3d.l2symtry = False
 
 # ---   Set boundary conditions
 
@@ -288,16 +286,6 @@ wp.top.pboundnz = wp.absorb
 wp.top.prwall = (
     1 * wp.mm
 )  # prwall slightly bigger than aperture radius so ions can get absorbed by conductors
-
-# --- Set field grid size, this is the width of the window
-wp.w3d.xmmin = -3 / 2 * wp.mm
-wp.w3d.xmmax = 3 / 2 * wp.mm
-wp.w3d.ymmin = -3 / 2 * wp.mm  #
-wp.w3d.ymmax = 3 / 2 * wp.mm
-framewidth = 23 * wp.mm
-
-
-restorebeam()
 
 if loadbeam == "":
 
