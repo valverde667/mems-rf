@@ -27,7 +27,7 @@ wp.w3d.boundnz = wp.neumann
 wp.w3d.boundxy = wp.neumann
 
 # Specify and register solver
-solver = wp.MRBlock3D()
+solver = wp.MultiGrid3D()
 wp.registersolver(solver)
 solver.mgtol = 1
 solver.mgparam = 1.5
@@ -35,7 +35,7 @@ solver.downpasses = 2
 solver.uppasses = 2
 wp.package("w3d")
 wp.generate()  # Create mesh
-wp.ldosolve = False
+wp.ldosolve = False  # Only solve for fields from conductors not particles.
 x, y, z = wp.w3d.xmesh, wp.w3d.ymesh, wp.w3d.zmesh  # Set variable names for ease
 
 # Voltage paramters
@@ -75,7 +75,7 @@ def getvolt(time):
     return voltage
 
 
-def inv_get_voltage(time):
+def inv_getvolt(time):
     """Calculate voltage at current time and invert it.
 
     Parameters
@@ -109,16 +109,17 @@ right = wp.ZAnnulus(
     rmax=1.1 * wp.mm,
     length=0.2 * wp.mm,
     zcent=1 * wp.mm,
-    voltage=inv_get_voltage,
+    voltage=inv_getvolt,
 )
+
 # Install conductors on mesh
 wp.installconductors(left)
 wp.installconductors(right)
 wp.step()
 wp.fieldsol(-1)
-
+solver.gridmode = 0
 # Calculate time for one period and set simulation time to stop then.
-period = np.pi / frequency
+period = 2 * np.pi / frequency
 wp.top.tstop = period
 # Create cgm setup for potential contours
 wp.setup()
@@ -128,14 +129,14 @@ while wp.top.time < wp.top.tstop:
     print(getvolt(wp.top.time) / wp.kV)
     # Plot potential contours and conductors
     wp.window(1)
-    wp.pfzx(fill=1, filled=1, plotphi=1)
+    wp.pfzx(fill=1, filled=1, plotphi=1, cmin=-Vmax, cmax=Vmax, contours=40)
     wp.limits(z.min(), z.max(), x.min(), x.max())
     wp.fma()
 
     wp.window(2)
-    potential = wp.getphi()[0, 0, :]
+    potential = wp.getphi()[50, 50, :]
     wp.plg(potential, z)
-    wp.ptitles("Potential at r = ", "Potential", "z")
+    wp.ptitles("Potential at r = 0 ", "Potential", "z")
     wp.limits(z.min(), z.max(), -Vmax, Vmax)
     wp.fma()
 
