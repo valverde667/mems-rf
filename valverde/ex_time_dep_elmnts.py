@@ -35,6 +35,7 @@ solver.downpasses = 2
 solver.uppasses = 2
 wp.package("w3d")
 wp.generate()  # Create mesh
+wp.ldosolve = False
 x, y, z = wp.w3d.xmesh, wp.w3d.ymesh, wp.w3d.zmesh  # Set variable names for ease
 
 # Voltage paramters
@@ -49,7 +50,7 @@ frequency = 14.86 * MHz
 # I must first create a function that takes 'time' as the input and returns a
 # voltage. Then I can use this to specify the time-dependence in the conductor
 # defintion.
-def get_voltage(time):
+def getvolt(time):
     """Calculate voltage at current time.
 
     Function calculates the voltage at the current timestep in the simulation.
@@ -101,7 +102,7 @@ left = wp.ZAnnulus(
     rmax=1.1 * wp.mm,
     length=0.2 * wp.mm,
     zcent=-1 * wp.mm,
-    voltage=get_voltage,
+    voltage=getvolt,
 )
 right = wp.ZAnnulus(
     rmin=0.8 * wp.mm,
@@ -110,7 +111,6 @@ right = wp.ZAnnulus(
     zcent=1 * wp.mm,
     voltage=inv_get_voltage,
 )
-
 # Install conductors on mesh
 wp.installconductors(left)
 wp.installconductors(right)
@@ -118,13 +118,14 @@ wp.step()
 wp.fieldsol(-1)
 
 # Calculate time for one period and set simulation time to stop then.
-period = 1 / frequency
+period = np.pi / frequency
 wp.top.tstop = period
 # Create cgm setup for potential contours
 wp.setup()
 wp.winon(winnum=1, suffix="pfzx", xon=0)
 wp.winon(winnum=2, suffix="pot", xon=0)
 while wp.top.time < wp.top.tstop:
+    print(getvolt(wp.top.time) / wp.kV)
     # Plot potential contours and conductors
     wp.window(1)
     wp.pfzx(fill=1, filled=1, plotphi=1)
@@ -132,9 +133,10 @@ while wp.top.time < wp.top.tstop:
     wp.fma()
 
     wp.window(2)
-    potential = wp.getphi()[75, 75, :]
-    wp.plg(z, potential)
-    wp.limits(z.min(), z.max(), 0, Vmax)
+    potential = wp.getphi()[0, 0, :]
+    wp.plg(potential, z)
+    wp.ptitles("Potential at r = ", "Potential", "z")
+    wp.limits(z.min(), z.max(), -Vmax, Vmax)
     wp.fma()
 
     wp.step()
