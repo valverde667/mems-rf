@@ -414,7 +414,7 @@ def rrms():
 # simulate the ACTUAL setup:
 calculatedPositionArray = calculateRFwaferpositions()
 # print(calculatedPositionArray)
-positionArray = [[0.001, 0.003, 0.09, 0.011]]
+positionArray = [[0.001, 0.003, 0.007, 0.009], [0.015, 0.017, 0.021, 0.023]]
 writejson("waferpositions", positionArray)
 
 # catching it at the plates with peak voltage #april 15
@@ -528,7 +528,7 @@ wp.installconductors(conductors)
 
 # Recalculate the fields
 wp.fieldsol(-1)
-solver.gridmode = 0
+solver.gridmode = 0  # Temporary fix for fields to oscillate in time.
 ### track particles after crossing a Z location -
 zc_pos = warpoptions.options.zcrossing
 if zc_pos:
@@ -596,18 +596,6 @@ def allzcrossing():
             writejson("allzcrossing", zcs_data)
             print("Json Saved")
 
-
-# I want contour plots for levels between 0 and 1kV
-# contours = range(0, int(Vesq), int(Vesq/10))
-
-wp.winon(xon=0)
-
-# Plots conductors and contours of electrostatic potential in the Z-X plane
-wp.pfzx(fill=1, filled=1, plotphi=0)  # does not plot contours of potential
-wp.fma()  # first frame in cgm file
-
-wp.pfzx(fill=1, filled=1, plotphi=1)  # plots contours of potential
-wp.fma()  # second frame in cgm file
 
 zmin = wp.w3d.zmmin
 zmax = wp.w3d.zmmax
@@ -681,10 +669,10 @@ if warpoptions.options.loadbeam == "":  # workaround
 wp.winon(winnum=2, suffix="pzx", xon=False)
 wp.winon(winnum=3, suffix="pxy", xon=False)
 wp.winon(winnum=4, suffix="stats", xon=False)
-while wp.top.time < tmax * 0.5:
+while max(selectedIons.getz()) < z.max():
     # Plot particle trajectory in zx
     wp.window(2)
-    wp.pfzx(fill=1, filled=1, plotphi=1)
+    wp.pfzx(fill=1, filled=1, plotphi=1, cmin=-Vmax, cmax=Vmax, contours=50)
     selectedIons.ppzx(color=wp.blue, msize=10)
     ions.ppzx(color=wp.red, msize=10)
     wp.limits(z.min(), z.max(), x.min(), x.max())
