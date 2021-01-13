@@ -677,6 +677,8 @@ tmax = length / velo  # this is used for the maximum time for timesteps
 zrunmax = length  # this is used for the maximum distance for timesteps
 period = 1 / freq
 tcontrol = period / 2
+scale_maxEz = 1.25
+app_maxEz = scale_maxEz * Vmax / geometry.gapGNDRF
 if warpoptions.options.runtime:
     tmax = warpoptions.options.runtime
 
@@ -685,18 +687,29 @@ if warpoptions.options.runtime:
 while wp.top.time < tcontrol:
     # Plot particle trajectory in zx
     wp.window(2)
-    wp.pfzx(fill=1, filled=1, plotphi=1, cmin=-Vmax, cmax=Vmax, contours=50)
-    selectedIons.ppzx(color=wp.blue, msize=10)
-    ions.ppzx(color=wp.red, msize=10)
+    wp.pfzx(
+        fill=1,
+        filled=1,
+        plotselfe=1,
+        comp="z",
+        contours=50,
+        cmin=-app_maxEz,
+        cmax=app_maxEz,
+        titles=0,
+    )
+    selectedIons.ppzx(color=wp.blue, msize=5)
+    ions.ppzx(color=wp.red, msize=5)
     wp.limits(z.min(), z.max(), x.min(), x.max())
+    wp.titles = "Ez, N2+ (Blue) N+ (Red)"
     wp.fma()
 
     # Plot particle trajectory in xy
     wp.window(3)
-    selectedIons.ppxy(color=wp.blue, msize=10)
-    ions.ppxy(color=wp.red, msize=10)
+    selectedIons.ppxy(color=wp.blue, msize=5, titles=0)
+    ions.ppxy(color=wp.red, msize=5, titles=0)
     wp.limits(x.min(), x.max(), y.min(), y.max())
     wp.plg(Y, X, type="dash")
+    wp.titles = "Particles N2+ (Blue) and N+ (Red) in XY"
     wp.fma()
 
     wp.step(1)
