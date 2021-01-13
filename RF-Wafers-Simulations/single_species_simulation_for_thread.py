@@ -197,15 +197,21 @@ loadbeam = warpoptions.options.loadbeam
 ibeaminit = warpoptions.options.ibeaminit
 beamdelay = warpoptions.options.beamdelay
 
+# Useful definitons
+us = 1e-6
+ns = 1e-9
+mm = wp.mm
+first_gapzc = 5 * mm  # First gap center
+
 
 # Specify  simulation mesh
 wp.w3d.solvergeom = wp.w3d.XYZgeom
-wp.w3d.xmmin = -3 / 2 * wp.mm
-wp.w3d.xmmax = 3 / 2 * wp.mm
-wp.w3d.ymmin = -3 / 2 * wp.mm
-wp.w3d.ymmax = 3 / 2 * wp.mm
-framewidth = 62 * wp.mm
-wp.w3d.zmmin = 0 * wp.mm
+wp.w3d.xmmin = -3 / 2 * mm
+wp.w3d.xmmax = 3 / 2 * mm
+wp.w3d.ymmin = -3 / 2 * mm
+wp.w3d.ymmax = 3 / 2 * mm
+framewidth = 62 * mm
+wp.w3d.zmmin = 0 * mm
 wp.w3d.zmmax = wp.w3d.zmmin + framewidth
 wp.top.dt = warpoptions.options.timestep
 wp.w3d.nx = 20  # 60.
@@ -218,7 +224,7 @@ wp.w3d.boundnz = wp.neumann
 wp.w3d.boundxy = wp.neumann
 wp.top.pbound0 = wp.absorb
 wp.top.pboundnz = wp.absorb
-wp.top.prwall = 1 * wp.mm
+wp.top.prwall = 1 * mm
 
 # Create Species
 selectedIons = wp.Species(type=wp.Nitrogen, charge_state=1, name="N+", color=wp.blue)
@@ -309,7 +315,7 @@ def gen_volt_esq(Vesq, inverse=False, toffset=0):
 
 
 def calc_RFoffset(
-    gapcntr=5 * wp.mm, part=selectedIons, b_delay=beamdelay, Ekin=ekininit
+    gapcntr=first_gapzc, part=selectedIons, b_delay=beamdelay, Ekin=ekininit
 ):
     """Function calculates the RF for first acceleration gap
 
@@ -360,8 +366,9 @@ def calculateRFwaferpositions():
     positionArray = []
     # Calculating first position
     # this is not actually C but the very first wafer a
+    global first_gapzc
     c = (
-        centerOfFirstRFGap
+        first_gapzc
         - geometry.gapGNDRF / 2
         - geometry.copper_thickness
         - geometry.wafer_thickness / 2
@@ -404,10 +411,10 @@ def calculateRFwaferpositions():
         )
 
         if Units == 1:
-            c = c - 10 * wp.mm
+            c = c - 10 * mm
         elif Units == 2:
-            a = a - 50 * wp.mm
-            b = b + 40 * wp.mm
+            a = a - 50 * mm
+            b = b + 40 * mm
 
         positionArray.append([a, b, c, d])
     return positionArray
@@ -431,8 +438,8 @@ def rrms():
 calculatedPositionArray = calculateRFwaferpositions()
 # print(calculatedPositionArray)
 positionArray = [
-    [4 * wp.mm, 6 * wp.mm, 18.83 * wp.mm, 20.83 * wp.mm],
-    [36.995 * wp.mm, 38.995 * wp.mm, 57.97 * wp.mm, 59.97 * wp.mm],
+    [4 * mm, 6 * mm, 18.83 * mm, 20.83 * mm],
+    [36.995 * mm, 38.995 * mm, 57.97 * mm, 59.97 * mm],
 ]
 writejson("waferpositions", positionArray)
 
@@ -523,35 +530,22 @@ def beamsave():
 for i, pa in enumerate(positionArray):
     print(f"Unit {i} placed at {pa}")
 
-# Voltages for each RF UNIT
-# setting frequency overwrites the default/waroptions
-# frequency setting;
+# Create conductor RF stacks. Need to create voltage lists for stacks. The list
+# consist of each RF-stack voltage. That is, the voltage returned by
+# by gen_volt() is for each RF stack. Setting frequency overwrites the
+# default/waroptions frequency setting.
 voltages = [
     gen_volt(toffset=RF_offset, frequency=14.8e6),
     gen_volt(toffset=RF_offset, frequency=14.8e6),
 ]
-# add actual stack
 conductors = RF_stack(positionArray, voltages)
-print("CONDUCT DONE")
-
-velo = np.sqrt(
-    2 * ekininit * selectedIons.charge / selectedIons.mass
-)  # used to calculate tmax
-length = positionArray[-1][-1] + 25 * wp.mm
-tmax = length / velo  # this is used for the maximum time for timesteps
-zrunmax = length  # this is used for the maximum distance for timesteps
-period = 1 / freq
-tcontrol = period / 2
-if warpoptions.options.runtime:
-    tmax = warpoptions.options.runtime
-
-# Install conductors
 wp.installconductors(conductors)
 
 # Recalculate the fields
 wp.fieldsol(-1)
 solver.gridmode = 0  # Temporary fix for fields to oscillate in time.
-### track particles after crossing a Z location -
+
+# track particles after crossing a Z location -
 zc_pos = warpoptions.options.zcrossing
 if zc_pos:
     print(f"recording particles crossing at z = {zc_pos}")
@@ -620,8 +614,9 @@ def allzcrossing():
 
 
 zmid = 0.5 * (z.max() + z.min())
-# make a circle to show the beam pipe
-R = 0.5 * wp.mm  # beam radius
+
+# Make a circle to show the beam pipe on warp plots in xy.
+R = 0.5 * mm  # beam radius
 t = np.linspace(0, 2 * np.pi, 100)
 X = R * np.sin(t)
 Y = R * np.cos(t)
@@ -692,7 +687,7 @@ wp.winon(winnum=4, suffix="stats", xon=False)
 
 # Calculate various control values to dictate when the simulation ends
 velo = np.sqrt(2 * ekininit * selectedIons.charge / selectedIons.mass)
-length = positionArray[-1][-1] + 25 * wp.mm
+length = positionArray[-1][-1] + 25 * mm
 tmax = length / velo  # this is used for the maximum time for timesteps
 zrunmax = length  # this is used for the maximum distance for timesteps
 period = 1 / freq
