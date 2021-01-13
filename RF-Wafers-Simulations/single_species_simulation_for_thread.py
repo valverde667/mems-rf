@@ -738,6 +738,11 @@ while wp.top.time <= 0.75 * period:
 # Turn injection off
 wp.top.inject = 0
 
+# Grab number of particles injected.
+hnpinj = wp.top.hnpinject[: wp.top.jhist + 1, :]
+npselected = sum(hnpinj[:, 0])
+npother = sum(hnpinj[:, 1])
+
 # Main loop. Advance particles until N+ reaches end of frame and output graphics.
 while max(selectedIons.getz()) < (z.max() - 3 * solver.dz):
     wp.window(2)
@@ -751,14 +756,14 @@ while max(selectedIons.getz()) < (z.max() - 3 * solver.dz):
         cmax=app_maxEz,
         titlet="Ez, N+(Blue) and N2+(Red)",
     )
-    selectedIons.ppzx(color=wp.blue, msize=5, titles=0)
+    selectedIons.ppzx(color=wp.blue, msize=2, titles=0)
     ions.ppzx(color=wp.red, msize=2, titles=0)
     wp.limits(z.min(), z.max(), x.min(), x.max())
     wp.fma()
 
     wp.window(3)
     selectedIons.ppxy(
-        color=wp.blue, msize=5, titlet="Particles N+(Blue) and N2+(Red) in XY"
+        color=wp.blue, msize=2, titlet="Particles N+(Blue) and N2+(Red) in XY"
     )
     ions.ppxy(color=wp.red, msize=2, titles=0)
     wp.limits(x.min(), x.max(), y.min(), y.max())
@@ -769,8 +774,8 @@ while max(selectedIons.getz()) < (z.max() - 3 * solver.dz):
     wp.step(1)
 
 ### END of Simulation
-print("Number {} injected: {}".format(selectedIons.name, selectedIons.getn()))
-print("Number {} injected: {}".format(ions.name, ions.getn()))
+print("Number {} injected: {}".format(selectedIons.name, npselected))
+print("Number {} injected: {}".format(ions.name, npother))
 raise Exception()
 savezcrossing()
 
