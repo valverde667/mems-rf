@@ -520,6 +520,8 @@ velo = np.sqrt(
 length = positionArray[-1][-1] + 25 * wp.mm
 tmax = length / velo  # this is used for the maximum time for timesteps
 zrunmax = length  # this is used for the maximum distance for timesteps
+period = 1 / freq
+tcontrol = period / 2
 if warpoptions.options.runtime:
     tmax = warpoptions.options.runtime
 
@@ -597,9 +599,7 @@ def allzcrossing():
             print("Json Saved")
 
 
-zmin = wp.w3d.zmmin
-zmax = wp.w3d.zmmax
-zmid = 0.5 * (zmax + zmin)
+zmid = 0.5 * (z.max() + z.min())
 # make a circle to show the beam pipe
 R = 0.5 * wp.mm  # beam radius
 t = np.linspace(0, 2 * np.pi, 100)
@@ -669,7 +669,20 @@ if warpoptions.options.loadbeam == "":  # workaround
 wp.winon(winnum=2, suffix="pzx", xon=False)
 wp.winon(winnum=3, suffix="pxy", xon=False)
 wp.winon(winnum=4, suffix="stats", xon=False)
-while max(selectedIons.getz()) < z.max():
+
+# Calculate various control values to dictate when the simulation ends
+velo = np.sqrt(2 * ekininit * selectedIons.charge / selectedIons.mass)
+length = positionArray[-1][-1] + 25 * wp.mm
+tmax = length / velo  # this is used for the maximum time for timesteps
+zrunmax = length  # this is used for the maximum distance for timesteps
+period = 1 / freq
+tcontrol = period / 2
+if warpoptions.options.runtime:
+    tmax = warpoptions.options.runtime
+
+
+# Main loop. Advance particles and output graphics.
+while wp.top.time < tcontrol:
     # Plot particle trajectory in zx
     wp.window(2)
     wp.pfzx(fill=1, filled=1, plotphi=1, cmin=-Vmax, cmax=Vmax, contours=50)
