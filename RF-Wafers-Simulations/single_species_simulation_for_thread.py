@@ -1,7 +1,5 @@
 import warpoptions
 
-#   only specify the parameters you want to change from their default values
-#   the input will look like:
 """
 python3 single-species-simulation.py --esq_voltage=500 --fraction=.8 --speciesMass=20 --ekininit=15e3
 """
@@ -87,23 +85,14 @@ warpoptions.parser.add_argument("--zcrossing", dest="zcrossing", type=float, def
 # set maximal running time, this disables other means of ending the simulation
 warpoptions.parser.add_argument("--runtime", dest="runtime", type=float, default=0)
 
-# beam current initial beam current may vary up to 25e-6
 warpoptions.parser.add_argument(
     "--ibeaminit", dest="ibeaminit", type=float, default=10e-6
 )
-
-# offset to make beam bunch asynchronous
 warpoptions.parser.add_argument(
     "--beamdelay", dest="beamdelay", type=float, default=0.0
 )
-
-#   stores the beam at once the average particle position passed the given positions (list)
-# --storebeam "[0.01, 0.024, 0.045]" uses the --name given for the simulation. Stored beams are ordered.
-# Needs to be an array with stings
 warpoptions.parser.add_argument("--storebeam", dest="storebeam", default="[]")
-# --loadbeam "path/to/file.json"
 warpoptions.parser.add_argument("--loadbeam", dest="loadbeam", type=str, default="")
-# --beamnumber 3  or negative number to count from the back. Stored beams are ordered.
 warpoptions.parser.add_argument("--beamnumber", dest="beamnumber", type=int, default=-1)
 
 # --Python packages
@@ -170,7 +159,6 @@ def writejson(key, value, fp=f"{basepath}{thisrunID}.json"):
         json.dump(writedata, writefile, sort_keys=True, indent=1)
 
 
-### loading beam functionalitly
 def restorebeam(nb_beam=beamnumber):
     if loadbeam != "":
         rj = readjson(loadbeam)
@@ -320,22 +308,50 @@ def gen_volt_esq(Vesq, inverse=False, toffset=0):
     return ESQvoltage
 
 
-# Calculate the distances and time offset for the RFs
-centerOfFirstRFGap = 5 * wp.mm
-tParticlesAtCenterFirstGap = centerOfFirstRFGap / wp.sqrt(
-    2 * ekininit * selectedIons.charge / selectedIons.mass
-)
-print(
-    f"Particles need {tParticlesAtCenterFirstGap * 1e6}us"
-    f" to reach the center of the first gap"
-)
-# RF should be maximal when particles arrive
-# time for the cos to travel there minus the time the
-# particles take
-RF_offset = centerOfFirstRFGap / wp.clight - tParticlesAtCenterFirstGap - beamdelay
-print(f"RF_offset {RF_offset}")
-ESQ_toffset = 0
+def calc_RFoffset(
+    gapcntr=5 * wp.mm, part=selectedIons, b_delay=beamdelay, Ekin=ekininit
+):
+    """Function calculates the RF for first acceleration gap
 
+    The ions are injected at grid position z=0. This function is useful for
+    calculating a desired RF offset given ions and a beam delay.
+
+    Parameters
+    ----------
+    gapcntr : float
+        Center of first acceleration gap in meters.
+
+    part : Class
+        Warp particle class. Since the particle mass is used, this can be given
+        as an attribute of the predescrived Species types. For example,
+        part = wp.Dinitrogen.
+
+    b_delay : float
+        Delay of the actual beam in seconds.
+
+    Ek = float
+        Kinetic energy of ions in eV
+
+    Returns
+    -------
+    RF_offset : float
+        RF_offset for acceleration gap in seconds.
+    """
+    # Calculate time of arrival (toa) of ions at gap center
+    velo = np.sqrt(2 * Ekin * wp.jperev / part.mass)
+    toa = gapcntr / velo
+
+    # Calculate offset
+    RF_offset = gapcntr / wp.clight - toa - beamdelay
+
+    return RF_offset
+
+
+# Calculate RF offset for gap
+RF_offset = calc_RFoffset()
+print("RF offset calculated to be {:.3f}[ns]".format(RF_offset / 1e-9))
+
+ESQ_toffset = 0
 Vpos = []
 
 
