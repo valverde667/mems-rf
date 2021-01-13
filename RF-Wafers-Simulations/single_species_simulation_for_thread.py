@@ -686,9 +686,8 @@ app_maxEz = scale_maxEz * Vmax / geometry.gapGNDRF
 if warpoptions.options.runtime:
     tmax = warpoptions.options.runtime
 
-
-# Main loop. Advance particles and output graphics.
-while max(selectedIons.getz()) < (z.max() - 3 * solver.dz):
+# First loop. Inject particles for 1.5 RF cycles then cut in injection.
+while wp.top.time <= 1.5 * period:
     # Plot particle trajectory in zx
     wp.window(2)
     wp.pfzx(
@@ -707,6 +706,39 @@ while max(selectedIons.getz()) < (z.max() - 3 * solver.dz):
     wp.fma()
 
     # Plot particle trajectory in xy
+    wp.window(3)
+    selectedIons.ppxy(
+        color=wp.blue, msize=5, titlet="Particles N+(Blue) and N2+(Red) in XY"
+    )
+    ions.ppxy(color=wp.red, msize=5, titles=0)
+    wp.limits(x.min(), x.max(), y.min(), y.max())
+    wp.plg(Y, X, type="dash")
+    wp.titlet = "Particles N+(Blue) and N2+(Red) in XY"
+    wp.fma()
+
+    wp.step(1)
+
+# Turn off injection
+wp.top.inject = 0
+
+# Main loop. Advance particles until N+ reaches end of frame and output graphics.
+while max(selectedIons.getz()) < (z.max() - 3 * solver.dz):
+    wp.window(2)
+    wp.pfzx(
+        fill=1,
+        filled=1,
+        plotselfe=1,
+        comp="z",
+        contours=50,
+        cmin=-app_maxEz,
+        cmax=app_maxEz,
+        titlet="Ez, N+(Blue) and N2+(Red)",
+    )
+    selectedIons.ppzx(color=wp.blue, msize=5, titles=0)
+    ions.ppzx(color=wp.red, msize=5, titles=0)
+    wp.limits(z.min(), z.max(), x.min(), x.max())
+    wp.fma()
+
     wp.window(3)
     selectedIons.ppxy(
         color=wp.blue, msize=5, titlet="Particles N+(Blue) and N2+(Red) in XY"
