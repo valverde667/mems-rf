@@ -216,13 +216,13 @@ wp.w3d.xmmin = -3 / 2 * wp.mm
 wp.w3d.xmmax = 3 / 2 * wp.mm
 wp.w3d.ymmin = -3 / 2 * wp.mm
 wp.w3d.ymmax = 3 / 2 * wp.mm
-framewidth = 23 * wp.mm
-wp.w3d.zmmin = 0.0
+framewidth = 62 * wp.mm
+wp.w3d.zmmin = 0 * wp.mm
 wp.w3d.zmmax = wp.w3d.zmmin + framewidth
 wp.top.dt = warpoptions.options.timestep
-wp.w3d.nx = 30  # 60.
-wp.w3d.ny = 30  # 60.
-wp.w3d.nz = 180.0
+wp.w3d.nx = 20  # 60.
+wp.w3d.ny = 20  # 60.
+wp.w3d.nz = 200.0
 
 # Set boundary conditions
 wp.w3d.bound0 = wp.neumann
@@ -233,8 +233,8 @@ wp.top.pboundnz = wp.absorb
 wp.top.prwall = 1 * wp.mm
 
 # Create Species
-selectedIons = wp.Species(type=wp.Nitrogen, charge_state=1, name="N+", color=wp.blue,)
-ions = wp.Species(type=wp.Dinitrogen, charge_state=1, name="N2+", color=wp.red,)
+selectedIons = wp.Species(type=wp.Nitrogen, charge_state=1, name="N+", color=wp.blue)
+ions = wp.Species(type=wp.Dinitrogen, charge_state=1, name="N2+", color=wp.red)
 
 # keep track of when the particles are born
 wp.top.ssnpid = wp.nextpid()
@@ -414,10 +414,11 @@ def rrms():
 # simulate the ACTUAL setup:
 calculatedPositionArray = calculateRFwaferpositions()
 # print(calculatedPositionArray)
-positionArray = [[0.001, 0.003, 0.007, 0.009], [0.015, 0.017, 0.021, 0.023]]
+positionArray = [
+    [4 * wp.mm, 6 * wp.mm, 18.83 * wp.mm, 20.83 * wp.mm],
+    [36.995 * wp.mm, 38.995 * wp.mm, 57.97 * wp.mm, 59.97 * wp.mm],
+]
 writejson("waferpositions", positionArray)
-
-# catching it at the plates with peak voltage #april 15
 
 ### Functions for automated wafer position by batch running
 markedpositions = []
@@ -509,7 +510,10 @@ for i, pa in enumerate(positionArray):
 # Voltages for each RF UNIT
 # setting frequency overwrites the default/waroptions
 # frequency setting;
-voltages = [gen_volt(toffset=RF_offset, frequency=14.8e6)]
+voltages = [
+    gen_volt(toffset=RF_offset, frequency=14.8e6),
+    gen_volt(toffset=RF_offset, frequency=14.8e6),
+]
 # add actual stack
 conductors = RF_stack(positionArray, voltages)
 print("CONDUCT DONE")
@@ -684,7 +688,7 @@ if warpoptions.options.runtime:
 
 
 # Main loop. Advance particles and output graphics.
-while wp.top.time < tcontrol:
+while max(selectedIons.getz()) < (z.max() - 3 * solver.dz):
     # Plot particle trajectory in zx
     wp.window(2)
     wp.pfzx(
@@ -695,21 +699,22 @@ while wp.top.time < tcontrol:
         contours=50,
         cmin=-app_maxEz,
         cmax=app_maxEz,
-        titles=0,
+        titlet="Ez, N+(Blue) and N2+(Red)",
     )
-    selectedIons.ppzx(color=wp.blue, msize=5)
-    ions.ppzx(color=wp.red, msize=5)
+    selectedIons.ppzx(color=wp.blue, msize=5, titles=0)
+    ions.ppzx(color=wp.red, msize=5, titles=0)
     wp.limits(z.min(), z.max(), x.min(), x.max())
-    wp.titles = "Ez, N2+ (Blue) N+ (Red)"
     wp.fma()
 
     # Plot particle trajectory in xy
     wp.window(3)
-    selectedIons.ppxy(color=wp.blue, msize=5, titles=0)
+    selectedIons.ppxy(
+        color=wp.blue, msize=5, titlet="Particles N+(Blue) and N2+(Red) in XY"
+    )
     ions.ppxy(color=wp.red, msize=5, titles=0)
     wp.limits(x.min(), x.max(), y.min(), y.max())
     wp.plg(Y, X, type="dash")
-    wp.titles = "Particles N2+ (Blue) and N+ (Red) in XY"
+    wp.titlet = "Particles N+(Blue) and N2+(Red) in XY"
     wp.fma()
 
     wp.step(1)
