@@ -545,14 +545,6 @@ wp.installconductors(conductors)
 # Recalculate the fields
 wp.fieldsol(-1)
 
-# track particles after crossing a Z location -
-zc_pos = warpoptions.options.zcrossing
-if zc_pos:
-    print(f"recording particles crossing at z = {zc_pos}")
-    zc = ZCrossingParticles(zz=zc_pos, laccumulate=1)
-    zc_start_position = 0.1e-3
-    zc_start = ZCrossingParticles(zz=zc_start_position, laccumulate=1)
-
 
 def savezcrossing():
     if zc_pos:
@@ -580,18 +572,9 @@ def savezcrossing():
 
 
 #############################
-# zcrossing after every gap
-p0 = [x[3] + 1e-3 for x in positionArray]
-p1 = [x[1] + 1e-3 for x in positionArray]
-zcs_pos = [positionArray[0][0] - 1e-3] + p0 + p1
-print(f"Saving positions: {zcs_pos}")
-zcs_pos.sort()
-zcs_staple = zcs_pos.copy()
-zcs_staple.reverse()
-zcs = [ZCrossingParticles(zz=sp, laccumulate=1) for sp in zcs_pos]
 
 
-@wp.callfromafterstep
+# @wp.callfromafterstep
 def allzcrossing():
     if len(zcs_staple):
         if min(selectedIons.getz()) > zcs_staple[-1]:
