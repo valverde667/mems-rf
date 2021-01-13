@@ -209,8 +209,9 @@ first_gapzc = 5 * mm  # First gap center
 # a factor Num_injects smaller. The injection will inject particles psuedo
 # randomly for Num_injects times. Then the time step value dt will be switched
 # back to the defalt/inpu value
-Num_injects = 1000
-dt_rand = dt / Num_injects
+Num_injects = 300
+inj_scale = 2.34
+dt_rand = inj_scale * dt / Num_injects
 
 
 # Specify  simulation mesh
@@ -258,11 +259,10 @@ writejson("tstep", warpoptions.options.timestep)
 
 # Set Injection Parameters for injector and beam
 wp.top.ns = 2
-wp.top.npmax = 5  # maximal number of particles (for injection per timestep???)
 wp.top.ns = 2  # numper of species
 # wp.top.np_s = [5, 2]
 wp.top.inject = 1  # Constant current injection
-wp.top.npinje_s = [1, 1]  # Number of particles injected per step by species
+wp.top.rnpinje_s = [1, 1]  # Number of particles injected per step by species
 wp.top.ainject = emittingRadius
 wp.top.binject = emittingRadius
 wp.top.apinject = divergenceAngle
@@ -552,7 +552,6 @@ wp.installconductors(conductors)
 
 # Recalculate the fields
 wp.fieldsol(-1)
-solver.gridmode = 0  # Temporary fix for fields to oscillate in time.
 
 # track particles after crossing a Z location -
 zc_pos = warpoptions.options.zcrossing
@@ -740,17 +739,18 @@ if warpoptions.options.runtime:
 
 # First loop. Perform a psudeo random injection for Num_injects
 for i in range(Num_injects):
-    N_selct = np.random.randint(low=1, high=11)
+    N_select = np.random.randint(low=1, high=11)
     N_other = np.random.randint(low=1, high=11)
-    wp.top.npinje_s = [N_selct, N_other]
+    wp.top.rnpinje_s = [N_select, N_other]
     wp.step(1)
 
-# Turn injection off and switch timestep back to default
+# Turn injection off and switch timestep back to default.
 wp.top.inject = 0
 wp.top.dt = dt
-print("Number {} injected: {}".format(selectedIons.name(), selectedIons.getn()))
-print("Number {} injected: {}".format(ions.name(), ions.getn()))
+print("Number {} injected: {}".format(selectedIons.name, selectedIons.getn()))
+print("Number {} injected: {}".format(ions.name, ions.getn()))
 raise Exception()
+solver.gridmode = 0  # Temporary fix for fields to oscillate in time.
 # Main loop. Advance particles until N+ reaches end of frame and output graphics.
 while max(selectedIons.getz()) < (z.max() - 3 * solver.dz):
     wp.window(2)
