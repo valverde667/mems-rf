@@ -196,12 +196,22 @@ storebeam = warpoptions.options.storebeam
 loadbeam = warpoptions.options.loadbeam
 ibeaminit = warpoptions.options.ibeaminit
 beamdelay = warpoptions.options.beamdelay
+dt = warpoptions.options.timestep
 
 # Useful definitons
 us = 1e-6
 ns = 1e-9
 mm = wp.mm
 first_gapzc = 5 * mm  # First gap center
+
+# Next two settings are for creating a psuedo random injection. The number of
+# particles injected. The default (or input) timestep is than scaled to be a
+# a factor Num_injects smaller. The injection will inject particles psuedo
+# randomly for Num_injects times. Then the time step value dt will be switched
+# back to the defalt/inpu value
+Num_injects = 300
+inj_scale = 2.34
+dt_rand = inj_scale * dt / Num_injects
 
 
 # Specify  simulation mesh
@@ -213,7 +223,7 @@ wp.w3d.ymmax = 3 / 2 * mm
 framewidth = 62 * mm
 wp.w3d.zmmin = 0 * mm
 wp.w3d.zmmax = wp.w3d.zmmin + framewidth
-wp.top.dt = warpoptions.options.timestep
+wp.top.dt = dt_rand
 wp.w3d.nx = 20  # 60.
 wp.w3d.ny = 20  # 60.
 wp.w3d.nz = 200.0
@@ -249,11 +259,10 @@ writejson("tstep", warpoptions.options.timestep)
 
 # Set Injection Parameters for injector and beam
 wp.top.ns = 2
-wp.top.npmax = 5  # maximal number of particles (for injection per timestep???)
 wp.top.ns = 2  # numper of species
 # wp.top.np_s = [5, 2]
 wp.top.inject = 1  # Constant current injection
-wp.top.npinje_s = [1, 1]  # Number of particles injected per step by species
+wp.top.rnpinje_s = [1, 1]  # Number of particles injected per step by species
 wp.top.ainject = emittingRadius
 wp.top.binject = emittingRadius
 wp.top.apinject = divergenceAngle
@@ -543,7 +552,6 @@ wp.installconductors(conductors)
 
 # Recalculate the fields
 wp.fieldsol(-1)
-solver.gridmode = 0  # Temporary fix for fields to oscillate in time.
 
 # track particles after crossing a Z location -
 zc_pos = warpoptions.options.zcrossing
@@ -697,41 +705,52 @@ app_maxEz = scale_maxEz * Vmax / geometry.gapGNDRF
 if warpoptions.options.runtime:
     tmax = warpoptions.options.runtime
 
-# First loop. Inject particles for 1.5 RF cycles then cut in injection.
-while wp.top.time <= 1.5 * period:
-    # Plot particle trajectory in zx
-    wp.window(2)
-    wp.pfzx(
-        fill=1,
-        filled=1,
-        plotselfe=1,
-        comp="z",
-        contours=50,
-        cmin=-app_maxEz,
-        cmax=app_maxEz,
-        titlet="Ez, N+(Blue) and N2+(Red)",
-    )
-    selectedIons.ppzx(color=wp.blue, msize=5, titles=0)
-    ions.ppzx(color=wp.red, msize=5, titles=0)
-    wp.limits(z.min(), z.max(), x.min(), x.max())
-    wp.fma()
+# # First loop. Inject particles for 1.5 RF cycles then cut in injection.
+# while wp.top.time <= 1.5 * period:
+#     # Plot particle trajectory in zx
+#     wp.window(2)
+#     wp.pfzx(
+#         fill=1,
+#         filled=1,
+#         plotselfe=1,
+#         comp="z",
+#         contours=50,
+#         cmin=-app_maxEz,
+#         cmax=app_maxEz,
+#         titlet="Ez, N+(Blue) and N2+(Red)",
+#     )
+#     selectedIons.ppzx(color=wp.blue, msize=5, titles=0)
+#     ions.ppzx(color=wp.red, msize=5, titles=0)
+#     wp.limits(z.min(), z.max(), x.min(), x.max())
+#     wp.fma()
+#
+#     # Plot particle trajectory in xy
+#     wp.window(3)
+#     selectedIons.ppxy(
+#         color=wp.blue, msize=5, titlet="Particles N+(Blue) and N2+(Red) in XY"
+#     )
+#     ions.ppxy(color=wp.red, msize=5, titles=0)
+#     wp.limits(x.min(), x.max(), y.min(), y.max())
+#     wp.plg(Y, X, type="dash")
+#     wp.titlet = "Particles N+(Blue) and N2+(Red) in XY"
+#     wp.fma()
+#
+#     wp.step(1)
 
-    # Plot particle trajectory in xy
-    wp.window(3)
-    selectedIons.ppxy(
-        color=wp.blue, msize=5, titlet="Particles N+(Blue) and N2+(Red) in XY"
-    )
-    ions.ppxy(color=wp.red, msize=5, titles=0)
-    wp.limits(x.min(), x.max(), y.min(), y.max())
-    wp.plg(Y, X, type="dash")
-    wp.titlet = "Particles N+(Blue) and N2+(Red) in XY"
-    wp.fma()
-
+# First loop. Perform a psudeo random injection for Num_injects
+for i in range(Num_injects):
+    N_select = np.random.randint(low=1, high=11)
+    N_other = np.random.randint(low=1, high=11)
+    wp.top.rnpinje_s = [N_select, N_other]
     wp.step(1)
 
-# Turn off injection
+# Turn injection off and switch timestep back to default.
 wp.top.inject = 0
-
+wp.top.dt = dt
+print("Number {} injected: {}".format(selectedIons.name, selectedIons.getn()))
+print("Number {} injected: {}".format(ions.name, ions.getn()))
+raise Exception()
+solver.gridmode = 0  # Temporary fix for fields to oscillate in time.
 # Main loop. Advance particles until N+ reaches end of frame and output graphics.
 while max(selectedIons.getz()) < (z.max() - 3 * solver.dz):
     wp.window(2)
