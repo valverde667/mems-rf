@@ -680,6 +680,16 @@ app_maxEz = scale_maxEz * Vmax / geometry.gapGNDRF
 if warpoptions.options.runtime:
     tmax = warpoptions.options.runtime
 
+# Create a lab window for the collecting diagnostic data at the end of the run.
+# Create zparticle diagnostic. The function gchange is needed to allocate
+# arrays for the windo moments.
+nlablw = wp.top.nlabwn
+wp.top.nlabwn = nlablw + 1
+wp.gchange("Lab_Moments")
+labwindow_id_zdiag = nlablw
+wp.top.zlw[labwindow_id_zdiag] = 24.8 * mm
+zdiagn = ZCrossingParticles(zz=24.8 * mm, laccumulate=1)
+
 # First loop. Inject particles for 1.5 RF cycles then cut in injection.
 while wp.top.time <= 0.75 * period:
     # Create pseudo random injection
