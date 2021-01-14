@@ -799,8 +799,8 @@ tdiagn_select, tdiagn_other = np.array(tdiagn_select), np.array(tdiagn_other)
 keselect = selectedIons.mass * pow(vz_select, 2) / 2 / wp.jperev
 keother = ions.mass * pow(vz_other, 2) / 2 / wp.jperev
 
-currselect = selectedIons.charge * vz_select
-currother = ions.charge * vz_other
+currselect = selectedIons.charge * vz_select * npdiagn_select
+currother = ions.charge * vz_other * npdiagn_other
 
 # Plot statistics. Find limits for axes.
 KEmax_limit = max(max(keselect), max(keother))
