@@ -211,7 +211,7 @@ wp.w3d.xmmin = -3 / 2 * mm
 wp.w3d.xmmax = 3 / 2 * mm
 wp.w3d.ymmin = -3 / 2 * mm
 wp.w3d.ymmax = 3 / 2 * mm
-framewidth = 62 * mm
+framewidth = 30 * mm
 wp.w3d.zmmin = 0 * mm
 wp.w3d.zmmax = wp.w3d.zmmin + framewidth
 wp.top.dt = dt
@@ -267,6 +267,7 @@ wp.derivqty()
 # Setup Histories and moment calculations
 wp.top.lspeciesmoments = True
 wp.top.nhist = 1  # Save history data every N time step
+wp.top.itmomnts = wp.top.nhist
 wp.top.lhpnumz = True
 wp.top.lhcurrz = True
 wp.top.lhrrmsz = True
@@ -287,7 +288,7 @@ solver.uppasses = 2
 # Generate the PIC code (allocate storage, load ptcls, t=0 plots, etc.)
 wp.package("w3d")
 wp.generate()
-solver.gridmode = 0  # Temporary fix for fields to oscillate in time.
+# solver.gridmode = 0  # Temporary fix for fields to oscillate in time.
 x, y, z = wp.w3d.xmesh, wp.w3d.ymesh, wp.w3d.zmesh
 ESQs = []
 RFs = []
@@ -683,11 +684,8 @@ if warpoptions.options.runtime:
 # Create a lab window for the collecting diagnostic data at the end of the run.
 # Create zparticle diagnostic. The function gchange is needed to allocate
 # arrays for the windo moments.
-nlablw = wp.top.nlabwn
-wp.top.nlabwn = nlablw + 1
-wp.gchange("Lab_Moments")
-labwindow_id_zdiag = nlablw
-wp.top.zlw[labwindow_id_zdiag] = 24.8 * mm
+zdiagnlw = wp.addlabwindow(22.4 * mm)
+wp.top.itlabwn = wp.top.nhist
 zdiagn = ZCrossingParticles(zz=24.8 * mm, laccumulate=1)
 
 # First loop. Inject particles for 1.5 RF cycles then cut in injection.
