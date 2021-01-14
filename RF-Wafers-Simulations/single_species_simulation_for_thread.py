@@ -288,7 +288,7 @@ solver.uppasses = 2
 # Generate the PIC code (allocate storage, load ptcls, t=0 plots, etc.)
 wp.package("w3d")
 wp.generate()
-# solver.gridmode = 0  # Temporary fix for fields to oscillate in time.
+solver.gridmode = 0  # Temporary fix for fields to oscillate in time.
 x, y, z = wp.w3d.xmesh, wp.w3d.ymesh, wp.w3d.zmesh
 ESQs = []
 RFs = []
@@ -684,10 +684,7 @@ if warpoptions.options.runtime:
 # Create a lab window for the collecting diagnostic data at the end of the run.
 # Create zparticle diagnostic. The function gchange is needed to allocate
 # arrays for the windo moments.
-zdiagnlw = wp.addlabwindow(22.4 * mm)
-wp.top.itlabwn = wp.top.nhist
-zdiagn = ZCrossingParticles(zz=24.8 * mm, laccumulate=1)
-
+zdiagn = ZCrossingParticles(zz=max(z) - 10 * solver.dz, laccumulate=1)
 # First loop. Inject particles for 1.5 RF cycles then cut in injection.
 while wp.top.time <= 0.75 * period:
     # Create pseudo random injection
@@ -734,8 +731,15 @@ hnpinj = wp.top.hnpinject[: wp.top.jhist + 1, :]
 npselected = sum(hnpinj[:, 0])
 npother = sum(hnpinj[:, 1])
 
+# Creat array for holding number of particles that cross diagnostics
+npselct = []
+npother = []
+
 # Main loop. Advance particles until N+ reaches end of frame and output graphics.
 while max(selectedIons.getz()) < (z.max() - 3 * solver.dz):
+    npselct.append(zdiagn.getn(0))
+    npother.append(zdiagn.getn(1))
+
     wp.window(2)
     wp.pfzx(
         fill=1,
@@ -767,6 +771,8 @@ while max(selectedIons.getz()) < (z.max() - 3 * solver.dz):
 ### END of Simulation
 print("Number {} injected: {}".format(selectedIons.name, npselected))
 print("Number {} injected: {}".format(ions.name, npother))
+npselct, npother = np.array(npselct), np.array(npother)
+
 raise Exception()
 savezcrossing()
 
