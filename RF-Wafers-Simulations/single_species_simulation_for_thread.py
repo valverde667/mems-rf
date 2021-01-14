@@ -36,7 +36,7 @@ warpoptions.parser.add_argument(
 
 #   injection energy in eV
 warpoptions.parser.add_argument(
-    "--ekininit", dest="ekininit", type=float, default="10e3"
+    "--ekininit", dest="ekininit", type=float, default="7e3"
 )
 
 #   frequency of the RF
@@ -706,17 +706,17 @@ while wp.top.time <= period:
         cmax=app_maxEz,
         titlet="Ez, N+(Blue) and N2+(Red)",
     )
-    selectedIons.ppzx(color=wp.blue, msize=5, titles=0)
-    ions.ppzx(color=wp.red, msize=5, titles=0)
+    selectedIons.ppzx(color=wp.blue, msize=2, titles=0)
+    ions.ppzx(color=wp.red, msize=2, titles=0)
     wp.limits(z.min(), z.max(), x.min(), x.max())
     wp.fma()
 
     # Plot particle trajectory in xy
     wp.window(3)
     selectedIons.ppxy(
-        color=wp.blue, msize=5, titlet="Particles N+(Blue) and N2+(Red) in XY"
+        color=wp.blue, msize=2, titlet="Particles N+(Blue) and N2+(Red) in XY"
     )
-    ions.ppxy(color=wp.red, msize=5, titles=0)
+    ions.ppxy(color=wp.red, msize=2, titles=0)
     wp.limits(x.min(), x.max(), y.min(), y.max())
     wp.plg(Y, X, type="dash")
     wp.titlet = "Particles N+(Blue) and N2+(Red) in XY"
@@ -740,6 +740,10 @@ vz_select = []
 vz_other = []
 tdiagn_select = []
 tdiagn_other = []
+
+# Create vertical line for diagnostic visual
+pltdiagn_x = np.ones(3) * zdiagn.zz
+pltdiagn_y = np.linspace(-wp.largepos, wp.largepos, 3)
 
 # Main loop. Advance particles until N+ reaches end of frame and output graphics.
 while wp.top.time < 5 * period:
@@ -768,6 +772,7 @@ while wp.top.time < 5 * period:
     )
     selectedIons.ppzx(color=wp.blue, msize=2, titles=0)
     ions.ppzx(color=wp.red, msize=2, titles=0)
+    wp.plg(pltdiagn_y, pltdiagn_x, width=3, color=wp.magenta)
     wp.limits(z.min(), z.max(), x.min(), x.max())
     wp.fma()
 
@@ -791,11 +796,11 @@ vz_select, vz_other = np.array(vz_select), np.array(vz_other)
 tdiagn_select, tdiagn_other = np.array(tdiagn_select), np.array(tdiagn_other)
 
 # Calculate KE and current statistics
-keselect = selectedIons.mass * pow(vz_select, 2) / 2 / wp.jperev * npdiagn_select
-keother = ions.mass * pow(vz_other, 2) / 2 / wp.jperev * npdiagn_other
+keselect = selectedIons.mass * pow(vz_select, 2) / 2 / wp.jperev
+keother = ions.mass * pow(vz_other, 2) / 2 / wp.jperev
 
-currselect = selectedIons.charge * vz_select * npdiagn_select
-currother = ions.charge * vz_other * npdiagn_other
+currselect = selectedIons.charge * vz_select
+currother = ions.charge * vz_other
 
 # Plot statistics. Find limits for axes.
 KEmax_limit = max(max(keselect), max(keother))
@@ -804,7 +809,7 @@ tmax_limit = max(max(tdiagn_select), max(tdiagn_other))
 currmax_limit = max(max(currselect), max(currother))
 
 # Create plots for kinetic energy, current, and particle counts.
-fig, ax = plt.subplots(nrows=3, ncols=1)
+fig, ax = plt.subplots(nrows=3, ncols=1, sharex=True)
 keplt = ax[0]
 currplt = ax[1]
 npplt = ax[2]
@@ -814,23 +819,23 @@ keplt.plot(tdiagn_select / ns, keselect / wp.kV, c="b")
 keplt.plot(tdiagn_other / ns, keother / wp.kV, c="r")
 keplt.set_xlim(tmin_limit / ns, tmax_limit / ns)
 keplt.set_ylim(ekininit / wp.kV, KEmax_limit / wp.kV)
-keplt.set_ylabel("Kinetic Energy in z [KeV]")
+keplt.set_ylabel("Avg KE in z [KeV]")
 
 # Make Current Plots
 currplt.plot(tdiagn_select / ns, currselect / 1e-6, c="b")
 currplt.plot(tdiagn_other / ns, currother / 1e-6, c="r")
 currplt.set_xlim(tmin_limit / ns, tmax_limit / ns)
 currplt.set_ylim(0, currmax_limit / 1e-6)
-currplt.set_ylabel(r"Current [$\mu$A]")
+currplt.set_ylabel(r" Avg Current [$\mu$A]")
 
 # Make particle count plot
 npplt.plot(tdiagn_select / ns, npdiagn_select, label="N+", c="b")
 npplt.plot(tdiagn_other / ns, npdiagn_other, label="N2+", c="r")
 npplt.set_xlabel("Time of Crossing [ns]")
-npplt.set_ylabel("Particle Count at Diagnostic")
+npplt.set_ylabel("Particle Count")
 npplt.legend()
 plt.tight_layout()
-plt.savefig("stats.png")
+plt.savefig("stats.png", dpi=300)
 plt.show()
 
 # wp.window(4)
