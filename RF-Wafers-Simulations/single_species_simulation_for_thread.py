@@ -798,8 +798,39 @@ currother = ions.charge * vz_other * npdiagn_other
 
 # Plot statistics. Find limits for axes.
 KEmax_limit = max(max(keselect), max(keother))
+tmin_limit = min(min(tdiagn_select), min(tdiagn_other))
 tmax_limit = max(max(tdiagn_select), max(tdiagn_other))
 currmax_limit = max(max(currselect), max(currother))
+
+# Create plots for kinetic energy, current, and particle counts.
+fig, ax = plt.subplots(nrows=3, ncols=1)
+keplt = ax[0]
+currplt = ax[1]
+npplt = ax[2]
+
+# Make KE plots
+keplt.plot(tdiagn_select / ns, keselect / wp.kV, c="b")
+keplt.plot(tdiagn_other / ns, keother / wp.kV, c="r")
+keplt.set_xlim(tmin_limit / ns, tmax_limit / ns)
+keplt.set_ylim(ekininit / wp.kV, KEmax_limit / wp.kV)
+keplt.set_ylabel("Kinetic Energy in z [KeV]")
+
+# Make Current Plots
+currplt.plot(tdiagn_select / ns, currselect / 1e-6, c="b")
+currplt.plot(tdiagn_other / ns, currother / 1e-6, c="r")
+currplt.set_xlim(tmin_limit / ns, tmax_limit / ns)
+currplt.set_ylim(0, currmax_limit / 1e-6)
+currplt.set_ylabel(r"Current [$\mu$A]")
+
+# Make particle count plot
+npplt.plot(tdiagn_select / ns, npdiagn_select, label="N+", c="b")
+npplt.plot(tdiagn_other / ns, npdiagn_other, label="N2+", c="r")
+npplt.set_xlabel("Time of Crossing [ns]")
+npplt.set_ylabel("Particle Count at Diagnostic")
+npplt.legend()
+plt.tight_layout()
+plt.savefig("stats.png")
+plt.show()
 
 # wp.window(4)
 # # Plot kinetic energy for each species at the diagnostic.
