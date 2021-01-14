@@ -288,7 +288,7 @@ solver.uppasses = 2
 # Generate the PIC code (allocate storage, load ptcls, t=0 plots, etc.)
 wp.package("w3d")
 wp.generate()
-solver.gridmode = 0  # Temporary fix for fields to oscillate in time.
+# solver.gridmode = 0  # Temporary fix for fields to oscillate in time.
 x, y, z = wp.w3d.xmesh, wp.w3d.ymesh, wp.w3d.zmesh
 ESQs = []
 RFs = []
@@ -667,7 +667,7 @@ if warpoptions.options.loadbeam == "":  # workaround
 # Create cgm windows for plotting
 wp.winon(winnum=2, suffix="pzx", xon=False)
 wp.winon(winnum=3, suffix="pxy", xon=False)
-wp.winon(winnum=4, suffix="stats", xon=False)
+# wp.winon(winnum=4, suffix="stats", xon=False)
 
 # Calculate various control values to dictate when the simulation ends
 velo = np.sqrt(2 * ekininit * selectedIons.charge / selectedIons.mass)
@@ -683,8 +683,10 @@ if warpoptions.options.runtime:
 
 # Create a lab window for the collecting diagnostic data at the end of the run.
 # Create zparticle diagnostic. The function gchange is needed to allocate
-# arrays for the windo moments.
-zdiagn = ZCrossingParticles(zz=max(z) - 10 * solver.dz, laccumulate=1)
+# arrays for the windo moments. Lastly, create variables for the species index.
+zdiagn = ZCrossingParticles(zz=max(z) - 10 * solver.dz, laccumulate=0)
+selectind = 0
+otherind = 1
 # First loop. Inject particles for 1.5 RF cycles then cut in injection.
 while wp.top.time <= 0.75 * period:
     # Create pseudo random injection
@@ -728,17 +730,29 @@ wp.top.inject = 0
 
 # Grab number of particles injected.
 hnpinj = wp.top.hnpinject[: wp.top.jhist + 1, :]
-npselected = sum(hnpinj[:, 0])
-npother = sum(hnpinj[:, 1])
+hnpselected = sum(hnpinj[:, 0])
+hnpother = sum(hnpinj[:, 1])
 
 # Creat array for holding number of particles that cross diagnostics
-npselct = []
-npother = []
+npdiagn_select = []
+npdiagn_other = []
+vz_select = []
+vz_other = []
+tdiagn_select = []
+tdiagn_other = []
 
 # Main loop. Advance particles until N+ reaches end of frame and output graphics.
-while max(selectedIons.getz()) < (z.max() - 3 * solver.dz):
-    npselct.append(zdiagn.getn(0))
-    npother.append(zdiagn.getn(1))
+while max(ions.getz()) < z.max() - 3 * solver.dz:
+    # Check whether diagnostic arrays are empty
+    if zdiagn.getn(selectind) != 0:
+        npdiagn_select.append(zdiagn.getn(selectind))
+        vz_select.append(zdiagn.getvz(selectind).mean())
+        tdiagn_select.append(zdiagn.gett(selectind).mean())
+
+    if zdiagn.getn(otherind) != 0:
+        npdiagn_other.append(zdiagn.getn(otherind))
+        vz_other.append(zdiagn.getvz(otherind).mean())
+        tdiagn_other.append(zdiagn.gett(selectind).mean())
 
     wp.window(2)
     wp.pfzx(
@@ -769,9 +783,91 @@ while max(selectedIons.getz()) < (z.max() - 3 * solver.dz):
     wp.step(1)
 
 ### END of Simulation
-print("Number {} injected: {}".format(selectedIons.name, npselected))
-print("Number {} injected: {}".format(ions.name, npother))
-npselct, npother = np.array(npselct), np.array(npother)
+print("Number {} injected: {}".format(selectedIons.name, hnpselected))
+print("Number {} injected: {}".format(ions.name, hnpother))
+npdiagn_select, npdiagn_other = np.array(npdiagn_select), np.array(npdiagn_other)
+vz_select, vz_other = np.array(vz_select), np.array(vz_other)
+tdiagn_select, tdiagn_other = np.array(tdiagn_select), np.array(tdiagn_other)
+
+# Calculate KE and current statistics
+keselect = selectedIons.mass * pow(vz_select, 2) / 2 / wp.jperev * npdiagn_select
+keother = ions.mass * pow(vz_other, 2) / 2 / wp.jperev * npdiagn_other
+
+currselect = selectedIons.charge * vz_select * npdiagn_select
+currother = ions.charge * vz_other * npdiagn_other
+
+# Plot statistics. Find limits for axes.
+KEmax_limit = max(max(keselect), max(keother))
+tmax_limit = max(max(tdiagn_select), max(tdiagn_other))
+currmax_limit = max(max(currselect), max(currother))
+
+# wp.window(4)
+# # Plot kinetic energy for each species at the diagnostic.
+# wp.limits(0,  tmax_limit, ekininit, KEmax_limit)
+# wp.plg(
+#     keselect,
+#     tdiagn_select,
+#     color = wp.blue,
+#     type = 'dot',
+#     msize = 8
+# )
+# wp.plg(
+#     keother,
+#     tdiagn_other,
+#     color = wp.red,
+#     type = 'dot',
+#     msize = 8
+# )
+# title = "Kinetic Energy in Z, N+(Blue), N2+(Red)"
+# xlabel = "time [s]"
+# ylabel = "Kinetic Energy [eV]"
+# wp.ptitles(title, xlabel, ylabel)
+# wp.fma()
+#
+# # Plot the current for each species at diagnostic
+# wp.limits(0, tmax_limit, 0, currmax_limit)
+# wp.plg(
+#     currselect,
+#     tdiagn_select,
+#     color = wp.blue,
+#     type = 'dot',
+#     msize = 8
+# )
+# wp.plg(
+#     currother,
+#     tdiagn_other,
+#     color = wp.red,
+#     type = 'dot',
+#     msize = 8
+# )
+# title = "Current N+(Blue), N2+(Red)"
+# xlabel = "time [s]"
+# ylabel = "Current [A] "
+# wp.ptitles(title, xlabel, ylabel)
+# wp.fma()
+#
+# # Plot the number of particles for eachvspecies at diagnostic
+# wp.plg(
+#     npdiagn_select,
+#     tdiagn_select,
+#     color = wp.blue,
+#     marker = '\4',
+#     type = 'dot',
+#     msize = 8
+# )
+# wp.plg(
+#     npdiagn_other,
+#     tdiagn_other,
+#     color = wp.red,
+#     marker = '\5',
+#     type = 'dot',
+#     msize = 8
+# )
+# title = "Particle Counts N+(Blue), N2+(Red)"
+# xlabel = "time [s]"
+# ylabel = "Number of Particles "
+# wp.ptitles(title, xlabel, ylabel)
+# wp.fma()
 
 raise Exception()
 savezcrossing()
