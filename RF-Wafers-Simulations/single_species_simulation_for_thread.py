@@ -211,7 +211,7 @@ wp.w3d.xmmin = -3 / 2 * mm
 wp.w3d.xmmax = 3 / 2 * mm
 wp.w3d.ymmin = -3 / 2 * mm
 wp.w3d.ymmax = 3 / 2 * mm
-framewidth = 30 * mm
+framewidth = 65 * mm
 wp.w3d.zmmin = 0 * mm
 wp.w3d.zmmax = wp.w3d.zmmin + framewidth
 wp.top.dt = dt
@@ -288,7 +288,7 @@ solver.uppasses = 2
 # Generate the PIC code (allocate storage, load ptcls, t=0 plots, etc.)
 wp.package("w3d")
 wp.generate()
-# solver.gridmode = 0  # Temporary fix for fields to oscillate in time.
+solver.gridmode = 0  # Temporary fix for fields to oscillate in time.
 x, y, z = wp.w3d.xmesh, wp.w3d.ymesh, wp.w3d.zmesh
 ESQs = []
 RFs = []
@@ -688,7 +688,7 @@ zdiagn = ZCrossingParticles(zz=max(z) - 10 * solver.dz, laccumulate=0)
 selectind = 0
 otherind = 1
 # First loop. Inject particles for 1.5 RF cycles then cut in injection.
-while wp.top.time <= 0.75 * period:
+while wp.top.time <= period:
     # Create pseudo random injection
     Nselect = np.random.randint(low=1, high=20)
     Nother = np.random.randint(low=1, high=20)
@@ -742,7 +742,8 @@ tdiagn_select = []
 tdiagn_other = []
 
 # Main loop. Advance particles until N+ reaches end of frame and output graphics.
-while max(ions.getz()) < z.max() - 3 * solver.dz:
+while wp.top.time < 5 * period:
+    # while max(ions.getz()) < z.max() - 3 * solver.dz:
     # Check whether diagnostic arrays are empty
     if zdiagn.getn(selectind) != 0:
         npdiagn_select.append(zdiagn.getn(selectind))
