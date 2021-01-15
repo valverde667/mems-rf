@@ -276,6 +276,7 @@ wp.top.lhyrmsz = True
 wp.top.lhepsnxz = True
 wp.top.lhepsnyz = True
 wp.top.lhvzrmsz = True
+wp.top.lsavelostpart = True
 
 # Set up fieldsolver
 solver = wp.MRBlock3D()
@@ -801,6 +802,15 @@ keother = ions.mass * pow(vz_other, 2) / 2 / wp.jperev
 
 currselect = selectedIons.charge * vz_select
 currother = ions.charge * vz_other
+
+# Calculate end of simulation KE for all particles. This will entail grabbing
+# values from the lost particle histories.
+inslost = wp.top.inslost  # Starting index for each species in the lost arrays
+uzlost = wp.top.uzplost  # Vz array for lost particle velocities
+Nuz = np.hstack((selectedIons.getvz(), uzlost[inslost[0] : inslost[-1]]))
+N2uz = np.hstack((ions.getvz(), uzlost[inslost[-1] :]))
+Nke = selectedIons.mass * pow(Nuz, 2) / 2 / wp.jperev
+N2ke = ions.mass * pow(N2uz, 2) / 2 / wp.jperev
 
 # Plot statistics. Find limits for axes.
 KEmax_limit = max(max(keselect), max(keother))
