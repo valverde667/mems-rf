@@ -800,8 +800,8 @@ tdiagn_select, tdiagn_other = np.array(tdiagn_select), np.array(tdiagn_other)
 keselect = selectedIons.mass * pow(vz_select, 2) / 2 / wp.jperev
 keother = ions.mass * pow(vz_other, 2) / 2 / wp.jperev
 
-currselect = selectedIons.charge * vz_select
-currother = ions.charge * vz_other
+currselect = selectedIons.charge * vz_select * npdiagn_select
+currother = ions.charge * vz_other * npdiagn_other
 
 # Calculate end of simulation KE for all particles. This will entail grabbing
 # values from the lost particle histories.
@@ -819,10 +819,11 @@ tmax_limit = max(max(tdiagn_select), max(tdiagn_other))
 currmax_limit = max(max(currselect), max(currother))
 
 # Create plots for kinetic energy, current, and particle counts.
-fig, ax = plt.subplots(nrows=3, ncols=1, sharex=True)
+fig, ax = plt.subplots(nrows=3, ncols=1)
 keplt = ax[0]
 currplt = ax[1]
-npplt = ax[2]
+currplt.sharex(keplt)
+kehist = ax[2]
 
 # Make KE plots
 keplt.plot(tdiagn_select / ns, keselect / wp.kV, c="b")
@@ -837,15 +838,26 @@ currplt.plot(tdiagn_other / ns, currother / 1e-6, c="r")
 currplt.set_xlim(tmin_limit / ns, tmax_limit / ns)
 currplt.set_ylim(0, currmax_limit / 1e-6)
 currplt.set_ylabel(r" Avg Current [$\mu$A]")
+currplt.set_xlabel("Time [ns]")
 
-# Make particle count plot
-npplt.plot(tdiagn_select / ns, npdiagn_select, label="N+", c="b")
-npplt.plot(tdiagn_other / ns, npdiagn_other, label="N2+", c="r")
-npplt.set_xlabel("Time of Crossing [ns]")
-npplt.set_ylabel("Particle Count")
-npplt.legend()
+# Make histogram of particle energies for each species
+kehist.hist(
+    Nke / wp.kV, bins=100, color="b", alpha=0.7, edgecolor="k", linewidth=1, label="N+"
+)
+kehist.hist(
+    N2ke / wp.kV,
+    bins=100,
+    color="r",
+    alpha=0.7,
+    edgecolor="k",
+    linewidth=1,
+    label="N2+",
+)
+ax.set_xlabel("End Energy [KeV]")
+ax.set_ylabel("Number of Particles")
+ax.legend()
 plt.tight_layout()
-plt.savefig("stats.png", dpi=300)
+plt.savefig("stats", dpi=300)
 plt.show()
 
 # wp.window(4)
