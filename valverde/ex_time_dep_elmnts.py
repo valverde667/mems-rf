@@ -118,7 +118,7 @@ wp.installconductors(left)
 wp.installconductors(right)
 wp.step()
 wp.fieldsol(-1)
-# solver.gridmode = 0
+solver.gridmode = 0
 # Calculate time for one period and set simulation time to stop then.
 period = 2 * np.pi / frequency
 wp.top.tstop = period
@@ -130,14 +130,24 @@ while wp.top.time < wp.top.tstop:
     print(getvolt(wp.top.time) / wp.kV)
     # Plot potential contours and conductors
     wp.window(1)
-    wp.pfzx(fill=1, filled=1, plotselfe=1, comp="z", cmin=-Emax, cmax=Emax, contours=40)
+    wp.pfzx(
+        fill=1,
+        filled=1,
+        plotselfe=1,
+        plotphi=0,
+        comp="z",
+        cmin=-Emax,
+        cmax=Emax,
+        contours=40,
+        titlet="RF Electric Field in z-x",
+    )
     wp.limits(z.min(), z.max(), x.min(), x.max())
     wp.fma()
 
     wp.window(2)
     potential = wp.getphi()[int(wp.w3d.nx / 2), int(wp.w3d.ny / 2), :]
     wp.plg(potential, z)
-    wp.ptitles("Potential at r = 0 ", "Potential", "z")
+    wp.ptitles("Potential at r = 0 ", "z", "Potential [V]")
     wp.limits(z.min(), z.max(), -Vmax, Vmax)
     wp.fma()
 
