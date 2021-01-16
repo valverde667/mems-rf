@@ -689,45 +689,45 @@ zdiagn = ZCrossingParticles(zz=max(z) - 10 * solver.dz, laccumulate=0)
 selectind = 0
 otherind = 1
 # First loop. Inject particles for 1.5 RF cycles then cut in injection.
-while wp.top.time <= period:
-    # Create pseudo random injection
-    Nselect = np.random.randint(low=1, high=20)
-    Nother = np.random.randint(low=1, high=20)
-    wp.top.rnpinje_s = [Nselect, Nother]
-
-    # Plot particle trajectory in zx
-    wp.window(2)
-    wp.pfzx(
-        fill=1,
-        filled=1,
-        plotselfe=1,
-        comp="z",
-        contours=50,
-        cmin=-app_maxEz,
-        cmax=app_maxEz,
-        titlet="Ez, N+(Blue) and N2+(Red)",
-    )
-    selectedIons.ppzx(color=wp.blue, msize=2, titles=0)
-    ions.ppzx(color=wp.red, msize=2, titles=0)
-    wp.limits(z.min(), z.max(), x.min(), x.max())
-    wp.fma()
-
-    # Plot particle trajectory in xy
-    wp.window(3)
-    selectedIons.ppxy(
-        color=wp.blue, msize=2, titlet="Particles N+(Blue) and N2+(Red) in XY"
-    )
-    ions.ppxy(color=wp.red, msize=2, titles=0)
-    wp.limits(x.min(), x.max(), y.min(), y.max())
-    wp.plg(Y, X, type="dash")
-    wp.titlet = "Particles N+(Blue) and N2+(Red) in XY"
-    wp.fma()
-
-    wp.step(1)
-
-
-# Turn injection off
-wp.top.inject = 0
+# while wp.top.time <= period:
+#     # Create pseudo random injection
+#     Nselect = np.random.randint(low=1, high=20)
+#     Nother = np.random.randint(low=1, high=20)
+#     wp.top.rnpinje_s = [Nselect, Nother]
+#
+#     # Plot particle trajectory in zx
+#     wp.window(2)
+#     wp.pfzx(
+#         fill=1,
+#         filled=1,
+#         plotselfe=1,
+#         comp="z",
+#         contours=50,
+#         cmin=-app_maxEz,
+#         cmax=app_maxEz,
+#         titlet="Ez, N+(Blue) and N2+(Red)",
+#     )
+#     selectedIons.ppzx(color=wp.blue, msize=2, titles=0)
+#     ions.ppzx(color=wp.red, msize=2, titles=0)
+#     wp.limits(z.min(), z.max(), x.min(), x.max())
+#     wp.fma()
+#
+#     # Plot particle trajectory in xy
+#     wp.window(3)
+#     selectedIons.ppxy(
+#         color=wp.blue, msize=2, titlet="Particles N+(Blue) and N2+(Red) in XY"
+#     )
+#     ions.ppxy(color=wp.red, msize=2, titles=0)
+#     wp.limits(x.min(), x.max(), y.min(), y.max())
+#     wp.plg(Y, X, type="dash")
+#     wp.titlet = "Particles N+(Blue) and N2+(Red) in XY"
+#     wp.fma()
+#
+#     wp.step(1)
+#
+#
+# # Turn injection off
+# wp.top.inject = 0
 
 # Grab number of particles injected.
 hnpinj = wp.top.hnpinject[: wp.top.jhist + 1, :]
@@ -748,6 +748,11 @@ pltdiagn_y = np.linspace(-wp.largepos, wp.largepos, 3)
 
 # Main loop. Advance particles until N+ reaches end of frame and output graphics.
 while wp.top.time < 5 * period:
+    # Create pseudo random injection
+    Nselect = np.random.randint(low=1, high=20)
+    Nother = np.random.randint(low=1, high=20)
+    wp.top.rnpinje_s = [Nselect, Nother]
+
     # while max(ions.getz()) < z.max() - 3 * solver.dz:
     # Check whether diagnostic arrays are empty
     if zdiagn.getn(selectind) != 0:
@@ -790,6 +795,10 @@ while wp.top.time < 5 * period:
     wp.step(1)
 
 ### END of Simulation
+# Grab number of particles injected.
+hnpinj = wp.top.hnpinject[: wp.top.jhist + 1, :]
+hnpselected = sum(hnpinj[:, 0])
+hnpother = sum(hnpinj[:, 1])
 print("Number {} injected: {}".format(selectedIons.name, hnpselected))
 print("Number {} injected: {}".format(ions.name, hnpother))
 npdiagn_select, npdiagn_other = np.array(npdiagn_select), np.array(npdiagn_other)
@@ -853,9 +862,9 @@ kehist.hist(
     linewidth=1,
     label="N2+",
 )
-ax.set_xlabel("End Energy [KeV]")
-ax.set_ylabel("Number of Particles")
-ax.legend()
+kehist.set_xlabel("End Energy [KeV]")
+kehist.set_ylabel("Number of Particles")
+kehist.legend()
 plt.tight_layout()
 plt.savefig("stats", dpi=300)
 plt.show()
