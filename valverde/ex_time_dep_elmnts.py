@@ -3,6 +3,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import warp as wp
+import warp.utils.timedependentvoltage as tdvolt
 import pdb
 
 # Set up 3D simulation mesh
@@ -99,29 +100,23 @@ def inv_getvolt(time):
 
 # Create left and right conductors
 left = wp.ZAnnulus(
-    rmin=0.8 * wp.mm,
-    rmax=1.1 * wp.mm,
-    length=0.2 * wp.mm,
-    zcent=-1 * wp.mm,
-    voltage=getvolt,
+    rmin=0.8 * wp.mm, rmax=1.1 * wp.mm, length=0.2 * wp.mm, zcent=-1 * wp.mm
 )
 right = wp.ZAnnulus(
-    rmin=0.8 * wp.mm,
-    rmax=1.1 * wp.mm,
-    length=0.2 * wp.mm,
-    zcent=1 * wp.mm,
-    voltage=inv_getvolt,
+    rmin=0.8 * wp.mm, rmax=1.1 * wp.mm, length=0.2 * wp.mm, zcent=1 * wp.mm
 )
 
 # Install conductors on mesh
 wp.installconductors(left)
 wp.installconductors(right)
-wp.step()
-wp.fieldsol(-1)
-solver.gridmode = 0
+
+# Set conductors to be time dependent
+tdvolt.TimeVoltage(left, voltfunc=getvolt, doitnow=True)
+tdvolt.TimeVoltage(right, voltfunc=inv_getvolt, doitnow=True)
+
 # Calculate time for one period and set simulation time to stop then.
-period = 2 * np.pi / frequency
-wp.top.tstop = period
+period = 1 / frequency
+wp.top.tstop = period / 2
 # Create cgm setup for potential contours
 wp.setup()
 wp.winon(winnum=1, suffix="pfzx", xon=0)
