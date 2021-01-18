@@ -126,8 +126,8 @@ vx_initial = 5 * const.milli
 vy_initial = -5 * const.milli
 
 # Set up solver paramters
-d = (2 / 3) * const.milli
-g = 695 * const.micro
+d = 9.3 * const.milli
+g = 2 * const.milli
 lq = 695 * const.micro
 N = 501
 L = d / 2 + lq + d + g + d + lq + d / 2
