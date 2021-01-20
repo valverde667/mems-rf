@@ -2,8 +2,8 @@
 give the best solution to the KV envelope equations. The best solution is such
 that, given the initial coordinates r0 and r0', the coordinates one lattice
 period later r and r' will be close to the initial coordinates, i.e.
-     r0 approx r
-     r0' approx r'.
+     r0 ≈ r
+     r0' ≈ r'.
 
 Currently the the two ESQs are distributed in the drift space such that there
 is equal drift between all elemtns. The drift space is set to 9.3mm (this value
@@ -30,7 +30,7 @@ um = 1e-6
 kV = wp.kV
 
 # Set parameter values
-param_dict = paramters.main()
+param_dict = parameters.main()
 Q = param_dict["Q"]
 k = 5.7e4
 emittance = param_dict["emittance"]
@@ -47,3 +47,12 @@ lq = 0.695 * mm  # Physical length of quadrupoles
 N = 500  # Number of grid points
 L = g / 2 + d + lq + d + lq + d + g / 2  # Total length of mesh
 ds = L / N
+
+# Create hard edge array for ESQs and plot for visual check.
+pos_arr = np.linspace(0, L, N)
+karr = hard_edge_kappa(k, pos_arr)
+fig, ax = plt.subplots()
+ax.plot(pos_arr / mm, karr)
+ax.set_xlabel("s [mm]")
+ax.set_ylabel(r"$\kappa (s)$ $[m]^{-2}$")
+plt.show()
