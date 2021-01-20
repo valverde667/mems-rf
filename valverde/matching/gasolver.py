@@ -22,3 +22,28 @@ import pdb
 import warp as wp
 
 import parameters
+from solver import hard_edge_kappa
+
+# Set useful contants
+mm = wp.mm
+um = 1e-6
+kV = wp.kV
+
+# Set parameter values
+param_dict = paramters.main()
+Q = param_dict["Q"]
+k = 5.7e4
+emittance = param_dict["emittance"]
+ux_initial = param_dict["inj_radius"]
+uy_initial = param_dict["inj_radius"]
+vx_initial = 5 * mm
+vy_initial = -5 * mm
+
+
+# Set up geometric parameters
+d = 9.3 * mm  # Distance from first RF gap center to second
+g = 2 * mm  # Gap distance
+lq = 0.695 * mm  # Physical length of quadrupoles
+N = 500  # Number of grid points
+L = g / 2 + d + lq + d + lq + d + g / 2  # Total length of mesh
+ds = L / N
