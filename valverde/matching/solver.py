@@ -5,16 +5,39 @@ import matplotlib.pyplot as plt
 import scipy.constants as const
 import pdb
 
+import warp as wp
+
 import parameters
 
+# Define useful variables
+mm = wp.mm
+kV = wp.kV
 
-def hard_edge_kappa(kappa, pos_array):
+
+def hard_edge_kappa(
+    kappa, pos_array, drift=9.3 * mm, gap=2 * mm, length_quad=0.695 * mm, N=500
+):
     """Function to populate kappa(s) with kappa assuming hard edge model.
 
     The function locates ESQs in an array and sets values to +/- kappa. This
     is to approximate an ESQ doublet by hard edge. Thus, the entries in the
-    kappa_array will be in those positions where the ESQ lives on according to
-    the position array.
+    kappa_array will be in those positions where the ESQ lives according to
+    the position array. The default value drift is the distance between the RF
+    stacks (center to center). This value is computed from the 1D simulation
+    script in the MEQALAC codes for Argon by computing beta*lambda/2.
+    This value is computed for given frequencies, energies, and voltages and
+    should be changed accordingly if necessary. For convenience, the values
+    are listed here:
+    - Frequency : 14.86 MHz
+    - KE : 7 KeV
+    - Real & Design Energy : 7 KeV
+    - Real & Design Voltage : 7 KeV
+    - Species : Argon single charge
+
+    The geometric setup is in accordancee with the schematic (see Nick Valverde
+    for image). One lattice period contains three RF-stacks where the drift
+    between the first stacks are not field free, and the second drift is field
+    free and thus can have ESQs.
 
     Parameters
     ----------
@@ -25,6 +48,18 @@ def hard_edge_kappa(kappa, pos_array):
         One dimensional array giving the discretized space values that the KV
         enevlope equation is to be solved one.
 
+    drift : float
+        Distance between RF stacks (center to center).
+
+    gap : float
+        Distance of acceleration gap.
+
+    length_quad : float
+        Physical length of the quadrupole.
+
+    N : int
+        Number of simulation points.
+
     Returns
     -------
     kappa_array : ndarray
@@ -33,16 +68,26 @@ def hard_edge_kappa(kappa, pos_array):
 
     """
 
-    # Grab global values
-    global d, lq, g, k
+    # Rename parameters for tersity
+    d = drift
+    g = gap
+    lq = length_quad
+    L = 2 * d  # total length of lattice
+    space = (d - g - 2 * lq) / 3  # Spacing between ESQs
 
-    # Identify interval for +/- ESQ according to position
-    plus_int = d / 2
-    minus_int = plus_int + lq + d + g + d
+    # Identify interval for +/- ESQ according to position. The first chunk
+    # represents the drift region between two stacks and is not field free. The
+    # second chunk is the field free region and has the ESQs.
+    chnk1 = d
+    esq1_lowbnd = chnk1 + g / 2 + space
+    esq1_highbnd = esq1_lowbnd + lq
+
+    esq2_lowbnd = esq1_highbnd + space
+    esq2_highbnd = esq2_lowbnd + lq
 
     # Find indices that correspond to the ESQs
-    splus = np.where((pos_array >= plus_int) & (pos_array <= plus_int + lq))[0]
-    sminus = np.where((pos_array >= minus_int) & (pos_array <= minus_int + lq))[0]
+    splus = np.where((pos_array >= esq1_lowbnd) & (pos_array <= esq1_highbnd))[0]
+    sminus = np.where((pos_array >= esq2_lowbnd) & (pos_array <= esq2_highbnd))[0]
 
     # Create kappa array and assign values
     kappa_array = np.zeros(len(pos_array))
@@ -122,15 +167,15 @@ k = 5.7e4
 emittance = param_dict["emittance"]
 ux_initial = param_dict["inj_radius"]
 uy_initial = param_dict["inj_radius"]
-vx_initial = 5 * const.milli
-vy_initial = -5 * const.milli
+vx_initial = 5 * mm
+vy_initial = -5 * mm
 
 # Set up solver paramters
-d = 9.3 * const.milli
-g = 2 * const.milli
-lq = 695 * const.micro
+d = 9.3 * mm
+g = 2 * mm
+lq = 0.695 * mm
 N = 501
-L = d / 2 + lq + d + g + d + lq + d / 2
+L = 2 * d
 ds = L / N
 
 # Construct arrays for differential equation. Columns ux, uy, vx, vy
@@ -141,6 +186,7 @@ s = np.array([ds * i for i in range(N)])
 soln_matrix[0, :] = ux_initial, uy_initial, vx_initial, vy_initial
 
 # Create kappa array
+# pdb.set_trace()
 karray = hard_edge_kappa(k, s)
 # Call solver
 solve_KV()
@@ -152,21 +198,68 @@ y = soln_matrix[:, 1]
 xprime = soln_matrix[:, 2]
 yprime = soln_matrix[:, 3]
 
-# Create plots
-fig, ax = plt.subplots(nrows=2, sharex=True)
-ax[0].plot(s / const.milli, x / const.milli, c="k")
-ax[0].set_ylabel(r"$r_x(s)$ [mm]")
+# Visualize kappa array to verify correct geometry. Identify gaps with black
+# dashed lines and fill ESQs with blue(+ bias) and red (- bias)
+fig, ax = plt.subplots()
+ax.plot(s / mm, karray)
+ax.fill_between(s[karray > 0] / mm, max(karray), y2=0, alpha=0.2, color="b")
+ax.fill_between(s[karray < 0] / mm, min(karray), y2=0, alpha=0.2, color="r")
+plates = np.array([g / 2, d - g / 2, d + g / 2, 2 * d - g / 2])
+for pos in plates:
+    ax.axvline(x=pos / mm, c="k", ls="--", lw=2)
+ax.set_xlabel("s [mm]")
+ax.set_ylabel(r"$\kappa(s)$ [m]$^{-2}$")
+ax.set_title("Schematic of Simulation Geometry")
+plt.show()
 
-ax[1].plot(s / const.milli, xprime, c="k")
+# Create plots for solution to KV equtions and overlay ESQ and gap positions
+fig, ax = plt.subplots(nrows=2, sharex=True)
+ax[0].plot(s / mm, x / mm, c="k")
+ax[0].set_ylabel(r"$r_x(s)$ [mm]")
+ax[0].fill_between(
+    s[karray > 0] / mm, max(x) / mm, y2=min(x) / mm, alpha=0.2, color="b"
+)
+ax[0].fill_between(
+    s[karray < 0] / mm, max(x) / mm, y2=min(x) / mm, alpha=0.2, color="r"
+)
+for pos in plates:
+    ax[0].axvline(x=pos / mm, c="k", ls="--", lw=2)
+
+ax[1].plot(s / mm, xprime, c="k")
+ax[1].set_ylabel(r"$r_x'(s)$")
 ax[1].set_xlabel(r"$s$ [mm]")
-ax[1].set_ylabel(r"$r_x'(s)$ [mm]")
+ax[1].fill_between(
+    s[karray > 0] / mm, max(xprime), y2=min(xprime), alpha=0.2, color="b"
+)
+ax[1].fill_between(
+    s[karray < 0] / mm, max(xprime), y2=min(xprime), alpha=0.2, color="r"
+)
+for pos in plates:
+    ax[1].axvline(x=pos / mm, c="k", ls="--", lw=2)
 plt.show()
 
 fig, ax = plt.subplots(nrows=2, sharex=True)
-ax[0].plot(s / const.milli, y / const.milli, c="k")
-ax[0].set_ylabel(r"$r_y'(s)$")
+ax[0].plot(s / mm, y / mm, c="k")
+ax[0].set_ylabel(r"$r_y(s)$")
+ax[0].fill_between(
+    s[karray > 0] / mm, max(y) / mm, y2=min(y) / mm, alpha=0.2, color="b"
+)
+ax[0].fill_between(
+    s[karray < 0] / mm, max(y) / mm, y2=min(y) / mm, alpha=0.2, color="r"
+)
+for pos in plates:
+    ax[0].axvline(x=pos / mm, c="k", ls="--", lw=2)
 
-ax[1].plot(s / const.milli, yprime, c="k")
+ax[1].plot(s / mm, yprime, c="k")
 ax[1].set_xlabel(r"$s$ [mm]")
+ax[1].fill_between(
+    s[karray > 0] / mm, max(yprime), y2=min(yprime), alpha=0.2, color="b"
+)
+ax[1].fill_between(
+    s[karray < 0] / mm, max(yprime), y2=min(yprime), alpha=0.2, color="r"
+)
+for pos in plates:
+    ax[1].axvline(x=pos / mm, c="k", ls="--", lw=2)
+
 ax[1].set_ylabel(r"$r_y'(s)$")
 plt.show()
