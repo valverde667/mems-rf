@@ -174,6 +174,7 @@ if __name__ == "__main__":
     param_dict = main()
 
     # Print values
+    print("-- In MKS units except mass (AMU) and energy (eV) --")
     for key, val in zip(param_dict.keys(), param_dict.values()):
         if key == "mass":
             val = val / amu
