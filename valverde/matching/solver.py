@@ -40,8 +40,8 @@ def hard_edge_kappa(
 
     Parameters
     ----------
-    kappa : float
-        Value of kappa that is to be input in the array.
+    kappa : list
+        Value of kappas to be used for two ESQ voltage settings.
 
     pos_array : ndarray
         One dimensional array giving the discretized space values that the KV
@@ -92,8 +92,10 @@ def hard_edge_kappa(
     kappa_array = np.zeros(len(pos_array))
 
     # Assign plus and minus ESQ values
-    kappa_array[splus] = k
-    kappa_array[sminus] = -k
+    V1 = kappa[0]
+    V2 = kappa[1]
+    kappa_array[splus] = V1
+    kappa_array[sminus] = V2
 
     return kappa_array
 
@@ -187,7 +189,7 @@ if __name__ == "__main__":
 
     # Create kappa array
     # pdb.set_trace()
-    karray = hard_edge_kappa(k, s)
+    karray = hard_edge_kappa([k, -k], s)
     # Call solver
     solve_KV()
 
