@@ -18,6 +18,7 @@ at https://pypi.org/project/geneticalgorithm/."""
 import numpy as np
 import matplotlib.pyplot as plt
 import pdb
+from geneticalgorithm import geneticalgorithm as ga
 
 import warp as wp
 
@@ -123,7 +124,12 @@ def cost_func(decsn_vars):
 ux_bound = np.array([0.2 * mm, 0.5 * mm])
 uy_bound = ux_bound.copy()
 vx_bound = np.array([3 * mm, 5 * mm])
-vy_bound = -vx_bound.copy()
+vy_bound = np.array([-5 * mm, 3 * mm])
 V1_bound = np.array([-7 * kV, 7 * kV])
 V2_bound = V1_bound.copy()
 var_bound = np.array([ux_bound, uy_bound, vx_bound, vy_bound, V1_bound, V2_bound])
+
+# Initialize GA model.
+model = ga(
+    function=cost_func, dimension=6, variable_type="real", variable_boundaries=var_bound
+)
