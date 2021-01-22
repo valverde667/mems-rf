@@ -44,8 +44,8 @@ vy_initial = -5 * mm
 d = 9.3 * mm  # Distance from first RF gap center to second
 g = 2 * mm  # Gap distance
 lq = 0.695 * mm  # Physical length of quadrupoles
-N = 500  # Number of grid points
-L = g / 2 + d + lq + d + lq + d + g / 2  # Total length of mesh
+N = 501  # Number of grid points
+L = 2 * d  # Total length of mesh
 ds = L / N
 
 # Create hard edge array for ESQs and plot for visual check.
