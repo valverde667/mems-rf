@@ -2,7 +2,6 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-import scipy.constants as const
 import pdb
 
 import warp as wp
@@ -158,108 +157,109 @@ def solve_KV():
     return True
 
 
-# Read in parameters frome paramters script.
-param_dict = parameters.main()
+if __name__ == "__main__":
+    # Read in parameters frome paramters script.
+    param_dict = parameters.main()
 
-# Set system parameters/variables
-Q = param_dict["Q"]
-k = 5.7e4
-emittance = param_dict["emittance"]
-ux_initial = param_dict["inj_radius"]
-uy_initial = param_dict["inj_radius"]
-vx_initial = 5 * mm
-vy_initial = -5 * mm
+    # Set system parameters/variables
+    Q = param_dict["Q"]
+    k = 4.13e4
+    emittance = param_dict["emittance"]
+    ux_initial = param_dict["inj_radius"]
+    uy_initial = param_dict["inj_radius"]
+    vx_initial = 5 * mm
+    vy_initial = -5 * mm
 
-# Set up solver paramters
-d = 9.3 * mm
-g = 2 * mm
-lq = 0.695 * mm
-N = 501
-L = 2 * d
-ds = L / N
+    # Set up solver paramters
+    d = 9.3 * mm
+    g = 2 * mm
+    lq = 0.695 * mm
+    N = 501
+    L = 2 * d
+    ds = L / N
 
-# Construct arrays for differential equation. Columns ux, uy, vx, vy
-soln_matrix = np.zeros(shape=(N, 4))
-s = np.array([ds * i for i in range(N)])
+    # Construct arrays for differential equation. Columns ux, uy, vx, vy
+    soln_matrix = np.zeros(shape=(N, 4))
+    s = np.array([ds * i for i in range(N)])
 
-# Enter initial condition into array
-soln_matrix[0, :] = ux_initial, uy_initial, vx_initial, vy_initial
+    # Enter initial condition into array
+    soln_matrix[0, :] = ux_initial, uy_initial, vx_initial, vy_initial
 
-# Create kappa array
-# pdb.set_trace()
-karray = hard_edge_kappa(k, s)
-# Call solver
-solve_KV()
+    # Create kappa array
+    # pdb.set_trace()
+    karray = hard_edge_kappa(k, s)
+    # Call solver
+    solve_KV()
 
-# --Plotting outputs
-# Grab x,x',y,and y'
-x = soln_matrix[:, 0]
-y = soln_matrix[:, 1]
-xprime = soln_matrix[:, 2]
-yprime = soln_matrix[:, 3]
+    # --Plotting outputs
+    # Grab x,x',y,and y'
+    x = soln_matrix[:, 0]
+    y = soln_matrix[:, 1]
+    xprime = soln_matrix[:, 2]
+    yprime = soln_matrix[:, 3]
 
-# Visualize kappa array to verify correct geometry. Identify gaps with black
-# dashed lines and fill ESQs with blue(+ bias) and red (- bias)
-fig, ax = plt.subplots()
-ax.plot(s / mm, karray)
-ax.fill_between(s[karray > 0] / mm, max(karray), y2=0, alpha=0.2, color="b")
-ax.fill_between(s[karray < 0] / mm, min(karray), y2=0, alpha=0.2, color="r")
-plates = np.array([g / 2, d - g / 2, d + g / 2, 2 * d - g / 2])
-for pos in plates:
-    ax.axvline(x=pos / mm, c="k", ls="--", lw=2)
-ax.set_xlabel("s [mm]")
-ax.set_ylabel(r"$\kappa(s)$ [m]$^{-2}$")
-ax.set_title("Schematic of Simulation Geometry")
-plt.show()
+    # Visualize kappa array to verify correct geometry. Identify gaps with black
+    # dashed lines and fill ESQs with blue(+ bias) and red (- bias)
+    fig, ax = plt.subplots()
+    ax.plot(s / mm, karray)
+    ax.fill_between(s[karray > 0] / mm, max(karray), y2=0, alpha=0.2, color="b")
+    ax.fill_between(s[karray < 0] / mm, min(karray), y2=0, alpha=0.2, color="r")
+    plates = np.array([g / 2, d - g / 2, d + g / 2, 2 * d - g / 2])
+    for pos in plates:
+        ax.axvline(x=pos / mm, c="k", ls="--", lw=2)
+    ax.set_xlabel("s [mm]")
+    ax.set_ylabel(r"$\kappa(s)$ [m]$^{-2}$")
+    ax.set_title("Schematic of Simulation Geometry")
+    plt.show()
 
-# Create plots for solution to KV equtions and overlay ESQ and gap positions
-fig, ax = plt.subplots(nrows=2, sharex=True)
-ax[0].plot(s / mm, x / mm, c="k")
-ax[0].set_ylabel(r"$r_x(s)$ [mm]")
-ax[0].fill_between(
-    s[karray > 0] / mm, max(x) / mm, y2=min(x) / mm, alpha=0.2, color="b"
-)
-ax[0].fill_between(
-    s[karray < 0] / mm, max(x) / mm, y2=min(x) / mm, alpha=0.2, color="r"
-)
-for pos in plates:
-    ax[0].axvline(x=pos / mm, c="k", ls="--", lw=2)
+    # Create plots for solution to KV equtions and overlay ESQ and gap positions
+    fig, ax = plt.subplots(nrows=2, sharex=True)
+    ax[0].plot(s / mm, x / mm, c="k")
+    ax[0].set_ylabel(r"$r_x(s)$ [mm]")
+    ax[0].fill_between(
+        s[karray > 0] / mm, max(x) / mm, y2=min(x) / mm, alpha=0.2, color="b"
+    )
+    ax[0].fill_between(
+        s[karray < 0] / mm, max(x) / mm, y2=min(x) / mm, alpha=0.2, color="r"
+    )
+    for pos in plates:
+        ax[0].axvline(x=pos / mm, c="k", ls="--", lw=2)
 
-ax[1].plot(s / mm, xprime, c="k")
-ax[1].set_ylabel(r"$r_x'(s)$")
-ax[1].set_xlabel(r"$s$ [mm]")
-ax[1].fill_between(
-    s[karray > 0] / mm, max(xprime), y2=min(xprime), alpha=0.2, color="b"
-)
-ax[1].fill_between(
-    s[karray < 0] / mm, max(xprime), y2=min(xprime), alpha=0.2, color="r"
-)
-for pos in plates:
-    ax[1].axvline(x=pos / mm, c="k", ls="--", lw=2)
-plt.show()
+    ax[1].plot(s / mm, xprime, c="k")
+    ax[1].set_ylabel(r"$r_x'(s)$")
+    ax[1].set_xlabel(r"$s$ [mm]")
+    ax[1].fill_between(
+        s[karray > 0] / mm, max(xprime), y2=min(xprime), alpha=0.2, color="b"
+    )
+    ax[1].fill_between(
+        s[karray < 0] / mm, max(xprime), y2=min(xprime), alpha=0.2, color="r"
+    )
+    for pos in plates:
+        ax[1].axvline(x=pos / mm, c="k", ls="--", lw=2)
+    plt.show()
 
-fig, ax = plt.subplots(nrows=2, sharex=True)
-ax[0].plot(s / mm, y / mm, c="k")
-ax[0].set_ylabel(r"$r_y(s)$")
-ax[0].fill_between(
-    s[karray > 0] / mm, max(y) / mm, y2=min(y) / mm, alpha=0.2, color="b"
-)
-ax[0].fill_between(
-    s[karray < 0] / mm, max(y) / mm, y2=min(y) / mm, alpha=0.2, color="r"
-)
-for pos in plates:
-    ax[0].axvline(x=pos / mm, c="k", ls="--", lw=2)
+    fig, ax = plt.subplots(nrows=2, sharex=True)
+    ax[0].plot(s / mm, y / mm, c="k")
+    ax[0].set_ylabel(r"$r_y(s)$")
+    ax[0].fill_between(
+        s[karray > 0] / mm, max(y) / mm, y2=min(y) / mm, alpha=0.2, color="b"
+    )
+    ax[0].fill_between(
+        s[karray < 0] / mm, max(y) / mm, y2=min(y) / mm, alpha=0.2, color="r"
+    )
+    for pos in plates:
+        ax[0].axvline(x=pos / mm, c="k", ls="--", lw=2)
 
-ax[1].plot(s / mm, yprime, c="k")
-ax[1].set_xlabel(r"$s$ [mm]")
-ax[1].fill_between(
-    s[karray > 0] / mm, max(yprime), y2=min(yprime), alpha=0.2, color="b"
-)
-ax[1].fill_between(
-    s[karray < 0] / mm, max(yprime), y2=min(yprime), alpha=0.2, color="r"
-)
-for pos in plates:
-    ax[1].axvline(x=pos / mm, c="k", ls="--", lw=2)
+    ax[1].plot(s / mm, yprime, c="k")
+    ax[1].set_xlabel(r"$s$ [mm]")
+    ax[1].fill_between(
+        s[karray > 0] / mm, max(yprime), y2=min(yprime), alpha=0.2, color="b"
+    )
+    ax[1].fill_between(
+        s[karray < 0] / mm, max(yprime), y2=min(yprime), alpha=0.2, color="r"
+    )
+    for pos in plates:
+        ax[1].axvline(x=pos / mm, c="k", ls="--", lw=2)
 
-ax[1].set_ylabel(r"$r_y'(s)$")
-plt.show()
+    ax[1].set_ylabel(r"$r_y'(s)$")
+    plt.show()
