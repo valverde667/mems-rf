@@ -121,15 +121,30 @@ def cost_func(decsn_vars):
 
 # Creat variable boundaries for the GA solver. From the docs, the boundaries
 # must be an array for each variable. Thus, for 6 variables, I need a 6x# array.
-ux_bound = np.array([0.2 * mm, 0.5 * mm])
-uy_bound = ux_bound.copy()
+ux_bound = np.array([0.2 * mm, 0.4 * mm])
+uy_bound = np.array([0.2 * mm, 0.4 * mm])
 vx_bound = np.array([3 * mm, 5 * mm])
-vy_bound = np.array([-5 * mm, 3 * mm])
+vy_bound = np.array([-5 * mm, -3 * mm])
 V1_bound = np.array([-7 * kV, 7 * kV])
-V2_bound = V1_bound.copy()
+V2_bound = np.array([-7 * kV, 7 * kV])
 var_bound = np.array([ux_bound, uy_bound, vx_bound, vy_bound, V1_bound, V2_bound])
 
-# Initialize GA model.
+# Set GA parameters and initialize model.
+algorithm_param = {
+    "max_num_iteration": 2000,
+    "population_size": 250,
+    "mutation_probability": 0.45,
+    "elit_ratio": 0.01,
+    "crossover_probability": 0.5,
+    "parents_portion": 0.3,
+    "crossover_type": "uniform",
+    "max_iteration_without_improv": None,
+}
 model = ga(
-    function=cost_func, dimension=6, variable_type="real", variable_boundaries=var_bound
+    function=cost_func,
+    dimension=6,
+    variable_type="real",
+    variable_boundaries=var_bound,
+    algorithm_parameters=algorithm_param,
 )
+model.run()
