@@ -116,3 +116,14 @@ def cost_func(decsn_vars):
     cost = costx + costy
 
     return cost
+
+
+# Creat variable boundaries for the GA solver. From the docs, the boundaries
+# must be an array for each variable. Thus, for 6 variables, I need a 6x# array.
+ux_bound = np.array([0.2 * mm, 0.5 * mm])
+uy_bound = ux_bound.copy()
+vx_bound = np.array([3 * mm, 5 * mm])
+vy_bound = -vx_bound.copy()
+V1_bound = np.array([-7 * kV, 7 * kV])
+V2_bound = V1_bound.copy()
+var_bound = np.array([ux_bound, uy_bound, vx_bound, vy_bound, V1_bound, V2_bound])
