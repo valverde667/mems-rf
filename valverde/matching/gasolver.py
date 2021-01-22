@@ -47,12 +47,72 @@ lq = 0.695 * mm  # Physical length of quadrupoles
 N = 501  # Number of grid points
 L = 2 * d  # Total length of mesh
 ds = L / N
+s = np.linspace(0, L, N)
 
-# Create hard edge array for ESQs and plot for visual check.
-pos_arr = np.linspace(0, L, N)
-karr = hard_edge_kappa(k, pos_arr)
-fig, ax = plt.subplots()
-ax.plot(pos_arr / mm, karr)
-ax.set_xlabel("s [mm]")
-ax.set_ylabel(r"$\kappa (s)$ $[m]^{-2}$")
-plt.show()
+# Define cost function with decision variables as inputs. In this case, the
+# decision variables will be 6 total: 4 positional for x, y, vx, and vy and 2
+# for the ESQ voltage settings.
+def cost_func(decsn_vars):
+    """Cost function for the genetic algorithm
+
+    The cost function takes as an input a 1D array of decision variables. In this
+    case, the varying parameters are the 4 coordinate variables x, y, vx, and vy
+    along with the two bias settings on the ESQs. The goal is to minimize the
+    difference between the initial coordinate variables such that, after one
+    lattice period later,
+        x0 ≈ x
+        y0 ≈ y
+        x0' ≈ x'
+        y0' ≈ y'.
+
+    The cost is computing by calculated the sum of the root of the square of the
+    differences cost = sqrt((x - x0)^2) + sqrt((y - y0)^2) + ...
+
+    Parameters
+    ----------
+    decsn_vars : ndarray
+        1D array giving the decision variables. The decision variables are, in
+        order, (x, y, vx, vy, V1, V2) where V1 and V2 are the ESQ voltage
+        settings.
+
+    cost : float
+        The computed cost of the input settings.
+
+    """
+
+    # Make global assignments for KV solver
+    global Q, N, s, ds, emittance
+
+    # Assignments from decsn_vars
+    solver_arr = decsn_vars[0:4]
+    init_arr = solver_arr.copy()
+    ux0, uy0 = init_arr[0], init_arr[1]
+    vx0, vy0 = init_arr[2], init_arr[3]
+    V1, V2 = decsn_vars[4], decsn_vars[5]
+
+    # Create focusing strength array with hard edge model
+    karray = hard_edge_kappa([V1, V2], s)
+
+    # Main loop. Loop through updated array and solver KV equation
+    for n in range(0, N):
+        ux, uy = solver_arr[0], solver_arr[1]
+        vx, vy = solver_arr[2], solver_arr[3]
+        term = 2 * Q / (ux + uy)
+
+        term1x = pow(emittance, 2) / pow(ux, 3) - karray[n] * ux
+        term1y = pow(emittance, 2) / pow(uy, 3) + karray[n] * uy
+
+        vx = (term + term1x) * ds + vx
+        vy = (term + term1y) * ds + vy
+
+        ux = vx * ds + ux
+        uy = vy * ds + uy
+
+        solver_arr = np.array([ux, uy, vx, vy])
+
+    # Compute cost
+    costx = np.sqrt((ux - ux0) ** 2) + np.sqrt((vx - vx0) ** 2)
+    costy = np.sqrt((uy - uy0) ** 2) + np.sqrt((vy - vy0) ** 2)
+    cost = costx + costy
+
+    return cost
