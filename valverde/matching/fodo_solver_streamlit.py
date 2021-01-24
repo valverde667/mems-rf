@@ -34,10 +34,10 @@ emittance = st.sidebar.number_input(
     "Emittance e", 1e-6, 1e-4, param_dict["emittance"], step=4.95e-6, format="%.4e"
 )
 V1 = st.sidebar.number_input(
-    "Voltage on First ESQ V1", 0.0, 5.5 * kV, step=0.5 * kV, format="%.2e"
+    "Voltage on First ESQ V1", 0.0, 5.5 * kV, 3 * kV, step=0.5 * kV, format="%.2e"
 )
 V2 = st.sidebar.number_input(
-    "Voltage on Second ESQ V2", -5.5 * kV, 0.0, step=0.5 * kV, format="%.2e"
+    "Voltage on Second ESQ V2", -5.5 * kV, 0.0, -3 * kV, step=0.5 * kV, format="%.2e"
 )
 ux = st.sidebar.number_input(
     "x Injection Position", 0.2 * mm, 0.5 * mm, 0.5 * mm, step=0.05 * mm, format="%e"
@@ -63,5 +63,39 @@ g = 2 * mm
 lq = 0.695 * mm
 N = 500
 L = 2 * d
+space = (d - g - 2 * lq) / 3  # Spacing between ESQs
 ds = L / N
 s = np.linspace(0, L, N)
+
+# Create arrays for KV equation
+karray, Varray = hard_edge_kappa([V1, V2], s)
+
+shift = 0  # Shift "injection" to left in units of ds
+start = d - shift * ds
+
+# Find index for shifted start and reorient arrays
+start_index = np.where(s >= start)[0][0]
+s_solve = s.copy()[start_index:]
+k_solve = karray.copy()[start_index:]
+V_solve = Varray.copy()[start_index:]
+
+# Visualize shift. Show ESQ and Gap positions. Grey out portion of lattice not used.
+fig, ax = plt.subplots()
+ax.set_ylim(-6, 6)
+ax.plot(s / mm, Varray / kV)
+ax.fill_between(s[Varray > 0] / mm, max(Varray) / kV, y2=0, alpha=0.2, color="b")
+ax.fill_between(s[Varray < 0] / mm, min(Varray) / kV, y2=0, alpha=0.2, color="r")
+ax.fill_between(
+    s[s <= s_solve[0]] / mm,
+    ax.get_ylim()[0],
+    ax.get_ylim()[1],
+    alpha=0.4,
+    color="lightgray",
+)
+plates = np.array([g / 2, d - g / 2, d + g / 2, 2 * d - g / 2])
+for pos in plates:
+    ax.axvline(x=pos / mm, c="k", ls="--", lw=2)
+ax.set_xlabel("s [mm]")
+ax.set_ylabel(r"$V$ [kV]")
+ax.set_title("Schematic of Simulation Geometry")
+st.pyplot(fig)
