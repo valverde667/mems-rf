@@ -34,23 +34,23 @@ emittance = st.sidebar.number_input(
     "Emittance e", 1e-6, 1e-4, param_dict["emittance"], step=4.95e-6, format="%.4e"
 )
 V1 = st.sidebar.number_input(
-    "Voltage on First ESQ V1", 0.0, 5.5 * kV, 3 * kV, step=0.5 * kV, format="%.2e"
+    "Voltage on First ESQ V1", 0.0, 0.6 * kV, 0.1 * kV, step=0.1 * kV, format="%.2e"
 )
 V2 = st.sidebar.number_input(
-    "Voltage on Second ESQ V2", -5.5 * kV, 0.0, -3 * kV, step=0.5 * kV, format="%.2e"
+    "Voltage on Second ESQ V2", -0.6 * kV, 0.0, -0.1 * kV, step=0.1 * kV, format="%.2e"
 )
-ux = st.sidebar.number_input(
+ux_initial = st.sidebar.number_input(
     "x Injection Position", 0.2 * mm, 0.5 * mm, 0.5 * mm, step=0.05 * mm, format="%e"
 )
-uy = st.sidebar.number_input(
+uy_initial = st.sidebar.number_input(
     "y Injection Position", 0.2 * mm, 0.5 * mm, 0.5 * mm, step=0.05 * mm, format="%e"
 )
 
-vx = st.sidebar.number_input(
+vx_initial = st.sidebar.number_input(
     "x-angle Injection", 2 * mrad, 5 * mrad, 5 * mrad, step=0.5 * mrad, format="%e"
 )
-vx = st.sidebar.number_input(
-    "x-angle Injection", -5 * mrad, -2 * mrad, -5 * mrad, step=0.5 * mrad, format="%e"
+vy_initial = st.sidebar.number_input(
+    "y-angle Injection", -5 * mrad, -2 * mrad, -5 * mrad, step=0.5 * mrad, format="%e"
 )
 
 # I will now set up the simulation mesh. The whole mesh will be created. But,
@@ -76,12 +76,11 @@ start = d - shift * ds
 # Find index for shifted start and reorient arrays
 start_index = np.where(s >= start)[0][0]
 s_solve = s.copy()[start_index:]
-k_solve = karray.copy()[start_index:]
-V_solve = Varray.copy()[start_index:]
-
+ksolve = karray.copy()[start_index:]
+Vsolve = Varray.copy()[start_index:]
 # Visualize shift. Show ESQ and Gap positions. Grey out portion of lattice not used.
 fig, ax = plt.subplots()
-ax.set_ylim(-6, 6)
+ax.set_ylim(-0.6, 0.6)
 ax.plot(s / mm, Varray / kV)
 ax.fill_between(s[Varray > 0] / mm, max(Varray) / kV, y2=0, alpha=0.2, color="b")
 ax.fill_between(s[Varray < 0] / mm, min(Varray) / kV, y2=0, alpha=0.2, color="r")
@@ -98,4 +97,73 @@ for pos in plates:
 ax.set_xlabel("s [mm]")
 ax.set_ylabel(r"$V$ [kV]")
 ax.set_title("Schematic of Simulation Geometry")
+st.pyplot(fig)
+
+# Solve KV equation with reoritented arrays
+soln_matrix = np.zeros(shape=(len(s_solve), 4))
+soln_matrix[0, :] = ux_initial, uy_initial, vx_initial, vy_initial
+
+# Grab position and angle arrays from matrix
+ux = soln_matrix[:, 0]
+uy = soln_matrix[:, 1]
+vx = soln_matrix[:, 2]
+vy = soln_matrix[:, 3]
+
+# Main loop to update equation. Loop through matrix and update entries.
+for n in range(1, len(soln_matrix)):
+    # Evaluate term present in both equations
+    term = 2 * Q / (ux[n - 1] + uy[n - 1])
+
+    # Evaluate terms for x and y
+    term1x = pow(emittance, 2) / pow(ux[n - 1], 3) - ksolve[n - 1] * ux[n - 1]
+    term1y = pow(emittance, 2) / pow(uy[n - 1], 3) + ksolve[n - 1] * uy[n - 1]
+
+    # Update v_x and v_y first.
+    vx[n] = (term + term1x) * ds + vx[n - 1]
+    vy[n] = (term + term1y) * ds + vy[n - 1]
+
+    # Use updated v to update u
+    ux[n] = vx[n] * ds + ux[n - 1]
+    uy[n] = vy[n] * ds + uy[n - 1]
+
+
+# Create plots for solution to KV equtions and overlay ESQ and gap positions
+fig, ax = plt.subplots(nrows=2, sharex=True)
+ax[0].plot(s_solve / mm, ux / mm, c="k")
+maxy0, miny0 = ax[0].get_ylim()[0], ax[0].get_ylim()[1]
+ax[0].set_ylabel(r"$r_x(s)$ [mm]")
+ax[0].fill_between(s_solve[Vsolve > 0] / mm, maxy0, y2=miny0, alpha=0.2, color="b")
+ax[0].fill_between(s_solve[Vsolve < 0] / mm, maxy0, y2=miny0, alpha=0.2, color="r")
+for pos in plates:
+    ax[0].axvline(x=pos / mm, c="k", ls="--", lw=2)
+
+
+ax[1].plot(s_solve / mm, vx, c="k")
+maxy1, miny1 = ax[1].get_ylim()[0], ax[1].get_ylim()[1]
+ax[1].set_ylabel(r"$r_x'(s)$")
+ax[1].set_xlabel(r"$s$ [mm]")
+ax[1].fill_between(s_solve[Vsolve > 0] / mm, maxy1, y2=miny1, alpha=0.2, color="b")
+ax[1].fill_between(s_solve[Vsolve < 0] / mm, maxy1, y2=miny1, alpha=0.2, color="r")
+for pos in plates:
+    ax[1].axvline(x=pos / mm, c="k", ls="--", lw=2)
+st.pyplot(fig)
+
+fig, ax = plt.subplots(nrows=2, sharex=True)
+ax[0].plot(s_solve / mm, uy / mm, c="k")
+maxy0, miny0 = ax[0].get_ylim()[0], ax[0].get_ylim()[1]
+ax[0].set_ylabel(r"$r_y(s)$")
+ax[0].fill_between(s_solve[Vsolve > 0] / mm, maxy0, y2=miny0, alpha=0.2, color="b")
+ax[0].fill_between(s_solve[Vsolve < 0] / mm, maxy0, y2=miny0, alpha=0.2, color="r")
+for pos in plates:
+    ax[0].axvline(x=pos / mm, c="k", ls="--", lw=2)
+
+ax[1].plot(s_solve / mm, vy, c="k")
+maxy1, miny1 = ax[1].get_ylim()[0], ax[1].get_ylim()[1]
+ax[1].set_xlabel(r"$s$ [mm]")
+ax[1].fill_between(s_solve[Vsolve > 0] / mm, maxy1, y2=miny1, alpha=0.2, color="b")
+ax[1].fill_between(s_solve[Vsolve < 0] / mm, maxy1, y2=miny1, alpha=0.2, color="r")
+for pos in plates:
+    ax[1].axvline(x=pos / mm, c="k", ls="--", lw=2)
+
+ax[1].set_ylabel(r"$r_y'(s)$")
 st.pyplot(fig)
