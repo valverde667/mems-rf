@@ -14,7 +14,14 @@ kV = wp.kV
 
 
 def hard_edge_kappa(
-    kappa, pos_array, drift=9.3 * mm, gap=2 * mm, length_quad=0.695 * mm, N=500
+    voltage,
+    pos_array,
+    drift=9.3 * mm,
+    gap=2 * mm,
+    length_quad=0.695 * mm,
+    N=500,
+    injection_energy=8 * kV,
+    rp=0.55 * mm,
 ):
     """Function to populate kappa(s) with kappa assuming hard edge model.
 
@@ -40,8 +47,8 @@ def hard_edge_kappa(
 
     Parameters
     ----------
-    kappa : list
-        Value of kappas to be used for two ESQ voltage settings.
+    voltage : list
+        Value of ESQ voltages form which kappa will be computed.
 
     pos_array : ndarray
         One dimensional array giving the discretized space values that the KV
@@ -90,14 +97,19 @@ def hard_edge_kappa(
 
     # Create kappa array and assign values
     kappa_array = np.zeros(len(pos_array))
+    voltage_array = np.zeros(len(pos_array))
 
-    # Assign plus and minus ESQ values
-    V1 = kappa[0]
-    V2 = kappa[1]
-    kappa_array[splus] = V1
-    kappa_array[sminus] = V2
+    # Designate voltage setting and compute focusing strength for each ESQ
+    V1 = voltage[0]
+    V2 = voltage[1]
+    voltage_array[splus], voltage_array[sminus] = V1, V2
 
-    return kappa_array
+    k1 = V1 / injection_energy / rp / rp
+    k2 = V2 / injection_energy / rp / rp
+    kappa_array[splus] = k1
+    kappa_array[sminus] = k2
+
+    return kappa_array, voltage_array
 
 
 def solve_KV():
@@ -165,12 +177,12 @@ if __name__ == "__main__":
 
     # Set system parameters/variables
     Q = param_dict["Q"]
-    k = 4.13e4
+    volt = [3 * kV, -3 * kV]
     emittance = param_dict["emittance"]
     ux_initial = param_dict["inj_radius"]
     uy_initial = param_dict["inj_radius"]
-    vx_initial = 5 * mm
-    vy_initial = -5 * mm
+    vx_initial = 0.5 * mm
+    vy_initial = -0.5 * mm
 
     # Set up solver paramters
     d = 9.3 * mm
@@ -189,7 +201,7 @@ if __name__ == "__main__":
 
     # Create kappa array
     # pdb.set_trace()
-    karray = hard_edge_kappa([k, -k], s)
+    karray, Varray = hard_edge_kappa(volt, s)
     # Call solver
     solve_KV()
 
@@ -203,14 +215,14 @@ if __name__ == "__main__":
     # Visualize kappa array to verify correct geometry. Identify gaps with black
     # dashed lines and fill ESQs with blue(+ bias) and red (- bias)
     fig, ax = plt.subplots()
-    ax.plot(s / mm, karray)
-    ax.fill_between(s[karray > 0] / mm, max(karray), y2=0, alpha=0.2, color="b")
-    ax.fill_between(s[karray < 0] / mm, min(karray), y2=0, alpha=0.2, color="r")
+    ax.plot(s / mm, Varray / kV)
+    ax.fill_between(s[Varray > 0] / mm, max(Varray), y2=0, alpha=0.2, color="b")
+    ax.fill_between(s[Varray < 0] / mm, min(Varray), y2=0, alpha=0.2, color="r")
     plates = np.array([g / 2, d - g / 2, d + g / 2, 2 * d - g / 2])
     for pos in plates:
         ax.axvline(x=pos / mm, c="k", ls="--", lw=2)
     ax.set_xlabel("s [mm]")
-    ax.set_ylabel(r"$\kappa(s)$ [m]$^{-2}$")
+    ax.set_ylabel(r"$V$ [kV]")
     ax.set_title("Schematic of Simulation Geometry")
     plt.show()
 
@@ -219,10 +231,10 @@ if __name__ == "__main__":
     ax[0].plot(s / mm, x / mm, c="k")
     ax[0].set_ylabel(r"$r_x(s)$ [mm]")
     ax[0].fill_between(
-        s[karray > 0] / mm, max(x) / mm, y2=min(x) / mm, alpha=0.2, color="b"
+        s[Varray > 0] / mm, max(x) / mm, y2=min(x) / mm, alpha=0.2, color="b"
     )
     ax[0].fill_between(
-        s[karray < 0] / mm, max(x) / mm, y2=min(x) / mm, alpha=0.2, color="r"
+        s[Varray < 0] / mm, max(x) / mm, y2=min(x) / mm, alpha=0.2, color="r"
     )
     for pos in plates:
         ax[0].axvline(x=pos / mm, c="k", ls="--", lw=2)
@@ -231,10 +243,10 @@ if __name__ == "__main__":
     ax[1].set_ylabel(r"$r_x'(s)$")
     ax[1].set_xlabel(r"$s$ [mm]")
     ax[1].fill_between(
-        s[karray > 0] / mm, max(xprime), y2=min(xprime), alpha=0.2, color="b"
+        s[Varray > 0] / mm, max(xprime), y2=min(xprime), alpha=0.2, color="b"
     )
     ax[1].fill_between(
-        s[karray < 0] / mm, max(xprime), y2=min(xprime), alpha=0.2, color="r"
+        s[Varray < 0] / mm, max(xprime), y2=min(xprime), alpha=0.2, color="r"
     )
     for pos in plates:
         ax[1].axvline(x=pos / mm, c="k", ls="--", lw=2)
@@ -244,10 +256,10 @@ if __name__ == "__main__":
     ax[0].plot(s / mm, y / mm, c="k")
     ax[0].set_ylabel(r"$r_y(s)$")
     ax[0].fill_between(
-        s[karray > 0] / mm, max(y) / mm, y2=min(y) / mm, alpha=0.2, color="b"
+        s[Varray > 0] / mm, max(y) / mm, y2=min(y) / mm, alpha=0.2, color="b"
     )
     ax[0].fill_between(
-        s[karray < 0] / mm, max(y) / mm, y2=min(y) / mm, alpha=0.2, color="r"
+        s[Varray < 0] / mm, max(y) / mm, y2=min(y) / mm, alpha=0.2, color="r"
     )
     for pos in plates:
         ax[0].axvline(x=pos / mm, c="k", ls="--", lw=2)
@@ -255,10 +267,10 @@ if __name__ == "__main__":
     ax[1].plot(s / mm, yprime, c="k")
     ax[1].set_xlabel(r"$s$ [mm]")
     ax[1].fill_between(
-        s[karray > 0] / mm, max(yprime), y2=min(yprime), alpha=0.2, color="b"
+        s[Varray > 0] / mm, max(yprime), y2=min(yprime), alpha=0.2, color="b"
     )
     ax[1].fill_between(
-        s[karray < 0] / mm, max(yprime), y2=min(yprime), alpha=0.2, color="r"
+        s[Varray < 0] / mm, max(yprime), y2=min(yprime), alpha=0.2, color="r"
     )
     for pos in plates:
         ax[1].axvline(x=pos / mm, c="k", ls="--", lw=2)
