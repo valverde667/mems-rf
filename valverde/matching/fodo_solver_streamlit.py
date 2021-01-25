@@ -24,33 +24,63 @@ param_dict = parameters.main()
 
 # Set up streamlit
 st.title("Parameter variation of the FODO Cell")
-st.sidebar.markdown("## Design Paramter")
+st.sidebar.markdown("## Design Parameter")
 
 # Create slide bars for paramter variation
 Q = st.sidebar.number_input(
-    "Q perveance", 1e-6, 1e-4, param_dict["Q"], step=4.95e-6, format="%.4e"
+    "Q perveance ", 1e-6, 1e-4, param_dict["Q"], step=4.95e-6, format="%.4e"
 )
 emittance = st.sidebar.number_input(
-    "Emittance e", 1e-6, 1e-4, param_dict["emittance"], step=4.95e-6, format="%.4e"
+    "Emittance e [m-rad]",
+    1e-6,
+    1e-4,
+    param_dict["emittance"],
+    step=4.95e-6,
+    format="%.4e",
 )
 V1 = st.sidebar.number_input(
-    "Voltage on First ESQ V1", 0.0, 0.6 * kV, 0.1 * kV, step=0.1 * kV, format="%.2e"
+    "Voltage on First ESQ V1 [V]", 0.0, 0.6 * kV, 0.1 * kV, step=0.1 * kV, format="%.2e"
 )
 V2 = st.sidebar.number_input(
-    "Voltage on Second ESQ V2", -0.6 * kV, 0.0, -0.1 * kV, step=0.1 * kV, format="%.2e"
+    "Voltage on Second ESQ V2 [V]",
+    -0.6 * kV,
+    0.0,
+    -0.1 * kV,
+    step=0.1 * kV,
+    format="%.2e",
 )
 ux_initial = st.sidebar.number_input(
-    "x Injection Position", 0.2 * mm, 0.5 * mm, 0.5 * mm, step=0.05 * mm, format="%e"
+    "x Injection Position [m]",
+    0.2 * mm,
+    0.5 * mm,
+    0.5 * mm,
+    step=0.05 * mm,
+    format="%e",
 )
 uy_initial = st.sidebar.number_input(
-    "y Injection Position", 0.2 * mm, 0.5 * mm, 0.5 * mm, step=0.05 * mm, format="%e"
+    "y Injection Position [m]",
+    0.2 * mm,
+    0.5 * mm,
+    0.5 * mm,
+    step=0.05 * mm,
+    format="%e",
 )
 
 vx_initial = st.sidebar.number_input(
-    "x-angle Injection", 2 * mrad, 5 * mrad, 5 * mrad, step=0.5 * mrad, format="%e"
+    "x-angle Injection [rad]",
+    2 * mrad,
+    5 * mrad,
+    5 * mrad,
+    step=0.5 * mrad,
+    format="%e",
 )
 vy_initial = st.sidebar.number_input(
-    "y-angle Injection", -5 * mrad, -2 * mrad, -5 * mrad, step=0.5 * mrad, format="%e"
+    "y-angle Injection [rad]",
+    -5 * mrad,
+    -2 * mrad,
+    -5 * mrad,
+    step=0.5 * mrad,
+    format="%e",
 )
 
 # I will now set up the simulation mesh. The whole mesh will be created. But,
