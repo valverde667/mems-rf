@@ -92,7 +92,7 @@ def cost_func(decsn_vars):
     V1, V2 = decsn_vars[4], decsn_vars[5]
 
     # Create focusing strength array with hard edge model
-    karray = hard_edge_kappa([V1, V2], s)
+    karray, _ = hard_edge_kappa([V1, V2], s)
 
     # Main loop. Loop through updated array and solver KV equation
     for n in range(0, N):
@@ -125,8 +125,8 @@ ux_bound = np.array([0.2 * mm, 0.4 * mm])
 uy_bound = np.array([0.2 * mm, 0.4 * mm])
 vx_bound = np.array([3 * mm, 5 * mm])
 vy_bound = np.array([-5 * mm, -3 * mm])
-V1_bound = np.array([-7 * kV, 7 * kV])
-V2_bound = np.array([-7 * kV, 7 * kV])
+V1_bound = np.array([-0.7 * kV, 0.7 * kV])
+V2_bound = np.array([-0.7 * kV, 0.7 * kV])
 var_bound = np.array([ux_bound, uy_bound, vx_bound, vy_bound, V1_bound, V2_bound])
 
 # Set GA parameters and initialize model.
