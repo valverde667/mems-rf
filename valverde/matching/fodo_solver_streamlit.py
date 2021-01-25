@@ -28,24 +28,24 @@ st.sidebar.markdown("## Design Parameter")
 
 # Create slide bars for paramter variation
 Q = st.sidebar.number_input(
-    "Q perveance ", 1e-6, 1e-4, param_dict["Q"], step=4.95e-6, format="%.4e"
+    "Q perveance ", 1e-6, 1e-3, param_dict["Q"], step=4.95e-6, format="%.4e"
 )
 emittance = st.sidebar.number_input(
     "Emittance e [m-rad]",
     1e-6,
-    1e-4,
+    1e-3,
     param_dict["emittance"],
     step=4.95e-6,
     format="%.4e",
 )
 V1 = st.sidebar.number_input(
-    "Voltage on First ESQ V1 [V]", 0.0, 0.6 * kV, 0.1 * kV, step=0.1 * kV, format="%.2e"
+    "Voltage on First ESQ V1 [V]", 0.0, 0.6 * kV, 0.4 * kV, step=0.1 * kV, format="%.2e"
 )
 V2 = st.sidebar.number_input(
     "Voltage on Second ESQ V2 [V]",
     -0.6 * kV,
     0.0,
-    -0.1 * kV,
+    -0.4 * kV,
     step=0.1 * kV,
     format="%.2e",
 )
@@ -55,7 +55,7 @@ ux_initial = st.sidebar.number_input(
     0.5 * mm,
     0.5 * mm,
     step=0.05 * mm,
-    format="%e",
+    format="%.3e",
 )
 uy_initial = st.sidebar.number_input(
     "y Injection Position [m]",
@@ -63,24 +63,24 @@ uy_initial = st.sidebar.number_input(
     0.5 * mm,
     0.5 * mm,
     step=0.05 * mm,
-    format="%e",
+    format="%.3e",
 )
 
 vx_initial = st.sidebar.number_input(
     "x-angle Injection [rad]",
-    2 * mrad,
-    5 * mrad,
+    1 * mrad,
+    7 * mrad,
     5 * mrad,
     step=0.5 * mrad,
-    format="%e",
+    format="%.3e",
 )
 vy_initial = st.sidebar.number_input(
     "y-angle Injection [rad]",
-    -5 * mrad,
-    -2 * mrad,
+    -7 * mrad,
+    -1 * mrad,
     -5 * mrad,
     step=0.5 * mrad,
-    format="%e",
+    format="%.3e",
 )
 
 # I will now set up the simulation mesh. The whole mesh will be created. But,
@@ -103,7 +103,7 @@ karray, Varray = hard_edge_kappa([V1, V2], s)
 # Add sidebar input to adjust amoun to pre-drift
 maxshift = np.where(s <= d)[0][-1]
 shift = st.sidebar.number_input(
-    "Ammount of Drift to Add in units of ds", 0, maxshift, 0, format="%d"
+    "Ammount of Drift to Add in units of ds", 0, maxshift, maxshift, format="%d"
 )
 start = d - shift * ds
 
