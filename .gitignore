@@ -11,3 +11,5 @@ tmp.*
 *.svg
 *.DS_Store
 *.npy
+*.png
+*.json
