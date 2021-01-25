@@ -70,7 +70,11 @@ s = np.linspace(0, L, N)
 # Create arrays for KV equation
 karray, Varray = hard_edge_kappa([V1, V2], s)
 
-shift = 0  # Shift "injection" to left in units of ds
+# Add sidebar input to adjust amoun to pre-drift
+maxshift = np.where(s <= d)[0][-1]
+shift = st.sidebar.number_input(
+    "Ammount of Drift to Add in units of ds", 0, maxshift, 0, format="%d"
+)
 start = d - shift * ds
 
 # Find index for shifted start and reorient arrays
