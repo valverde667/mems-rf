@@ -114,7 +114,16 @@ def cost_func(decsn_vars):
     # Compute cost
     costx = np.sqrt((ux - ux0) ** 2) + np.sqrt((vx - vx0) ** 2)
     costy = np.sqrt((uy - uy0) ** 2) + np.sqrt((vy - vy0) ** 2)
-    cost = costx + costy
+
+    # Create a constrain by defining a penalty. The constraint is that the
+    # total radius cannot exceed the aperture radius of .55mm
+    rend = np.sqrt(ux ** 2 + uy ** 2)
+    if rend > 0.55 * mm:
+        pen = 500.0
+    else:
+        pen = 0.0
+
+    cost = costx + costy + pen
 
     return cost
 
