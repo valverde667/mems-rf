@@ -181,8 +181,8 @@ if __name__ == "__main__":
     emittance = param_dict["emittance"]
     ux_initial = param_dict["inj_radius"]
     uy_initial = param_dict["inj_radius"]
-    vx_initial = 0.5 * mm
-    vy_initial = -0.5 * mm
+    vx_initial = param_dict["inj_xprime"]
+    vy_initial = param_dict["inj_yprime"]
 
     # Set up solver paramters
     d = 9.3 * mm
