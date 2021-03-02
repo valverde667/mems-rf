@@ -23,8 +23,8 @@ Ar_mass = 40 * amu
 inj_current = 10 * uA
 inj_temperature = 0.5
 inj_radius = 0.5 * mm
-inj_xprime = 0.028 * np.pi
-inj_yprime = -0.028 * np.pi
+inj_xprime = 0.028  # rad
+inj_yprime = -0.028  # rad
 
 
 def calc_perveance(current, energy, mass, return_density=True, charge_state=+1):
