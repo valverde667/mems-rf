@@ -171,6 +171,32 @@ def solve_KV():
     return True
 
 
+class matching_section:
+    def __init__(
+        self, separation=0.5 * mm, gap=5 * mm, inj_energy=8 * kV, rp=0.55 * mm, N_esq=6
+    ):
+        self.separation = separation
+        self.gap = gap
+        self.inj_energy = inj_energy
+        self.rp = rp
+        self.N_esq = N_esq
+
+    def calc_kappa(self, voltage):
+        kappa = voltage / self.inj_energy / self.rp / self.rp
+
+        return kappa
+
+    def create_mesh(self, npoints=500):
+        # Calculate length of matching section
+        section = self.N_esq * (self.gap + self.separation) - self.separation
+
+        # Add some padding on the endpoints
+        pad = 0.75 * section
+        mesh = np.linspace(-pad, 2 * pad, npoints)
+
+        return mesh
+
+
 if __name__ == "__main__":
     # Read in parameters frome paramters script.
     param_dict = parameters.main()
