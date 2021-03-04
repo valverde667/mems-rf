@@ -173,9 +173,9 @@ def solve_KV():
 
 class matching_section:
     def __init__(
-        self, separation=0.5 * mm, gap=5 * mm, inj_energy=8 * kV, rp=0.55 * mm, N_esq=6
+        self, drift=0.5 * mm, gap=2 * mm, inj_energy=8 * kV, rp=0.55 * mm, N_esq=6
     ):
-        self.separation = separation
+        self.drift = drift
         self.gap = gap
         self.inj_energy = inj_energy
         self.rp = rp
@@ -186,15 +186,61 @@ class matching_section:
 
         return kappa
 
-    def create_mesh(self, npoints=500):
+    def create_mesh(self, prec=0.01 * mm):
         # Calculate length of matching section
-        section = self.N_esq * (self.gap + self.separation) - self.separation
+        section = self.N_esq * self.gap + self.drift * (self.N_esq - 1)
 
-        # Add some padding on the endpoints
-        pad = 0.75 * section
-        mesh = np.linspace(-pad, 2 * pad, npoints)
+        # Add some padding on the endpoints. Calculate total length of mesh
+        # with padding and use the precision paramter to create array.
+        pad = 0.35 * section
+        length = 2 * pad + section
+        mesh = np.linspace(-length, length, int(length / prec))
 
         return mesh
+
+    def create_section(self, voltages=[500, -500, 200, -100], cent=0):
+        """Create array of focusing strengths.
+
+        Function will use the created mesh from the create_mesh function and
+        create a dimensionally identical array holding the the values of the
+        ESQ focusing strengths."""
+
+        # Initialize simulation mesh and kappa array
+        mesh = self.create_mesh()
+        kappa_array = np.zeros(len(mesh))
+
+        # Loop through voltage list and evaluate kappa values. For each voltage
+        # assign values in kappa array with direct correspondance to mesh. The
+        # centers can be given by the user or calculated from the first center.
+        # The try and except block handles the two cases.
+
+        try:
+            for this_cent, this_volt in zip(cent, voltages):
+                this_kappa = self.calc_kappa(this_volt)
+                # Find indices for ESQ
+                upr_bnd = this_cent + self.gap / 2
+                lwr_bnd = this_cent - self.gap / 2
+                indices = np.where((mesh >= lwr_bnd) & (mesh <= upr_bnd))[0]
+
+                # Assign kappa values to array
+                kappa_array[indices] = this_kappa
+
+        except TypeError:
+            # Will loop through voltages and calculate new centers on the fly
+            # Calcaulte separation (center-center) of ESQs
+            separation = self.gap + self.drift
+            for i, this_volt in enumerate(voltages):
+                this_kappa = self.calc_kappa(this_volt)
+                this_cent = cent + (i * separation)
+                # Find indices for ESQ
+                upr_bnd = this_cent + self.gap / 2
+                lwr_bnd = this_cent - self.gap / 2
+                indices = np.where((mesh >= lwr_bnd) & (mesh <= upr_bnd))[0]
+
+                # Assign kappa values to array
+                kappa_array[indices] = this_kappa
+
+        return mesh, kappa_array
 
 
 if __name__ == "__main__":
