@@ -132,4 +132,6 @@ vy_initial = st.sidebar.number_input(
 # etc. then these must be set for the instantiated classes attributes.
 voltage_list = [V1, V2, V3, V4, V5, V6]
 nEsq = len(voltage_list)
-s_solve, ksolve = matching_section(N_esq=nEsq).create_section(voltages=voltage_list)
+s_solve, ksolve, Varray = matching_section(N_esq=nEsq).create_section(
+    voltages=voltage_list
+)
