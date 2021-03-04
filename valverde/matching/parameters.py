@@ -13,6 +13,7 @@ amu = SC.physical_constants["atomic mass constant energy equivalent in MeV"][0] 
 uA = 1e-6  # microampers
 mm = 1e-3  # milimeters
 permitivity_freespace = 8.85e-12
+rad = np.pi
 
 # Beam Specifications
 inj_energy = 8 * wp.kV
@@ -22,6 +23,8 @@ Ar_mass = 40 * amu
 inj_current = 10 * uA
 inj_temperature = 0.5
 inj_radius = 0.5 * mm
+inj_xprime = 0.028  # rad
+inj_yprime = -0.028  # rad
 
 
 def calc_perveance(current, energy, mass, return_density=True, charge_state=+1):
@@ -141,6 +144,8 @@ def main():
         "Q": perveance,
         "emittance": emittance,
         "charge_density": charge_density,
+        "inj_xprime": inj_xprime,
+        "inj_yprime": inj_yprime,
     }
 
     return param_dict
