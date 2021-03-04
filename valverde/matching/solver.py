@@ -205,9 +205,10 @@ class matching_section:
         create a dimensionally identical array holding the the values of the
         ESQ focusing strengths."""
 
-        # Initialize simulation mesh and kappa array
+        # Initialize simulation mesh, kappa array, and voltage array
         mesh = self.create_mesh()
         kappa_array = np.zeros(len(mesh))
+        Varray = np.zeros(len(mesh))
 
         # Loop through voltage list and evaluate kappa values. For each voltage
         # assign values in kappa array with direct correspondance to mesh. The
@@ -222,8 +223,9 @@ class matching_section:
                 lwr_bnd = this_cent - self.gap / 2
                 indices = np.where((mesh >= lwr_bnd) & (mesh <= upr_bnd))[0]
 
-                # Assign kappa values to array
+                # Assign kappa and voltage values to respective arrays
                 kappa_array[indices] = this_kappa
+                Varray[indices] = this_volt
 
         except TypeError:
             # Will loop through voltages and calculate new centers on the fly
@@ -237,10 +239,11 @@ class matching_section:
                 lwr_bnd = this_cent - self.gap / 2
                 indices = np.where((mesh >= lwr_bnd) & (mesh <= upr_bnd))[0]
 
-                # Assign kappa values to array
+                # Assign kappa and voltage values to respective arrays
                 kappa_array[indices] = this_kappa
+                Varray[indices] = this_volt
 
-        return mesh, kappa_array
+        return mesh, kappa_array, Varray
 
 
 if __name__ == "__main__":
