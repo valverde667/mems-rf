@@ -186,15 +186,23 @@ class matching_section:
 
         return kappa
 
-    def create_mesh(self, npoints=500):
+    def create_mesh(self, prec=0.01 * mm):
         # Calculate length of matching section
         section = self.N_esq * (self.gap + self.separation) - self.separation
 
         # Add some padding on the endpoints
         pad = 0.75 * section
-        mesh = np.linspace(-pad, 2 * pad, npoints)
+        length = 2 * pad + section
+        mesh = np.linspace(-length, length, int(length / prec))
 
         return mesh
+
+    def create_section(self):
+        """Create array of focusing strengths.
+
+        Function will use the created mesh from the create_mesh function and
+        create a dimensionally identical array holding the the values of the
+        ESQ focusing strengths."""
 
 
 if __name__ == "__main__":
