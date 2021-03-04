@@ -13,7 +13,7 @@ import pdb
 import warp as wp
 
 import parameters
-from solver import hard_edge_kappa, solve_KV
+from solver import hard_edge_kappa, solve_KV, matching_section
 
 # Define useful constants
 mm = wp.mm
@@ -126,3 +126,10 @@ vy_initial = st.sidebar.number_input(
     step=0.5 * mrad,
     format="%.3e",
 )
+
+# Set up simulation mesh. The geometry is set from the matching section class
+# itself. Thus, if there are changes to be made to the ESQ lengths, drift spaces,
+# etc. then these must be set for the instantiated classes attributes.
+voltage_list = [V1, V2, V3, V4, V5, V6]
+nEsq = len(voltage_list)
+s_solve, ksolve = matching_section(N_esq=nEsq).create_section(voltages=voltage_list)
