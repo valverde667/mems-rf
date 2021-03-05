@@ -112,7 +112,7 @@ uy_initial = st.sidebar.number_input(
 
 vx_initial = st.sidebar.number_input(
     "x-angle Injection [rad]",
-    min_value=0.01,
+    min_value=0.0,
     max_value=0.05,
     value=param_dict["inj_xprime"],
     step=0.5 * mrad,
@@ -121,7 +121,7 @@ vx_initial = st.sidebar.number_input(
 vy_initial = st.sidebar.number_input(
     "y-angle Injection [rad]",
     min_value=-0.05,
-    max_value=-0.01,
+    max_value=0.0,
     value=param_dict["inj_yprime"],
     step=0.5 * mrad,
     format="%.3e",
@@ -135,3 +135,31 @@ nEsq = len(voltage_list)
 s_solve, ksolve, Varray = matching_section(N_esq=nEsq).create_section(
     voltages=voltage_list
 )
+ds = s_solve[1] - s_solve[0]
+# Solve KV equations
+# Solve KV equation with reoritented arrays
+soln_matrix = np.zeros(shape=(len(s_solve), 4))
+soln_matrix[0, :] = ux_initial, uy_initial, vx_initial, vy_initial
+
+# Grab position and angle arrays from matrix
+ux = soln_matrix[:, 0]
+uy = soln_matrix[:, 1]
+vx = soln_matrix[:, 2]
+vy = soln_matrix[:, 3]
+
+# Main loop to update equation. Loop through matrix and update entries.
+for n in range(1, len(soln_matrix)):
+    # Evaluate term present in both equations
+    term = 2 * Q / (ux[n - 1] + uy[n - 1])
+
+    # Evaluate terms for x and y
+    term1x = pow(emittance, 2) / pow(ux[n - 1], 3) - ksolve[n - 1] * ux[n - 1]
+    term1y = pow(emittance, 2) / pow(uy[n - 1], 3) + ksolve[n - 1] * uy[n - 1]
+
+    # Update v_x and v_y first.
+    vx[n] = (term + term1x) * ds + vx[n - 1]
+    vy[n] = (term + term1y) * ds + vy[n - 1]
+
+    # Use updated v to update u
+    ux[n] = vx[n] * ds + ux[n - 1]
+    uy[n] = vy[n] * ds + uy[n - 1]
