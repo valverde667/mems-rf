@@ -192,9 +192,9 @@ class matching_section:
 
         # Add some padding on the endpoints. Calculate total length of mesh
         # with padding and use the precision paramter to create array.
-        pad = 0.35 * section
+        pad = 5 * mm
         length = 2 * pad + section
-        mesh = np.linspace(-length, length, int(length / prec))
+        mesh = np.linspace(-pad, length - pad, int(length / prec))
 
         return mesh
 
