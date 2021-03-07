@@ -186,42 +186,34 @@ for n in range(1, len(soln_matrix)):
 
 
 # Create plots for solution to KV equtions and overlay ESQ and gap positions
+# Plot ux and uy
 fig, ax = plt.subplots(nrows=2, sharex=True)
-ax[0].plot(s_solve / mm, ux / mm, c="k")
-maxy0, miny0 = ax[0].get_ylim()[0], ax[0].get_ylim()[1]
-ax[0].set_ylabel(r"$r_x(s)$ [mm]")
-ax[0].fill_between(s_solve[Vsolve > 0] / mm, maxy0, y2=miny0, alpha=0.2, color="b")
-ax[0].fill_between(s_solve[Vsolve < 0] / mm, maxy0, y2=miny0, alpha=0.2, color="r")
+ax[0].set_ylim(bottom=0)
+ax[0].plot(s_solve / mm, ux / mm, c="b", label="x")
+ax[0].plot(s_solve / mm, uy / mm, c="g", label="y")
+# Outline Plates
 for pos in plates:
     ax[0].axvline(x=pos / mm, c="k", ls="--", lw=1)
 
-
-ax[1].plot(s_solve / mm, vx, c="k")
-maxy1, miny1 = ax[1].get_ylim()[0], ax[1].get_ylim()[1]
-ax[1].set_ylabel(r"$r_x'(s)$")
-ax[1].set_xlabel(r"$s$ [mm]")
-ax[1].fill_between(s_solve[Vsolve > 0] / mm, maxy1, y2=miny1, alpha=0.2, color="b")
-ax[1].fill_between(s_solve[Vsolve < 0] / mm, maxy1, y2=miny1, alpha=0.2, color="r")
-for pos in plates:
-    ax[1].axvline(x=pos / mm, c="k", ls="--", lw=1)
-st.pyplot(fig)
-
-fig, ax = plt.subplots(nrows=2, sharex=True)
-ax[0].plot(s_solve / mm, uy / mm, c="k")
+# Shade ESQ regions
 maxy0, miny0 = ax[0].get_ylim()[0], ax[0].get_ylim()[1]
-ax[0].set_ylabel(r"$r_y(s) [mm]$")
 ax[0].fill_between(s_solve[Vsolve > 0] / mm, maxy0, y2=miny0, alpha=0.2, color="b")
 ax[0].fill_between(s_solve[Vsolve < 0] / mm, maxy0, y2=miny0, alpha=0.2, color="r")
-for pos in plates:
-    ax[0].axvline(x=pos / mm, c="k", ls="--", lw=1)
 
-ax[1].plot(s_solve / mm, vy, c="k")
-maxy1, miny1 = ax[1].get_ylim()[0], ax[1].get_ylim()[1]
-ax[1].set_xlabel(r"$s$ [mm]")
-ax[1].fill_between(s_solve[Vsolve > 0] / mm, maxy1, y2=miny1, alpha=0.2, color="b")
-ax[1].fill_between(s_solve[Vsolve < 0] / mm, maxy1, y2=miny1, alpha=0.2, color="r")
+ax[0].set_ylabel(r"$x(s), y(s)$ [mm]")
+ax[0].legend()
+
+# Plot vx and vy
+ax[1].plot(s_solve / mm, vx, c="b", label="x'")
+ax[1].plot(s_solve / mm, vy, c="g", label="y'")
 for pos in plates:
     ax[1].axvline(x=pos / mm, c="k", ls="--", lw=1)
 
-ax[1].set_ylabel(r"$r_y'(s)$")
+maxy1, miny1 = ax[1].get_ylim()[0], ax[1].get_ylim()[1]
+ax[1].fill_between(s_solve[Vsolve > 0] / mm, maxy1, y2=miny1, alpha=0.2, color="b")
+ax[1].fill_between(s_solve[Vsolve < 0] / mm, maxy1, y2=miny1, alpha=0.2, color="r")
+
+ax[1].set_ylabel(r"$x'(s), \, y'(s)$ [rad]")
+ax[1].set_xlabel("s [mm]")
+ax[1].legend()
 st.pyplot(fig)
