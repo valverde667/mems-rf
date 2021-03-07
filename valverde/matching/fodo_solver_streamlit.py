@@ -27,6 +27,14 @@ st.title("Parameter variation of the FODO Cell")
 st.sidebar.markdown("## Design Parameter")
 
 # Create slide bars for paramter variation
+N = st.sidebar.number_input(
+    "N points to Solve ",
+    min_value=0,
+    max_value=int(1e6),
+    value=500,
+    step=500,
+    format="%.2e",
+)
 Q = st.sidebar.number_input(
     "Q perveance ",
     min_value=0.0,
@@ -46,14 +54,14 @@ emittance = st.sidebar.number_input(
 V1 = st.sidebar.number_input(
     "Voltage on First ESQ V1 [V]",
     min_value=0.0,
-    max_value=0.6 * kV,
+    max_value=3 * kV,
     value=0.4 * kV,
     step=0.1 * kV,
     format="%.2e",
 )
 V2 = st.sidebar.number_input(
     "Voltage on Second ESQ V2 [V]",
-    min_value=-0.6 * kV,
+    min_value=-3 * kV,
     max_value=0.0,
     value=-0.4 * kV,
     step=0.1 * kV,
