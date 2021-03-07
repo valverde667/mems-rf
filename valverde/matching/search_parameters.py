@@ -24,15 +24,13 @@ lq = 0.695 * mm  # ESQ length
 space = (d - g - 2 * lq) / 3  # Spacing between ESQs
 Lp = 2 * d  # Lattice period
 Vbrkdwn = 3 * kV / mm
+s = np.linspace(0, Lp, 500)
+ds = s[1] - s[0]
 
 # Max settings
 maxBias = Vbrkdwn * space
 maxR = 0.55 * mm
 maxDR = maxR / Lp
-
-x = np.linspace(-3, 3, 101)
-y = np.linspace(-3, 3, 101)
-z = x ** 2 + y ** 2
 
 # Hyperparameter settings
 Niter = 1000
@@ -42,6 +40,9 @@ threshold = 0.01  # Cost function most likely wont approach 0 exactly
 
 
 # Sample gradient descent run. Keeping here for future refernce.
+# x = np.linspace(-3, 3, 101)
+# y = np.linspace(-3, 3, 101)
+# z = x ** 2 + y ** 2
 # init = np.array([2, 1.4])
 #
 # hist = np.zeros(Niter)
