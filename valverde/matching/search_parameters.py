@@ -8,9 +8,10 @@ found once more."""
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import pdb
 
 import parameters as params
-import solver
+from solver import hard_edge_kappa
 
 # Useful constants
 kV = 1e3
@@ -26,6 +27,7 @@ Lp = 2 * d  # Lattice period
 Vbrkdwn = 3 * kV / mm
 s = np.linspace(0, Lp, 500)
 ds = s[1] - s[0]
+param_dict = params.main()
 
 # Max settings
 maxBias = Vbrkdwn * space
@@ -61,3 +63,45 @@ threshold = 0.01  # Cost function most likely wont approach 0 exactly
 V1range = np.linspace(0.0, maxBias, Vsteps)
 V2range = np.linspace(-maxBias, 0.0, Vsteps)
 V1, V2 = np.meshgrid(V1range, V2range)
+
+# Test algorithm for seeking extremum using gradient of cost function. Using the
+# the created meshgrid is too complicated at the moment for troubleshooting. So
+# I'll start by making this in chunks.
+V1 = 0.4 * kV
+V2 = -0.4 * kV
+
+
+def solve_KV(init, s, ksolve, params=param_dict):
+    ds = s[1] - s[0]
+    soln = init.copy()
+    history = np.zeros((len(s), len(init)))
+    history[0, :] = soln
+    Q = params["Q"]
+    emittance = params["emittance"]
+
+    for n in range(1, len(s)):
+        # Grab values from soln array
+        ux, uy, vx, vy = soln[0], soln[1], soln[2], soln[3]
+
+        # Evalue terms in update equation
+        term = 2 * Q / (ux + uy)
+        term1x = pow(emittance, 2) / pow(ux, 3) - ksolve[n - 1] * ux
+        term1y = pow(emittance, 2) / pow(uy, 3) + ksolve[n - 1] * uy
+
+        # Evaluate updated u and v
+        newvx = (term + term1x) * ds + vx
+        newvy = (term + term1y) * ds + vy
+        newux = newvx * ds + ux
+        newuy = newvy * ds + uy
+
+        # Update soln
+        soln[:] = newux, newuy, newvx, newvy
+        history[n, :] = soln[:]
+
+    return soln, history
+
+
+# Create hard_edge_kappa
+kappa_array, _ = hard_edge_kappa([V1, V2], s, N=len(s))
+init = np.array([0.5, 0.5, 5, -5]) * mm
+solv, hist = solve_KV(init, s, ksolve=kappa_array)
