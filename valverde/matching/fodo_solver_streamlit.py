@@ -28,58 +28,68 @@ st.sidebar.markdown("## Design Parameter")
 
 # Create slide bars for paramter variation
 Q = st.sidebar.number_input(
-    "Q perveance ", 1e-6, 1e-3, param_dict["Q"], step=4.95e-6, format="%.4e"
+    "Q perveance ",
+    min_value=0.0,
+    max_value=1e-3,
+    value=param_dict["Q"],
+    step=4.95e-6,
+    format="%.4e",
 )
 emittance = st.sidebar.number_input(
     "Emittance e [m-rad]",
-    1e-6,
-    1e-3,
-    param_dict["emittance"],
+    min_value=0.0,
+    max_value=1e-3,
+    value=param_dict["emittance"],
     step=4.95e-6,
     format="%.4e",
 )
 V1 = st.sidebar.number_input(
-    "Voltage on First ESQ V1 [V]", 0.0, 0.6 * kV, 0.4 * kV, step=0.1 * kV, format="%.2e"
+    "Voltage on First ESQ V1 [V]",
+    min_value=0.0,
+    max_value=0.6 * kV,
+    value=0.4 * kV,
+    step=0.1 * kV,
+    format="%.2e",
 )
 V2 = st.sidebar.number_input(
     "Voltage on Second ESQ V2 [V]",
-    -0.6 * kV,
-    0.0,
-    -0.4 * kV,
+    min_value=-0.6 * kV,
+    max_value=0.0,
+    value=-0.4 * kV,
     step=0.1 * kV,
     format="%.2e",
 )
 ux_initial = st.sidebar.number_input(
     "x Injection Position [m]",
-    0.2 * mm,
-    0.5 * mm,
-    0.5 * mm,
-    step=0.05 * mm,
+    min_value=0.0 * mm,
+    max_value=0.55 * mm,
+    value=0.5 * mm,
+    step=0.1 * mm,
     format="%.3e",
 )
 uy_initial = st.sidebar.number_input(
     "y Injection Position [m]",
-    0.2 * mm,
-    0.5 * mm,
-    0.5 * mm,
-    step=0.05 * mm,
+    min_value=0.0 * mm,
+    max_value=0.55 * mm,
+    value=0.5 * mm,
+    step=0.1 * mm,
     format="%.3e",
 )
 
 vx_initial = st.sidebar.number_input(
     "x-angle Injection [rad]",
-    1 * mrad,
-    7 * mrad,
-    5 * mrad,
-    step=0.5 * mrad,
+    min_value=0.0 * mm,
+    max_value=7 * mrad,
+    value=5 * mrad,
+    step=1.0 * mrad,
     format="%.3e",
 )
 vy_initial = st.sidebar.number_input(
     "y-angle Injection [rad]",
-    -7 * mrad,
-    -1 * mrad,
-    -5 * mrad,
-    step=0.5 * mrad,
+    min_value=-7 * mrad,
+    max_value=0.0 * mrad,
+    value=-5 * mrad,
+    step=1.0 * mrad,
     format="%.3e",
 )
 
@@ -103,7 +113,12 @@ karray, Varray = hard_edge_kappa([V1, V2], s)
 # Add sidebar input to adjust amoun to pre-drift
 maxshift = np.where(s <= d)[0][-1]
 shift = st.sidebar.number_input(
-    "Ammount of Drift to Add in units of ds", 0, maxshift, maxshift, format="%d"
+    "Ammount of Drift to Add in units of ds",
+    min_value=0,
+    max_value=maxshift,
+    value=maxshift,
+    step=50,
+    format="%d",
 )
 start = d - shift * ds
 
@@ -116,21 +131,30 @@ Vsolve = Varray.copy()[start_index:]
 fig, ax = plt.subplots()
 ax.set_ylim(-0.6, 0.6)
 ax.plot(s / mm, Varray / kV)
-ax.fill_between(s[Varray > 0] / mm, max(Varray) / kV, y2=0, alpha=0.2, color="b")
-ax.fill_between(s[Varray < 0] / mm, min(Varray) / kV, y2=0, alpha=0.2, color="r")
+ax.fill_between(
+    s[Varray > 0] / mm, max(Varray) / kV, y2=0, alpha=0.2, color="b", label="+Bias"
+)
+ax.fill_between(
+    s[Varray < 0] / mm, min(Varray) / kV, y2=0, alpha=0.2, color="r", label="-Bias"
+)
 ax.fill_between(
     s[s <= s_solve[0]] / mm,
     ax.get_ylim()[0],
     ax.get_ylim()[1],
     alpha=0.4,
     color="lightgray",
+    label="Ignored",
 )
 plates = np.array([g / 2, d - g / 2, d + g / 2, 2 * d - g / 2])
 for pos in plates:
-    ax.axvline(x=pos / mm, c="k", ls="--", lw=2)
+    if pos == plates[-1]:
+        ax.axvline(x=pos / mm, c="k", ls="--", lw=1, label="Plate")
+    else:
+        ax.axvline(x=pos / mm, c="k", ls="--", lw=1)
 ax.set_xlabel("s [mm]")
 ax.set_ylabel(r"$V$ [kV]")
 ax.set_title("Schematic of Simulation Geometry")
+ax.legend()
 st.pyplot(fig)
 
 # Solve KV equation with reoritented arrays
@@ -169,7 +193,7 @@ ax[0].set_ylabel(r"$r_x(s)$ [mm]")
 ax[0].fill_between(s_solve[Vsolve > 0] / mm, maxy0, y2=miny0, alpha=0.2, color="b")
 ax[0].fill_between(s_solve[Vsolve < 0] / mm, maxy0, y2=miny0, alpha=0.2, color="r")
 for pos in plates:
-    ax[0].axvline(x=pos / mm, c="k", ls="--", lw=2)
+    ax[0].axvline(x=pos / mm, c="k", ls="--", lw=1)
 
 
 ax[1].plot(s_solve / mm, vx, c="k")
@@ -179,17 +203,17 @@ ax[1].set_xlabel(r"$s$ [mm]")
 ax[1].fill_between(s_solve[Vsolve > 0] / mm, maxy1, y2=miny1, alpha=0.2, color="b")
 ax[1].fill_between(s_solve[Vsolve < 0] / mm, maxy1, y2=miny1, alpha=0.2, color="r")
 for pos in plates:
-    ax[1].axvline(x=pos / mm, c="k", ls="--", lw=2)
+    ax[1].axvline(x=pos / mm, c="k", ls="--", lw=1)
 st.pyplot(fig)
 
 fig, ax = plt.subplots(nrows=2, sharex=True)
 ax[0].plot(s_solve / mm, uy / mm, c="k")
 maxy0, miny0 = ax[0].get_ylim()[0], ax[0].get_ylim()[1]
-ax[0].set_ylabel(r"$r_y(s)$")
+ax[0].set_ylabel(r"$r_y(s) [mm]$")
 ax[0].fill_between(s_solve[Vsolve > 0] / mm, maxy0, y2=miny0, alpha=0.2, color="b")
 ax[0].fill_between(s_solve[Vsolve < 0] / mm, maxy0, y2=miny0, alpha=0.2, color="r")
 for pos in plates:
-    ax[0].axvline(x=pos / mm, c="k", ls="--", lw=2)
+    ax[0].axvline(x=pos / mm, c="k", ls="--", lw=1)
 
 ax[1].plot(s_solve / mm, vy, c="k")
 maxy1, miny1 = ax[1].get_ylim()[0], ax[1].get_ylim()[1]
@@ -197,7 +221,7 @@ ax[1].set_xlabel(r"$s$ [mm]")
 ax[1].fill_between(s_solve[Vsolve > 0] / mm, maxy1, y2=miny1, alpha=0.2, color="b")
 ax[1].fill_between(s_solve[Vsolve < 0] / mm, maxy1, y2=miny1, alpha=0.2, color="r")
 for pos in plates:
-    ax[1].axvline(x=pos / mm, c="k", ls="--", lw=2)
+    ax[1].axvline(x=pos / mm, c="k", ls="--", lw=1)
 
 ax[1].set_ylabel(r"$r_y'(s)$")
 st.pyplot(fig)
