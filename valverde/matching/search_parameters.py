@@ -64,18 +64,60 @@ V1range = np.linspace(0.0, maxBias, Vsteps)
 V2range = np.linspace(-maxBias, 0.0, Vsteps)
 V1, V2 = np.meshgrid(V1range, V2range)
 
+# ===============================================================================
 # Test algorithm for seeking extremum using gradient of cost function. Using the
 # the created meshgrid is too complicated at the moment for troubleshooting. So
 # I'll start by making this in chunks.
+# ===============================================================================
+# Solver Chunk.
 V1 = 0.4 * kV
 V2 = -0.4 * kV
 
 
-def solve_KV(init, s, ksolve, params=param_dict):
+def solve_KV(init, s, ksolve, params=param_dict, ret_hist=False):
+    """Solve KV equation for initial positions.
+
+    Function solves KV envelope equation without acceleartion give as:
+    r_x'' + kappa * r_x - 2Q/(r_x + r_y) - emit^2/r_x^3
+    where the sign of kappa alternates for r_y.
+
+    Paramters
+    ---------
+    init : ndarray
+        Initial positions r_x, r_y, r'_x, r_y'.
+
+    s : ndarray
+        Longitudinal mesh to do the solve on.
+
+    ksolve : ndarray
+        Mesh holding the kappa values for each point in s. Note that this should
+        be the same size as s.
+
+    params : dict
+        Dictionary holding parameters of the system such as perveance 'Q',
+        emittance 'emittance'.
+
+    ret_hist : bool
+        Boolean switch. When set to true, the histories for the solver are
+        returned that way plots can be made.
+
+    Returns
+    -------
+    soln : ndarray
+        Final r_x, r_y, r'_x, and r'_y.
+
+    history: ndarray
+        If ret_hist set to true then this returns a len(s) by 4 matrix holding
+        r_x, r_y, r'_x, r'_y at each point on the mesh.
+        """
+
+    # Initial values and allocate arrays for solver.
     ds = s[1] - s[0]
     soln = init.copy()
-    history = np.zeros((len(s), len(init)))
-    history[0, :] = soln
+    if ret_hist:
+        history = np.zeros((len(s), len(init)))
+        history[0, :] = soln
+
     Q = params["Q"]
     emittance = params["emittance"]
 
@@ -96,12 +138,10 @@ def solve_KV(init, s, ksolve, params=param_dict):
 
         # Update soln
         soln[:] = newux, newuy, newvx, newvy
-        history[n, :] = soln[:]
+        if ret_hist:
+            history[n, :] = soln[:]
 
-    return soln, history
-
-
-# Create hard_edge_kappa
-kappa_array, _ = hard_edge_kappa([V1, V2], s, N=len(s))
-init = np.array([0.5, 0.5, 5, -5]) * mm
-solv, hist = solve_KV(init, s, ksolve=kappa_array)
+    if ret_hist:
+        return soln, history
+    else:
+        return soln
