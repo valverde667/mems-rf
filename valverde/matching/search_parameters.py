@@ -68,14 +68,12 @@ V1range = np.linspace(0.0, maxBias, Vsteps)
 V2range = np.linspace(-maxBias, 0.0, Vsteps)
 V1, V2 = np.meshgrid(V1range, V2range)
 
-# ===============================================================================
-# Test algorithm for seeking extremum using gradient of cost function. Using the
-# the created meshgrid is too complicated at the moment for troubleshooting. So
-# I'll start by making this in chunks.
-# ===============================================================================
-# Solver Chunk.
-V1 = 0.4 * kV
-V2 = -0.4 * kV
+# ==============================================================================
+#     Utility Function
+# Here the functions necessary for the script are defined. These include the
+# the solver function, the cost function for minimizing, and the gradient of
+# the cost function.
+# ==============================================================================
 
 
 def solve_KV(init, s, ksolve, params=param_dict, ret_hist=False):
@@ -113,7 +111,7 @@ def solve_KV(init, s, ksolve, params=param_dict, ret_hist=False):
     history: ndarray
         If ret_hist set to true then this returns a len(s) by 4 matrix holding
         r_x, r_y, r'_x, r'_y at each point on the mesh.
-        """
+    """
 
     # Initial values and allocate arrays for solver.
     ds = s[1] - s[0]
@@ -237,3 +235,10 @@ def gd_cost(init_parms, fin_parms, weights):
     gd_cost = cost_pos + cost_angle
 
     return gd_cost
+
+
+# ==============================================================================
+#     Optimization for single voltage setting.
+# Here the optimization routine is tested for a single voltage setting. This
+# portion acts as a testing arena for solvability and tuning of hyperparamters.
+# ==============================================================================
