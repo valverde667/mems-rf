@@ -145,3 +145,47 @@ def solve_KV(init, s, ksolve, params=param_dict, ret_hist=False):
         return soln, history
     else:
         return soln
+
+
+def cost_func(init_param, fin_params, weights):
+    """Cost function for minimizing.
+
+    Here, the cost function is the root-square differences between the initial
+    paramters and final paramters after solving.
+        C = w1 * (r0 - rf)^2 + w2 * (r'0 - r'f)^2
+    where w1 and w2 are the weights to be used and the cost function is summed
+    over each component r_x and r_y.
+
+    Paramters
+    ---------
+    init_params : ndarray
+        Array holding initial values r_x, r_y, r'_x, r'_y
+
+    fin_params : ndarray
+        Array holding final values from solver.
+
+    weights : ndarray
+        Array holding the weights to be used for the position and angle
+        contributions to the cost.
+
+    Returns
+    -------
+    cost : float
+        The value of the cost function.
+    """
+
+    # Initialize/grab values
+    init_pos = init_params[0:2]
+    fin_pos = fin_params[0:2]
+    init_angle = init_params[-2:]
+    fin_angle = fin_params[-2:]
+
+    w_pos = weights[0]
+    w_angle = weights[1]
+
+    # Evaluate cost function in chunks to minimize error
+    cost_pos = w_pos * np.sqrt((init_pos - fin_pos) ** 2)
+    cost_angle = w_angle * np.sqrt((init_angle - fin_angle) ** 2)
+    cost = cost_pos + cost_angle
+
+    return cost
