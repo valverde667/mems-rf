@@ -18,7 +18,7 @@ kV = 1e3
 mm = 1e-3
 mrad = 1e-3
 
-# Parameters (See fodo streamlit script)
+# Parameters for lattice (See fodo streamlit script)
 d = 9.3 * mm  # Distance between RF gap centers
 g = 2 * mm  # RF gap length
 lq = 0.695 * mm  # ESQ length
@@ -40,6 +40,10 @@ lrng_rate = 0.0001
 Vsteps = 10
 threshold = 0.01  # Cost function most likely wont approach 0 exactly
 
+# Weights used in cost function and gradient. Note, that the weights are
+# squared here as dictated by the function definition below.
+position_weight = pow(1 / maxR, 2)
+position_angle = pow(s[-1] / maxR, 2)
 
 # Sample gradient descent run. Keeping here for future refernce.
 # x = np.linspace(-3, 3, 101)
