@@ -217,7 +217,7 @@ ax[1].plot(s_solve / mm, vy, c="g", label=r"$r_y'$")
 for pos in plates:
     ax[1].axvline(x=pos / mm, c="k", ls="--", lw=1)
 
-maxy1, miny1 = ax[1].get_ylim()[0], ax[1].get_ylim()[1]
+maxy1, miny1 = ax[1].get_ylim()[1], ax[1].get_ylim()[0]
 ax[1].fill_between(s_solve[Vsolve > 0] / mm, maxy1, y2=miny1, alpha=0.2, color="b")
 ax[1].fill_between(s_solve[Vsolve < 0] / mm, maxy1, y2=miny1, alpha=0.2, color="r")
 
