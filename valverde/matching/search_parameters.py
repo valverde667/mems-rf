@@ -242,3 +242,23 @@ def gd_cost(init_parms, fin_parms, weights):
 # Here the optimization routine is tested for a single voltage setting. This
 # portion acts as a testing arena for solvability and tuning of hyperparamters.
 # ==============================================================================
+
+# Initialize hard edge kappa array
+voltages = [0 * kV, 0 * kV]
+inj_energy = param_dict["inj_energy"]
+hard_kappa, __ = hard_edge_kappa(
+    voltage=voltages,
+    pos_array=s,
+    drift=d,
+    gap=g,
+    length_quad=lq,
+    N=len(s),
+    injection_energy=inj_energy,
+    rp=maxR,
+)
+
+# Initial position and angle parameters
+init_rx, init_ry = 0.3 * mm, 0.3 * mm
+init_rpx, init_rpy = 5 * mrad, -5 * mrad
+init = np.array([init_rx, init_ry, init_rpx, init_rpy])
+final_pos = solve_KV(init, s, hard_kappa, ret_hist=True)
