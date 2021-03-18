@@ -44,7 +44,7 @@ threshold = 0.01  # Cost function most likely wont approach 0 exactly
 # Weights used in cost function and gradient. Note, that the weights are
 # squared here as dictated by the function definition below.
 position_weight = pow(1 / maxR, 2)
-position_angle = pow(s[-1] / maxR, 2)
+angle_weight = pow(s[-1] / maxR, 2)
 
 # Sample gradient descent run. Keeping here for future refernce.
 # x = np.linspace(-3, 3, 101)
@@ -150,7 +150,7 @@ def solve_KV(init, s, ksolve, params=param_dict, ret_hist=False):
         return soln
 
 
-def cost_func(init_param, fin_params, weights):
+def cost_func(init_params, fin_params, weights):
     """Cost function for minimizing.
 
     Here, the cost function is the squared differences between the final
@@ -189,12 +189,12 @@ def cost_func(init_param, fin_params, weights):
     # Evaluate cost function in chunks to minimize error
     cost_pos = w_pos * (fin_pos - init_pos) ** 2
     cost_angle = w_angle * (fin_angle - init_angle) ** 2
-    cost = cost_pos + cost_angle
+    cost = np.sum(cost_pos + cost_angle)
 
     return cost
 
 
-def gd_cost(init_parms, fin_parms, weights):
+def gd_cost(init_params, fin_params, weights):
     """Cost function for minimizing.
 
     Here, the cost function is the squared differences between the final
@@ -233,7 +233,7 @@ def gd_cost(init_parms, fin_parms, weights):
     # Evaluate cost function in chunks to minimize error
     gd_cost_pos = 2 * w_pos * (fin_pos - init_pos)
     gd_cost_angle = 2 * w_angle * (fin_angle - init_angle)
-    gd_cost = cost_pos + cost_angle
+    gd_cost = gd_cost_pos + gd_cost_angle
 
     return gd_cost
 
@@ -245,7 +245,7 @@ def gd_cost(init_parms, fin_parms, weights):
 # ==============================================================================
 
 # Initialize hard edge kappa array
-voltages = [0 * kV, 0 * kV]
+voltages = [0.4 * kV, -0.4 * kV]
 inj_energy = param_dict["inj_energy"]
 hard_kappa, __ = hard_edge_kappa(
     voltage=voltages,
@@ -263,3 +263,4 @@ init_rx, init_ry = 0.5 * mm, 0.5 * mm
 init_rpx, init_rpy = 5 * mrad, -5 * mrad
 init = np.array([init_rx, init_ry, init_rpx, init_rpy])
 sol, h = solve_KV(init, s, hard_kappa, ret_hist=True)
+weights = np.array([position_weight, angle_weight])
