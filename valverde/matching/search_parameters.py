@@ -25,7 +25,8 @@ lq = 0.695 * mm  # ESQ length
 space = (d - g - 2 * lq) / 3  # Spacing between ESQs
 Lp = 2 * d  # Lattice period
 Vbrkdwn = 3 * kV / mm
-s = np.linspace(0, Lp, 500)
+N = 10
+s = np.linspace(0, Lp, N + 1)
 ds = s[1] - s[0]
 param_dict = params.main()
 
@@ -258,7 +259,7 @@ hard_kappa, __ = hard_edge_kappa(
 )
 
 # Initial position and angle parameters
-init_rx, init_ry = 0.3 * mm, 0.3 * mm
+init_rx, init_ry = 0.5 * mm, 0.5 * mm
 init_rpx, init_rpy = 5 * mrad, -5 * mrad
 init = np.array([init_rx, init_ry, init_rpx, init_rpy])
-final_pos = solve_KV(init, s, hard_kappa, ret_hist=True)
+sol, h = solve_KV(init, s, hard_kappa, ret_hist=True)
