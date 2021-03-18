@@ -225,3 +225,13 @@ ax[1].set_ylabel(r"$r_x', \, r_y'$ [rad]")
 ax[1].set_xlabel("s [mm]")
 ax[1].legend()
 st.pyplot(fig)
+
+st.header("Final Position/Angle")
+st.text(
+    "Final Positions (r_x, r_y) [mm]: ({:.3f}, {:.3f})".format(ux[-1] / mm, uy[-1] / mm)
+)
+st.text(
+    "Final Angles (r'_x, r'_y) [mrad]: ({:.3f}, {:.3f})".format(
+        vx[-1] / mrad, vy[-1] / mrad
+    )
+)
