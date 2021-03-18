@@ -31,7 +31,7 @@ N = st.sidebar.number_input(
     "N points to Solve ",
     min_value=0,
     max_value=int(1e6),
-    value=500,
+    value=10,
     step=500,
     format="%.2e",
 )
@@ -109,12 +109,10 @@ vy_initial = st.sidebar.number_input(
 d = 9.3 * mm
 g = 2 * mm
 lq = 0.695 * mm
-N = 500
 L = 2 * d
 space = (d - g - 2 * lq) / 3  # Spacing between ESQs
-ds = L / N
-s = np.linspace(0, L, N)
-
+s = np.linspace(0, L, N + 1)
+ds = s[1] - s[0]
 # Create arrays for KV equation
 karray, Varray = hard_edge_kappa([V1, V2], s)
 
