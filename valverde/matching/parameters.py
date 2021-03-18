@@ -138,6 +138,7 @@ def main():
     param_dict = {
         "species": species,
         "mass": Ar_mass,
+        "aperture_rad": 0.55 * mm,
         "inj_energy": inj_energy,
         "inj_current": inj_current,
         "inj_radius": inj_radius,
