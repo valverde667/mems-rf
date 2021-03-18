@@ -31,7 +31,7 @@ N = st.sidebar.number_input(
     "N points to Solve ",
     min_value=0,
     max_value=int(1e6),
-    value=10,
+    value=2000,
     step=500,
     format="%.2e",
 )
