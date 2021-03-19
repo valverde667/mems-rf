@@ -86,16 +86,16 @@ uy_initial = st.sidebar.number_input(
 
 vx_initial = st.sidebar.number_input(
     "x-angle Injection [rad]",
-    min_value=0.0 * mm,
-    max_value=7 * mrad,
+    min_value=-30 * mm,
+    max_value=30 * mrad,
     value=5 * mrad,
     step=1.0 * mrad,
     format="%.3e",
 )
 vy_initial = st.sidebar.number_input(
     "y-angle Injection [rad]",
-    min_value=-7 * mrad,
-    max_value=0.0 * mrad,
+    min_value=-30 * mrad,
+    max_value=30 * mrad,
     value=-5 * mrad,
     step=1.0 * mrad,
     format="%.3e",
