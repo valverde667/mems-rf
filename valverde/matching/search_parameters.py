@@ -221,20 +221,8 @@ def gd_cost(init_params, fin_params, weights):
         The value of the gradient of the cost function.
     """
 
-    # Initialize/grab values
-    init_pos = init_params[0:2]
-    fin_pos = fin_params[0:2]
-    init_angle = init_params[-2:]
-    fin_angle = fin_params[-2:]
-
-    w_pos = weights[0]
-    w_angle = weights[1]
-
     # Evaluate cost function in chunks to minimize error
-    gd_cost_pos = 2 * w_pos * (fin_pos - init_pos)
-    gd_cost_angle = 2 * w_angle * (fin_angle - init_angle)
-    gd_cost = gd_cost_pos + gd_cost_angle
-
+    gd_cost = 2 * weights * abs((fin_params - init_params))
     return gd_cost
 
 
@@ -262,5 +250,10 @@ hard_kappa, __ = hard_edge_kappa(
 init_rx, init_ry = 0.5 * mm, 0.5 * mm
 init_rpx, init_rpy = 5 * mrad, -5 * mrad
 init = np.array([init_rx, init_ry, init_rpx, init_rpy])
-sol, h = solve_KV(init, s, hard_kappa, ret_hist=True)
-weights = np.array([position_weight, angle_weight])
+weight_list = np.array([position_weight, position_weight, angle_weight, angle_weight])
+lrn_rate = 0.0001
+Niter = 100
+for i in range(Niter - 1):
+    sol = solve_KV(init, s, hard_kappa)
+    dsol = gd_cost(init, sol, weights=weight_list)
+    init -= lrn_rate * dsol
