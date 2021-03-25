@@ -155,7 +155,7 @@ def cost_func(init_params, fin_params, weights):
     # Evaluate cost function in chunks to minimize error
     cost = weights * (fin_params - init_params) ** 2
 
-    return np.sum(cost)
+    return np.sum(cost, axis=1)
 
 
 def OneD_gd_cost(init_params, fin_params, weights):
