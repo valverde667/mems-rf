@@ -33,6 +33,7 @@ N = 2000
 s = np.linspace(0, Lp, N + 1)
 ds = s[1] - s[0]
 param_dict = params.main()
+inj_energy = param_dict["inj_energy"]
 
 # Max settings
 maxBias = Vbrkdwn * space
@@ -194,37 +195,76 @@ def OneD_gd_cost(init_params, fin_params, weights):
 # portion acts as a testing arena for solvability and tuning of hyperparamters.
 # ==============================================================================
 
-# Initialize hard edge kappa array
-voltages = [0.4 * kV, -0.4 * kV]
-inj_energy = param_dict["inj_energy"]
-hard_kappa, __ = hard_edge_kappa(
-    voltage=voltages,
-    pos_array=s,
-    drift=d,
-    gap=g,
-    length_quad=lq,
-    N=len(s),
-    injection_energy=inj_energy,
-    rp=maxR,
-)
+do_one_setting = False
+if do_one_setting:
+    # Initialize hard edge kappa array
+    voltages = [0.4 * kV, -0.4 * kV]
+    inj_energy = param_dict["inj_energy"]
+    hard_kappa, __ = hard_edge_kappa(
+        voltage=voltages,
+        pos_array=s,
+        drift=d,
+        gap=g,
+        length_quad=lq,
+        N=len(s),
+        injection_energy=inj_energy,
+        rp=maxR,
+    )
 
-# Initial position and angle parameters
-init_rx = 0.5 * mm
-init_rpx = 5 * mrad
-init = np.array([init_rx, init_rpx])
+    # Initial position and angle parameters
+    init_rx = 0.5 * mm
+    init_rpx = 5 * mrad
+    init = np.array([init_rx, init_rpx])
 
-position_weight, angle_weight = 1, 1
-weights = np.array([position_weight, angle_weight])
-lrn_rate = 10 ** -3
-epochs = 2000
-params = init.copy()
-param_traj = np.zeros([epochs + 1, len(params)])
+    position_weight, angle_weight = 1, 1
+    weights = np.array([position_weight, angle_weight])
+    lrn_rate = 10 ** -3
+    epochs = 2000
+    params = init.copy()
+    param_traj = np.zeros([epochs + 1, len(params)])
 
-for i in range(epochs):
-    sol = OneD_solve_KV(init, s, hard_kappa)
-    dW = OneD_gd_cost(init, sol, weights=weights)
-    params = params - lrn_rate * dW
-    param_traj[i, :] = params
+    for i in range(epochs):
+        sol = OneD_solve_KV(init, s, hard_kappa)
+        dW = OneD_gd_cost(init, sol, weights=weights)
+        params = params - lrn_rate * dW
+        param_traj[i, :] = params
+
+
+# ==============================================================================
+#     Optimization for grid of voltage settings
+# Create a meshgrid of voltage settings and then perform gradient descent on each
+# setting all at once. This will require running the solver and gradient loop
+# MxM times where M is the number of voltage settings. Care should be taken in
+# this part to do it right.
+# ==============================================================================
+V1 = np.linspace(0.1, 0.4, 2)
+V2 = -V1.copy()
+Vgrid = np.array(np.meshgrid(V1, V2))
+Vsets = Vgrid.T.reshape(-1, 2)
+# Identify interval for +/- ESQ according to position. The first chunk
+# represents the drift region between two stacks and is not field free. The
+# second chunk is the field free region and has the ESQs.
+chnk1 = d
+esq1_lowbnd = chnk1 + g / 2 + space
+esq1_highbnd = esq1_lowbnd + lq
+
+esq2_lowbnd = esq1_highbnd + space
+esq2_highbnd = esq2_lowbnd + lq
+
+# Find indices that correspond to the ESQs
+splus = np.where((s >= esq1_lowbnd) & (s <= esq1_highbnd))[0]
+sminus = np.where((s >= esq2_lowbnd) & (s <= esq2_highbnd))[0]
+
+kappa_array = np.zeros([Vsets.shape[0], len(s)])
+voltage_array = kappa_array.copy()
+
+V1_array = Vsets[:, 0]
+V2_array = Vsets[:, 1]
+
+voltage_array[:, splus] = V1_array[:, np.newaxis]
+voltage_array[:, sminus] = V2_array[:, np.newaxis]
+
+kappa_array = voltage_array / inj_energy / maxR / maxR
 
 # ==============================================================================
 #     Optimization on Beales
