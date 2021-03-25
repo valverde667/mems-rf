@@ -103,18 +103,19 @@ def OneD_solve_KV(init, s, ksolve, params=param_dict, ret_hist=False):
 
     for n in range(1, len(s)):
         # Grab values from soln array
-        ux, vx = soln[0], soln[1]
+        ux, vx = soln[:, 0], soln[:, 1]
 
         # Evalue terms in update equation
         term = 2 * Q / ux
-        term1x = pow(emittance, 2) / pow(ux, 3) - ksolve[n - 1] * ux
+        term1x = pow(emittance, 2) / pow(ux, 3) - ksolve[:, n - 1] * ux
 
         # Evaluate updated u and v
         newvx = (term + term1x) * ds + vx
         newux = newvx * ds + ux
 
         # Update soln
-        soln[:] = newux, newvx
+        soln[:, 0] = newux
+        soln[:, 1] = newvx
         if ret_hist:
             history[n, :] = soln[:]
 
@@ -266,6 +267,19 @@ voltage_array[:, sminus] = V2_array[:, np.newaxis]
 
 kappa_array = voltage_array / inj_energy / maxR / maxR
 
+# Create initial position and angles. Use preset x=.5mm and x' = 5 mrad for all
+# values and optimize all at once.
+init = np.ones(shape=(kappa_array.shape[0], 2))
+init[:, :] = 0.5 * mm, 5 * mrad
+
+# Perform gradient descent using the above routine.
+position_weight, angle_weight = 1, 1
+weights = np.array([position_weight, angle_weight])
+lrn_rate = 10 ** -3
+epochs = 2000
+params = init.copy()
+
+dddd
 # ==============================================================================
 #     Optimization on Beales
 # A simple gradient descent on Beales function.
