@@ -276,10 +276,14 @@ init[:, :] = 0.5 * mm, 5 * mrad
 position_weight, angle_weight = 1, 1
 weights = np.array([position_weight, angle_weight])
 lrn_rate = 10 ** -3
-epochs = 2000
+epochs = 200
 params = init.copy()
 
-dddd
+for i in range(epochs):
+    sol = OneD_solve_KV(init, s, kappa_array)
+    dW = OneD_gd_cost(init, sol, weights=weights)
+    params = params - lrn_rate * dW
+
 # ==============================================================================
 #     Optimization on Beales
 # A simple gradient descent on Beales function.
