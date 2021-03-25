@@ -38,9 +38,9 @@ N = st.sidebar.number_input(
 Q = st.sidebar.number_input(
     "Q perveance ",
     min_value=0.0,
-    max_value=1e-3,
+    max_value=500.0,
     value=param_dict["Q"],
-    step=4.95e-6,
+    step=0.1e-3,
     format="%.4e",
 )
 emittance = st.sidebar.number_input(
@@ -128,6 +128,9 @@ shift = st.sidebar.number_input(
 )
 start = d - shift * ds
 
+# Define some max values
+maxR = param_dict["aperture_rad"]
+maxDR = maxR / L
 # Find index for shifted start and reorient arrays
 start_index = np.where(s >= start)[0][0]
 s_solve = s.copy()[start_index:]
@@ -197,6 +200,7 @@ fig, ax = plt.subplots(nrows=2, sharex=True)
 ax[0].set_ylim(bottom=0)
 ax[0].plot(s_solve / mm, ux / mm, c="b", label=r"$r_x$")
 ax[0].plot(s_solve / mm, uy / mm, c="g", label=r"$r_y$")
+ax[0].axhline(y=maxR / mm, c="r", lw=1, ls="--", label=r"max $r$")
 # Outline Plates
 for pos in plates:
     ax[0].axvline(x=pos / mm, c="k", ls="--", lw=1)
@@ -207,11 +211,12 @@ ax[0].fill_between(s_solve[Vsolve > 0] / mm, maxy0, y2=miny0, alpha=0.2, color="
 ax[0].fill_between(s_solve[Vsolve < 0] / mm, maxy0, y2=miny0, alpha=0.2, color="r")
 
 ax[0].set_ylabel(r"$r_x, r_y$ [mm]")
-ax[0].legend()
+ax[0].legend(fontsize="small")
 
 # Plot vx and vy
 ax[1].plot(s_solve / mm, vx, c="b", label=r"$r_x'$")
 ax[1].plot(s_solve / mm, vy, c="g", label=r"$r_y'$")
+ax[1].axhline(y=maxDR, c="r", lw=1, ls="--", label=r"max $r'$")
 for pos in plates:
     ax[1].axvline(x=pos / mm, c="k", ls="--", lw=1)
 
@@ -221,7 +226,7 @@ ax[1].fill_between(s_solve[Vsolve < 0] / mm, maxy1, y2=miny1, alpha=0.2, color="
 
 ax[1].set_ylabel(r"$r_x', \, r_y'$ [rad]")
 ax[1].set_xlabel("s [mm]")
-ax[1].legend()
+ax[1].legend(fontsize="small")
 st.pyplot(fig)
 
 st.header("Final Position/Angle")
