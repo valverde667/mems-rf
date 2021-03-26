@@ -238,8 +238,8 @@ if do_one_setting:
 # MxM times where M is the number of voltage settings. Care should be taken in
 # this part to do it right.
 # ==============================================================================
-V1 = np.linspace(0.1, 0.4, 2)
-V2 = -V1.copy()
+V1 = np.linspace(0.1, 0.4, 10) * kV
+V2 = np.linspace(-0.4, -0.1, 10) * kV
 Vgrid = np.array(np.meshgrid(V1, V2))
 Vsets = Vgrid.T.reshape(-1, 2)
 # Identify interval for +/- ESQ according to position. The first chunk
@@ -275,14 +275,31 @@ init[:, :] = 0.5 * mm, 5 * mrad
 # Perform gradient descent using the above routine.
 position_weight, angle_weight = 1, 1
 weights = np.array([position_weight, angle_weight])
-lrn_rate = 10 ** -3
-epochs = 200
+lrn_rate = 10 ** -2
+epochs = 5
 params = init.copy()
-
 for i in range(epochs):
-    sol = OneD_solve_KV(init, s, kappa_array)
-    dW = OneD_gd_cost(init, sol, weights=weights)
+    sol = OneD_solve_KV(params, s, kappa_array)
+    dW = OneD_gd_cost(params, sol, weights=weights)
     params = params - lrn_rate * dW
+
+lrn_rate = 10 ** -3
+for i in range(epochs):
+    sol = OneD_solve_KV(params, s, kappa_array)
+    dW = OneD_gd_cost(params, sol, weights=weights)
+    params = params - lrn_rate * dW
+
+costs = cost_func(init, params, weights)
+costs = costs / max(costs)
+cost_grid = costs.reshape(len(V1), len(V2))
+
+# Create contour plot
+fig, ax = plt.subplots()
+cont = ax.contourf(Vgrid[1] / kV, Vgrid[0] / kV, cost_grid)
+ax.set_xlabel(r"$V_2$ [kV]")
+ax.set_ylabel(r"$V_1$ [kV]")
+fig.colorbar(cont)
+plt.show()
 
 # ==============================================================================
 #     Optimization on Beales
