@@ -238,8 +238,8 @@ if do_one_setting:
 # MxM times where M is the number of voltage settings. Care should be taken in
 # this part to do it right.
 # ==============================================================================
-V1 = np.linspace(0.1, 0.4, 10) * kV
-V2 = np.linspace(-0.4, -0.1, 10) * kV
+V1 = np.linspace(0.1, 0.4, 100) * kV
+V2 = np.linspace(-0.4, -0.1, 100) * kV
 Vgrid = np.array(np.meshgrid(V1, V2))
 Vsets = Vgrid.T.reshape(-1, 2)
 # Identify interval for +/- ESQ according to position. The first chunk
@@ -289,16 +289,26 @@ for i in range(epochs):
     dW = OneD_gd_cost(params, sol, weights=weights)
     params = params - lrn_rate * dW
 
+lrn_rate = 10 ** -4
+for i in range(int(epochs * 3)):
+    sol = OneD_solve_KV(params, s, kappa_array)
+    dW = OneD_gd_cost(params, sol, weights=weights)
+    params = params - lrn_rate * dW
+
 costs = cost_func(init, params, weights)
 costs = costs / max(costs)
-cost_grid = costs.reshape(len(V1), len(V2))
-
+cost_grid = costs.reshape(len(V1), len(V2)).T
+np.save("cost_array", costs)
+np.save("param_array", params)
+np.save("voltage_settings", Vsets)
 # Create contour plot
 fig, ax = plt.subplots()
-cont = ax.contourf(Vgrid[1] / kV, Vgrid[0] / kV, cost_grid)
+cont = ax.contourf(Vgrid[1] / kV, Vgrid[0] / kV, cost_grid, levels=30)
 ax.set_xlabel(r"$V_2$ [kV]")
 ax.set_ylabel(r"$V_1$ [kV]")
 fig.colorbar(cont)
+plt.savefig("costcontour.pdf", dpi=400)
+
 plt.show()
 
 # ==============================================================================
