@@ -34,7 +34,6 @@ s = np.linspace(0, Lp, N + 1)
 ds = s[1] - s[0]
 param_dict = params.main()
 inj_energy = param_dict["inj_energy"]
-
 # Max settings
 maxBias = Vbrkdwn * space
 maxR = 0.55 * mm
@@ -130,7 +129,7 @@ def cost_func(init_params, fin_params, weights):
 
     Here, the cost function is the squared differences between the final
     paramters and initial paramters after solving.
-        C = w1 * (rf - r0)^2 + w2 * (r'f - r'0)^2
+        C = w1 * (r_0 - rf)^2 + w2 * (r'_0 - r'_f)^2
     where w1 and w2 are the weights to be used and the cost function is summed
     over each component r_x.
 
@@ -153,7 +152,7 @@ def cost_func(init_params, fin_params, weights):
     """
 
     # Evaluate cost function in chunks to minimize error
-    cost = weights * (fin_params - init_params) ** 2
+    cost = weights * (init_params - fin_params) ** 2
 
     return np.sum(cost, axis=1)
 
@@ -163,7 +162,7 @@ def OneD_gd_cost(init_params, fin_params, weights):
 
     Here, the cost function is the squared differences between the final
     paramters and initial paramters after solving.
-        C = w1 * (rf - r0)^2 + w2 * (r'f - r'0)^2
+        C = 2w1 * (r_0 - rf) + 2w2 * (r'_0 - r'_f)
     where w1 and w2 are the weights to be used and the cost function is summed
     over each component r_x and r_y.
 
@@ -186,7 +185,7 @@ def OneD_gd_cost(init_params, fin_params, weights):
     """
 
     # Evaluate cost function in chunks to minimize error
-    gd_cost = 2 * weights * abs((fin_params - init_params))
+    gd_cost = 2 * weights * (init_params - fin_params)
     return gd_cost
 
 
@@ -266,7 +265,6 @@ voltage_array[:, splus] = V1_array[:, np.newaxis]
 voltage_array[:, sminus] = V2_array[:, np.newaxis]
 
 kappa_array = voltage_array / inj_energy / maxR / maxR
-
 # Create initial position and angles. Use preset x=.5mm and x' = 5 mrad for all
 # values and optimize all at once.
 init = np.ones(shape=(kappa_array.shape[0], 2))
