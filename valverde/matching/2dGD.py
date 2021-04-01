@@ -277,23 +277,23 @@ init = np.ones(shape=(kappa_array.shape[0], 4))
 init[:, :] = 0.5 * mm, 0.5 * mm, 5 * mrad, -5 * mrad
 
 # Perform gradient descent using the above routine.
-position_weight, angle_weight = 1, 1
+position_weight, angle_weight = maxR, maxDR
 weights = np.array([position_weight, position_weight, angle_weight, angle_weight])
-lrn_rate = 10 ** -2
-epochs = 3
+lrn_rate = 10 ** 0
+epochs = 5
 params = init.copy()
 for i in range(epochs):
     sol = OneD_solve_KV(params, s, kappa_array)
     dW = OneD_gd_cost(params, sol, weights=weights)
     params = params - lrn_rate * dW
 
-lrn_rate = 10 ** -3
+lrn_rate = 10 ** -1
 for i in range(epochs):
     sol = OneD_solve_KV(params, s, kappa_array)
     dW = OneD_gd_cost(params, sol, weights=weights)
     params = params - lrn_rate * dW
 
-lrn_rate = 10 ** -4
+lrn_rate = 10 ** -2
 for i in range(int(epochs * 3)):
     sol = OneD_solve_KV(params, s, kappa_array)
     dW = OneD_gd_cost(params, sol, weights=weights)
