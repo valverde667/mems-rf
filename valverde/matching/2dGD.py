@@ -274,26 +274,28 @@ kappa_array = voltage_array / inj_energy / maxR / maxR
 # Create initial position and angles. Use preset x=.5mm and x' = 5 mrad for all
 # values and optimize all at once.
 init = np.ones(shape=(kappa_array.shape[0], 4))
+# init = np.random.random((kappa_array.shape[0], 4))
 init[:, :] = 0.5 * mm, 0.5 * mm, 5 * mrad, -5 * mrad
 
 # Perform gradient descent using the above routine.
-position_weight, angle_weight = maxR, maxDR
+scale_fact = 5.84
+position_weight = scale_fact * maxDR
+angle_weight = maxDR
 weights = np.array([position_weight, position_weight, angle_weight, angle_weight])
-lrn_rate = 10 ** 0
-epochs = 5
+lrn_rate = 10 ** -1
+epochs = 2
 params = init.copy()
 for i in range(epochs):
     sol = OneD_solve_KV(params, s, kappa_array)
     dW = OneD_gd_cost(params, sol, weights=weights)
     params = params - lrn_rate * dW
-
-lrn_rate = 10 ** -1
-for i in range(epochs):
+lrn_rate = 10 ** -2
+for i in range(int(epochs * 3)):
     sol = OneD_solve_KV(params, s, kappa_array)
     dW = OneD_gd_cost(params, sol, weights=weights)
     params = params - lrn_rate * dW
 
-lrn_rate = 10 ** -2
+lrn_rate = 10 ** -4
 for i in range(int(epochs * 3)):
     sol = OneD_solve_KV(params, s, kappa_array)
     dW = OneD_gd_cost(params, sol, weights=weights)
