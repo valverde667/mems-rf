@@ -195,6 +195,20 @@ def OneD_gd_cost(init_params, fin_params, weights):
     return gd_cost
 
 
+def gradient_descent(
+    params, s, kappa_array, weights=[1, 1, 1, 1], lrn_rate=1.0, epochs=1
+):
+    """Function to perform gradient descent and update parameters."""
+
+    # Run descent for number of epochs and update parameters
+    for iter in range(epochs):
+        kv_soln = OneD_solve_KV(params, s, kappa_array)
+        dW = OneD_gd_cost(params, kv_soln, weights)
+        params = params - lrn_rate * dW
+
+    return params
+
+
 # ==============================================================================
 #     Optimization for single voltage setting.
 # Here the optimization routine is tested for a single voltage setting. This
@@ -282,26 +296,25 @@ scale_fact = 5.84
 position_weight = scale_fact * maxDR
 angle_weight = maxDR
 weights = np.array([position_weight, position_weight, angle_weight, angle_weight])
+params = init.copy()
+
 lrn_rate = 10 ** -1
 epochs = 2
-params = init.copy()
-for i in range(epochs):
-    sol = OneD_solve_KV(params, s, kappa_array)
-    dW = OneD_gd_cost(params, sol, weights=weights)
-    params = params - lrn_rate * dW
+params = gradient_descent(
+    params, s, kappa_array, weights=weights, lrn_rate=lrn_rate, epochs=epochs
+)
+
 lrn_rate = 10 ** -2
 epochs = 20
-for i in range(int(epochs * 3)):
-    sol = OneD_solve_KV(params, s, kappa_array)
-    dW = OneD_gd_cost(params, sol, weights=weights)
-    params = params - lrn_rate * dW
+params = gradient_descent(
+    params, s, kappa_array, weights=weights, lrn_rate=lrn_rate, epochs=epochs
+)
 
 lrn_rate = 10 ** -4
 epochs = 100
-for i in range(int(epochs * 3)):
-    sol = OneD_solve_KV(params, s, kappa_array)
-    dW = OneD_gd_cost(params, sol, weights=weights)
-    params = params - lrn_rate * dW
+params = gradient_descent(
+    params, s, kappa_array, weights=weights, lrn_rate=lrn_rate, epochs=epochs
+)
 
 costs = cost_func(init, params, weights)
 costs = costs / max(costs)
