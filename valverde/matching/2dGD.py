@@ -243,8 +243,8 @@ if do_one_setting:
 # MxM times where M is the number of voltage settings. Care should be taken in
 # this part to do it right.
 # ==============================================================================
-V1 = np.linspace(-0.4, 0.4, 100) * kV
-V2 = np.linspace(-0.4, 0.4, 100) * kV
+V1 = np.linspace(-0.4, 0.4, 75) * kV
+V2 = np.linspace(-0.4, 0.4, 75) * kV
 Vgrid = np.array(np.meshgrid(V1, V2))
 Vsets = Vgrid.T.reshape(-1, 2)
 # Identify interval for +/- ESQ according to position. The first chunk
@@ -290,12 +290,14 @@ for i in range(epochs):
     dW = OneD_gd_cost(params, sol, weights=weights)
     params = params - lrn_rate * dW
 lrn_rate = 10 ** -2
+epochs = 20
 for i in range(int(epochs * 3)):
     sol = OneD_solve_KV(params, s, kappa_array)
     dW = OneD_gd_cost(params, sol, weights=weights)
     params = params - lrn_rate * dW
 
 lrn_rate = 10 ** -4
+epochs = 100
 for i in range(int(epochs * 3)):
     sol = OneD_solve_KV(params, s, kappa_array)
     dW = OneD_gd_cost(params, sol, weights=weights)
@@ -303,13 +305,25 @@ for i in range(int(epochs * 3)):
 
 costs = cost_func(init, params, weights)
 costs = costs / max(costs)
+
+# Find constraints and set normed cost equal to 1
+mask_rx = params[:, 0] >= maxR
+mask_ry = params[:, 1] >= maxR
+mask_r = mask_rx | mask_ry
+costs[mask_r] = 1
+
+mask_rxp = (params[:, 2] >= maxDR) | (params[:, 2] <= -maxDR)
+mask_ryp = (params[:, 3] >= maxDR) | (params[:, 3] <= -maxDR)
+mask_rp = mask_rxp | mask_ryp
+costs[mask_rp] = 1
+
 cost_grid = costs.reshape(len(V1), len(V2)).T
 np.save("cost_array", costs)
 np.save("param_array", params)
 np.save("voltage_settings", Vsets)
 # Create contour plot
 fig, ax = plt.subplots()
-cont = ax.contourf(Vgrid[1] / kV, Vgrid[0] / kV, cost_grid, levels=50)
+cont = ax.contourf(Vgrid[1] / kV, Vgrid[0] / kV, cost_grid, levels=30)
 ax.set_xlabel(r"$V_2$ [kV]")
 ax.set_ylabel(r"$V_1$ [kV]")
 fig.colorbar(cont)
