@@ -47,13 +47,11 @@ threshold = 0.01  # Cost function most likely wont approach 0 exactly
 
 
 # ==============================================================================
-#     Utility Function
+#     Utility Functions
 # Here the functions necessary for the script are defined. These include the
 # the solver function, the cost function for minimizing, and the gradient of
 # the cost function.
 # ==============================================================================
-
-
 def OneD_solve_KV(init, s, ksolve, params=param_dict, ret_hist=False):
     """Solve KV equation for initial positions.
 
@@ -214,7 +212,6 @@ def gradient_descent(
 # Here the optimization routine is tested for a single voltage setting. This
 # portion acts as a testing arena for solvability and tuning of hyperparamters.
 # ==============================================================================
-
 do_one_setting = False
 if do_one_setting:
     # Initialize hard edge kappa array
@@ -251,11 +248,11 @@ if do_one_setting:
 
 
 # ==============================================================================
-#     Optimization for grid of voltage settings
-# Create a meshgrid of voltage settings and then perform gradient descent on each
-# setting all at once. This will require running the solver and gradient loop
-# MxM times where M is the number of voltage settings. Care should be taken in
-# this part to do it right.
+#     Create grid of voltage settings
+# The voltages will be creating by using the meshgrid routine in numpy. From
+# here, for each voltage setting there is a corresponding kappa array that
+# must be created. This will give a matrix where each row represents an array
+# of kappa values corresponding to the voltage settings.
 # ==============================================================================
 V1 = np.linspace(-0.4, 0.4, 75) * kV
 V2 = np.linspace(-0.4, 0.4, 75) * kV
@@ -285,6 +282,16 @@ voltage_array[:, splus] = V1_array[:, np.newaxis]
 voltage_array[:, sminus] = V2_array[:, np.newaxis]
 
 kappa_array = voltage_array / inj_energy / maxR / maxR
+
+# ==============================================================================
+#     Gradient descent section
+# Here, the initial arrays are generated for the routine. Each array will
+# simultaneously optimized. This is done by collecting all initializations into
+# a matrix and then performing the solver.
+## Todo
+#    - Put constraints in GD updates to reduce computational cost.
+#    - Perform detailed analysis on hyperparameters (lrn_rate, gradients, etc.)
+# ==============================================================================
 # Create initial position and angles. Use preset x=.5mm and x' = 5 mrad for all
 # values and optimize all at once.
 init = np.ones(shape=(kappa_array.shape[0], 4))
