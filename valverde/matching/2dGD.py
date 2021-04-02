@@ -39,13 +39,6 @@ maxBias = Vbrkdwn * space
 maxR = 0.55 * mm
 maxDR = maxR / Lp
 
-# Hyperparameter settings
-Niter = 1000
-lrng_rate = 0.0001
-Vsteps = 10
-threshold = 0.01  # Cost function most likely wont approach 0 exactly
-
-
 # ==============================================================================
 #     Utility Functions
 # Here the functions necessary for the script are defined. These include the
