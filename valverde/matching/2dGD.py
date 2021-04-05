@@ -187,12 +187,19 @@ def OneD_gd_cost(init_params, fin_params, weights):
 
 
 def gradient_descent(
-    params, s, kappa_array, weights=[1, 1, 1, 1], lrn_rate=1.0, epochs=1
+    params, s, kappa_array, weights=[1, 1, 1, 1], lrn_rate=1.0, epochs=1, verbose=True
 ):
     """Function to perform gradient descent and update parameters."""
 
     # Run descent for number of epochs and update parameters
+    if verbose:
+        print("--Epochs: {}".format(epochs))
+        print("--Learning Rate: {}".format(lrn_rate))
+
     for iter in range(epochs):
+        if iter % 50 == 0:
+            if verbose:
+                print("--Epoch {}".format(iter, epochs))
         kv_soln = OneD_solve_KV(params, s, kappa_array)
         dW = OneD_gd_cost(params, kv_soln, weights)
         params = params - lrn_rate * dW
@@ -247,8 +254,8 @@ if do_one_setting:
 # must be created. This will give a matrix where each row represents an array
 # of kappa values corresponding to the voltage settings.
 # ==============================================================================
-V1 = np.linspace(-0.4, 0.4, 75) * kV
-V2 = np.linspace(-0.4, 0.4, 75) * kV
+V1 = np.linspace(0.0, 0.350, 20) * kV
+V2 = np.linspace(-0.350, 0.0, 20) * kV
 Vgrid = np.array(np.meshgrid(V1, V2))
 Vsets = Vgrid.T.reshape(-1, 2)
 # Identify interval for +/- ESQ according to position. The first chunk
@@ -303,15 +310,14 @@ epochs = 2
 params = gradient_descent(
     params, s, kappa_array, weights=weights, lrn_rate=lrn_rate, epochs=epochs
 )
-
 lrn_rate = 10 ** -2
-epochs = 20
+epochs = 2
 params = gradient_descent(
     params, s, kappa_array, weights=weights, lrn_rate=lrn_rate, epochs=epochs
 )
 
-lrn_rate = 10 ** -4
-epochs = 100
+lrn_rate = 10 ** -3
+epochs = 2
 params = gradient_descent(
     params, s, kappa_array, weights=weights, lrn_rate=lrn_rate, epochs=epochs
 )
