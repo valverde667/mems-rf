@@ -208,44 +208,84 @@ def gradient_descent(
 
 
 # ==============================================================================
-#     Optimization for single voltage setting.
-# Here the optimization routine is tested for a single voltage setting. This
-# portion acts as a testing arena for solvability and tuning of hyperparamters.
+#     Simplified one volt setting
+# This section sets up the routine for one voltage setting. This is primarily
+# used for testing the current setups to see if solutions are found. The
+# voltage and input settings are from hand-tuned solutions using the streamlit
+# script.
 # ==============================================================================
-do_one_setting = False
-if do_one_setting:
-    # Initialize hard edge kappa array
-    voltages = [0.4 * kV, -0.4 * kV]
-    inj_energy = param_dict["inj_energy"]
-    hard_kappa, __ = hard_edge_kappa(
-        voltage=voltages,
-        pos_array=s,
-        drift=d,
-        gap=g,
-        length_quad=lq,
-        N=len(s),
-        injection_energy=inj_energy,
-        rp=maxR,
+V1 = 0.210 * kV
+V2 = -0.230 * kV
+chnk1 = d
+esq1_lowbnd = chnk1 + g / 2 + space
+esq1_highbnd = esq1_lowbnd + lq
+
+esq2_lowbnd = esq1_highbnd + space
+esq2_highbnd = esq2_lowbnd + lq
+
+# Find indices that correspond to the ESQs
+splus = np.where((s >= esq1_lowbnd) & (s <= esq1_highbnd))[0]
+sminus = np.where((s >= esq2_lowbnd) & (s <= esq2_highbnd))[0]
+
+kappa_array = np.zeros(len(s))
+voltage_array = kappa_array.copy()
+voltage_array[splus] = V1
+voltage_array[sminus] = V2
+kappa_array = voltage_array / inj_energy / maxR / maxR
+
+# Create initial position and angles. Use preset x=.5mm and x' = 5 mrad =
+init = np.ones(4)
+init[:] = 0.5 * mm, 0.5 * mm, 5 * mrad, -5 * mrad
+
+# Arrays must be in the shape (MxN) in order to work with the solver functions.
+# This is remedied by adding a new row-axis. The row axis represents the differnt
+# settings where here there is one.
+kappa_array = kappa_array[np.newaxis, :]
+voltage_array = voltage_array[np.newaxis, :]
+init = init[np.newaxis, :]
+
+# Create weights and use scale factor to scale the position weight so that the
+# gradients are of same magnitude.
+scale_fact = 200
+position_weight = scale_fact * maxDR
+angle_weight = maxDR
+weights = np.array([position_weight, position_weight, angle_weight, angle_weight])
+params = init.copy()
+
+# Set hyperparameters for gradient descent. Learning rate affects the magnitude
+# of the gradient. Epochs sets how man steps to take
+lrn_rate = 10 ** -2
+epochs = 100
+cost_tol = 1e-6
+param_hist = np.zeros(shape=(epochs + 1, 4))
+param_hist[0, :] = init
+cost_hist = np.zeros(epochs)
+rhist = np.zeros(epochs)
+
+for iter in range(epochs):
+    if iter % 50 == 0:
+        print("--Epoch {}".format(iter))
+    sol = gradient_descent(
+        params,
+        s,
+        kappa_array,
+        weights=weights,
+        lrn_rate=lrn_rate,
+        epochs=1,
+        verbose=False,
     )
+    this_cost = cost_func(params, sol, weights)[0]
+    excursion = np.sum(np.sqrt(sol[0, :2] ** 2))
+    cost_hist[iter] = this_cost
+    rhist[iter] = excursion
+    param_hist[iter + 1, :] = sol
 
-    # Initial position and angle parameters
-    init_rx = 0.5 * mm
-    init_rpx = 5 * mrad
-    init = np.array([init_rx, init_rpx])
+    params = sol
 
-    position_weight, angle_weight = 1, 1
-    weights = np.array([position_weight, angle_weight])
-    lrn_rate = 10 ** -3
-    epochs = 2000
-    params = init.copy()
-    param_traj = np.zeros([epochs + 1, len(params)])
-
-    for i in range(epochs):
-        sol = OneD_solve_KV(init, s, hard_kappa)
-        dW = OneD_gd_cost(init, sol, weights=weights)
-        params = params - lrn_rate * dW
-        param_traj[i, :] = params
-
+    cond = (this_cost < cost_tol) & (excursion < maxR)
+    if cond:
+        print("Solution found")
+        break
 
 # ==============================================================================
 #     Create grid of voltage settings
@@ -299,7 +339,7 @@ init = np.ones(shape=(kappa_array.shape[0], 4))
 init[:, :] = 0.5 * mm, 0.5 * mm, 5 * mrad, -5 * mrad
 
 # Perform gradient descent using the above routine.
-scale_fact = 5.84
+scale_fact = 200
 position_weight = scale_fact * maxDR
 angle_weight = maxDR
 weights = np.array([position_weight, position_weight, angle_weight, angle_weight])
