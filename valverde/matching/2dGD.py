@@ -45,7 +45,7 @@ maxDR = maxR / Lp
 # the solver function, the cost function for minimizing, and the gradient of
 # the cost function.
 # ==============================================================================
-def OneD_solve_KV(init, s, ksolve, params=param_dict, ret_hist=False):
+def OneD_solve_KV(init, s, ksolve, Q=5.7e-5, emittance=1.1e-5, ret_hist=False):
     """Solve KV equation for initial positions.
 
     Function solves KV envelope equation without acceleartion give as:
@@ -87,9 +87,6 @@ def OneD_solve_KV(init, s, ksolve, params=param_dict, ret_hist=False):
     if ret_hist:
         history = np.zeros((len(s), len(init)))
         history[0, :] = soln
-
-    Q = params["Q"]
-    emittance = params["emittance"]
 
     for n in range(1, len(s)):
         # Grab values from soln array
@@ -187,7 +184,15 @@ def OneD_gd_cost(init_params, fin_params, weights):
 
 
 def gradient_descent(
-    params, s, kappa_array, weights=[1, 1, 1, 1], lrn_rate=1.0, epochs=1, verbose=True
+    params,
+    s,
+    kappa_array,
+    weights=[1, 1, 1, 1],
+    lrn_rate=1.0,
+    epochs=1,
+    Q=5.72e-5,
+    emittance=1.12e-5,
+    verbose=False,
 ):
     """Function to perform gradient descent and update parameters."""
 
@@ -200,7 +205,7 @@ def gradient_descent(
         if iter % 50 == 0:
             if verbose:
                 print("--Epoch {}".format(iter, epochs))
-        kv_soln = OneD_solve_KV(params, s, kappa_array)
+        kv_soln = OneD_solve_KV(params, s, kappa_array, Q=Q, emittance=emittance)
         dW = OneD_gd_cost(params, kv_soln, weights)
         params = params - lrn_rate * dW
 
@@ -214,6 +219,10 @@ def gradient_descent(
 # voltage and input settings are from hand-tuned solutions using the streamlit
 # script.
 # ==============================================================================
+# Parameters from the cell
+Q = 0
+emittance = 0
+
 V1 = 0.210 * kV
 V2 = -0.230 * kV
 chnk1 = d
@@ -257,10 +266,10 @@ params = init.copy()
 lrn_rate = 10 ** -2
 epochs = 100
 cost_tol = 1e-6
-param_hist = np.zeros(shape=(epochs + 1, 4))
-param_hist[0, :] = init
-cost_hist = np.zeros(epochs)
-rhist = np.zeros(epochs)
+param_hist = []
+param_hist.append(params[0, :])
+cost_hist = []
+rhist = []
 
 for iter in range(epochs):
     if iter % 50 == 0:
@@ -272,13 +281,14 @@ for iter in range(epochs):
         weights=weights,
         lrn_rate=lrn_rate,
         epochs=1,
-        verbose=False,
+        Q=0,
+        emittance=0,
     )
     this_cost = cost_func(params, sol, weights)[0]
     excursion = np.sum(np.sqrt(sol[0, :2] ** 2))
-    cost_hist[iter] = this_cost
-    rhist[iter] = excursion
-    param_hist[iter + 1, :] = sol
+    cost_hist.append(this_cost)
+    rhist.append(excursion)
+    param_hist.append(sol[0, :])
 
     params = sol
 
@@ -286,7 +296,10 @@ for iter in range(epochs):
     if cond:
         print("Solution found")
         break
-
+param_hist = np.array(param_hist)
+cost_hist = np.array(cost_hist)
+rhist = np.array(rhist)
+ddd
 # ==============================================================================
 #     Create grid of voltage settings
 # The voltages will be creating by using the meshgrid routine in numpy. From
