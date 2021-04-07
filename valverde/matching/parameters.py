@@ -12,8 +12,9 @@ import MEQALAC.simulation as meqsim
 amu = SC.physical_constants["atomic mass constant energy equivalent in MeV"][0] * 1e6
 uA = 1e-6  # microampers
 mm = 1e-3  # milimeters
+mrad = 1e-3  # miliradians
 permitivity_freespace = 8.85e-12
-rad = np.pi
+
 
 # Beam Specifications
 inj_energy = 8 * wp.kV
@@ -21,10 +22,10 @@ charge_state = +1
 species = "Ar"
 Ar_mass = 40 * amu
 inj_current = 10 * uA
-inj_temperature = 0.5
-inj_radius = 0.5 * mm
-inj_xprime = 0.028  # rad
-inj_yprime = -0.028  # rad
+inj_temperature = 0.5  # eV
+inj_radius = 0.55 * mm
+inj_xprime = 5 * mrad
+inj_yprime = -5 * mrad
 
 
 def calc_perveance(current, energy, mass, return_density=True, charge_state=+1):
@@ -164,7 +165,7 @@ if __name__ == "__main__":
         "-t", "--inj_temperature", default=0.5, type=float, help="Injection temperature"
     )
     p.add_argument(
-        "-rp", "--inj_radius", default=0.5 * mm, type=float, help="Injection radius"
+        "-rp", "--inj_radius", default=0.55 * mm, type=float, help="Injection radius"
     )
 
     # Collect arguments
