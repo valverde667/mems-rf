@@ -170,7 +170,7 @@ def thick_phase_adv(kappa, Lp=18.6 * mm, lq=0.695 * mm):
 # ------------------------------------------------------------------------------
 
 # Calculate breakdown using max E-field 3kV/mm
-brkdown = 3 / mm * esq_radius / 2
+brkdown = 3 / mm * esq_radius / 2 / np.sqrt(2)
 voltage_list = np.linspace(0.01, brkdown, 1000) * kV
 kappa_list = calc_kappa(voltage_list)
 
