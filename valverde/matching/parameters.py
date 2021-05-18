@@ -166,6 +166,16 @@ def calc_JCL_ion(energy=7000, dext=0.25e-3, Z=1.0, A=18.0):
 # outputed to the screen in respective units. Then, the function calls will be
 # used to calculate and output paramters.
 # ------------------------------------------------------------------------------
+# Print input paramters.
+print("Injection energy: {:.3f} [KV]".format(inj_energy / wp.kV))
+print("Species: {}".format(species))
+print("Charge State: {}".format(charge_state))
+print("Mass: {:.4f} [MeV]".format(Ar_mass / 1e6))
+print("Injection Current: {:.4f} [micro-Amps]".format(inj_current / uA))
+print("Ion Temp at Injection: {:.3f} [eV]".format(inj_temperature))
+print("Source Radius: {:.2f} [mm]".format(inj_radius / mm))
+print("x-angle at Source: {:.3f} [mrad]".format(inj_xprime / mrad))
+print("y-angle at Source: {:.3f}[mrad]".format(inj_yprime / mrad))
 
 
 def main():
