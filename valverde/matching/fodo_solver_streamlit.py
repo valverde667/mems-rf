@@ -70,7 +70,7 @@ V2 = st.sidebar.number_input(
 ux_initial = st.sidebar.number_input(
     "x Injection Position [m]",
     min_value=0.0 * mm,
-    max_value=0.55 * mm,
+    max_value=1.55 * mm,
     value=0.5 * mm,
     step=0.1 * mm,
     format="%.3e",
@@ -78,7 +78,7 @@ ux_initial = st.sidebar.number_input(
 uy_initial = st.sidebar.number_input(
     "y Injection Position [m]",
     min_value=0.0 * mm,
-    max_value=0.55 * mm,
+    max_value=1.55 * mm,
     value=0.5 * mm,
     step=0.1 * mm,
     format="%.3e",
@@ -238,3 +238,4 @@ st.text(
         vx[-1] / mrad, vy[-1] / mrad
     )
 )
+st.text("Lattice Length (Lp) [mm]: {:.4f}".format((s_solve[-1] - start) / mm))
