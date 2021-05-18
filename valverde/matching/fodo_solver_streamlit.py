@@ -20,7 +20,7 @@ kV = wp.kV
 mrad = 1e-3
 
 # Grab parameter dictionary
-param_dict = parameters.main()
+param_dict = parameters.param_dict
 
 # Set up streamlit
 st.title("Parameter variation of the FODO Cell")
