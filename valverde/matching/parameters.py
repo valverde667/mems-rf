@@ -16,18 +16,25 @@ mrad = 1e-3  # miliradians
 permitivity_freespace = 8.85e-12
 
 
+# ------------------------------------------------------------------------------
+# This section will initialize the input paramters used in the calculation.
+# This is the portion that should be edited for different cacluated values.
+# ------------------------------------------------------------------------------
 # Beam Specifications
-inj_energy = 8 * wp.kV
+inj_energy = 7 * wp.kV
 charge_state = +1
 species = "Ar"
-Ar_mass = 40 * amu
+Ar_mass = 39.948 * amu
 inj_current = 10 * uA
-inj_temperature = 0.5  # eV
-inj_radius = 0.55 * mm
+inj_temperature = 0.1  # eV
+inj_radius = 0.25 * mm
 inj_xprime = 5 * mrad
 inj_yprime = -5 * mrad
 
-
+# ------------------------------------------------------------------------------
+# This section creates the functions for calcated the generalied perveance Q,
+# RMS-edge emittance, and the child langumuir current density.
+# ------------------------------------------------------------------------------
 def calc_perveance(current, energy, mass, return_density=True, charge_state=+1):
     """Calculate perveance Q in KV-envelope equation
 
@@ -119,12 +126,46 @@ def calc_emittance(inj_energy, inj_temperature, inj_radius):
     """
 
     # Evaluate prefactor
-    prefact = 2 * sqrt(2)
+    prefact = sqrt(2)
 
     # Calculate emittance
     emittance = prefact * inj_radius * sqrt(inj_temperature / inj_energy)
 
     return emittance
+
+
+def calc_JCL_ion(energy=7000, dext=0.25e-3, Z=1.0, A=18.0):
+    """Calculate child langumuir current density.
+
+    Parameters
+    ----------
+    energy: float
+         Extraction voltage in units of V
+
+    dext: float
+         The length of the extraction gap
+
+    Z: float
+         Charge state of ions
+
+    A: float
+         The atomic number of the ion in question. Defaulted to Argon.
+    """
+
+    const = 5.44e-8
+    term1 = np.sqrt(Z / A)
+    term2 = pow(energy, 1.5) / pow(dext, 2)
+
+    value = const * term1 * term2
+
+    return value
+
+
+# ------------------------------------------------------------------------------
+# This section will start the data output. The paramters for inputs will be
+# outputed to the screen in respective units. Then, the function calls will be
+# used to calculate and output paramters.
+# ------------------------------------------------------------------------------
 
 
 def main():
@@ -139,7 +180,7 @@ def main():
     param_dict = {
         "species": species,
         "mass": Ar_mass,
-        "aperture_rad": 0.55 * mm,
+        "aperture_rad": 0.25 * mm,
         "inj_energy": inj_energy,
         "inj_current": inj_current,
         "inj_radius": inj_radius,
@@ -153,39 +194,39 @@ def main():
     return param_dict
 
 
-if __name__ == "__main__":
-    p = argparse.ArgumentParser(description="Parameters for KV-envelope solver")
-    p.add_argument(
-        "-E", "--inj_energy", default=8 * wp.kV, type=float, help="Injection energy"
-    )
-    p.add_argument(
-        "-i", "--inj_current", default=10 * uA, type=float, help="Injection current"
-    )
-    p.add_argument(
-        "-t", "--inj_temperature", default=0.5, type=float, help="Injection temperature"
-    )
-    p.add_argument(
-        "-rp", "--inj_radius", default=0.55 * mm, type=float, help="Injection radius"
-    )
-
-    # Collect arguments
-    args = p.parse_args()
-
-    # Assign values
-    inj_energy = args.inj_energy
-    inj_temperature = args.inj_temperature
-    inj_current = args.inj_current
-    inj_radius = args.inj_radius
-
-    # Evaluate parameters and grab dictionary
-    param_dict = main()
-
-    # Print values
-    print("-- In MKS units except mass (AMU) and energy (eV) --")
-    for key, val in zip(param_dict.keys(), param_dict.values()):
-        if key == "mass":
-            val = val / amu
-        else:
-            pass
-
-        print("--{} : {}".format(key, val))
+# if __name__ == "__main__":
+#     p = argparse.ArgumentParser(description="Parameters for KV-envelope solver")
+#     p.add_argument(
+#         "-E", "--inj_energy", default=7 * wp.kV, type=float, help="Injection energy"
+#     )
+#     p.add_argument(
+#         "-i", "--inj_current", default=10 * uA, type=float, help="Injection current"
+#     )
+#     p.add_argument(
+#         "-t", "--inj_temperature", default=0.1, type=float, help="Injection temperature"
+#     )
+#     p.add_argument(
+#         "-rp", "--inj_radius", default=0.25 * mm, type=float, help="Injection radius"
+#     )
+#
+#     # Collect arguments
+#     args = p.parse_args()
+#
+#     # Assign values
+#     inj_energy = args.inj_energy
+#     inj_temperature = args.inj_temperature
+#     inj_current = args.inj_current
+#     inj_radius = args.inj_radius
+#
+#     # Evaluate parameters and grab dictionary
+#     param_dict = main()
+#
+#     # Print values
+#     print("-- In MKS units except mass (AMU) and energy (eV) --")
+#     for key, val in zip(param_dict.keys(), param_dict.values()):
+#         if key == "mass":
+#             val = val / amu
+#         else:
+#             pass
+#
+#         print("--{} : {}".format(key, val))
