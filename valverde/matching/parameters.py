@@ -30,6 +30,7 @@ inj_temperature = 0.1  # eV
 inj_radius = 0.25 * mm
 inj_xprime = 5 * mrad
 inj_yprime = -5 * mrad
+dext = 11 * mm
 
 # ------------------------------------------------------------------------------
 # This section creates the functions for calcated the generalied perveance Q,
@@ -167,6 +168,7 @@ def calc_JCL_ion(energy=7000, dext=0.25e-3, Z=1.0, A=18.0):
 # used to calculate and output paramters.
 # ------------------------------------------------------------------------------
 # Print input paramters.
+print("")
 print("Injection energy: {:.3f} [KV]".format(inj_energy / wp.kV))
 print("Species: {}".format(species))
 print("Charge State: {}".format(charge_state))
@@ -177,66 +179,38 @@ print("Source Radius: {:.2f} [mm]".format(inj_radius / mm))
 print("x-angle at Source: {:.3f} [mrad]".format(inj_xprime / mrad))
 print("y-angle at Source: {:.3f}[mrad]".format(inj_yprime / mrad))
 
+# Print calcuated paramter values
+Q, charge_density = calc_perveance(
+    current=inj_current,
+    energy=inj_energy,
+    mass=Ar_mass,
+    return_density=True,
+    charge_state=1,
+)
+rms_emit = calc_emittance(
+    inj_energy=inj_energy, inj_temperature=inj_temperature, inj_radius=inj_radius
+)
+jcl = calc_JCL_ion(energy=inj_energy, dext=dext)
 
-def main():
-    # Set globals
-    global inj_energy, inj_current, Ar_mass, inj_energy, inj_temperature
-    # Evaluate parameters
-    perveance, charge_density = calc_perveance(inj_current, inj_energy, Ar_mass)
-
-    emittance = calc_emittance(inj_energy, inj_temperature, inj_radius)
-
-    # Create dictionary of parameters
-    param_dict = {
-        "species": species,
-        "mass": Ar_mass,
-        "aperture_rad": 0.25 * mm,
-        "inj_energy": inj_energy,
-        "inj_current": inj_current,
-        "inj_radius": inj_radius,
-        "Q": perveance,
-        "emittance": emittance,
-        "charge_density": charge_density,
-        "inj_xprime": inj_xprime,
-        "inj_yprime": inj_yprime,
-    }
-
-    return param_dict
+print("")
+print(42 * "=")
+print("Perveance Q: {:.5e}".format(Q))
+print("RMS-edge emittance: {:.4f} [mm-mrad]".format(rms_emit / 1e-6))
+print("CL Current Density: {:.4f} [micro-Amps / mm^2]".format(jcl))
+print(42 * "=")
 
 
-# if __name__ == "__main__":
-#     p = argparse.ArgumentParser(description="Parameters for KV-envelope solver")
-#     p.add_argument(
-#         "-E", "--inj_energy", default=7 * wp.kV, type=float, help="Injection energy"
-#     )
-#     p.add_argument(
-#         "-i", "--inj_current", default=10 * uA, type=float, help="Injection current"
-#     )
-#     p.add_argument(
-#         "-t", "--inj_temperature", default=0.1, type=float, help="Injection temperature"
-#     )
-#     p.add_argument(
-#         "-rp", "--inj_radius", default=0.25 * mm, type=float, help="Injection radius"
-#     )
-#
-#     # Collect arguments
-#     args = p.parse_args()
-#
-#     # Assign values
-#     inj_energy = args.inj_energy
-#     inj_temperature = args.inj_temperature
-#     inj_current = args.inj_current
-#     inj_radius = args.inj_radius
-#
-#     # Evaluate parameters and grab dictionary
-#     param_dict = main()
-#
-#     # Print values
-#     print("-- In MKS units except mass (AMU) and energy (eV) --")
-#     for key, val in zip(param_dict.keys(), param_dict.values()):
-#         if key == "mass":
-#             val = val / amu
-#         else:
-#             pass
-#
-#         print("--{} : {}".format(key, val))
+# Create dictionary of parameters
+param_dict = {
+    "species": species,
+    "mass": Ar_mass,
+    "aperture_rad": inj_radius,
+    "inj_energy": inj_energy,
+    "inj_current": inj_current,
+    "inj_radius": inj_radius,
+    "Q": Q,
+    "emittance": rms_emit,
+    "charge_density": charge_density,
+    "inj_xprime": inj_xprime,
+    "inj_yprime": inj_yprime,
+}
