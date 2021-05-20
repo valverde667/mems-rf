@@ -28,6 +28,7 @@ Ar_mass = 39.948 * amu
 inj_current = 10 * uA
 inj_temperature = 0.1  # eV
 inj_radius = 0.25 * mm
+aperture_rad = 0.55 * mm
 inj_xprime = 5 * mrad
 inj_yprime = -5 * mrad
 dext = 11 * mm
@@ -204,7 +205,7 @@ print(42 * "=")
 param_dict = {
     "species": species,
     "mass": Ar_mass,
-    "aperture_rad": inj_radius,
+    "aperture_rad": aperture_rad,
     "inj_energy": inj_energy,
     "inj_current": inj_current,
     "inj_radius": inj_radius,
