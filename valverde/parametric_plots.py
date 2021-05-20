@@ -13,8 +13,8 @@ U = 1.6605e-27  # kg
 r_source = 0.25 * mm
 Isource = 10 * micro
 Vsource = 7 * kV
-dextract = 100 * mm
-Tsource = 5600  # degress kelvin
+dextract = 11 * mm
+Tsource = 1160.5  # degress kelvin
 kBoltz = 8.617e-5  # eV/Kelvin
 Ar_mass = 39.948 * U
 
