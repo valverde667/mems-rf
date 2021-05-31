@@ -238,4 +238,5 @@ st.text(
         vx[-1] / mrad, vy[-1] / mrad
     )
 )
+st.text(f"Max(r'_x, r'_y) [mm]: ({np.max(ux)/mm:.3f}, {np.max(uy)/mm:.3f})")
 st.text("Lattice Length (Lp) [mm]: {:.4f}".format((s_solve[-1] - start) / mm))
