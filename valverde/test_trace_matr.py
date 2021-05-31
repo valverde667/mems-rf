@@ -196,25 +196,25 @@ if do_thin_lens:
         this_sigma = stable_cond(M)
         sigma_list[i] = this_sigma
 
-do_thick_lens = True
+do_thick_lens = False
 if do_thick_lens:
     for i, k in enumerate(kappa_list):
         d1 = drift(drift1)
         d2 = drift(drift2)
-        MF = thick_focus(k, lq)
-        MD = thick_defocus(k, lq)
+        MF = thick_focus(k, len_elemnt=lq)
+        MD = thick_defocus(k, len_elemnt=lq)
         M = MD @ d2 @ MF @ d1
 
         this_sigma = stable_cond(M)
         sigma_list[i] = this_sigma
 
         # Compute sigma from analytic result
-        analytic_sigma = thick_phase_adv(k)
+        analytic_sigma = thick_phase_adv(k, lq=lq)
         # print("Numeric - Analytic: {}".format(abs(this_sigma - analytic_sigma)))
 
 
 # find voltages correspoinding to between 60 and 80º.
-sigma_list = thick_phase_adv(kappa_list)
+sigma_list = thick_phase_adv(kappa_list, lq=lq)
 indices = np.where((sigma_list > 60) & (sigma_list < 80))[0]
 vmin, vmax = voltage_list[indices][0], voltage_list[indices][-1]
 forty_ind = np.where((sigma_list > 40))[0][0]
