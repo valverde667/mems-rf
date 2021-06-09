@@ -17,6 +17,7 @@ source_radius = 0.25 * mm
 esq_radius = 0.55 * mm
 esq_volt = 0.250 * kV
 lq = 0.695 * mm
+gap = 2 * mm
 
 # ------------------------------------------------------------------------------
 # This section is a small part dedicated to verifying the equivlance of the
@@ -272,15 +273,19 @@ if make_plots:
 # Calculate gap center distancs of wafers from previous gap using energy
 # gain from previous gap. First gap is always placed at zero. So the loop
 # starts at finding the distances of the second gap.
-Ngaps = 6
+Ngaps = 43
 E = inj_energy
 voltage = 7 * kV
 wafers = [0]
+energies = [
+    7 * kV,
+]
 V = np.ones(Ngaps) * voltage
 Egain = E
 for i in range(1, Ngaps):
     # Update energy gain from previous gap
     Egain += V[i - 1]
+    energies.append(Egain)
     # Calculate beta using energy gain from previous gap
     b = beta(Egain, Ar_mass, q=1)
     # Calculate constant using frequency if next gap
@@ -289,6 +294,51 @@ for i in range(1, Ngaps):
 
 # Distance beteween each sequential gap center. Note, the actualy position is
 # the cumulative sum. But here, we only care about the gap-gap distance.
+wafer_copy = np.array(wafers.copy())
+energies = np.array(energies)
 pos = np.array(wafers).cumsum()
 
 # Loop through pos array and use position as drift.
+wafer_copy / mm
+pos / mm
+len(wafer_copy)
+energies
+dpairs = np.array(
+    [(wafer_copy[i], wafer_copy[i + 1]) for i in range(1, len(wafer_copy), 2)]
+)
+dpairs / mm
+sigma_list = []
+
+# Loop through distance pairs and compute the transfer matrix for this lattice
+# period using hard edge approximation. I keep the voltage constant in this case
+# just to understand the additional drift length and energy effects. Note that
+# the energy for the kappa calculations is every other energy gain.
+phase_energies = energies[2::2]
+phase_energies
+for pair, energy in zip(dpairs, phase_energies):
+    space1, space2 = pair
+    d2 = (space2 - gap - 2 * lq) / 3
+    d1 = space1 + gap + 2 * d2
+
+    # Create drift matrices for d1 and d2
+    Md1 = drift(d1)
+    Md2 = drift(d2)
+
+    # Create hard edge focusing and defocusing arrays incorporating energy change
+    this_kappa = calc_kappa(esq_volt, energy=energy)
+    F = thick_focus(kappa=this_kappa, len_elemnt=lq)
+    D = thick_defocus(kappa=this_kappa, len_elemnt=lq)
+
+    M = D @ Md2 @ F @ Md1
+
+    sigma_0 = stable_cond(M)
+    sigma_list.append(sigma_0)
+sigma_list
+
+
+fig, ax = plt.subplots()
+ax.scatter([i * 2 for i in range(1, len(sigma_list) + 1)], sigma_list)
+ax.set_xlabel("Number of Gaps")
+ax.set_ylabel(r"Phase Advance $\sigma_0^\circ$")
+ax.set_title("Phase Advance As Energy Increases at Fixed ESQ Voltage")
+plt.show()
