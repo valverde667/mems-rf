@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.constants as sc
+import scipy.optimize as optimize
 import pdb
 
 # Useful constants
@@ -335,6 +336,41 @@ def build_M(centers, enrgy_pairs, voltage=384.667, g=2 * mm, lq=0.695 * mm):
 
     return condition
 
+
+def volt_root(voltage, centers, energy_pairs, target, g=2 * mm, lq=0.695 * mm):
+    # Calculate distances from center to center gaps distances
+    cent12, cent23 = centers[0], centers[1]
+    w = (cent23 - g - 2 * lq) / 3
+    d = cent12 + g + 2 * w
+    eta = 2 * lq / (cent23 - g)
+    if eta > 1:
+        print("Max occupancy reached for ESQ length.")
+
+    k = calc_kappa(voltage, energy_pairs[-1])
+
+    # Build Transfer matrix
+    O = drift(d)
+    D = thick_defocus(k, lq)
+    Ow = drift(w)
+    F = thick_focus(k, lq)
+
+    M = D @ Ow @ F @ O
+    target_zeroed = target - np.trace(M) / 2
+
+    return target_zeroed
+
+
+target = np.cos(80 * np.pi / 180)
+for energy, cent in zip(Epairs, dpairs):
+    # Initialize solver with voltage as knob and additional arguments being
+    # the gap-gap centers and gap-gap ion energy
+    init_Vguess = np.array([300])
+    sol = optimize.root(
+        volt_root, init_Vguess, args=(cent, energy, target), method="hybr"
+    )
+    volt_found = sol.x
+    print("Energy: ", energy)
+    print("Voltage Found: ", volt_found[0])
 
 thisE = Epairs[3, :]
 thisd = dpairs[3, :]
