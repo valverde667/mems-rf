@@ -11,7 +11,7 @@ u_ev = sc.physical_constants["atomic mass unit-electron volt relationship"][0]
 Ar_mass = 39.948 * u_ev
 
 # Parameters
-f = 15 * MHz
+f = 13.56 * MHz
 inj_energy = 7 * kV
 source_radius = 0.25 * mm
 esq_radius = 0.55 * mm
@@ -273,10 +273,10 @@ if make_plots:
 # Calculate gap center distancs of wafers from previous gap using energy
 # gain from previous gap. First gap is always placed at zero. So the loop
 # starts at finding the distances of the second gap.
-Ngaps = 43
+Ngaps = 12
 E = inj_energy
 voltage = 7 * kV
-wafers = [0]
+wafers = []
 energies = [
     7 * kV,
 ]
@@ -295,7 +295,7 @@ for i in range(1, Ngaps):
 # Distance beteween each sequential gap center. Note, the actualy position is
 # the cumulative sum. But here, we only care about the gap-gap distance.
 wafer_copy = np.array(wafers.copy())
-energies = np.array(energies)
+energies = np.array(energies[1:])
 pos = np.array(wafers).cumsum()
 
 # Loop through pos array and use position as drift.
@@ -304,10 +304,42 @@ pos / mm
 len(wafer_copy)
 energies
 dpairs = np.array(
-    [(wafer_copy[i], wafer_copy[i + 1]) for i in range(1, len(wafer_copy), 2)]
+    [(wafer_copy[i], wafer_copy[i + 1]) for i in range(0, len(wafer_copy) - 1, 2)]
 )
+Epairs = energies[:-1].reshape(len(dpairs), 2)
 dpairs / mm
 sigma_list = []
+
+
+def build_M(centers, enrgy_pairs, voltage=384.667, g=2 * mm, lq=0.695 * mm):
+    """Temporary function to build lattice and find phase advance."""
+
+    # Calculate distances from center to center gaps distances
+    cent12, cent23 = centers[0], centers[1]
+    w = (cent23 - g - 2 * lq) / 3
+    d = cent12 + g + 2 * w
+    eta = 2 * lq / (cent23 - g)
+    if eta > 1:
+        print("Max occupancy reached for ESQ length.")
+
+    k = calc_kappa(voltage, enrgy_pairs[-1])
+
+    # Build First dirft
+    O = drift(d)
+    D = thick_defocus(k, lq)
+    Ow = drift(w)
+    F = thick_focus(k, lq)
+
+    M = D @ Ow @ F @ O
+    condition = np.trace(M) / 2
+
+    return condition
+
+
+thisE = Epairs[3, :]
+thisd = dpairs[3, :]
+total = thisd[-1] - 2 * mm
+build_M(centers=testd, voltage=testV, enrgy_pairs=testE)
 
 # Loop through distance pairs and compute the transfer matrix for this lattice
 # period using hard edge approximation. I keep the voltage constant in this case
@@ -335,10 +367,16 @@ for pair, energy in zip(dpairs, phase_energies):
     sigma_list.append(sigma_0)
 sigma_list
 
-
 fig, ax = plt.subplots()
 ax.scatter([i * 2 for i in range(1, len(sigma_list) + 1)], sigma_list)
 ax.set_xlabel("Number of Gaps")
 ax.set_ylabel(r"Phase Advance $\sigma_0^\circ$")
 ax.set_title("Phase Advance As Energy Increases at Fixed ESQ Voltage")
-plt.show()
+plt.savefig("varyE", dpi=300)
+
+fig, ax = plt.subplots()
+ax.set_title("Phase Advance Dependence on Ion Energy")
+ax.set_xlabel("Ion Energy [kV]")
+ax.set_ylabel(r"Phase Advance $\sigma_0^\circ$")
+ax.plot(energies / kV, test)
+plt.savefig("varylp", dpi=300)
