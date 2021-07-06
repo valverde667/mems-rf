@@ -6,7 +6,8 @@ cylindrical shell rods (ESQGrant), and Timo's design. """
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.integrate as integrate
-import conductors as cond
+
+# import conductors as cond
 import sys
 
 import warp as wp
@@ -74,7 +75,7 @@ class ESQ:
         Combines four poles to create esq object.
     """
 
-    def __init__(self, radius=0.75 * mm, zc=2.2 * mm, length=1.59 * mm):
+    def __init__(self, radius=0.55 * mm, zc=2.2 * mm, length=0.695 * mm):
 
         self.radius = radius
         self.zc = zc
@@ -281,9 +282,9 @@ class Wall:
 
 # Set paraemeeters for conductors
 voltage = 0.5 * kV
-xycent = 1.3 * mm
+xycent = 1.05 * mm
 separation = 2 * mm
-length = 1.59 * mm
+length = 0.695 * mm
 # length = cond.wafer_thickness + 2 * cond.copper_thickness #Timo esq
 zc = separation / 2 + length / 2
 wallvoltage = 0 * kV
@@ -292,11 +293,11 @@ walllength = 0.1 * mm
 wallzcent = separation / 2 + length + separation + walllength / 2
 
 # Create left and right quads
-leftconductor = ESQGrant(zc=-zc)
+leftconductor = ESQ(zc=-zc)
 leftquad = leftconductor.generate(
     voltage=voltage, xcent=xycent, ycent=xycent, data=True
 )
-rightconductor = ESQGrant(zc=zc)
+rightconductor = ESQ(zc=zc)
 rightquad = rightconductor.generate(
     voltage=-voltage, xcent=xycent, ycent=xycent, data=True
 )
@@ -405,7 +406,7 @@ zzeroindex = getindex(z, 0.0, wp.w3d.dz)
 zcenterindex = getindex(z, zc, wp.w3d.dz)
 
 # Create Warp plots. Useful for quick-checking
-warpplots = False
+warpplots = True
 if warpplots:
     wp.setup()
     leftquad.drawzx(filled=True)
