@@ -46,7 +46,7 @@ wp.w3d.nz = 700
 # Add boundary conditions
 wp.w3d.bound0 = wp.dirichlet
 wp.w3d.boundnz = wp.dirichlet
-wp.w3d.boundxy = wp.dirichlet
+wp.w3d.boundxy = wp.periodic
 
 wp.w3d.l4symtry = True
 solver = wp.MRBlock3D()
@@ -75,7 +75,7 @@ class ESQ:
         Combines four poles to create esq object.
     """
 
-    def __init__(self, radius=0.55 * mm, zc=2.2 * mm, length=0.695 * mm):
+    def __init__(self, radius=0.5 * mm, zc=2.2 * mm, length=0.695 * mm):
 
         self.radius = radius
         self.zc = zc
@@ -284,7 +284,7 @@ class Wall:
 voltage = 0.5 * kV
 xycent = 1.05 * mm
 separation = 2 * mm
-length = 0.695 * mm
+length = 1 * 0.695 * mm
 # length = cond.wafer_thickness + 2 * cond.copper_thickness #Timo esq
 zc = separation / 2 + length / 2
 wallvoltage = 0 * kV
@@ -293,11 +293,11 @@ walllength = 0.1 * mm
 wallzcent = separation / 2 + length + separation + walllength / 2
 
 # Create left and right quads
-leftconductor = ESQ(zc=-zc)
+leftconductor = ESQ(zc=-zc, length=length)
 leftquad = leftconductor.generate(
     voltage=voltage, xcent=xycent, ycent=xycent, data=True
 )
-rightconductor = ESQ(zc=zc)
+rightconductor = ESQ(zc=zc, length=length)
 rightquad = rightconductor.generate(
     voltage=-voltage, xcent=xycent, ycent=xycent, data=True
 )
