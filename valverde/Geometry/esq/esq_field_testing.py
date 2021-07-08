@@ -285,7 +285,9 @@ class Wall:
 # Set paraemeeters for conductors
 voltage = 0.3 * kV
 separation = 1.8 * mm
-length = 1 * 0.695 * mm
+length_multiplier = 1
+length = length_multiplier * 0.695 * mm
+
 # length = cond.wafer_thickness + 2 * cond.copper_thickness #Timo esq
 zc = separation / 2 + length / 2
 wallvoltage = 0 * kV
@@ -464,7 +466,8 @@ print("Effective Length = ", ell / mm)
 # Plot integrand
 fig, ax = plt.subplots()
 ax.set_title(
-    f"Integrand For Effective Length {ell/mm:.4f}, zc = {zc/mm :.4f}", fontsize="small"
+    f"Integrand For Effective Length {ell/mm:.4f} mm, zc = {zc/mm :.4f} mm, n = {length_multiplier}, Lq = {length/mm} mm",
+    fontsize="small",
 )
 ax.set_ylabel(r"$|E(x=dx,y=0,z)$/dx| [kV mm$^{-2}$]")
 ax.set_xlabel("z [mm]")
