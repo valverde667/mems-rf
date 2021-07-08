@@ -9,8 +9,10 @@ import scipy.integrate as integrate
 
 # import conductors as cond
 import sys
-
 import warp as wp
+
+# Save string for convenience
+savepath = "/Users/nickvalverde/Desktop/ESQ_files/"
 
 # Useful constants
 kV = wp.kV
@@ -18,12 +20,12 @@ mm = wp.mm
 um = 1e-6
 
 # Create mesh
-wp.w3d.xmmin = -2.4 * mm
-wp.w3d.xmmax = 2.4 * mm
+wp.w3d.xmmin = -0.8 * mm
+wp.w3d.xmmax = 0.8 * mm
 wp.w3d.nx = 150
 
-wp.w3d.ymmin = -2.4 * mm
-wp.w3d.ymmax = 2.4 * mm
+wp.w3d.ymmin = -0.8 * mm
+wp.w3d.ymmax = 0.8 * mm
 wp.w3d.ny = 150
 
 wp.w3d.zmmin = -6 * mm
@@ -282,13 +284,14 @@ class Wall:
 
 # Set paraemeeters for conductors
 voltage = 0.5 * kV
-xycent = 1.05 * mm
 separation = 2 * mm
 length = 1 * 0.695 * mm
 # length = cond.wafer_thickness + 2 * cond.copper_thickness #Timo esq
 zc = separation / 2 + length / 2
 wallvoltage = 0 * kV
 aperture = 0.55 * mm
+pole_rad = 0.50 * mm
+xycent = aperture + pole_rad
 walllength = 0.1 * mm
 wallzcent = separation / 2 + length + separation + walllength / 2
 
@@ -450,7 +453,7 @@ ax.axvline(x=-(wallzcent - walllength / 2) / mm, c="grey", lw=0.8, ls="--")
 ax.axvline(x=(wallzcent + walllength / 2) / mm, c="grey", lw=0.8, ls="--")
 ax.axvline(x=-(wallzcent + walllength / 2) / mm, c="grey", lw=0.8, ls="--")
 plt.legend()
-plt.savefig("full-mesh.svg", dpi=400)
+plt.savefig(savepath + "full-mesh.pdf", dpi=400)
 plt.show()
 
 # Plot and calculate effective length
@@ -460,7 +463,9 @@ ell = efflength(dEdx, wp.w3d.dz)
 print("Effective Length = ", ell / mm)
 # Plot integrand
 fig, ax = plt.subplots()
-ax.set_title("Integrand For Effective Length")
+ax.set_title(
+    f"Integrand For Effective Length {ell/mm:.4f}, zc = {zc/mm :.4f}", fontsize="small"
+)
 ax.set_ylabel(r"$|E(x=dx,y=0,z)$/dx| [kV mm$^{-2}$]")
 ax.set_xlabel("z [mm]")
 ax.scatter(z[zzeroindex:] / mm, dEdx / kV / 1000 / 1000, s=0.5)
@@ -471,7 +476,7 @@ ax.axvline(x=esq2right / mm, c="r", lw=0.8, ls="--")
 ax.axvline(x=(wallzcent - walllength / 2) / mm, c="grey", lw=0.8, ls="--", label="Wall")
 ax.axvline(x=(wallzcent + walllength / 2) / mm, c="grey", lw=0.8, ls="--")
 ax.legend()
-plt.savefig("integrand.svg", dpi=300)
+plt.savefig(savepath + "integrand.pdf", dpi=400)
 plt.show()
 
 
