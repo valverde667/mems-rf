@@ -283,8 +283,8 @@ class Wall:
 
 
 # Set paraemeeters for conductors
-voltage = 0.5 * kV
-separation = 2 * mm
+voltage = 0.3 * kV
+separation = 1.8 * mm
 length = 1 * 0.695 * mm
 # length = cond.wafer_thickness + 2 * cond.copper_thickness #Timo esq
 zc = separation / 2 + length / 2
