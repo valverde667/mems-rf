@@ -2,8 +2,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.constants as sc
 import scipy.optimize as optimize
+import csv
 import pdb
 
+savepath = "/Users/nickvalverde/Desktop/"
 # Useful constants
 mm = 1e-3
 kV = 1e3
@@ -12,12 +14,13 @@ u_ev = sc.physical_constants["atomic mass unit-electron volt relationship"][0]
 Ar_mass = 39.948 * u_ev
 
 # Parameters
+Vmax = 0.583 * kV
 f = 13.56 * MHz
 inj_energy = 7 * kV
 source_radius = 0.25 * mm
 esq_radius = 0.55 * mm
 esq_volt = 0.250 * kV
-lq = 0.695 * mm
+lq = 1.278 * mm
 gap = 2 * mm
 
 # ------------------------------------------------------------------------------
@@ -163,6 +166,54 @@ def thick_phase_adv(kappa, Lp=18.6 * mm, lq=0.695 * mm):
     return sigma
 
 
+def build_M(centers, enrgy_pairs, voltage=384.667, g=2 * mm, lq=1.28 * mm):
+    """Temporary function to build lattice and find phase advance."""
+
+    # Calculate distances from center to center gaps distances
+    cent12, cent23 = centers[0], centers[1]
+    w = (cent23 - g - 2 * lq) / 3
+    d = cent12 + g + 2 * w
+    eta = 2 * lq / (cent23 - g)
+    if eta > 1:
+        print("Max occupancy reached for ESQ length.")
+
+    k = calc_kappa(voltage, enrgy_pairs[-1])
+
+    # Build First dirft
+    O = drift(d)
+    D = thick_defocus(k, lq)
+    Ow = drift(w)
+    F = thick_focus(k, lq)
+
+    M = D @ Ow @ F @ O
+    condition = np.trace(M) / 2
+
+    return condition
+
+
+def volt_root(voltage, centers, energy_pairs, target, lq, g=2 * mm, verbose=True):
+    # Calculate distances from center to center gaps distances
+    cent12, cent23 = centers[0], centers[1]
+    w = (cent23 - g - 2 * lq) / 3
+    d = cent12 + g + 2 * w
+    eta = 2 * lq / (cent23 - g)
+    if eta > 1:
+        print("Max occupancy reached for ESQ length.")
+
+    k = calc_kappa(voltage, energy_pairs[-1])
+
+    # Build Transfer matrix
+    O = drift(d)
+    D = thick_defocus(k, lq)
+    Ow = drift(w)
+    F = thick_focus(k, lq)
+
+    M = D @ Ow @ F @ O
+    target_zeroed = target - np.trace(M) / 2
+
+    return target_zeroed
+
+
 # ------------------------------------------------------------------------------
 # This section is devoted to analyzing the stability conditions. The breadkdown
 # voltage is calculated using the maximum E-field (magnitude). From here,
@@ -274,7 +325,7 @@ if make_plots:
 # Calculate gap center distancs of wafers from previous gap using energy
 # gain from previous gap. First gap is always placed at zero. So the loop
 # starts at finding the distances of the second gap.
-Ngaps = 12
+Ngaps = 100 * 3
 E = inj_energy
 voltage = 7 * kV
 wafers = []
@@ -310,67 +361,81 @@ dpairs = np.array(
 Epairs = energies[:-1].reshape(len(dpairs), 2)
 dpairs / mm
 sigma_list = []
-
-
-def build_M(centers, enrgy_pairs, voltage=384.667, g=2 * mm, lq=0.695 * mm):
-    """Temporary function to build lattice and find phase advance."""
-
-    # Calculate distances from center to center gaps distances
-    cent12, cent23 = centers[0], centers[1]
-    w = (cent23 - g - 2 * lq) / 3
-    d = cent12 + g + 2 * w
-    eta = 2 * lq / (cent23 - g)
-    if eta > 1:
-        print("Max occupancy reached for ESQ length.")
-
-    k = calc_kappa(voltage, enrgy_pairs[-1])
-
-    # Build First dirft
-    O = drift(d)
-    D = thick_defocus(k, lq)
-    Ow = drift(w)
-    F = thick_focus(k, lq)
-
-    M = D @ Ow @ F @ O
-    condition = np.trace(M) / 2
-
-    return condition
-
-
-def volt_root(voltage, centers, energy_pairs, target, g=2 * mm, lq=0.695 * mm):
-    # Calculate distances from center to center gaps distances
-    cent12, cent23 = centers[0], centers[1]
-    w = (cent23 - g - 2 * lq) / 3
-    d = cent12 + g + 2 * w
-    eta = 2 * lq / (cent23 - g)
-    if eta > 1:
-        print("Max occupancy reached for ESQ length.")
-
-    k = calc_kappa(voltage, energy_pairs[-1])
-
-    # Build Transfer matrix
-    O = drift(d)
-    D = thick_defocus(k, lq)
-    Ow = drift(w)
-    F = thick_focus(k, lq)
-
-    M = D @ Ow @ F @ O
-    target_zeroed = target - np.trace(M) / 2
-
-    return target_zeroed
-
-
 target = np.cos(80 * np.pi / 180)
-for energy, cent in zip(Epairs, dpairs):
-    # Initialize solver with voltage as knob and additional arguments being
-    # the gap-gap centers and gap-gap ion energy
-    init_Vguess = np.array([300])
-    sol = optimize.root(
-        volt_root, init_Vguess, args=(cent, energy, target), method="hybr"
+length_multiplier = 5
+eff_lengths = np.array([1.1977, 1.816, 2.507, 3.1996, 3.895]) * mm
+length_quad = eff_lengths[length_multiplier - 1]
+Vcap = 0.75 * Vmax
+g = 2 * mm
+
+# Main Loop. Loop through energy and center pairs and evaluate desired value.
+# The volt_root function is used to find the needed voltage to maintain
+# set phase advance. All other quanitities are geometrically determined.
+with open(savepath + "lattice_stability.csv", "w", newline="") as file:
+    writer = csv.writer(file)
+    writer.writerow(
+        [
+            "Lp",
+            "En",
+            "En+1",
+            "n-ell",
+            "TotalSpace",
+            "eta",
+            "w",
+            "theta",
+            "cell-length",
+            "Voltage",
+            "Freq",
+        ]
     )
-    volt_found = sol.x
-    print("Energy: ", energy)
-    print("Voltage Found: ", volt_found[0])
+    for i, (energy, cent) in enumerate(zip(Epairs[:], dpairs[:])):
+        # Calculate information
+        cent12, cent23 = cent[0], cent[1]
+        w = (cent23 - g - 2 * length_quad) / 3
+        d = cent12 + g + 2 * w
+        cell_length = cent12 + cent23
+        esq_space_tot = cent23 - g
+        eta = 2 * length_quad / (esq_space_tot)
+        if eta > 1:
+            print("Max occupancy reached for ESQ length.")
+            break
+
+        # Initialize solver with voltage as knob and additional arguments being
+        # the gap-gap centers and gap-gap ion energy
+        init_Vguess = np.array([300])
+        sol = optimize.root(
+            volt_root,
+            init_Vguess,
+            args=(cent, energy, target, length_quad),
+            method="hybr",
+        )
+        volt_found = sol.x[0]
+        if volt_found > Vcap:
+            print("Max Volt exceeded. Lp: ", i)
+            break
+        if eta < 0.3:
+            print("Eta cap exceeded. Eta: ", eta)
+            break
+        else:
+            print("Energy: ", energy)
+            print("Voltage Found: ", volt_found)
+            kappa = calc_kappa(volt_found, energy[-1])
+            theta = np.sqrt(kappa) * length_quad
+            writer.writerow(
+                [
+                    i + 1,
+                    energy[0] / kV,
+                    energy[1] / kV,
+                    length_multiplier,
+                    esq_space_tot / mm,
+                    eta,
+                    w / mm,
+                    theta,
+                    cell_length / mm,
+                    volt_found / kV,
+                    f / MHz,
+                ]
+            )
 
 thisE = Epairs[3, :]
 thisd = dpairs[3, :]
