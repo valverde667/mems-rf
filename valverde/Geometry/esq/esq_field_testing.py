@@ -466,7 +466,7 @@ print("Effective Length = ", ell / mm)
 # Plot integrand
 fig, ax = plt.subplots()
 ax.set_title(
-    f"Integrand For Effective Length {ell/mm:.4f} mm, zc = {zc/mm :.4f} mm, n = {length_multiplier}, Lq = {length/mm} mm",
+    f"Integrand For Effective Length {ell/mm:.4f} mm, zc = {zc/mm :.4f} mm, n = {length_multiplier}, Lq = {length/mm:.4f} mm",
     fontsize="small",
 )
 ax.set_ylabel(r"$|E(x=dx,y=0,z)$/dx| [kV mm$^{-2}$]")
