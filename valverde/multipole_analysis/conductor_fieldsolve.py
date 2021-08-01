@@ -55,7 +55,7 @@ solver = wp.MRBlock3D()
 wp.registersolver(solver)
 
 
-class ESQ:
+class ESQ_SolidCyl:
     """
     Creates an ESQ object comprised of four solid cylinders extenind in z.
 
@@ -131,7 +131,7 @@ class ESQ:
         return conductor
 
 
-class ESQGrant:
+class ESQ_ShellCyl:
     """Creates ESQ object comprised of thin-shell cylinders
 
     Attributes
@@ -298,11 +298,11 @@ walllength = 0.1 * mm
 wallzcent = separation / 2 + length + separation + walllength / 2
 
 # Create left and right quads
-leftconductor = ESQ(zc=-zc, length=length)
+leftconductor = ESQ_SolidCyl(zc=-zc, length=length)
 leftquad = leftconductor.generate(
     voltage=voltage, xcent=xycent, ycent=xycent, data=True
 )
-rightconductor = ESQ(zc=zc, length=length)
+rightconductor = ESQ_SolidCyl(zc=zc, length=length)
 rightquad = rightconductor.generate(
     voltage=-voltage, xcent=xycent, ycent=xycent, data=True
 )
