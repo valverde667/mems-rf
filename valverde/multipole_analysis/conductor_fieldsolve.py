@@ -22,15 +22,15 @@ um = 1e-6
 # Create mesh
 wp.w3d.xmmin = -0.8 * mm
 wp.w3d.xmmax = 0.8 * mm
-wp.w3d.nx = 150
+wp.w3d.nx = 200
 
 wp.w3d.ymmin = -0.8 * mm
 wp.w3d.ymmax = 0.8 * mm
-wp.w3d.ny = 150
+wp.w3d.ny = 200
 
-wp.w3d.zmmin = -6 * mm
-wp.w3d.zmmax = 6 * mm
-wp.w3d.nz = 700
+wp.w3d.zmmin = -4 * mm
+wp.w3d.zmmax = 4 * mm
+wp.w3d.nz = 350
 
 # # Timo-Create mesh
 # wp.w3d.xmmin = -1.5 * mm
@@ -50,7 +50,7 @@ wp.w3d.bound0 = wp.dirichlet
 wp.w3d.boundnz = wp.dirichlet
 wp.w3d.boundxy = wp.periodic
 
-wp.w3d.l4symtry = True
+wp.w3d.l4symtry = False
 solver = wp.MRBlock3D()
 wp.registersolver(solver)
 
@@ -411,7 +411,7 @@ zzeroindex = getindex(z, 0.0, wp.w3d.dz)
 zcenterindex = getindex(z, zc, wp.w3d.dz)
 
 # Create Warp plots. Useful for quick-checking
-warpplots = True
+warpplots = False
 if warpplots:
     wp.setup()
     leftquad.drawzx(filled=True)
@@ -425,68 +425,140 @@ if warpplots:
     wp.fma()
     wp.pfzx(fill=1, filled=1)
     wp.fma()
+    wp.pcselfexy(comp="x", filled=1)
+    wp.fma()
+    wp.pcselfexy(comp="y", filled=1)
+    wp.fma()
 
 # Grab Fields
 phi = wp.getphi()
 phixy = wp.getphi()[:, :, zcenterindex]
 Ex = wp.getselfe(comp="x")
+Ey = wp.getselfe(comp="y")
 gradex = Ex[1, 0, :] / wp.w3d.dx
 
-# Create plot of Ex gradient
-fig, ax = plt.subplots()
-ax.set_xlabel("z [mm]")
-ax.set_ylabel(r"$E_x(dx, 0, z)$/dx [kV mm$^{-2}$]")
-ax.set_title(r"$E_x$ Gradient One Grid-cell Off-axis vs z")
-ax.scatter(z / mm, gradex / kV / 1e6, s=1.2)
-ax.axhline(y=0, c="k", lw=0.5)
-ax.axvline(x=0, c="k", lw=0.5)
+make_effective_length_plots = False
+if make_effective_length_plots:
+    # Create plot of Ex gradient
+    fig, ax = plt.subplots()
+    ax.set_xlabel("z [mm]")
+    ax.set_ylabel(r"$E_x(dx, 0, z)$/dx [kV mm$^{-2}$]")
+    ax.set_title(r"$E_x$ Gradient One Grid-cell Off-axis vs z")
+    ax.scatter(z / mm, gradex / kV / 1e6, s=1.2)
+    ax.axhline(y=0, c="k", lw=0.5)
+    ax.axvline(x=0, c="k", lw=0.5)
 
-# add ESQ markers to plot
-esq1left = -zc - length / 2
-esq1right = -zc + length / 2
-esq2left = zc - length / 2
-esq2right = zc + length / 2
-ax.axvline(x=esq1left / mm, c="b", lw=0.8, ls="--", label="First ESQ")
-ax.axvline(x=esq1right / mm, c="b", lw=0.8, ls="--")
-ax.axvline(x=esq2left / mm, c="r", lw=0.8, ls="--", label="Second ESQ")
-ax.axvline(x=esq2right / mm, c="r", lw=0.8, ls="--")
-ax.axvline(x=(wallzcent - walllength / 2) / mm, c="grey", lw=0.8, ls="--", label="Wall")
-ax.axvline(x=-(wallzcent - walllength / 2) / mm, c="grey", lw=0.8, ls="--")
-ax.axvline(x=(wallzcent + walllength / 2) / mm, c="grey", lw=0.8, ls="--")
-ax.axvline(x=-(wallzcent + walllength / 2) / mm, c="grey", lw=0.8, ls="--")
-plt.legend()
-plt.savefig(savepath + "full-mesh.pdf", dpi=400)
-plt.show()
+    # add ESQ markers to plot
+    esq1left = -zc - length / 2
+    esq1right = -zc + length / 2
+    esq2left = zc - length / 2
+    esq2right = zc + length / 2
+    ax.axvline(x=esq1left / mm, c="b", lw=0.8, ls="--", label="First ESQ")
+    ax.axvline(x=esq1right / mm, c="b", lw=0.8, ls="--")
+    ax.axvline(x=esq2left / mm, c="r", lw=0.8, ls="--", label="Second ESQ")
+    ax.axvline(x=esq2right / mm, c="r", lw=0.8, ls="--")
+    ax.axvline(
+        x=(wallzcent - walllength / 2) / mm, c="grey", lw=0.8, ls="--", label="Wall"
+    )
+    ax.axvline(x=-(wallzcent - walllength / 2) / mm, c="grey", lw=0.8, ls="--")
+    ax.axvline(x=(wallzcent + walllength / 2) / mm, c="grey", lw=0.8, ls="--")
+    ax.axvline(x=-(wallzcent + walllength / 2) / mm, c="grey", lw=0.8, ls="--")
+    plt.legend()
+    plt.savefig(savepath + "full-mesh.pdf", dpi=400)
+    plt.show()
 
 # Plot and calculate effective length
 # Integrate over right esq. Note, this gradient is negative.
 dEdx = abs(gradex[zzeroindex:])
 ell = efflength(dEdx, wp.w3d.dz)
 print("Effective Length = ", ell / mm)
-# Plot integrand
+
+if make_effective_length_plots:
+    fig, ax = plt.subplots()
+    ax.set_title(
+        f"Integrand For Effective Length {ell/mm:.4f} mm, zc = {zc/mm :.4f} mm, n = {length_multiplier}, Lq = {length/mm:.4f} mm",
+        fontsize="small",
+    )
+    ax.set_ylabel(r"$|E(x=dx,y=0,z)$/dx| [kV mm$^{-2}$]")
+    ax.set_xlabel("z [mm]")
+    ax.scatter(z[zzeroindex:] / mm, dEdx / kV / 1000 / 1000, s=0.5)
+    # Annotate
+    ax.axhline(y=0, lw=0.5, c="k")
+    ax.axvline(x=esq2left / mm, c="r", lw=0.8, ls="--", label="ESQ Edges")
+    ax.axvline(x=esq2right / mm, c="r", lw=0.8, ls="--")
+    ax.axvline(
+        x=(wallzcent - walllength / 2) / mm, c="grey", lw=0.8, ls="--", label="Wall"
+    )
+    ax.axvline(x=(wallzcent + walllength / 2) / mm, c="grey", lw=0.8, ls="--")
+    ax.legend()
+    plt.savefig(savepath + "integrand.pdf", dpi=400)
+    plt.show()
+
+
+# ------------------------------------------------------------------------------
+# This section will do the multipole analysis.
+# The x and y component of the electric field (Ex and Ey) are give on the full
+# 3D mesh. The analytic treatment of the multipole is given on the x-y plane
+# and is usualy seen as a function of r and theta E(r, theta). The 3D grid is
+# not a problem here since the analysis can be done for each plane at each grid
+# point of z. However, this is computationally expensive, and instead the field
+# compoenents are marginalized in z by integrating over the effective length of
+# one quad and dividing by this effective length.
+# ------------------------------------------------------------------------------
+# Find fields in the region from -ell/2 to ell/2
+eff_index_left = getindex(z, zc - ell / 2, wp.w3d.dz)
+eff_index_right = getindex(z, zc + ell / 2, wp.w3d.dz)
+Ex_comp = Ex.copy()[:, :, eff_index_left : eff_index_right + 1]
+Ey_comp = Ey.copy()[:, :, eff_index_left : eff_index_right + 1]
+nx, ny, nz = Ex_comp.shape
+
+# Find the index corresponding to the effective length of the quadrupole from
+# above
+eff_index_left = getindex(z, zc - ell / 2, wp.w3d.dz)
+eff_index_right = getindex(z, zc + ell / 2, wp.w3d.dz)
+
+# Reshape the fields to nx*ny by nz. This will give a column of vectors, where
+# each vector is the field along z at a given x,y coordinate.
+Ex_comp = Ex_comp.reshape(int(nx * ny), nz)
+Ey_comp = Ey_comp.reshape(int(nx * ny), nz)
+
+integrated_Ex = integrate.simpson(Ex_comp, dx=wp.w3d.dz) / ell
+integrated_Ey = integrate.simpson(Ey_comp, dx=wp.w3d.dz) / ell
+
+# Visualize resulting field
 fig, ax = plt.subplots()
-ax.set_title(
-    f"Integrand For Effective Length {ell/mm:.4f} mm, zc = {zc/mm :.4f} mm, n = {length_multiplier}, Lq = {length/mm:.4f} mm",
-    fontsize="small",
+ax.set_title(r"Integrated $E_x(x,y)$")
+X, Y = np.meshgrid(wp.w3d.xmesh, wp.w3d.ymesh)
+contourx = ax.contourf(
+    X / mm, Y / mm, integrated_Ex.reshape(nx, ny), levels=50, cmap="viridis"
 )
-ax.set_ylabel(r"$|E(x=dx,y=0,z)$/dx| [kV mm$^{-2}$]")
-ax.set_xlabel("z [mm]")
-ax.scatter(z[zzeroindex:] / mm, dEdx / kV / 1000 / 1000, s=0.5)
-# Annotate
-ax.axhline(y=0, lw=0.5, c="k")
-ax.axvline(x=esq2left / mm, c="r", lw=0.8, ls="--", label="ESQ Edges")
-ax.axvline(x=esq2right / mm, c="r", lw=0.8, ls="--")
-ax.axvline(x=(wallzcent - walllength / 2) / mm, c="grey", lw=0.8, ls="--", label="Wall")
-ax.axvline(x=(wallzcent + walllength / 2) / mm, c="grey", lw=0.8, ls="--")
-ax.legend()
-plt.savefig(savepath + "integrand.pdf", dpi=400)
+ax.contour(
+    X / mm,
+    Y / mm,
+    integrated_Ex.reshape(nx, ny),
+    levels=50,
+    linewidths=0.1,
+    linestyles="solid",
+    colors="k",
+)
+fig.colorbar(contourx, ax=ax)
+plt.savefig("/Users/nickvalverde/Desktop/x_transfields.pdf", dpi=400)
 plt.show()
 
-
-# fig, ax = plt.subplots()
-# ax.set_xlabel("x [mm]")
-# ax.set_ylabel("y [mm]")
-# X, Y = np.meshgrid(x, y)
-# cont = ax.contour(X / mm, Y / mm, phixy, levels=50)
-# cb = fig.colorbar(cont)
-# plt.show()
+fig, ax = plt.subplots()
+ax.set_title(r"Integrated $E_y(x,y)$")
+contoury = ax.contourf(
+    X / mm, Y / mm, integrated_Ey.reshape(nx, ny), levels=50, cmap="viridis"
+)
+ax.contour(
+    X / mm,
+    Y / mm,
+    integrated_Ey.reshape(nx, ny),
+    levels=50,
+    linewidths=0.1,
+    linestyles="solid",
+    colors="k",
+)
+fig.colorbar(contoury, ax=ax)
+plt.savefig("/Users/nickvalverde/Desktop/y_transfields.pdf", dpi=400)
+plt.show()
