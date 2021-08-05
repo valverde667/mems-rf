@@ -738,8 +738,8 @@ dx = np.ones(len(nterms)) / 4
 dy = np.ones(len(nterms))
 dzAn = abs(Excoeff_array[0, :]) / Exmax
 dzBn = abs(Excoeff_array[1, :]) / Exmax
-axEx.bar3d(nterms, y3, z3, dx, dy, dzAn, label=r"|A_n|/E_{{xmax}}", color="b")
-axEx.bar3d(nterms, 4 * y3, z3, dx, dy, dzBn, label=r"|B_n|/E_{{xmax}}", color="g")
+axEx.bar3d(nterms + 1, y3, z3, dx, dy, dzAn, label=r"|A_n|/E_{{xmax}}", color="b")
+axEx.bar3d(nterms + 1, 4 * y3, z3, dx, dy, dzBn, label=r"|B_n|/E_{{xmax}}", color="g")
 
 axEx.set_title(
     fr"Coefficients for $E_x(x,y)$ with $E_{{xmax}} =$ {Exmax:.4E} V/m",
@@ -764,8 +764,8 @@ axEy = fig.add_subplot(212, projection="3d")
 
 dzAn = abs(Eycoeff_array[0, :]) / Eymax
 dzBn = abs(Eycoeff_array[1, :]) / Eymax
-axEy.bar3d(nterms, y3, z3, dx, dy, dzAn, label=r"|A_n|/E_{{ymax}}", color="b")
-axEy.bar3d(nterms, 4 * y3, z3, dx, dy, dzBn, label=r"|B_n|/E_{{ymax}}", color="g")
+axEy.bar3d(nterms + 1, y3, z3, dx, dy, dzAn, label=r"|A_n|/E_{{ymax}}", color="b")
+axEy.bar3d(nterms + 1, 4 * y3, z3, dx, dy, dzBn, label=r"|B_n|/E_{{ymax}}", color="g")
 
 axEy.set_title(
     fr"Coefficients for $E_y(x,y)$ with $E_{{ymax}} =$ {Eymax:.4E} V/m",
