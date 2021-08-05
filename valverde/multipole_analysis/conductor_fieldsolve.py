@@ -27,7 +27,7 @@ wp.w3d.nx = 200
 
 wp.w3d.ymmin = -0.8 * mm
 wp.w3d.ymmax = 0.8 * mm
-wp.w3d.ny = 200
+wp.w3d.ny = 202
 
 wp.w3d.zmmin = -4 * mm
 wp.w3d.zmmax = 4 * mm
@@ -355,8 +355,6 @@ def getindex(mesh, value, spacing):
     # Check if value is already in mesh
     if value in mesh:
         return np.where(mesh == value)[0][0]
-    else:
-        pass
 
     # Create array of possible indices
     indices = np.where((mesh > (value - spacing)) & (mesh < (value + spacing)))[0]
@@ -412,7 +410,7 @@ zzeroindex = getindex(z, 0.0, wp.w3d.dz)
 zcenterindex = getindex(z, zc, wp.w3d.dz)
 
 # Create Warp plots. Useful for quick-checking
-warpplots = False
+warpplots = True
 if warpplots:
     wp.setup()
     leftquad.drawzx(filled=True)
@@ -420,15 +418,24 @@ if warpplots:
     rightwall.drawzx(filled=True)
     leftwall.drawzx(filled=True)
     wp.fma()
+
     leftquad.drawxy(filled=True)
     wp.fma()
+
     wp.pfxy(iz=zcenterindex, fill=1, filled=1)
     wp.fma()
+
     wp.pfzx(fill=1, filled=1)
     wp.fma()
-    wp.pcselfexy(comp="x", filled=1)
+
+    wp.pfxy(
+        plotselfe=1, plotphi=0, comp="x", fill=1, filled=1, contours=50, iz=zcenterindex
+    )
     wp.fma()
-    wp.pcselfexy(comp="y", filled=1)
+
+    wp.pfxy(
+        plotselfe=1, plotphi=0, comp="y", fill=1, filled=1, contours=50, iz=zcenterindex
+    )
     wp.fma()
 
 # Grab Fields
@@ -526,11 +533,51 @@ Ey_comp = Ey_comp.reshape(int(nx * ny), nz)
 integrated_Ex = integrate.simpson(Ex_comp, dx=wp.w3d.dz) / ell
 integrated_Ey = integrate.simpson(Ey_comp, dx=wp.w3d.dz) / ell
 
-make_transField_plots = False
+make_transField_plots = True
 if make_transField_plots:
     fig, ax = plt.subplots()
+    ax.set_title(r"$E_x(x,y,z=zc)$")
+    X, Y = np.meshgrid(x, y, indexing="ij")
+    contourx = ax.contourf(
+        X / mm, Y / mm, Ex[:, :, zcenterindex], levels=50, cmap="viridis"
+    )
+    ax.contour(
+        X / mm,
+        Y / mm,
+        Ex[:, :, zcenterindex],
+        levels=50,
+        linewidths=0.1,
+        linestyles="solid",
+        colors="k",
+    )
+    fig.colorbar(contourx, ax=ax)
+    ax.set_xlabel("x [mm]")
+    ax.set_ylabel("y [mm]")
+    plt.savefig("/Users/nickvalverde/Desktop/Ex_original.pdf", dpi=400)
+    plt.show()
+
+    fig, ax = plt.subplots()
+    ax.set_title(r" $E_x(x,y,z=zc)$")
+    contourx = ax.contourf(
+        X / mm, Y / mm, Ey[:, :, zcenterindex], levels=50, cmap="viridis"
+    )
+    ax.contour(
+        X / mm,
+        Y / mm,
+        Ey[:, :, zcenterindex],
+        levels=50,
+        linewidths=0.1,
+        linestyles="solid",
+        colors="k",
+    )
+    fig.colorbar(contourx, ax=ax)
+    ax.set_xlabel("x [mm]")
+    ax.set_ylabel("y [mm]")
+    plt.savefig("/Users/nickvalverde/Desktop/Ey_original.pdf", dpi=400)
+    plt.show()
+
+    fig, ax = plt.subplots()
     ax.set_title(r"Integrated $E_x(x,y)$")
-    X, Y = np.meshgrid(wp.w3d.xmesh, wp.w3d.ymesh)
     contourx = ax.contourf(
         X / mm, Y / mm, integrated_Ex.reshape(nx, ny), levels=50, cmap="viridis"
     )
@@ -544,6 +591,8 @@ if make_transField_plots:
         colors="k",
     )
     fig.colorbar(contourx, ax=ax)
+    ax.set_xlabel("x [mm]")
+    ax.set_ylabel("y [mm]")
     plt.savefig("/Users/nickvalverde/Desktop/x_transfields.pdf", dpi=400)
     plt.show()
 
@@ -562,13 +611,14 @@ if make_transField_plots:
         colors="k",
     )
     fig.colorbar(contoury, ax=ax)
+    ax.set_xlabel("x [mm]")
+    ax.set_ylabel("y [mm]")
     plt.savefig("/Users/nickvalverde/Desktop/y_transfields.pdf", dpi=400)
     plt.show()
 
 # Set up paramters for interpolation
-aperture_R = 0.55 * mm
-interp_R = 0.4 * mm
-interp_np = 100
+interp_R = 0.90 * aperture
+interp_np = 50
 interp_theta = np.linspace(0, 2 * np.pi, interp_np)
 
 interp_x = interp_R * np.cos(interp_theta)
@@ -576,16 +626,6 @@ interp_y = interp_R * np.cos(interp_theta)
 
 interp_Ex = np.zeros(interp_np)
 interp_Ey = np.zeros(interp_np)
-
-# Do the interpolation for where the fields will be maximum (near the
-# conductors). This will allow for normalization of the fields and useful
-# comparison.
-interp_Rmax = 0.95 * aperture_R
-interp_xmax = interp_Rmax * np.cos(interp_theta)
-interp_ymax = interp_Rmax * np.sin(interp_theta)
-
-interp_Exmax = np.zeros(interp_np)
-interp_Eymax = np.zeros(interp_np)
 
 # Perform interpolation using Warp's getgrid. The algorithm is written in
 # Fortran and so the indices array-lengths for the grid data need to be deducted
@@ -619,60 +659,46 @@ wp.top.getgrid2d(
     wp.w3d.ymmax,
 )
 
-wp.top.getgrid2d(
-    len(interp_xmax),
-    interp_xmax,
-    interp_ymax,
-    interp_Exmax,
-    len(wp.w3d.xmesh) - 1,
-    len(wp.w3d.ymesh) - 1,
-    integrated_Ex.reshape(nx, ny),
-    wp.w3d.xmmin,
-    wp.w3d.xmmax,
-    wp.w3d.ymmin,
-    wp.w3d.ymmax,
-)
-
-wp.top.getgrid2d(
-    len(interp_ymax),
-    interp_xmax,
-    interp_ymax,
-    interp_Eymax,
-    len(wp.w3d.xmesh) - 1,
-    len(wp.w3d.ymesh) - 1,
-    integrated_Ey.reshape(nx, ny),
-    wp.w3d.xmmin,
-    wp.w3d.xmmax,
-    wp.w3d.ymmin,
-    wp.w3d.ymmax,
-)
-
-# Normlaize interpolated fields with the max interpolated fields
-saved_interp_Ex = interp_Ex.copy()
-saved_interp_Ey = interp_Ey.copy()
-interp_Ex /= abs(interp_Exmax)
-interp_Ey /= abs(interp_Eymax)
-
 # Evaluate the coefficients a_n and b_n for Ex and Ey.
-n_order = 11
+n_order = 4
 nterms = np.array([i for i in range(n_order)])
 dtheta = interp_theta[1] - interp_theta[0]
 
-acoeff_array = np.zeros(len(nterms))
-bcoeff_array = np.zeros(len(nterms))
-for i, n in enumerate(nterms):
+Excoeff_array = np.zeros((2, len(nterms)))
+Eycoeff_array = np.zeros((2, len(nterms)))
+R = interp_R / aperture
+pdb.set_trace()
+for i in range(1, len(nterms)):
     # Define coefficient that comes from Fourier Analysis
-    coeff = (0.55 * mm / interp_R) ** n / 2 / np.pi
+    n = nterms[i]
 
-    # Calcaulte a_n for Ex
-    integrand = interp_Ex * np.cos(n * interp_theta)
-    integral = integrate.simpson(integrand, dx=dtheta)
-    an = coeff * integral
+    coeff = 2 * pow(1 / R, n) / np.pi
+    Ax_integrand = interp_Ex.reverse() * np.cos(n * interp_theta)
+    Bx_integrand = interp_Ex * np.sin(n * interp_theta)
+    Ay_integrand = -1.0 * interp_Ey * np.sin(n * interp_theta)
+    By_integrand = interp_Ey * np.cos(n * interp_theta)
 
-    # Calculate b_n for Ey
-    integrand = interp_Ey * np.sin(n * interp_theta)
-    integral = integrate.simpson(integrand, dx=dtheta)
-    bn = -1 * coeff * integral
+    Ax = coeff * integrate.simpson(Ax_integrand, dx=dtheta)
+    Bx = coeff * integrate.simpson(Bx_integrand, dx=dtheta)
+    Ay = coeff * integrate.simpson(Ay_integrand, dx=dtheta)
+    By = coeff * integrate.simpson(By_integrand, dx=dtheta)
 
-    acoeff_array[i] = an
-    bcoeff_array[i] = bn
+    Excoeff_array[:, i] = Ax, Bx
+    Eycoeff_array[:, i] = Ay, By
+
+# Define coefficient that comes from Fourier Analysis
+n = nterms[i]
+
+coeff = 1 / 2 / np.pi
+Ax_integrand = interp_Ex
+Bx_integrand = 0
+Ay_integrand = 0
+By_integrand = interp_Ey
+
+Ax = coeff * integrate.simpson(Ax_integrand, dx=dtheta)
+Bx = 0
+Ay = 0
+By = coeff * integrate.simpson(By_integrand, dx=dtheta)
+
+Excoeff_array[:, 0] = Ax, Bx
+Eycoeff_array[:, 0] = Ay, By
