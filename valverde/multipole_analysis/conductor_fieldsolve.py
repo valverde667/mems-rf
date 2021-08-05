@@ -5,7 +5,9 @@ cylindrical shell rods (ESQGrant), and Timo's design. """
 
 import numpy as np
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import axes3d
 import scipy.integrate as integrate
+import csv
 import pdb
 
 # import conductors as cond
@@ -23,15 +25,15 @@ um = 1e-6
 # Create mesh
 wp.w3d.xmmin = -0.8 * mm
 wp.w3d.xmmax = 0.8 * mm
-wp.w3d.nx = 200
+wp.w3d.nx = 300
 
 wp.w3d.ymmin = -0.8 * mm
 wp.w3d.ymmax = 0.8 * mm
-wp.w3d.ny = 200
+wp.w3d.ny = 300
 
 wp.w3d.zmmin = -4 * mm
 wp.w3d.zmmax = 4 * mm
-wp.w3d.nz = 350
+wp.w3d.nz = 600
 
 # # Timo-Create mesh
 # wp.w3d.xmmin = -1.5 * mm
@@ -301,11 +303,11 @@ wallzcent = separation / 2 + length + separation + walllength / 2
 # Create left and right quads
 leftconductor = ESQ_SolidCyl(zc=-zc, length=length)
 leftquad = leftconductor.generate(
-    voltage=voltage, xcent=xycent, ycent=xycent, data=True
+    voltage=voltage, xcent=xycent, ycent=xycent, data=False
 )
 rightconductor = ESQ_SolidCyl(zc=zc, length=length)
 rightquad = rightconductor.generate(
-    voltage=-voltage, xcent=xycent, ycent=xycent, data=True
+    voltage=-voltage, xcent=xycent, ycent=xycent, data=False
 )
 
 leftwall = Wall().generate(apperture=aperture, voltage=wallvoltage, zcenter=-wallzcent)
@@ -532,7 +534,7 @@ integrated_Ey = integrate.simpson(Ey_comp, dx=wp.w3d.dz) / ell
 make_transField_plots = False
 if make_transField_plots:
     fig, ax = plt.subplots()
-    ax.set_title(r"$E_x(x,y,z=zc)$")
+    ax.set_title(r"$E_x(x,y,z=zcent)$")
     X, Y = np.meshgrid(x, y, indexing="ij")
     contourx = ax.contourf(
         X / mm, Y / mm, Ex[:, :, zcenterindex], levels=50, cmap="viridis"
@@ -553,7 +555,7 @@ if make_transField_plots:
     plt.show()
 
     fig, ax = plt.subplots()
-    ax.set_title(r" $E_x(x,y,z=zc)$")
+    ax.set_title(r" $E_y(x,y,z=zcent)$")
     contourx = ax.contourf(
         X / mm, Y / mm, Ey[:, :, zcenterindex], levels=50, cmap="viridis"
     )
@@ -614,7 +616,7 @@ if make_transField_plots:
 
 # Set up paramters for interpolation
 interp_R = 0.90 * aperture
-interp_np = 50
+interp_np = 70
 interp_theta = np.linspace(0, 2 * np.pi, interp_np)
 
 interp_x = interp_R * np.cos(interp_theta)
@@ -656,7 +658,7 @@ wp.top.getgrid2d(
 )
 
 # Evaluate the coefficients a_n and b_n for Ex and Ey.
-n_order = 6
+n_order = 7
 nterms = np.array([i for i in range(0, n_order)])
 dtheta = interp_theta[1] - interp_theta[0]
 
@@ -696,3 +698,89 @@ for i in range(0, len(nterms)):
 
     Excoeff_array[:, i] = Ax, Bx
     Eycoeff_array[:, i] = Ay, By
+
+Exmax = np.max(np.abs(integrated_Ex.ravel()))
+Eymax = np.max(np.abs(integrated_Ey.ravel()))
+
+text_coefficient_table = False
+if text_coefficient_table:
+    print("==== Normalized Ex coefficients =====")
+    for i in range(len(nterms)):
+        print(f"--n:{i+1}---")
+        print(f"An:{Excoeff_array[0,i]/Exmax:.5E}")
+        print(f"Bn:{Excoeff_array[1,i]/Exmax:.5E}")
+
+    print("")
+    print("==== Normalized Ey coefficients =====")
+    for i in range(len(nterms)):
+        print(f"--n:{i+1}---")
+        print(f"An:{Excoeff_array[0,i]/Eymax:.5E}")
+        print(f"Bn:{Excoeff_array[1,i]/Eymax:.5E}")
+
+
+# ------------------------------------------------------------------------------
+# Visualize coefficient magnitudes with a 3D bar plot
+# The n-terms will be plotted using 3D bars, where there extent in z is their
+# contribution to the sum. To different coefficients are put on the same plot
+# with a separation given by the y3 argument. This controls where they are put
+# on the xy-plane. The dimensions of the box are given by dx,dy and dz. The
+# dimensions dx and dy are decided best onf aesthtic where dz will be give the
+# height or contribution to the sum.
+# ------------------------------------------------------------------------------
+fig = plt.figure(figsize=(10, 8))
+axEx = fig.add_subplot(211, projection="3d")
+
+y3 = np.ones(len(nterms))
+z3 = np.zeros(len(nterms))
+
+# Set width of bars. dz will give the height, in this case, the data.
+dx = np.ones(len(nterms)) / 4
+dy = np.ones(len(nterms))
+dzAn = abs(Excoeff_array[0, :]) / Exmax
+dzBn = abs(Excoeff_array[1, :]) / Exmax
+axEx.bar3d(nterms, y3, z3, dx, dy, dzAn, label=r"|A_n|/E_{{xmax}}", color="b")
+axEx.bar3d(nterms, 4 * y3, z3, dx, dy, dzBn, label=r"|B_n|/E_{{xmax}}", color="g")
+
+axEx.set_title(
+    fr"Coefficients for $E_x(x,y)$ with $E_{{xmax}} =$ {Exmax:.4E} V/m",
+    fontsize="x-small",
+)
+axEx.set_xlabel("n", fontsize="small")
+axEx.set_ylabel("")
+axEx.set_zlabel(r"Fraction of $E_{{xmax}}$", fontsize="small")
+axEx.set_yticks([])
+
+# Create legend labels using a proxy. Needed for 3D bargraph
+blue_proxy = plt.Rectangle((0, 0), 1, 1, fc="b")
+green_proxy = plt.Rectangle((0, 0), 1, 1, fc="g")
+axEx.legend(
+    [blue_proxy, green_proxy],
+    [r"$|A_n|/E_{{xmax}}$", r"$|B_n|/E_{{xmax}}$"],
+    fontsize="x-small",
+)
+
+# Ey plot
+axEy = fig.add_subplot(212, projection="3d")
+
+dzAn = abs(Eycoeff_array[0, :]) / Eymax
+dzBn = abs(Eycoeff_array[1, :]) / Eymax
+axEy.bar3d(nterms, y3, z3, dx, dy, dzAn, label=r"|A_n|/E_{{ymax}}", color="b")
+axEy.bar3d(nterms, 4 * y3, z3, dx, dy, dzBn, label=r"|B_n|/E_{{ymax}}", color="g")
+
+axEy.set_title(
+    fr"Coefficients for $E_y(x,y)$ with $E_{{ymax}} =$ {Eymax:.4E} V/m",
+    fontsize="x-small",
+)
+axEy.set_xlabel("n", fontsize="small")
+axEy.set_ylabel("")
+axEy.set_zlabel(r"Fraction of $E_{{ymax}}$", fontsize="small")
+axEy.set_yticks([])
+axEy.legend(
+    [blue_proxy, green_proxy],
+    [r"$|A_n|/E_{{ymax}}$", r"$|B_n|/E_{{ymax}}$"],
+    fontsize="x-small",
+)
+
+plt.savefig(savepath + "coeffs_3Dbar.pdf", dpi=400)
+plt.tight_layout()
+plt.show()
