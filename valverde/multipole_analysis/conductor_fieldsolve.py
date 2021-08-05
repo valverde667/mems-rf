@@ -699,23 +699,23 @@ for i in range(0, len(nterms)):
     Excoeff_array[:, i] = Ax, Bx
     Eycoeff_array[:, i] = Ay, By
 
-Exmax = np.max(np.abs(integrated_Ex.ravel()))
-Eymax = np.max(np.abs(integrated_Ey.ravel()))
+Exmag = np.sqrt(np.sum(pow(integrated_Ex, 2)))
+Eymag = np.sqrt(np.sum(pow(integrated_Ey, 2)))
 
 text_coefficient_table = False
 if text_coefficient_table:
     print("==== Normalized Ex coefficients =====")
     for i in range(len(nterms)):
         print(f"--n:{i+1}---")
-        print(f"An:{Excoeff_array[0,i]/Exmax:.5E}")
-        print(f"Bn:{Excoeff_array[1,i]/Exmax:.5E}")
+        print(f"An:{Excoeff_array[0,i]/Exmag:.5E}")
+        print(f"Bn:{Excoeff_array[1,i]/Exmag:.5E}")
 
     print("")
     print("==== Normalized Ey coefficients =====")
     for i in range(len(nterms)):
         print(f"--n:{i+1}---")
-        print(f"An:{Excoeff_array[0,i]/Eymax:.5E}")
-        print(f"Bn:{Excoeff_array[1,i]/Eymax:.5E}")
+        print(f"An:{Excoeff_array[0,i]/Eymag:.5E}")
+        print(f"Bn:{Excoeff_array[1,i]/Eymag:.5E}")
 
 
 # ------------------------------------------------------------------------------
@@ -736,18 +736,18 @@ z3 = np.zeros(len(nterms))
 # Set width of bars. dz will give the height, in this case, the data.
 dx = np.ones(len(nterms)) / 4
 dy = np.ones(len(nterms))
-dzAn = abs(Excoeff_array[0, :]) / Exmax
-dzBn = abs(Excoeff_array[1, :]) / Exmax
-axEx.bar3d(nterms + 1, y3, z3, dx, dy, dzAn, label=r"|A_n|/E_{{xmax}}", color="b")
-axEx.bar3d(nterms + 1, 4 * y3, z3, dx, dy, dzBn, label=r"|B_n|/E_{{xmax}}", color="g")
+dzAn = abs(Excoeff_array[0, :]) / Exmag
+dzBn = abs(Excoeff_array[1, :]) / Exmag
+axEx.bar3d(nterms + 1, y3, z3, dx, dy, dzAn, label=r"|A_n|/|E_{{x}}|", color="b")
+axEx.bar3d(nterms + 1, 4 * y3, z3, dx, dy, dzBn, label=r"|B_n|/|E_{{x}}|", color="g")
 
 axEx.set_title(
-    fr"Coefficients for $E_x(x,y)$ with $E_{{xmax}} =$ {Exmax:.4E} V/m",
+    fr"Coefficients for $E_x(x,y)$ with $|E_x| =$ {Exmag/kV*mm:.2f} kV/mm",
     fontsize="x-small",
 )
 axEx.set_xlabel("n", fontsize="small")
 axEx.set_ylabel("")
-axEx.set_zlabel(r"Fraction of $E_{{xmax}}$", fontsize="small")
+axEx.set_zlabel(r"Fraction of $|E_{{x}}|$", fontsize="small")
 axEx.set_yticks([])
 
 # Create legend labels using a proxy. Needed for 3D bargraph
@@ -755,29 +755,29 @@ blue_proxy = plt.Rectangle((0, 0), 1, 1, fc="b")
 green_proxy = plt.Rectangle((0, 0), 1, 1, fc="g")
 axEx.legend(
     [blue_proxy, green_proxy],
-    [r"$|A_n|/E_{{xmax}}$", r"$|B_n|/E_{{xmax}}$"],
+    [r"$|A_n|/|E_{{x}}|$", r"$|B_n|/|E_{{x}}|$"],
     fontsize="x-small",
 )
 
 # Ey plot
 axEy = fig.add_subplot(212, projection="3d")
 
-dzAn = abs(Eycoeff_array[0, :]) / Eymax
-dzBn = abs(Eycoeff_array[1, :]) / Eymax
-axEy.bar3d(nterms + 1, y3, z3, dx, dy, dzAn, label=r"|A_n|/E_{{ymax}}", color="b")
-axEy.bar3d(nterms + 1, 4 * y3, z3, dx, dy, dzBn, label=r"|B_n|/E_{{ymax}}", color="g")
+dzAn = abs(Eycoeff_array[0, :]) / Eymag
+dzBn = abs(Eycoeff_array[1, :]) / Eymag
+axEy.bar3d(nterms + 1, y3, z3, dx, dy, dzAn, label=r"|A_n|/|E_{{y}}|", color="b")
+axEy.bar3d(nterms + 1, 4 * y3, z3, dx, dy, dzBn, label=r"|B_n|/|E_{{y}}|", color="g")
 
 axEy.set_title(
-    fr"Coefficients for $E_y(x,y)$ with $E_{{ymax}} =$ {Eymax:.4E} V/m",
+    fr"Coefficients for $E_y(x,y)$ with $|E_{{y}}| =$ {Eymag/kV*mm:.2f} kV/mm",
     fontsize="x-small",
 )
 axEy.set_xlabel("n", fontsize="small")
 axEy.set_ylabel("")
-axEy.set_zlabel(r"Fraction of $E_{{ymax}}$", fontsize="small")
+axEy.set_zlabel(r"Fraction of $|E_{{y}}|$", fontsize="small")
 axEy.set_yticks([])
 axEy.legend(
     [blue_proxy, green_proxy],
-    [r"$|A_n|/E_{{ymax}}$", r"$|B_n|/E_{{ymax}}$"],
+    [r"$|A_n|/|E_{{y}}|$", r"$|B_n|/|E_{{y}}|$"],
     fontsize="x-small",
 )
 
