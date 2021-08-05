@@ -308,10 +308,6 @@ rightquad = rightconductor.generate(
     voltage=-voltage, xcent=xycent, ycent=xycent, data=True
 )
 
-# # For Timo Conductors
-# leftquad = cond.ESQ(position=-zc, invertPolarity=-1, voltage=voltage)
-# rightquad = cond.ESQ(position=zc, invertPolarity=1, voltage=voltage)
-# Create left and right grounded walls
 leftwall = Wall().generate(apperture=aperture, voltage=wallvoltage, zcenter=-wallzcent)
 rightwall = Wall().generate(apperture=aperture, voltage=wallvoltage, zcenter=wallzcent)
 
