@@ -660,18 +660,34 @@ wp.top.getgrid2d(
 )
 
 # Evaluate the coefficients a_n and b_n for Ex and Ey.
-n_order = 4
-nterms = np.array([i for i in range(n_order)])
+n_order = 6
+nterms = np.array([i for i in range(0, n_order)])
 dtheta = interp_theta[1] - interp_theta[0]
 
 Excoeff_array = np.zeros((2, len(nterms)))
 Eycoeff_array = np.zeros((2, len(nterms)))
 R = interp_R / aperture
-for i in range(1, len(nterms)):
-    # Define coefficient that comes from Fourier Analysis
+
+for i in range(0, len(nterms)):
     n = nterms[i]
 
-    coeff = 2 * pow(1 / R, n) / np.pi
+    # Treat n=0 coefficient separately since coeff is different
+    if n == 0:
+        coeff = 1 / 2 / np.pi
+        Ax_integrand = interp_Ex
+        Bx_integrand = 0
+        Ay_integrand = 0
+        By_integrand = interp_Ey
+
+        Ax = coeff * integrate.simpson(Ax_integrand, dx=dtheta)
+        Bx = 0
+        Ay = 0
+        By = coeff * integrate.simpson(By_integrand, dx=dtheta)
+
+        Excoeff_array[:, i] = Ax, Bx
+        Eycoeff_array[:, i] = Ay, By
+
+    coeff = pow(1 / R, n) / np.pi
     Ax_integrand = interp_Ex * np.cos(n * interp_theta)
     Bx_integrand = interp_Ex * np.sin(n * interp_theta)
     Ay_integrand = -1.0 * interp_Ey * np.sin(n * interp_theta)
@@ -684,20 +700,3 @@ for i in range(1, len(nterms)):
 
     Excoeff_array[:, i] = Ax, Bx
     Eycoeff_array[:, i] = Ay, By
-
-# Define coefficient that comes from Fourier Analysis
-n = nterms[i]
-
-coeff = 1 / 2 / np.pi
-Ax_integrand = interp_Ex
-Bx_integrand = 0
-Ay_integrand = 0
-By_integrand = interp_Ey
-
-Ax = coeff * integrate.simpson(Ax_integrand, dx=dtheta)
-Bx = 0
-Ay = 0
-By = coeff * integrate.simpson(By_integrand, dx=dtheta)
-
-Excoeff_array[:, 0] = Ax, Bx
-Eycoeff_array[:, 0] = Ay, By
