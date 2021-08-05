@@ -27,7 +27,7 @@ wp.w3d.nx = 200
 
 wp.w3d.ymmin = -0.8 * mm
 wp.w3d.ymmax = 0.8 * mm
-wp.w3d.ny = 202
+wp.w3d.ny = 200
 
 wp.w3d.zmmin = -4 * mm
 wp.w3d.zmmax = 4 * mm
@@ -404,13 +404,13 @@ def efflength(gradient, dl):
     return ell
 
 
-# Rename meshes and find indices
+# Rename meshes and find indicesfor the mesh center and center of right quad.
 x, y, z = wp.w3d.xmesh, wp.w3d.ymesh, wp.w3d.zmesh
 zzeroindex = getindex(z, 0.0, wp.w3d.dz)
 zcenterindex = getindex(z, zc, wp.w3d.dz)
 
 # Create Warp plots. Useful for quick-checking
-warpplots = True
+warpplots = False
 if warpplots:
     wp.setup()
     leftquad.drawzx(filled=True)
@@ -533,7 +533,7 @@ Ey_comp = Ey_comp.reshape(int(nx * ny), nz)
 integrated_Ex = integrate.simpson(Ex_comp, dx=wp.w3d.dz) / ell
 integrated_Ey = integrate.simpson(Ey_comp, dx=wp.w3d.dz) / ell
 
-make_transField_plots = True
+make_transField_plots = False
 if make_transField_plots:
     fig, ax = plt.subplots()
     ax.set_title(r"$E_x(x,y,z=zc)$")
@@ -667,13 +667,12 @@ dtheta = interp_theta[1] - interp_theta[0]
 Excoeff_array = np.zeros((2, len(nterms)))
 Eycoeff_array = np.zeros((2, len(nterms)))
 R = interp_R / aperture
-pdb.set_trace()
 for i in range(1, len(nterms)):
     # Define coefficient that comes from Fourier Analysis
     n = nterms[i]
 
     coeff = 2 * pow(1 / R, n) / np.pi
-    Ax_integrand = interp_Ex.reverse() * np.cos(n * interp_theta)
+    Ax_integrand = interp_Ex * np.cos(n * interp_theta)
     Bx_integrand = interp_Ex * np.sin(n * interp_theta)
     Ay_integrand = -1.0 * interp_Ey * np.sin(n * interp_theta)
     By_integrand = interp_Ey * np.cos(n * interp_theta)
