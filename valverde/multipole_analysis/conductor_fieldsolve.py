@@ -699,9 +699,6 @@ for i in range(0, len(nterms)):
     Excoeff_array[:, i] = Ax, Bx
     Eycoeff_array[:, i] = Ay, By
 
-Exmag = np.sqrt(np.sum(pow(integrated_Ex, 2)))
-Eymag = np.sqrt(np.sum(pow(integrated_Ey, 2)))
-
 text_coefficient_table = False
 if text_coefficient_table:
     print("==== Normalized Ex coefficients =====")
@@ -728,59 +725,88 @@ if text_coefficient_table:
 # height or contribution to the sum.
 # ------------------------------------------------------------------------------
 fig = plt.figure(figsize=(10, 8))
-axEx = fig.add_subplot(211, projection="3d")
+ax = fig.add_subplot(211, projection="3d")
 
 y3 = np.ones(len(nterms))
 z3 = np.zeros(len(nterms))
 
-# Set width of bars. dz will give the height, in this case, the data.
+# Set width of bars. These settings are for plot aesthetics and not significant
 dx = np.ones(len(nterms)) / 4
-dy = np.ones(len(nterms))
-dzAn = abs(Excoeff_array[0, :]) / Exmag
-dzBn = abs(Excoeff_array[1, :]) / Exmag
-axEx.bar3d(nterms + 1, y3, z3, dx, dy, dzAn, label=r"|A_n|/|E_{{x}}|", color="b")
-axEx.bar3d(nterms + 1, 4 * y3, z3, dx, dy, dzBn, label=r"|B_n|/|E_{{x}}|", color="g")
+dy = np.ones(len(nterms)) / 2
 
-axEx.set_title(
-    fr"Coefficients for $E_x(x,y)$ with $|E_x| =$ {Exmag/kV*mm:.2f} kV/mm",
-    fontsize="x-small",
+# Sum coefficients from Ex and Ey to find full An and Bn. Takes Squares.
+An = pow(Excoeff_array[0, :], 2) + pow(Eycoeff_array[0, :], 2)
+Bn = pow(Excoeff_array[1, :], 2) + pow(Eycoeff_array[1, :], 2)
+
+# Use maximum multipole value for normalization
+An_norm = np.max(An)
+Bn_norm = np.max(Bn)
+norm = An_norm + Bn_norm
+
+# Plot An, Bn and An+Bn on bar plot where height represents fraction of Max pole
+ax.bar3d(nterms + 1, 1 * y3, z3, dx, dy, An / norm, color="b")
+ax.bar3d(nterms + 1, 3 * y3, z3, dx, dy, Bn / norm, color="g")
+ax.bar3d(nterms + 1, 6 * y3, z3, dx, dy, (An + Bn) / norm, color="k")
+
+ax.set_title(
+    fr"Normalized Squared-Multipole Coefficients for $E(x,y)$", fontsize="x-small",
 )
-axEx.set_xlabel("n", fontsize="small")
-axEx.set_ylabel("")
-axEx.set_zlabel(r"Fraction of $|E_{{x}}|$", fontsize="small")
-axEx.set_yticks([])
+ax.set_xlabel("n", fontsize="small")
+ax.set_ylabel("")
+ax.set_zlabel(r"Fraction of $\max[A_n^2 + B_n^2]$", fontsize="small")
+ax.set_yticks([])
 
 # Create legend labels using a proxy. Needed for 3D bargraph
 blue_proxy = plt.Rectangle((0, 0), 1, 1, fc="b")
 green_proxy = plt.Rectangle((0, 0), 1, 1, fc="g")
-axEx.legend(
-    [blue_proxy, green_proxy],
-    [r"$|A_n|/|E_{{x}}|$", r"$|B_n|/|E_{{x}}|$"],
+black_proxy = plt.Rectangle((0, 0), 1, 1, fc="k")
+ax.legend(
+    [blue_proxy, green_proxy, black_proxy],
+    [r"$A_n^2$", r"$B_n^2$", r"$A_n^2 + B_n^2$"],
     fontsize="x-small",
 )
-
-# Ey plot
-axEy = fig.add_subplot(212, projection="3d")
-
-dzAn = abs(Eycoeff_array[0, :]) / Eymag
-dzBn = abs(Eycoeff_array[1, :]) / Eymag
-axEy.bar3d(nterms + 1, y3, z3, dx, dy, dzAn, label=r"|A_n|/|E_{{y}}|", color="b")
-axEy.bar3d(nterms + 1, 4 * y3, z3, dx, dy, dzBn, label=r"|B_n|/|E_{{y}}|", color="g")
-
-axEy.set_title(
-    fr"Coefficients for $E_y(x,y)$ with $|E_{{y}}| =$ {Eymag/kV*mm:.2f} kV/mm",
-    fontsize="x-small",
-)
-axEy.set_xlabel("n", fontsize="small")
-axEy.set_ylabel("")
-axEy.set_zlabel(r"Fraction of $|E_{{y}}|$", fontsize="small")
-axEy.set_yticks([])
-axEy.legend(
-    [blue_proxy, green_proxy],
-    [r"$|A_n|/|E_{{y}}|$", r"$|B_n|/|E_{{y}}|$"],
-    fontsize="x-small",
-)
-
-plt.savefig(savepath + "coeffs_3Dbar.pdf", dpi=400)
 plt.tight_layout()
+plt.savefig(savepath + "multipole_coeffs.pdf", dpi=400)
+plt.show()
+
+# Make plot taking out maximum contribution for 'zoomed in' look
+maskAn = An < An_norm
+maskBn = Bn < Bn_norm
+An_masked = An[maskAn]
+Bn_masked = Bn[maskBn]
+n_maskA = nterms[maskAn]
+n_maskB = nterms[maskBn]
+
+fig = plt.figure(figsize=(10, 8))
+ax = fig.add_subplot(211, projection="3d")
+
+y3 = np.ones(len(An_masked))
+z3 = np.zeros(len(An_masked))
+
+# Set width of bars. These settings are for plot aesthetics and not significant
+dx = np.ones(len(n_maskA)) / 4
+dy = np.ones(len(n_maskA)) / 2
+
+
+# Plot An, Bn and An+Bn on bar plot where height represents fraction of Max pole
+ax.bar3d(nterms[n_maskA] + 1, 1 * y3, z3, dx, dy, An_masked / norm, color="b")
+ax.bar3d(nterms[n_maskB] + 1, 3 * y3, z3, dx, dy, Bn_masked / norm, color="g")
+
+ax.set_title(
+    fr"Normalized Squared-Multipole Coefficients (Dominant Term Removed)",
+    fontsize="x-small",
+)
+ax.set_xlabel("n", fontsize="small")
+ax.set_ylabel("")
+ax.set_zlabel(r"Fraction of $\max[A_n^2 + B_n^2]$", fontsize="small")
+ax.set_yticks([])
+
+# Create legend labels using a proxy. Needed for 3D bargraph
+blue_proxy = plt.Rectangle((0, 0), 1, 1, fc="b")
+green_proxy = plt.Rectangle((0, 0), 1, 1, fc="g")
+ax.legend(
+    [blue_proxy, green_proxy], [r"$A_n^2$", r"$B_n^2$"], fontsize="x-small",
+)
+plt.tight_layout()
+plt.savefig(savepath + "zoomed_multipole_coeffs.pdf", dpi=400)
 plt.show()
