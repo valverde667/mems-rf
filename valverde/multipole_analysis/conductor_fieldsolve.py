@@ -772,8 +772,10 @@ plt.show()
 # Make plot taking out maximum contribution for 'zoomed in' look
 maskAn = An < An_norm
 maskBn = Bn < Bn_norm
+mask_sum = (An + Bn) < norm
 An_masked = An[maskAn]
 Bn_masked = Bn[maskBn]
+sum_masked = (An + Bn)[mask_sum]
 n_maskA = nterms[maskAn]
 n_maskB = nterms[maskBn]
 
@@ -791,6 +793,7 @@ dy = np.ones(len(n_maskA)) / 2
 # Plot An, Bn and An+Bn on bar plot where height represents fraction of Max pole
 ax.bar3d(nterms[n_maskA] + 1, 1 * y3, z3, dx, dy, An_masked / norm, color="b")
 ax.bar3d(nterms[n_maskB] + 1, 3 * y3, z3, dx, dy, Bn_masked / norm, color="g")
+ax.bar3d(nterms[mask_sum] + 1, 6 * y3, z3, dx, dy, sum_masked / norm, color="k")
 
 ax.set_title(
     fr"Normalized Squared-Multipole Coefficients (Dominant Term Removed)",
@@ -804,8 +807,11 @@ ax.set_yticks([])
 # Create legend labels using a proxy. Needed for 3D bargraph
 blue_proxy = plt.Rectangle((0, 0), 1, 1, fc="b")
 green_proxy = plt.Rectangle((0, 0), 1, 1, fc="g")
+black_proxy = plt.Rectangle((0, 0), 1, 1, fc="k")
 ax.legend(
-    [blue_proxy, green_proxy], [r"$A_n^2$", r"$B_n^2$"], fontsize="x-small",
+    [blue_proxy, green_proxy],
+    [r"$A_n^2$", r"$B_n^2$", r"$A_n^2 + B_n^2$"],
+    fontsize="x-small",
 )
 plt.tight_layout()
 plt.savefig(savepath + "zoomed_multipole_coeffs.pdf", dpi=400)
