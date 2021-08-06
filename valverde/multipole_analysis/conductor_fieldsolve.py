@@ -25,15 +25,15 @@ um = 1e-6
 # Create mesh
 wp.w3d.xmmin = -0.8 * mm
 wp.w3d.xmmax = 0.8 * mm
-wp.w3d.nx = 300
+wp.w3d.nx = 100
 
 wp.w3d.ymmin = -0.8 * mm
 wp.w3d.ymmax = 0.8 * mm
-wp.w3d.ny = 300
+wp.w3d.ny = 100
 
 wp.w3d.zmmin = -4 * mm
 wp.w3d.zmmax = 4 * mm
-wp.w3d.nz = 600
+wp.w3d.nz = 100
 
 # # Timo-Create mesh
 # wp.w3d.xmmin = -1.5 * mm
@@ -816,3 +816,10 @@ ax.legend(
 plt.tight_layout()
 plt.savefig(savepath + "zoomed_multipole_coeffs.pdf", dpi=400)
 plt.show()
+
+# Print out numerical information for coefficients
+print("--Normalized-squared coefficients (A,B)")
+for i, n in enumerate(nterms):
+    print(f"####    n={n+1}    ####")
+    print(f"(An, Bn): ({An[i]/norm:.5E}, {Bn[i]/norm:.5E})")
+    print(f"An^2 + Bn^2: {(An[i] + Bn[i])/norm:.5E}")
