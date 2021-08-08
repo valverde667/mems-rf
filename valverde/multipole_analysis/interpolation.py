@@ -10,18 +10,105 @@ import pdb
 import warp as wp
 
 
+def interp2d_area(x_interp, y_interp, xmesh, ymesh, grid_data):
+    """Interpolation routine that uses area weighting
+
+    Routine will find the nearest grid points in xmesh and ymesh that corresponding
+    to the points that are to be interpolated for x_interp and y_interp. The
+    values at these points are given in grid_vals. The function will then return
+    the interpolated values.
+
+    Paramters
+    ---------
+    x_interp: ndarray
+        Array of values to perform the interpolation at in x.
+
+    y_interp: ndarray
+        Array of values to perform the interpolation at in y.
+
+    xmesh: ndarray
+        The array holding the gridded x-values.
+
+    ymesh: ndarray
+        The array holding the gridded y-values.
+
+    grid_data: ndarray
+        This is the size (nx, ny) matrix holding the values for each (x,y) coordinate
+        on the grid. In other words, this holds the value for some 2D function
+        f(x,y) on the gridded values created by xmesh and ymesh.
+
+    Returns
+    -------
+    interp_data: ndarray
+        Array of equal size to x_interp and y_interp holding the interpolated
+        data values for each coordinate pair in (x_interp, y_interp)
+    """
+    # Create a zero padding. If the interp value is exactly the grid value this
+    # helps to treat the subtraction and approximately 0 and not numerical noise.
+    numerical_padding = np.random.random() * 1e-12
+
+    # Initialize geometrical values and interpolated array
+    dx = xmesh[1] - xmesh[0]
+    dy = ymesh[1] - ymesh[0]
+    dA = dx * dy
+    interp_data = np.zeros(len(x_interp))
+
+    # Loop through interpolation points, find grid points, and interpolate.
+    for i, (xm, ym) in enumerate(zip(x_interp, y_interp)):
+        xm += numerical_padding
+        ym += numerical_padding
+
+        # Find grid points that enclose the xm-ym coordinates in use
+        lowx = xm - dx
+        highx = xm + dx
+
+        lowy = ym - dy
+        highy = ym + dy
+
+        mask_x = (xmesh >= lowx) & (xmesh <= highx)
+        mask_y = (ymesh >= lowy) & (xmesh <= highy)
+
+        left, right = xmesh[mask_x][0], xmesh[mask_x][-1]
+        bottom, top = ymesh[mask_y][0], ymesh[mask_y][-1]
+
+        # Record indices for the gridpoints in use.
+        x_indices = np.where(mask_x)[0]
+        ix_left = x_indices[0]
+        ix_right = x_indices[-1]
+
+        y_indices = np.where(mask_y)[0]
+        iy_bottom = y_indices[0]
+        iy_top = y_indices[-1]
+
+        # Calculate Areas and weight grid data
+        A1 = (xm - left) * (ym - bottom)
+        A2 = (right - xm) * (ym - bottom)
+        A3 = (xm - left) * (top - ym)
+        A4 = (right - xm) * (top - ym)
+
+        q1m = grid_data[ix_left, iy_bottom] * A4 / dA
+        q2m = grid_data[ix_right, iy_bottom] * A3 / dA
+        q3m = grid_data[ix_left, iy_top] * A2 / dA
+        q4m = grid_data[ix_right, iy_top] * A1 / dA
+
+        qm = q1m + q2m + q3m + q4m
+        interp_data[i] = qm
+
+    return interp_data
+
+
 # ------------------------------------------------------------------------------
 # This section will build the test case.
 # The test case will make and x-y grid of unit spacing, i.e. dx=dy=1, and will
 # span from -50 to 50 in both directions. This will make it easier to verify
 # the outputs are correct for the area-weighting interpolation.
 # ------------------------------------------------------------------------------
-x = np.linspace(-10, 10, 31)
-y = np.linspace(-10, 10, 31)
+x = np.linspace(-2, 2, 31)
+y = np.linspace(-2, 2, 31)
 dx, dy = x[1] - x[0], y[1] - y[0]
 
 # Parametrize points based off a fixed radius and angle
-R = 9.5
+R = 1
 theta = np.linspace(0, 2 * np.pi, 30)
 xm_array = R * np.cos(theta)
 ym_array = R * np.sin(theta)
@@ -30,18 +117,19 @@ ym_array = R * np.sin(theta)
 # that holds a value at each grid point. This will be the function that is being
 # interpolated for.
 mesh = np.array(np.meshgrid(x, y))
+X, Y = mesh[0], mesh[1]
 xy_pairs = mesh.T.reshape(-1, 2)
 
 
 def q(x, y):
     """Arbitrary quadratic function that will be interpolated."""
-    return np.exp(-(x ** 2)) + np.sinh(y)
+    return 2 * x * y
 
 
-q_grid = q(mesh[0], mesh[1])
+q_grid = q(X, Y)
 
 # Visualize the setup
-show_schematic = True
+show_schematic = False
 if show_schematic:
     fig, ax = plt.subplots()
     for pair in xy_pairs:
@@ -71,59 +159,12 @@ if show_schematic:
 # For the moment, this is done using the first quadrant (all possitive grid
 # values). Full geometry will to be treated later on
 # ------------------------------------------------------------------------------
-qm_array = np.zeros(len(xm_array))
-dA = dx * dy
-diff_tol = 1e-8
 make_result_plot = False
 if make_result_plot:
     fig, ax = plt.subplots()
     ax.set_xlim(-0.1, x.max())
     ax.set_ylim(-0.1, y.max())
     indices = []
-
-for i, (xm, ym) in enumerate(zip(xm_array, ym_array)):
-    random_fudge = np.random.random() * 1e-12
-    xm += random_fudge
-    ym += random_fudge
-
-    # Find grid points that enclose the xm-ym coordinates in use
-    lowx = xm - dx
-    highx = xm + dx
-
-    lowy = ym - dy
-    highy = ym + dy
-
-    mask_x = (x >= lowx) & (x <= highx)
-    mask_y = (y >= lowy) & (x <= highy)
-
-    left, right = x[mask_x][0], x[mask_x][-1]
-    bottom, top = y[mask_y][0], y[mask_y][-1]
-
-    # Record indices for the gridpoints in use.
-    x_indices = np.where(mask_x)[0]
-    ix_left = x_indices[0]
-    ix_right = x_indices[-1]
-
-    y_indices = np.where(mask_y)[0]
-    iy_bottom = y_indices[0]
-    iy_top = y_indices[-1]
-
-    # Calculate Areas and weight grid data
-    A1 = (xm - left) * (ym - bottom)
-    A2 = (right - xm) * (ym - bottom)
-    A3 = (xm - left) * (top - ym)
-    A4 = (right - xm) * (top - ym)
-
-    q1m = q_grid[ix_left, iy_bottom] * A4 / dA
-    q2m = q_grid[ix_right, iy_bottom] * A3 / dA
-    q3m = q_grid[ix_left, iy_top] * A2 / dA
-    q4m = q_grid[ix_right, iy_top] * A1 / dA
-
-    qm = q1m + q2m + q3m + q4m
-    qm_array[i] = qm
-    if make_result_plot:
-        these_inds = np.array([ix_left, ix_right, iy_bottom, iy_top])
-        indices.append(these_inds)
 
 if make_result_plot:
     for this_ind in indices:
@@ -147,7 +188,6 @@ if make_result_plot:
     plt.savefig("/Users/nickvalverde/Desktop/interpolated_results.pdf", dpi=400)
 
     plt.show()
-
 
 # Use warp machinery to get interpolated points. Note, Fortran begins counting
 # at 1 and so, to match with Python, the array lengths need to be deducted 1.
