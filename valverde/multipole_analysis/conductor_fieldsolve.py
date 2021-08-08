@@ -697,6 +697,22 @@ if make_transField_plots:
     plt.savefig("/Users/nickvalverde/Desktop/y_transfields.pdf", dpi=400)
     plt.show()
 
+
+# ------------------------------------------------------------------------------
+#                     Testing area for interpolation
+# Exact geometrical fields can be specified and used to test calculated values.
+# Dipole field to be fixed due to division by zero error.
+# ------------------------------------------------------------------------------
+Exfun = lambda x, y: pow(x, 3) - 3 * x * pow(y, 2)
+Eyfun = lambda x, y: -3 * pow(x, 2) * y + pow(y, 3)
+xtest = np.linspace(-0.8, 0.8, 500) * mm
+ytest = np.linspace(-0.8, 0.8, 500) * mm
+X, Y = np.meshgrid(xtest, ytest)
+Extest = Exfun(X, Y)
+Eytest = Eyfun(X, Y)
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+
 # Set up paramters for interpolation
 interp_R = 0.90 * aperture
 interp_np = 70
@@ -717,13 +733,13 @@ wp.top.getgrid2d(
     interp_x,
     interp_y,
     interp_Ex,
-    len(wp.w3d.xmesh) - 1,
-    len(wp.w3d.ymesh) - 1,
+    len(x) - 1,
+    len(y) - 1,
     integrated_Ex.reshape(nx, ny),
-    wp.w3d.xmmin,
-    wp.w3d.xmmax,
-    wp.w3d.ymmin,
-    wp.w3d.ymmax,
+    x.min(),
+    x.max(),
+    y.min(),
+    y.max(),
 )
 
 wp.top.getgrid2d(
@@ -731,15 +747,41 @@ wp.top.getgrid2d(
     interp_x,
     interp_y,
     interp_Ey,
-    len(wp.w3d.xmesh) - 1,
-    len(wp.w3d.ymesh) - 1,
+    len(x) - 1,
+    len(y) - 1,
     integrated_Ey.reshape(nx, ny),
-    wp.w3d.xmmin,
-    wp.w3d.xmmax,
-    wp.w3d.ymmin,
-    wp.w3d.ymmax,
+    x.min(),
+    x.max(),
+    y.min(),
+    y.max(),
 )
-
+# Uncomment this portion to run the test cases
+# wp.top.getgrid2d(
+#     len(interp_x),
+#     interp_x,
+#     interp_y,
+#     interp_Ex,
+#     len(xtest) - 1,
+#     len(ytest) - 1,
+#     Extest,
+#     xtest.min(),
+#     xtest.max(),
+#     ytest.min(),
+#     ytest.max(),
+# )
+# wp.top.getgrid2d(
+#     len(interp_x),
+#     interp_x,
+#     interp_y,
+#     interp_Ex,
+#     len(xtest) - 1,
+#     len(ytest) - 1,
+#     Eytest,
+#     xtest.min(),
+#     xtest.max(),
+#     ytest.min(),
+#     ytest.max(),
+# )
 # ------------------------------------------------------------------------------
 #                    Calculate multipole coefficients
 # ------------------------------------------------------------------------------
