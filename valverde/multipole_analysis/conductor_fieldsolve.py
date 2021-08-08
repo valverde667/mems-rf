@@ -33,7 +33,7 @@ wp.w3d.ny = 100
 
 wp.w3d.zmmin = -4 * mm
 wp.w3d.zmmax = 4 * mm
-wp.w3d.nz = 100
+wp.w3d.nz = 200
 
 # # Timo-Create mesh
 # wp.w3d.xmmin = -1.5 * mm
@@ -620,7 +620,7 @@ interp_np = 70
 interp_theta = np.linspace(0, 2 * np.pi, interp_np)
 
 interp_x = interp_R * np.cos(interp_theta)
-interp_y = interp_R * np.cos(interp_theta)
+interp_y = interp_R * np.sin(interp_theta)
 
 interp_Ex = np.zeros(interp_np)
 interp_Ey = np.zeros(interp_np)
@@ -821,5 +821,5 @@ plt.show()
 print("--Normalized-squared coefficients (A,B)")
 for i, n in enumerate(nterms):
     print(f"####    n={n+1}    ####")
-    print(f"(An, Bn): ({An[i]/norm:.5E}, {Bn[i]/norm:.5E})")
+    print(f"(An^2, Bn^2): ({An[i]/norm:.5E}, {Bn[i]/norm:.5E})")
     print(f"An^2 + Bn^2: {(An[i] + Bn[i])/norm:.5E}")
