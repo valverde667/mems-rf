@@ -206,5 +206,8 @@ wp.top.getgrid2d(
     y.max(),
 )
 
+# Use created function for interpolation
+data_interp = interp2d_area(xm_array, ym_array, x, y, q_grid)
+
 
 #
