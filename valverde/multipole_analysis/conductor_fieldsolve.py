@@ -25,15 +25,15 @@ um = 1e-6
 # Create mesh
 wp.w3d.xmmin = -0.8 * mm
 wp.w3d.xmmax = 0.8 * mm
-wp.w3d.nx = 100
+wp.w3d.nx = 300
 
 wp.w3d.ymmin = -0.8 * mm
 wp.w3d.ymmax = 0.8 * mm
-wp.w3d.ny = 100
+wp.w3d.ny = 300
 
 wp.w3d.zmmin = -4 * mm
 wp.w3d.zmmax = 4 * mm
-wp.w3d.nz = 200
+wp.w3d.nz = 600
 
 # Add boundary conditions
 wp.w3d.bound0 = wp.dirichlet
@@ -475,10 +475,6 @@ wp.installconductor(leftquad)
 wp.installconductor(rightquad)
 wp.installconductor(leftwall)
 wp.installconductor(rightwall)
-
-# Multipole settings
-wp.w3d.nmom = 10
-wp.w3d.nzmom = wp.w3d.nz
 
 wp.generate()
 
