@@ -35,19 +35,6 @@ wp.w3d.zmmin = -4 * mm
 wp.w3d.zmmax = 4 * mm
 wp.w3d.nz = 200
 
-# # Timo-Create mesh
-# wp.w3d.xmmin = -1.5 * mm
-# wp.w3d.xmmax = 1.5 * mm
-# wp.w3d.nx = 150
-#
-# wp.w3d.ymmin = -1.5 * mm
-# wp.w3d.ymmax = 1.5 * mm
-# wp.w3d.ny = 150
-#
-# wp.w3d.zmmin = -4 * mm
-# wp.w3d.zmmax = 4 * mm
-# wp.w3d.nz = 700
-
 # Add boundary conditions
 wp.w3d.bound0 = wp.dirichlet
 wp.w3d.boundnz = wp.dirichlet
@@ -57,7 +44,11 @@ wp.w3d.l4symtry = False
 solver = wp.MRBlock3D()
 wp.registersolver(solver)
 
-
+# ------------------------------------------------------------------------------
+#                     User Defined function
+# Section createst the conductor classes for loading onto the mesh as well as
+# some utility functions to be used.
+# ------------------------------------------------------------------------------
 class ESQ_SolidCyl:
     """
     Creates an ESQ object comprised of four solid cylinders extenind in z.
@@ -285,47 +276,6 @@ class Wall:
         return conductor
 
 
-# Set paraemeeters for conductors
-voltage = 0.3 * kV
-separation = 1.8 * mm
-length_multiplier = 1
-length = length_multiplier * 0.695 * mm
-
-# length = cond.wafer_thickness + 2 * cond.copper_thickness #Timo esq
-zc = separation / 2 + length / 2
-wallvoltage = 0 * kV
-aperture = 0.55 * mm
-pole_rad = 0.50 * mm
-xycent = aperture + pole_rad
-walllength = 0.1 * mm
-wallzcent = separation / 2 + length + separation + walllength / 2
-
-# Create left and right quads
-leftconductor = ESQ_SolidCyl(zc=-zc, length=length)
-leftquad = leftconductor.generate(
-    voltage=voltage, xcent=xycent, ycent=xycent, data=False
-)
-rightconductor = ESQ_SolidCyl(zc=zc, length=length)
-rightquad = rightconductor.generate(
-    voltage=-voltage, xcent=xycent, ycent=xycent, data=False
-)
-
-leftwall = Wall().generate(apperture=aperture, voltage=wallvoltage, zcenter=-wallzcent)
-rightwall = Wall().generate(apperture=aperture, voltage=wallvoltage, zcenter=wallzcent)
-
-# Install Conductors and generate mesh
-wp.installconductor(leftquad)
-wp.installconductor(rightquad)
-wp.installconductor(leftwall)
-wp.installconductor(rightwall)
-
-# Multipole settings
-wp.w3d.nmom = 10
-wp.w3d.nzmom = wp.w3d.nz
-
-wp.generate()
-
-
 def getindex(mesh, value, spacing):
     """Find index in mesh for or mesh-value closest to specified value
 
@@ -402,7 +352,140 @@ def efflength(gradient, dl):
     return ell
 
 
-# Rename meshes and find indicesfor the mesh center and center of right quad.
+def interp2d_area(x_interp, y_interp, xmesh, ymesh, grid_data):
+    """Interpolation routine that uses area weighting
+
+    Routine will find the nearest grid points in xmesh and ymesh that corresponding
+    to the points that are to be interpolated for x_interp and y_interp. The
+    values at these points are given in grid_vals. The function will then return
+    the interpolated values.
+
+    Paramters
+    ---------
+    x_interp: ndarray
+        Array of values to perform the interpolation at in x.
+
+    y_interp: ndarray
+        Array of values to perform the interpolation at in y.
+
+    xmesh: ndarray
+        The array holding the gridded x-values.
+
+    ymesh: ndarray
+        The array holding the gridded y-values.
+
+    grid_data: ndarray
+        This is the size (nx, ny) matrix holding the values for each (x,y) coordinate
+        on the grid. In other words, this holds the value for some 2D function
+        f(x,y) on the gridded values created by xmesh and ymesh.
+
+    Returns
+    -------
+    interp_data: ndarray
+        Array of equal size to x_interp and y_interp holding the interpolated
+        data values for each coordinate pair in (x_interp, y_interp)
+    """
+    # Create a zero padding. If the interp value is exactly the grid value this
+    # helps to treat the subtraction and approximately 0 and not numerical noise.
+    numerical_padding = np.random.random() * 1e-12
+
+    # Initialize geometrical values and interpolated array
+    dx = xmesh[1] - xmesh[0]
+    dy = ymesh[1] - ymesh[0]
+    dA = dx * dy
+    interp_data = np.zeros(len(x_interp))
+
+    # Loop through interpolation points, find grid points, and interpolate.
+    for i, (xm, ym) in enumerate(zip(x_interp, y_interp)):
+        xm += numerical_padding
+        ym += numerical_padding
+
+        # Find grid points that enclose the xm-ym coordinates in use
+        lowx = xm - dx
+        highx = xm + dx
+
+        lowy = ym - dy
+        highy = ym + dy
+
+        mask_x = (xmesh >= lowx) & (xmesh <= highx)
+        mask_y = (ymesh >= lowy) & (xmesh <= highy)
+
+        left, right = xmesh[mask_x][0], xmesh[mask_x][-1]
+        bottom, top = ymesh[mask_y][0], ymesh[mask_y][-1]
+
+        # Record indices for the gridpoints in use.
+        x_indices = np.where(mask_x)[0]
+        ix_left = x_indices[0]
+        ix_right = x_indices[-1]
+
+        y_indices = np.where(mask_y)[0]
+        iy_bottom = y_indices[0]
+        iy_top = y_indices[-1]
+
+        # Calculate Areas and weight grid data
+        A1 = (xm - left) * (ym - bottom)
+        A2 = (right - xm) * (ym - bottom)
+        A3 = (xm - left) * (top - ym)
+        A4 = (right - xm) * (top - ym)
+
+        q1m = grid_data[ix_left, iy_bottom] * A4 / dA
+        q2m = grid_data[ix_right, iy_bottom] * A3 / dA
+        q3m = grid_data[ix_left, iy_top] * A2 / dA
+        q4m = grid_data[ix_right, iy_top] * A1 / dA
+
+        qm = q1m + q2m + q3m + q4m
+        interp_data[i] = qm
+
+    return interp_data
+
+
+# ------------------------------------------------------------------------------
+#                     Create and load conductors
+# ------------------------------------------------------------------------------
+# Set paraemeeters for conductors
+voltage = 0.3 * kV
+separation = 1.8 * mm
+length_multiplier = 1
+length = length_multiplier * 0.695 * mm
+
+# length = cond.wafer_thickness + 2 * cond.copper_thickness #Timo esq
+zc = separation / 2 + length / 2
+wallvoltage = 0 * kV
+aperture = 0.55 * mm
+pole_rad = 0.50 * mm
+xycent = aperture + pole_rad
+walllength = 0.1 * mm
+wallzcent = separation / 2 + length + separation + walllength / 2
+
+# Create left and right quads
+leftconductor = ESQ_SolidCyl(zc=-zc, length=length)
+leftquad = leftconductor.generate(
+    voltage=voltage, xcent=xycent, ycent=xycent, data=False
+)
+rightconductor = ESQ_SolidCyl(zc=zc, length=length)
+rightquad = rightconductor.generate(
+    voltage=-voltage, xcent=xycent, ycent=xycent, data=False
+)
+
+leftwall = Wall().generate(apperture=aperture, voltage=wallvoltage, zcenter=-wallzcent)
+rightwall = Wall().generate(apperture=aperture, voltage=wallvoltage, zcenter=wallzcent)
+
+# Install Conductors and generate mesh
+wp.installconductor(leftquad)
+wp.installconductor(rightquad)
+wp.installconductor(leftwall)
+wp.installconductor(rightwall)
+
+# Multipole settings
+wp.w3d.nmom = 10
+wp.w3d.nzmom = wp.w3d.nz
+
+wp.generate()
+
+# ------------------------------------------------------------------------------
+#                     Calculate effective length
+# ------------------------------------------------------------------------------
+# Rename meshes and find indicesfor the mesh z-center and z-center of right quad
 x, y, z = wp.w3d.xmesh, wp.w3d.ymesh, wp.w3d.zmesh
 zzeroindex = getindex(z, 0.0, wp.w3d.dz)
 zcenterindex = getindex(z, zc, wp.w3d.dz)
@@ -500,8 +583,8 @@ if make_effective_length_plots:
     plt.savefig(savepath + "integrand.pdf", dpi=400)
     plt.show()
 
-
 # ------------------------------------------------------------------------------
+#                          Multipole Analysis
 # This section will do the multipole analysis.
 # The x and y component of the electric field (Ex and Ey) are give on the full
 # 3D mesh. The analytic treatment of the multipole is given on the x-y plane
@@ -657,6 +740,9 @@ wp.top.getgrid2d(
     wp.w3d.ymmax,
 )
 
+# ------------------------------------------------------------------------------
+#                    Calculate multipole coefficients
+# ------------------------------------------------------------------------------
 # Evaluate the coefficients a_n and b_n for Ex and Ey.
 n_order = 7
 nterms = np.array([i for i in range(0, n_order)])
@@ -714,8 +800,8 @@ if text_coefficient_table:
         print(f"An:{Excoeff_array[0,i]/Eymag:.5E}")
         print(f"Bn:{Excoeff_array[1,i]/Eymag:.5E}")
 
-
 # ------------------------------------------------------------------------------
+#                           Make plots of coefficient data
 # Visualize coefficient magnitudes with a 3D bar plot
 # The n-terms will be plotted using 3D bars, where there extent in z is their
 # contribution to the sum. To different coefficients are put on the same plot
