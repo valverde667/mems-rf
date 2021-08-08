@@ -820,9 +820,9 @@ z3 = np.zeros(len(nterms))
 dx = np.ones(len(nterms)) / 4
 dy = np.ones(len(nterms)) / 2
 
-# Sum coefficients from Ex and Ey to find full An and Bn. Takes Squares.
-An = pow(Excoeff_array[0, :], 2) + pow(Eycoeff_array[0, :], 2)
-Bn = pow(Excoeff_array[1, :], 2) + pow(Eycoeff_array[1, :], 2)
+# Take squared-coefficients from Ex
+An = pow(Excoeff_array[0, :], 2)
+Bn = pow(Excoeff_array[1, :], 2)
 
 # Use maximum multipole value for normalization
 An_norm = np.max(An)
