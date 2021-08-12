@@ -485,6 +485,8 @@ wp.generate()
 x, y, z = wp.w3d.xmesh, wp.w3d.ymesh, wp.w3d.zmesh
 zzeroindex = getindex(z, 0.0, wp.w3d.dz)
 zcenterindex = getindex(z, zc, wp.w3d.dz)
+xzeroindex = getindex(x, 0.0, wp.w3d.dx)
+yzeroindex = getindex(x, 0.0, wp.w3d.dx)
 
 # Create Warp plots. Useful for quick-checking
 warpplots = False
@@ -520,7 +522,7 @@ phi = wp.getphi()
 phixy = wp.getphi()[:, :, zcenterindex]
 Ex = wp.getselfe(comp="x")
 Ey = wp.getselfe(comp="y")
-gradex = Ex[1, 0, :] / wp.w3d.dx
+gradex = Ex[xzeroindex + 1, yzeroindex, :] / wp.w3d.dx
 
 make_effective_length_plots = False
 if make_effective_length_plots:
@@ -710,8 +712,8 @@ Eytest = Eyfun(X, Y)
 # ------------------------------------------------------------------------------
 
 # Set up paramters for interpolation
-interp_R = 0.90 * aperture
-interp_np = 70
+interp_R = aperture - 3 * wp.w3d.dx
+interp_np = 100
 interp_theta = np.linspace(0, 2 * np.pi, interp_np)
 
 interp_x = interp_R * np.cos(interp_theta)
@@ -782,7 +784,7 @@ wp.top.getgrid2d(
 #                    Calculate multipole coefficients
 # ------------------------------------------------------------------------------
 # Evaluate the coefficients a_n and b_n for Ex and Ey.
-n_order = 7
+n_order = 11
 nterms = np.array([i for i in range(0, n_order)])
 dtheta = interp_theta[1] - interp_theta[0]
 
