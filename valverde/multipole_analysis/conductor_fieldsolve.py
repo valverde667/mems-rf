@@ -25,15 +25,15 @@ um = 1e-6
 # Create mesh
 wp.w3d.xmmin = -0.8 * mm
 wp.w3d.xmmax = 0.8 * mm
-wp.w3d.nx = 300
+wp.w3d.nx = 200
 
 wp.w3d.ymmin = -0.8 * mm
 wp.w3d.ymmax = 0.8 * mm
-wp.w3d.ny = 300
+wp.w3d.ny = 200
 
 wp.w3d.zmmin = -4 * mm
 wp.w3d.zmmax = 4 * mm
-wp.w3d.nz = 600
+wp.w3d.nz = 300
 
 # Add boundary conditions
 wp.w3d.bound0 = wp.dirichlet
@@ -857,8 +857,8 @@ y3 = np.ones(len(nterms))
 z3 = np.zeros(len(nterms))
 
 # Set width of bars. These settings are for plot aesthetics and not significant
-dx = np.ones(len(nterms)) / 4
-dy = np.ones(len(nterms)) / 2
+xbar_width = np.ones(len(nterms)) / 4
+ybar_width = np.ones(len(nterms)) / 2
 
 # Take squared-coefficients from Ex
 An = pow(Excoeff_array[0, :], 2)
@@ -870,9 +870,9 @@ Bn_norm = np.max(Bn)
 norm = An_norm + Bn_norm
 
 # Plot An, Bn and An+Bn on bar plot where height represents fraction of Max pole
-ax.bar3d(nterms, 1 * y3, z3, dx, dy, An / norm, color="b")
-ax.bar3d(nterms, 3 * y3, z3, dx, dy, Bn / norm, color="g")
-ax.bar3d(nterms, 6 * y3, z3, dx, dy, (An + Bn) / norm, color="k")
+ax.bar3d(nterms, 1 * y3, z3, xbar_width, ybar_width, An / norm, color="b")
+ax.bar3d(nterms, 3 * y3, z3, xbar_width, ybar_width, Bn / norm, color="g")
+ax.bar3d(nterms, 6 * y3, z3, xbar_width, ybar_width, (An + Bn) / norm, color="k")
 
 ax.set_title(
     fr"Normalized Squared-Multipole Coefficients for $E(x,y)$", fontsize="x-small",
@@ -912,14 +912,16 @@ y3 = np.ones(len(An_masked))
 z3 = np.zeros(len(An_masked))
 
 # Set width of bars. These settings are for plot aesthetics and not significant
-dx = np.ones(len(n_maskedA)) / 4
-dy = np.ones(len(n_maskedA)) / 2
+xbar_width = np.ones(len(n_maskedA)) / 4
+ybar_width = np.ones(len(n_maskedA)) / 2
 
 
 # Plot An, Bn and An+Bn on bar plot where height represents fraction of Max pole
-ax.bar3d(n_maskedA, 1 * y3, z3, dx, dy, An_masked / norm, color="b")
-ax.bar3d(n_maskedB, 3 * y3, z3, dx, dy, Bn_masked / norm, color="g")
-ax.bar3d(nterms[mask_sum], 6 * y3, z3, dx, dy, sum_masked / norm, color="k")
+ax.bar3d(n_maskedA, 1 * y3, z3, xbar_width, ybar_width, An_masked / norm, color="b")
+ax.bar3d(n_maskedB, 3 * y3, z3, xbar_width, ybar_width, Bn_masked / norm, color="g")
+ax.bar3d(
+    nterms[mask_sum], 6 * y3, z3, xbar_width, ybar_width, sum_masked / norm, color="k"
+)
 
 ax.set_title(
     fr"Normalized Squared-Multipole Coefficients (Dominant Term Removed)",
@@ -946,6 +948,8 @@ plt.show()
 # Print out numerical information for coefficients
 print("--Normalized-squared coefficients (A,B)")
 for i, n in enumerate(nterms):
-    print(f"####    n={n+1}    ####")
+    print(f"### Coeff. Values Squared Normalized by Maximum Coeff. ###")
+    print(f"--n={n}")
     print(f"(An^2, Bn^2): ({An[i]/norm:.5E}, {Bn[i]/norm:.5E})")
     print(f"An^2 + Bn^2: {(An[i] + Bn[i])/norm:.5E}")
+    print("")
