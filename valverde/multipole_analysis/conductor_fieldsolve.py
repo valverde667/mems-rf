@@ -486,7 +486,7 @@ x, y, z = wp.w3d.xmesh, wp.w3d.ymesh, wp.w3d.zmesh
 zzeroindex = getindex(z, 0.0, wp.w3d.dz)
 zcenterindex = getindex(z, zc, wp.w3d.dz)
 xzeroindex = getindex(x, 0.0, wp.w3d.dx)
-yzeroindex = getindex(x, 0.0, wp.w3d.dx)
+yzeroindex = getindex(y, 0.0, wp.w3d.dy)
 
 # Create Warp plots. Useful for quick-checking
 warpplots = False
@@ -593,16 +593,16 @@ if make_effective_length_plots:
 # one quad and dividing by this effective length.
 # ------------------------------------------------------------------------------
 # Find fields in the region from -ell/2 to ell/2
-eff_index_left = getindex(z, zc - ell / 2, wp.w3d.dz)
-eff_index_right = getindex(z, zc + ell / 2, wp.w3d.dz)
+eff_index_left = getindex(z, 0 * mm, wp.w3d.dz)
+eff_index_right = getindex(z, z.max(), wp.w3d.dz)
 Ex_comp = Ex.copy()[:, :, eff_index_left : eff_index_right + 1]
 Ey_comp = Ey.copy()[:, :, eff_index_left : eff_index_right + 1]
 nx, ny, nz = Ex_comp.shape
 
 # Find the index corresponding to the effective length of the quadrupole from
 # above
-eff_index_left = getindex(z, zc - ell / 2, wp.w3d.dz)
-eff_index_right = getindex(z, zc + ell / 2, wp.w3d.dz)
+eff_index_left = zzeroindex
+eff_index_right = getindex(z, z.max(), wp.w3d.dz)
 
 # Reshape the fields to nx*ny by nz. This will give a column of vectors, where
 # each vector is the field along z at a given x,y coordinate.
@@ -784,19 +784,19 @@ wp.top.getgrid2d(
 #                    Calculate multipole coefficients
 # ------------------------------------------------------------------------------
 # Evaluate the coefficients a_n and b_n for Ex and Ey.
-n_order = 11
-nterms = np.array([i for i in range(0, n_order)])
+n_order = 12
+nterms = np.array([i for i in range(1, n_order + 1)])
 dtheta = interp_theta[1] - interp_theta[0]
 
 Excoeff_array = np.zeros((2, len(nterms)))
 Eycoeff_array = np.zeros((2, len(nterms)))
 R = interp_R / aperture
 
-for i in range(0, len(nterms)):
+for i in range(1, len(nterms)):
     n = nterms[i]
 
     # Treat n=0 coefficient separately since coeff is different
-    if n == 0:
+    if n == 1:
         coeff = 1 / 2 / np.pi
         Ax_integrand = interp_Ex
         Bx_integrand = 0
@@ -811,11 +811,11 @@ for i in range(0, len(nterms)):
         Excoeff_array[:, i] = Ax, Bx
         Eycoeff_array[:, i] = Ay, By
 
-    coeff = pow(1 / R, n) / np.pi
-    Ax_integrand = interp_Ex * np.cos(n * interp_theta)
-    Bx_integrand = interp_Ex * np.sin(n * interp_theta)
-    Ay_integrand = -1.0 * interp_Ey * np.sin(n * interp_theta)
-    By_integrand = interp_Ey * np.cos(n * interp_theta)
+    coeff = pow(1 / R, n - 1) / np.pi
+    Ax_integrand = interp_Ex * np.cos((n - 1) * interp_theta)
+    Bx_integrand = interp_Ex * np.sin((n - 1) * interp_theta)
+    Ay_integrand = -1.0 * interp_Ey * np.sin((n - 1) * interp_theta)
+    By_integrand = interp_Ey * np.cos((n - 1) * interp_theta)
 
     Ax = coeff * integrate.simpson(Ax_integrand, dx=dtheta)
     Bx = coeff * integrate.simpson(Bx_integrand, dx=dtheta)
@@ -870,9 +870,9 @@ Bn_norm = np.max(Bn)
 norm = An_norm + Bn_norm
 
 # Plot An, Bn and An+Bn on bar plot where height represents fraction of Max pole
-ax.bar3d(nterms + 1, 1 * y3, z3, dx, dy, An / norm, color="b")
-ax.bar3d(nterms + 1, 3 * y3, z3, dx, dy, Bn / norm, color="g")
-ax.bar3d(nterms + 1, 6 * y3, z3, dx, dy, (An + Bn) / norm, color="k")
+ax.bar3d(nterms, 1 * y3, z3, dx, dy, An / norm, color="b")
+ax.bar3d(nterms, 3 * y3, z3, dx, dy, Bn / norm, color="g")
+ax.bar3d(nterms, 6 * y3, z3, dx, dy, (An + Bn) / norm, color="k")
 
 ax.set_title(
     fr"Normalized Squared-Multipole Coefficients for $E(x,y)$", fontsize="x-small",
@@ -902,8 +902,8 @@ mask_sum = (An + Bn) < norm
 An_masked = An[maskAn]
 Bn_masked = Bn[maskBn]
 sum_masked = (An + Bn)[mask_sum]
-n_maskA = nterms[maskAn]
-n_maskB = nterms[maskBn]
+n_maskedA = nterms[maskAn]
+n_maskedB = nterms[maskBn]
 
 fig = plt.figure(figsize=(10, 8))
 ax = fig.add_subplot(211, projection="3d")
@@ -912,14 +912,14 @@ y3 = np.ones(len(An_masked))
 z3 = np.zeros(len(An_masked))
 
 # Set width of bars. These settings are for plot aesthetics and not significant
-dx = np.ones(len(n_maskA)) / 4
-dy = np.ones(len(n_maskA)) / 2
+dx = np.ones(len(n_maskedA)) / 4
+dy = np.ones(len(n_maskedA)) / 2
 
 
 # Plot An, Bn and An+Bn on bar plot where height represents fraction of Max pole
-ax.bar3d(nterms[n_maskA] + 1, 1 * y3, z3, dx, dy, An_masked / norm, color="b")
-ax.bar3d(nterms[n_maskB] + 1, 3 * y3, z3, dx, dy, Bn_masked / norm, color="g")
-ax.bar3d(nterms[mask_sum] + 1, 6 * y3, z3, dx, dy, sum_masked / norm, color="k")
+ax.bar3d(n_maskedA, 1 * y3, z3, dx, dy, An_masked / norm, color="b")
+ax.bar3d(n_maskedB, 3 * y3, z3, dx, dy, Bn_masked / norm, color="g")
+ax.bar3d(nterms[mask_sum], 6 * y3, z3, dx, dy, sum_masked / norm, color="k")
 
 ax.set_title(
     fr"Normalized Squared-Multipole Coefficients (Dominant Term Removed)",
