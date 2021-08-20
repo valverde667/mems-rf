@@ -1,7 +1,10 @@
-"""Model ESQ doublet in Warp and pull information. Plotting the ESQ gradient
-along with field strength is done. Calculating effective length of quadrupole.
-Also, different quadrupole designs are used: solid cylinder rods (ESQ), hollow
-cylindrical shell rods (ESQGrant), and Timo's design. """
+# Script for various modeling and characterizing of ESQ conductors. As of right,
+# the effective length and multipole moments are calculated using one of the
+# conductor classes; either a solid or hollow cylindrical rod. The doublet system
+# is loaded onto a mesh in isolation with no RF-acceleration gap field. However,
+# the grounded conducting planes are placed on the mesh. This helps with viewing
+# visualization and is somewhat illustrative of the real system.
+
 
 import numpy as np
 import matplotlib.pyplot as plt
