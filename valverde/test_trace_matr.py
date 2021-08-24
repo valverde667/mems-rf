@@ -58,7 +58,7 @@ print("Difference in Respective Traces: {}".format(abs(diff)))
 # elements. After computing the trace, the stability condition
 # cos(sigma_0) = 0.5*Tr(M) will be computed.
 # ------------------------------------------------------------------------------
-def beta(E, mass=Ar_mass, q=1):
+def calc_beta(E, mass=Ar_mass, q=1):
     """Velocity of a particle with energy E."""
     gamma = (E + mass) / mass
     beta = np.sqrt(1 - 1 / gamma / gamma)
@@ -209,7 +209,7 @@ def thin_accel_gap(volt, Energy, g, phi, mass=Ar_mass, transit_factor=1, q=1):
     """
 
     # Calculate focal length. See Wangler 7.11.
-    b = beta(Energy, mass=mass, q=q)
+    b = calc_beta(Energy, mass=mass, q=q)
     E0 = volt * g
     numerator = pow(b, 2) * mass
     denom = np.pi * q * E0 * transit_factor * np.sin(-phi)
@@ -402,7 +402,7 @@ for i in range(1, Ngaps):
     Egain += V[i - 1]
     energies.append(Egain)
     # Calculate beta using energy gain from previous gap
-    b = beta(Egain, Ar_mass, q=1)
+    b = calc_beta(Egain, Ar_mass, q=1)
     # Calculate constant using frequency if next gap
     gap_cent_dist = sc.c * b / 2 / f
     wafers.append(gap_cent_dist)
