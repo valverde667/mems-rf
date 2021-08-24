@@ -211,8 +211,8 @@ def thin_accel_gap(volt, Energy, g, phi, mass=Ar_mass, transit_factor=1, q=1):
     # Calculate focal length. See Wangler 7.11.
     b = beta(Energy, mass=mass, q=q)
     E0 = volt * g
-    numerator = np.pi * q * E0 * transit_factor * np.sin(-phi)
-    denom = pow(b, 2) * mass
+    numerator = pow(b, 2) * mass
+    denom = np.pi * q * E0 * transit_factor * np.sin(-phi)
 
     focal = numerator / denom
 
