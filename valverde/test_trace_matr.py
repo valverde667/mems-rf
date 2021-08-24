@@ -254,8 +254,9 @@ def build_M(centers, enrgy_pairs, voltage=384.667, g=2 * mm, lq=1.28 * mm):
 def volt_root(voltage, centers, energy_pairs, target, lq, g=2 * mm, verbose=True):
     # Calculate distances from center to center gaps distances
     cent12, cent23 = centers[0], centers[1]
-    w = (cent23 - g - 2 * lq) / 3
-    d = cent12 + g + 2 * w
+    inter_esq_drift = 1.8 * mm
+    w = (cent23 - g - 2 * lq - inter_esq_drift) / 2
+    d = w + cent12 + g + w
     eta = 2 * lq / (cent23 - g)
     if eta > 1:
         print("Max occupancy reached for ESQ length.")
@@ -265,10 +266,10 @@ def volt_root(voltage, centers, energy_pairs, target, lq, g=2 * mm, verbose=True
     # Build Transfer matrix
     O = drift(d)
     D = thick_defocus(k, lq)
-    Ow = drift(w)
+    Ointer = drift(inter_esq_drift)
     F = thick_focus(k, lq)
 
-    M = D @ Ow @ F @ O
+    M = D @ Ointer @ F @ O
     target_zeroed = target - np.trace(M) / 2
 
     return target_zeroed
@@ -389,6 +390,7 @@ if make_plots:
 Ngaps = 100 * 3
 E = inj_energy
 voltage = 7 * kV
+f = 13.56 * MHz
 wafers = []
 energies = [
     7 * kV,
@@ -431,7 +433,12 @@ g = 2 * mm
 
 # Main Loop. Loop through energy and center pairs and evaluate desired value.
 # The volt_root function is used to find the needed voltage to maintain
-# set phase advance. All other quanitities are geometrically determined.
+# set phase advance. All other quanitities are geometrically determined except
+# for the inter ESQ spacing. This is held fixed at 1.8mm, a value that was found
+# minimize the mutal zeroing of the ESQ gradient at the symmetry point betweeen
+# the two. The quads could be kept further apart, but, it is better for transport
+# to keep the optics close to eachother. At least, it is thought to be but there
+# is some investigation that can be done there.
 with open(savepath + "lattice_stability.csv", "w", newline="") as file:
     writer = csv.writer(file)
     writer.writerow(
@@ -452,8 +459,9 @@ with open(savepath + "lattice_stability.csv", "w", newline="") as file:
     for i, (energy, cent) in enumerate(zip(Epairs[:], dpairs[:])):
         # Calculate information
         cent12, cent23 = cent[0], cent[1]
-        w = (cent23 - g - 2 * length_quad) / 3
-        d = cent12 + g + 2 * w
+        inter_esq_drft = 1.8 * mm
+        w = (cent23 - g - 2 * length_quad - inter_esq_drft) / 2
+        d = w + cent12 + g + w
         cell_length = cent12 + cent23
         esq_space_tot = cent23 - g
         eta = 2 * length_quad / (esq_space_tot)
@@ -471,6 +479,11 @@ with open(savepath + "lattice_stability.csv", "w", newline="") as file:
             method="hybr",
         )
         volt_found = sol.x[0]
+
+        # Set switches to kill loop. The first would be exceeding the breakdown
+        # limit. The next cap is falling below the eta cap. This means that there
+        # is much drift space where the ESQs live and the Frequency should be
+        # increased to decrease the wasted drift space.
         if volt_found > Vcap:
             print("Max Volt exceeded. Lp: ", i)
             break
