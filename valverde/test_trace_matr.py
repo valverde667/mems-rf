@@ -20,6 +20,7 @@ inj_energy = 7 * kV
 source_radius = 0.25 * mm
 esq_radius = 0.55 * mm
 esq_volt = 0.250 * kV
+gap_volt = 7.0 * kV
 lq = 1.278 * mm
 gap = 2 * mm
 
@@ -166,6 +167,65 @@ def thick_phase_adv(kappa, Lp=18.6 * mm, lq=0.695 * mm):
     return sigma
 
 
+def thin_accel_gap(volt, Energy, g, phi, mass=Ar_mass, transit_factor=1, q=1):
+    """Build a thin RF-gap matrix element.
+
+    Modeling the RF acceleration gap as a thin element requires knowledge of the
+    transit time factor which should be solved numerically. However, a parametric
+    search can be done by using different values. Also, it is not appropriate to
+    model the RF gaps as thin in the start of the lattice since the particles
+    spend a non-neglible amount of time traversing the gap. However, some
+    intuition can still be gained. This function assumes non-relativistic and
+    sets gamma=1.
+
+    Parameters
+    ----------
+    volt : float
+        Voltage setting on gap.
+
+    Energy : float
+        Energy of particle before entering the gap in eV.
+
+    g : float
+        Thickness of RF-gap.
+
+    phi : float
+        Phase of arrival in gap. Here the gap field is at maximum when phi=0.
+
+    mass : float
+        Mass of simulated ion in eV.
+
+    transit_factor: float
+        The value of the transit time factor ranging from [0, 1].
+
+    q : int
+        Charge state of simulated ion.
+
+    Returns
+    -------
+    M : ndarray
+       Returns 2x2 transfer matrix for thin RF acceleration Gap
+
+    """
+
+    # Calculate focal length. See Wangler 7.11.
+    b = beta(Energy, mass=mass, q=q)
+    E0 = volt * g
+    numerator = np.pi * q * E0 * transit_factor * np.sin(-phi)
+    denom = pow(b, 2) * mass
+
+    focal = numerator / denom
+
+    # Build transport matrix
+    m11 = 1.0
+    m12 = 0.0
+    m21 = 1.0 / focal
+    m22 = 1.0
+    M = np.array([m11, m12, m21, m22]).reshape(2, 2)
+
+    return M
+
+
 def build_M(centers, enrgy_pairs, voltage=384.667, g=2 * mm, lq=1.28 * mm):
     """Temporary function to build lattice and find phase advance."""
 
@@ -215,6 +275,7 @@ def volt_root(voltage, centers, energy_pairs, target, lq, g=2 * mm, verbose=True
 
 
 # ------------------------------------------------------------------------------
+#                   Stability modeling wihout RF gap acceleration elements
 # This section is devoted to analyzing the stability conditions. The breadkdown
 # voltage is calculated using the maximum E-field (magnitude). From here,
 # the voltage settings are created from some minimum value to breakdown and then
@@ -436,3 +497,13 @@ with open(savepath + "lattice_stability.csv", "w", newline="") as file:
                     f / MHz,
                 ]
             )
+
+# ------------------------------------------------------------------------------
+#                    Including Acceleration
+# This section will build upon the previous section by adding the acceleration
+# optic. The optic is taken to be a thin lens kick which is not the most accurate
+# depiction at injection. The transit time factor is chosen rather than
+# calculated and can be varied to give a parametric scan for different transit
+# time factors. The same can be done for the arrival phase which should be
+# constricted to the half-open interval [np.pi, 0).
+# ------------------------------------------------------------------------------
