@@ -25,28 +25,6 @@ kV = wp.kV
 mm = wp.mm
 um = 1e-6
 
-# Create mesh
-wp.w3d.xmmin = -0.8 * mm
-wp.w3d.xmmax = 0.8 * mm
-wp.w3d.nx = 200
-
-wp.w3d.ymmin = -0.8 * mm
-wp.w3d.ymmax = 0.8 * mm
-wp.w3d.ny = 200
-
-wp.w3d.zmmin = -4 * mm
-wp.w3d.zmmax = 4 * mm
-wp.w3d.nz = 300
-
-# Add boundary conditions
-wp.w3d.bound0 = wp.dirichlet
-wp.w3d.boundnz = wp.dirichlet
-wp.w3d.boundxy = wp.periodic
-
-wp.w3d.l4symtry = False
-solver = wp.MRBlock3D()
-wp.registersolver(solver)
-
 # ------------------------------------------------------------------------------
 #                     User Defined function
 # Section createst the conductor classes for loading onto the mesh as well as
@@ -443,29 +421,55 @@ def interp2d_area(x_interp, y_interp, xmesh, ymesh, grid_data):
 
 
 # ------------------------------------------------------------------------------
-#                     Create and load conductors
+#                     Create and load mesh and conductors
 # ------------------------------------------------------------------------------
 # Set paraemeeters for conductors
 voltage = 0.3 * kV
-separation = 1.8 * mm
-length_multiplier = 1
-length = length_multiplier * 0.695 * mm
+separation = 0.8 * mm
+Nesq = 5
+ESQ_length = Nesq * 0.695 * mm
 
-# length = cond.wafer_thickness + 2 * cond.copper_thickness #Timo esq
-zc = separation / 2 + length / 2
+zc = separation / 2 + ESQ_length / 2
 wallvoltage = 0 * kV
+scale_pol_rad = 1.0  # Scale pole radius with aperture radius
 aperture = 0.55 * mm
-pole_rad = 0.50 * mm
+pole_rad = scale_pol_rad * aperture
 xycent = aperture + pole_rad
 walllength = 0.1 * mm
-wallzcent = separation / 2 + length + separation + walllength / 2
+wallzcent = separation / 2 + ESQ_length + separation + walllength / 2
+
+# Creat mesh using conductor geometries (above) to keep resolution consistent
+wp.w3d.xmmin = -xycent
+wp.w3d.xmmax = xycent
+wp.w3d.nx = 150
+
+wp.w3d.ymmin = -xycent
+wp.w3d.ymmax = xycent
+wp.w3d.ny = 150
+
+# Calculate nz to get about designed dz
+wp.w3d.zmmin = -wallzcent - walllength
+wp.w3d.zmmax = wallzcent + walllength
+design_dz = 10 * um
+calc_nz = (wp.w3d.zmmax - wp.w3d.zmmin) / design_dz
+wp.w3d.nz = int(calc_nz)
+print(int(calc_nz))
+
+# Add boundary conditions
+wp.w3d.bound0 = wp.dirichlet
+wp.w3d.boundnz = wp.dirichlet
+wp.w3d.boundxy = wp.periodic
+
+wp.w3d.l4symtry = False
+solver = wp.MRBlock3D()
+wp.registersolver(solver)
 
 # Create left and right quads
-leftconductor = ESQ_SolidCyl(zc=-zc, length=length)
+leftconductor = ESQ_SolidCyl(zc=-zc, length=ESQ_length)
 leftquad = leftconductor.generate(
     voltage=voltage, xcent=xycent, ycent=xycent, data=False
 )
-rightconductor = ESQ_SolidCyl(zc=zc, length=length)
+rightconductor = ESQ_SolidCyl(zc=zc, length=ESQ_length)
 rightquad = rightconductor.generate(
     voltage=-voltage, xcent=xycent, ycent=xycent, data=False
 )
@@ -527,7 +531,7 @@ Ex = wp.getselfe(comp="x")
 Ey = wp.getselfe(comp="y")
 gradex = Ex[xzeroindex + 1, yzeroindex, :] / wp.w3d.dx
 
-make_effective_length_plots = False
+make_effective_length_plots = True
 if make_effective_length_plots:
     # Create plot of Ex gradient
     fig, ax = plt.subplots()
@@ -539,10 +543,10 @@ if make_effective_length_plots:
     ax.axvline(x=0, c="k", lw=0.5)
 
     # add ESQ markers to plot
-    esq1left = -zc - length / 2
-    esq1right = -zc + length / 2
-    esq2left = zc - length / 2
-    esq2right = zc + length / 2
+    esq1left = -zc - ESQ_length / 2
+    esq1right = -zc + ESQ_length / 2
+    esq2left = zc - ESQ_length / 2
+    esq2right = zc + ESQ_length / 2
     ax.axvline(x=esq1left / mm, c="b", lw=0.8, ls="--", label="First ESQ")
     ax.axvline(x=esq1right / mm, c="b", lw=0.8, ls="--")
     ax.axvline(x=esq2left / mm, c="r", lw=0.8, ls="--", label="Second ESQ")
@@ -566,7 +570,7 @@ print("Effective Length = ", ell / mm)
 if make_effective_length_plots:
     fig, ax = plt.subplots()
     ax.set_title(
-        f"Integrand For Effective Length {ell/mm:.4f} mm, zc = {zc/mm :.4f} mm, n = {length_multiplier}, Lq = {length/mm:.4f} mm",
+        f"Integrand For Effective Length {ell/mm:.4f} mm, zc = {zc/mm :.4f} mm, n = {Nesq}, Lq = {ESQ_length/mm:.4f} mm",
         fontsize="small",
     )
     ax.set_ylabel(r"$|E(x=dx,y=0,z)$/dx| [kV mm$^{-2}$]")
@@ -716,7 +720,7 @@ Eytest = Eyfun(X, Y)
 
 # Set up paramters for interpolation
 interp_R = aperture - 3 * wp.w3d.dx
-interp_np = 100
+interp_np = 600
 interp_theta = np.linspace(0, 2 * np.pi, interp_np)
 
 interp_x = interp_R * np.cos(interp_theta)
@@ -787,7 +791,7 @@ wp.top.getgrid2d(
 #                    Calculate multipole coefficients
 # ------------------------------------------------------------------------------
 # Evaluate the coefficients a_n and b_n for Ex and Ey.
-n_order = 12
+n_order = 14
 nterms = np.array([i for i in range(1, n_order + 1)])
 dtheta = interp_theta[1] - interp_theta[0]
 
