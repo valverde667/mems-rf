@@ -211,18 +211,18 @@ def thin_accel_gap(volt, Energy, g, phi, mass=Ar_mass, transit_factor=1, q=1):
     # Calculate focal length. See Wangler 7.11.
     b = calc_beta(Energy, mass=mass, q=q)
     E0 = volt * g
-    numerator = pow(b, 2) * mass
-    denom = np.pi * q * E0 * transit_factor * np.sin(-phi)
+    numerator = np.pi * q * E0 * transit_factor * np.sin(-phi)
+    denom = pow(b, 2) * mass
 
-    focal = numerator / denom
+    inv_focal = numerator / denom
 
     # Build transport matrix
     m11 = 1.0
     m12 = 0.0
-    m21 = 1.0 / focal
+    m21 = inv_focal
     m22 = 1.0
-    M = np.array([m11, m12, m21, m22]).reshape(2, 2)
 
+    M = np.array([m11, m12, m21, m22]).reshape(2, 2)
     return M
 
 
@@ -251,26 +251,74 @@ def build_M(centers, enrgy_pairs, voltage=384.667, g=2 * mm, lq=1.28 * mm):
     return condition
 
 
-def volt_root(voltage, centers, energy_pairs, target, lq, g=2 * mm, verbose=True):
-    # Calculate distances from center to center gaps distances
-    cent12, cent23 = centers[0], centers[1]
-    inter_esq_drift = 1.8 * mm
-    w = (cent23 - g - 2 * lq - inter_esq_drift) / 2
-    d = w + cent12 + g + w
-    eta = 2 * lq / (cent23 - g)
-    if eta > 1:
-        print("Max occupancy reached for ESQ length.")
+def volt_root(
+    voltage,
+    centers,
+    energy_pairs,
+    target,
+    lq,
+    phi=0.0,
+    gap_volt=7 * kV,
+    g=2 * mm,
+    verbose=True,
+    do_accel_gaps=True,
+):
 
-    k = calc_kappa(voltage, energy_pairs[-1])
+    if do_accel_gaps:
+        # Structure of transfer matrix is slightly different from assymetric
+        # FODO in non-acceleration scheme. The final drift from ESQ to gap 3
+        # cannot be lumped into large drift region.
+        cent12, cent23 = centers[0], centers[1]
+        inter_esq_drift = 0.8 * mm
+        w = (cent23 - g - 2 * lq - inter_esq_drift) / 2
+        eta = 2 * lq / (cent23 - g)
+        if eta > 1:
+            print("Max occupancy reached for ESQ length.")
 
-    # Build Transfer matrix
-    O = drift(d)
-    D = thick_defocus(k, lq)
-    Ointer = drift(inter_esq_drift)
-    F = thick_focus(k, lq)
+        kappa = calc_kappa(voltage, energy_pairs[-1])
+        energy_gap1 = energy_pairs[0]
+        energy_gap2 = energy_pairs[-1]
+        energy_gap3 = energy_pairs[-1] + gap_volt
 
-    M = D @ Ointer @ F @ O
-    target_zeroed = target - np.trace(M) / 2
+        # Build transfer matrix using explicity elements for clarity
+        M2 = (
+            thin_accel_gap(gap_volt, energy_gap3, g=g / 2, phi=phi)
+            @ drift(g / 2)
+            @ drift(w)
+            @ thick_defocus(kappa, lq)
+            @ drift(inter_esq_drift)
+            @ thick_focus(kappa, lq)
+            @ drift(w)
+        )
+        M1 = (
+            drift(g / 2)
+            @ thin_accel_gap(gap_volt, energy_gap2, g=g, phi=phi)
+            @ drift(cent12)
+            @ thin_accel_gap(gap_volt, energy_gap1, g=g / 2, phi=phi)
+        )
+        M = M2 @ M1
+        target_zeroed = target - np.trace(M) / 2
+
+    else:
+        # Add energy acceleration but neglect optic from tranfer matrix
+        cent12, cent23 = centers[0], centers[1]
+        inter_esq_drift = 0.8 * mm
+        w = (cent23 - g - 2 * lq - inter_esq_drift) / 2
+        d = w + cent12 + g + w
+        eta = 2 * lq / (cent23 - g)
+        if eta > 1:
+            print("Max occupancy reached for ESQ length.")
+
+        k = calc_kappa(voltage, energy_pairs[-1])
+
+        # Build Transfer matrix
+        O = drift(d)
+        D = thick_defocus(k, lq)
+        Ointer = drift(inter_esq_drift)
+        F = thick_focus(k, lq)
+
+        M = D @ Ointer @ F @ O
+        target_zeroed = target - np.trace(M) / 2
 
     return target_zeroed
 
