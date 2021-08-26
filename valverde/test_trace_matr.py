@@ -388,18 +388,22 @@ if make_plots:
 # gain from previous gap. First gap is always placed at zero. So the loop
 # starts at finding the distances of the second gap.
 Ngaps = 100 * 3
-E = inj_energy
-voltage = 7 * kV
-f = 13.56 * MHz
+inj_energy = 7 * kV
+esq_voltage = 0.3 * kV
+gap_voltage = 7 * kV
+design_frequeny = 13.56 * MHz
 wafers = []
 energies = [
-    7 * kV,
+    inj_energy,
 ]
-V = np.ones(Ngaps) * voltage
-Egain = E
+Vgain = np.ones(Ngaps) * gap_voltage
+Egain = inj_energy
+
+# Distance beteween each sequential gap center. Note, the actualy position is
+# the cumulative sum. But here, we only care about the gap-gap distance.
 for i in range(1, Ngaps):
     # Update energy gain from previous gap
-    Egain += V[i - 1]
+    Egain += Vgain[i - 1]
     energies.append(Egain)
     # Calculate beta using energy gain from previous gap
     b = calc_beta(Egain, Ar_mass, q=1)
@@ -407,33 +411,29 @@ for i in range(1, Ngaps):
     gap_cent_dist = sc.c * b / 2 / f
     wafers.append(gap_cent_dist)
 
-# Distance beteween each sequential gap center. Note, the actualy position is
-# the cumulative sum. But here, we only care about the gap-gap distance.
 wafer_copy = np.array(wafers.copy())
 energies = np.array(energies[1:])
 pos = np.array(wafers).cumsum()
 
-# Loop through pos array and use position as drift.
-wafer_copy / mm
-pos / mm
-len(wafer_copy)
-energies
+# Create distance and energy pairs for each lattice period to loop through.
 dpairs = np.array(
     [(wafer_copy[i], wafer_copy[i + 1]) for i in range(0, len(wafer_copy) - 1, 2)]
 )
 Epairs = energies[:-1].reshape(len(dpairs), 2)
-dpairs / mm
+
+# Initialize variables for main loop.
 sigma_list = []
-target = np.cos(80 * np.pi / 180)
+target_phase_advance = 60  # degrees
+target = np.cos(target_phase_advance * np.pi / 180)
 length_multiplier = 5
-eff_lengths = np.array([1.1977, 1.816, 2.507, 3.1996, 3.895]) * mm
+eff_lengths = np.array([1.070, 1.707, 2.395, 3.090, 3.785]) * mm  # for 0.8mm separation
 length_quad = eff_lengths[length_multiplier - 1]
 Vcap = 0.75 * Vmax
 g = 2 * mm
 
 # Main Loop. Loop through energy and center pairs and evaluate desired value.
 # The volt_root function is used to find the needed voltage to maintain
-# set phase advance. All other quanitities are geometrically determined except
+# target phase advance. All other quanitities are geometrically determined except
 # for the inter ESQ spacing. This is held fixed at 1.8mm, a value that was found
 # minimize the mutal zeroing of the ESQ gradient at the symmetry point betweeen
 # the two. The quads could be kept further apart, but, it is better for transport
@@ -459,19 +459,23 @@ with open(savepath + "lattice_stability.csv", "w", newline="") as file:
     for i, (energy, cent) in enumerate(zip(Epairs[:], dpairs[:])):
         # Calculate information
         cent12, cent23 = cent[0], cent[1]
-        inter_esq_drft = 1.8 * mm
-        w = (cent23 - g - 2 * length_quad - inter_esq_drft) / 2
+        inter_esq_drift = 0.8 * mm
+        w = (cent23 - g - 2 * length_quad - inter_esq_drift) / 2
         d = w + cent12 + g + w
         cell_length = cent12 + cent23
         esq_space_tot = cent23 - g
         eta = 2 * length_quad / (esq_space_tot)
+
+        if w < 0:
+            print("Not enough space to fit ESQ doublet")
+            break
         if eta > 1:
             print("Max occupancy reached for ESQ length.")
             break
 
         # Initialize solver with voltage as knob and additional arguments being
         # the gap-gap centers and gap-gap ion energy
-        init_Vguess = np.array([300])
+        init_Vguess = np.array([0.3 * kV])
         sol = optimize.root(
             volt_root,
             init_Vguess,
