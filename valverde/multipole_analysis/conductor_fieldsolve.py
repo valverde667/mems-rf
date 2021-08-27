@@ -10,6 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import axes3d
 import scipy.integrate as integrate
+import math
 import csv
 import pdb
 
@@ -425,34 +426,34 @@ def interp2d_area(x_interp, y_interp, xmesh, ymesh, grid_data):
 # ------------------------------------------------------------------------------
 # Set paraemeeters for conductors
 voltage = 0.3 * kV
-separation = 0.8 * mm
-Nesq = 5
+separation = 1.8 * mm
+Nesq = 1
 ESQ_length = Nesq * 0.695 * mm
 
 zc = separation / 2 + ESQ_length / 2
 wallvoltage = 0 * kV
-scale_pol_rad = 1.0  # Scale pole radius with aperture radius
+scale_pol_rad = 1.25  # Scale pole radius with aperture radius
 aperture = 0.55 * mm
-pole_rad = scale_pol_rad * aperture
+pole_rad = aperture * scale_pol_rad
 xycent = aperture + pole_rad
 walllength = 0.1 * mm
-wallzcent = separation / 2 + ESQ_length + separation + walllength / 2
+wallzcent = separation / 2 + ESQ_length + 1.0 * mm + walllength / 2
 
 # Creat mesh using conductor geometries (above) to keep resolution consistent
 wp.w3d.xmmin = -xycent
 wp.w3d.xmmax = xycent
-wp.w3d.nx = 150
+wp.w3d.nx = 250
 
 wp.w3d.ymmin = -xycent
 wp.w3d.ymmax = xycent
-wp.w3d.ny = 150
+wp.w3d.ny = 250
 
 # Calculate nz to get about designed dz
-wp.w3d.zmmin = -wallzcent - walllength
-wp.w3d.zmmax = wallzcent + walllength
-design_dz = 10 * um
+wp.w3d.zmmin = -wallzcent - walllength - 0.5 * mm
+wp.w3d.zmmax = wallzcent + walllength + 0.5 * mm
+design_dz = 5 * um
 calc_nz = (wp.w3d.zmmax - wp.w3d.zmmin) / design_dz
-wp.w3d.nz = int(calc_nz)
+wp.w3d.nz = 700
 print(int(calc_nz))
 
 # Add boundary conditions
@@ -465,11 +466,11 @@ solver = wp.MRBlock3D()
 wp.registersolver(solver)
 
 # Create left and right quads
-leftconductor = ESQ_SolidCyl(zc=-zc, length=ESQ_length)
+leftconductor = ESQ_SolidCyl(zc=-zc, radius=pole_rad, length=ESQ_length)
 leftquad = leftconductor.generate(
     voltage=voltage, xcent=xycent, ycent=xycent, data=False
 )
-rightconductor = ESQ_SolidCyl(zc=zc, length=ESQ_length)
+rightconductor = ESQ_SolidCyl(zc=zc, radius=pole_rad, length=ESQ_length)
 rightquad = rightconductor.generate(
     voltage=-voltage, xcent=xycent, ycent=xycent, data=False
 )
@@ -531,7 +532,7 @@ Ex = wp.getselfe(comp="x")
 Ey = wp.getselfe(comp="y")
 gradex = Ex[xzeroindex + 1, yzeroindex, :] / wp.w3d.dx
 
-make_effective_length_plots = True
+make_effective_length_plots = False
 if make_effective_length_plots:
     # Create plot of Ex gradient
     fig, ax = plt.subplots()
@@ -602,19 +603,16 @@ if make_effective_length_plots:
 # Find fields in the region from -ell/2 to ell/2
 eff_index_left = getindex(z, 0 * mm, wp.w3d.dz)
 eff_index_right = getindex(z, z.max(), wp.w3d.dz)
-Ex_comp = Ex.copy()[:, :, eff_index_left : eff_index_right + 1]
-Ey_comp = Ey.copy()[:, :, eff_index_left : eff_index_right + 1]
+Ex_comp = Ex.copy()[:, :, zzeroindex:]
+Ey_comp = Ey.copy()[:, :, zzeroindex:]
 nx, ny, nz = Ex_comp.shape
-
-# Find the index corresponding to the effective length of the quadrupole from
-# above
-eff_index_left = zzeroindex
-eff_index_right = getindex(z, z.max(), wp.w3d.dz)
 
 # Reshape the fields to nx*ny by nz. This will give a column of vectors, where
 # each vector is the field along z at a given x,y coordinate.
 Ex_comp = Ex_comp.reshape(int(nx * ny), nz)
 Ey_comp = Ey_comp.reshape(int(nx * ny), nz)
+np.save("Ex_comp", Ex_comp)
+np.save("Ey_comp", Ey_comp)
 
 integrated_Ex = integrate.simpson(Ex_comp, dx=wp.w3d.dz) / ell
 integrated_Ey = integrate.simpson(Ey_comp, dx=wp.w3d.dz) / ell
@@ -662,45 +660,45 @@ if make_transField_plots:
     plt.savefig("/Users/nickvalverde/Desktop/Ey_original.pdf", dpi=400)
     plt.show()
 
-    fig, ax = plt.subplots()
-    ax.set_title(r"Integrated $E_x(x,y)$")
-    contourx = ax.contourf(
-        X / mm, Y / mm, integrated_Ex.reshape(nx, ny), levels=50, cmap="viridis"
-    )
-    ax.contour(
-        X / mm,
-        Y / mm,
-        integrated_Ex.reshape(nx, ny),
-        levels=50,
-        linewidths=0.1,
-        linestyles="solid",
-        colors="k",
-    )
-    fig.colorbar(contourx, ax=ax)
-    ax.set_xlabel("x [mm]")
-    ax.set_ylabel("y [mm]")
-    plt.savefig("/Users/nickvalverde/Desktop/x_transfields.pdf", dpi=400)
-    plt.show()
-
-    fig, ax = plt.subplots()
-    ax.set_title(r"Integrated $E_y(x,y)$")
-    contoury = ax.contourf(
-        X / mm, Y / mm, integrated_Ey.reshape(nx, ny), levels=50, cmap="viridis"
-    )
-    ax.contour(
-        X / mm,
-        Y / mm,
-        integrated_Ey.reshape(nx, ny),
-        levels=50,
-        linewidths=0.1,
-        linestyles="solid",
-        colors="k",
-    )
-    fig.colorbar(contoury, ax=ax)
-    ax.set_xlabel("x [mm]")
-    ax.set_ylabel("y [mm]")
-    plt.savefig("/Users/nickvalverde/Desktop/y_transfields.pdf", dpi=400)
-    plt.show()
+    # fig, ax = plt.subplots()
+    # ax.set_title(r"Integrated $E_x(x,y)$")
+    # contourx = ax.contourf(
+    #     X / mm, Y / mm, integrated_Ex.reshape(nx, ny), levels=50, cmap="viridis"
+    # )
+    # ax.contour(
+    #     X / mm,
+    #     Y / mm,
+    #     integrated_Ex.reshape(nx, ny),
+    #     levels=50,
+    #     linewidths=0.1,
+    #     linestyles="solid",
+    #     colors="k",
+    # )
+    # fig.colorbar(contourx, ax=ax)
+    # ax.set_xlabel("x [mm]")
+    # ax.set_ylabel("y [mm]")
+    # plt.savefig("/Users/nickvalverde/Desktop/x_transfields.pdf", dpi=400)
+    # plt.show()
+    #
+    # fig, ax = plt.subplots()
+    # ax.set_title(r"Integrated $E_y(x,y)$")
+    # contoury = ax.contourf(
+    #     X / mm, Y / mm, integrated_Ey.reshape(nx, ny), levels=50, cmap="viridis"
+    # )
+    # ax.contour(
+    #     X / mm,
+    #     Y / mm,
+    #     integrated_Ey.reshape(nx, ny),
+    #     levels=50,
+    #     linewidths=0.1,
+    #     linestyles="solid",
+    #     colors="k",
+    # )
+    # fig.colorbar(contoury, ax=ax)
+    # ax.set_xlabel("x [mm]")
+    # ax.set_ylabel("y [mm]")
+    # plt.savefig("/Users/nickvalverde/Desktop/y_transfields.pdf", dpi=400)
+    # plt.show()
 
 
 # ------------------------------------------------------------------------------
@@ -719,10 +717,9 @@ Eytest = Eyfun(X, Y)
 # ------------------------------------------------------------------------------
 
 # Set up paramters for interpolation
-interp_R = aperture - 3 * wp.w3d.dx
-interp_np = 600
+interp_R = aperture - 2 * wp.w3d.dx
+interp_np = math.ceil(np.sqrt(2) * np.pi * wp.w3d.nx / (1 + aperture / interp_R))
 interp_theta = np.linspace(0, 2 * np.pi, interp_np)
-
 interp_x = interp_R * np.cos(interp_theta)
 interp_y = interp_R * np.sin(interp_theta)
 
@@ -876,6 +873,17 @@ An_norm = np.max(An)
 Bn_norm = np.max(Bn)
 norm = An_norm + Bn_norm
 
+# Print out numerical information for coefficients
+print(f"--Scale Fraction {scale_pol_rad}")
+print("--Normalized-squared coefficients (A,B)")
+print(f"### Coeff. Values Squared Normalized by Maximum Coeff. ###")
+
+for i, n in enumerate(nterms):
+    print(f"--n={n}")
+    print(f"(An^2, Bn^2): ({An[i]/norm:.5E}, {Bn[i]/norm:.5E})")
+    print(f"An^2 + Bn^2: {(An[i] + Bn[i])/norm:.5E}")
+    print("")
+
 # Plot An, Bn and An+Bn on bar plot where height represents fraction of Max pole
 ax.bar3d(nterms, 1 * y3, z3, xbar_width, ybar_width, An / norm, color="b")
 ax.bar3d(nterms, 3 * y3, z3, xbar_width, ybar_width, Bn / norm, color="g")
@@ -905,7 +913,7 @@ plt.show()
 # Make plot taking out maximum contribution for 'zoomed in' look
 maskAn = An < An_norm
 maskBn = Bn < Bn_norm
-mask_sum = (An + Bn) < norm
+mask_sum = (An + Bn) < (An_norm + Bn_norm)
 An_masked = An[maskAn]
 Bn_masked = Bn[maskBn]
 sum_masked = (An + Bn)[mask_sum]
@@ -951,12 +959,3 @@ ax.legend(
 plt.tight_layout()
 plt.savefig(savepath + "zoomed_multipole_coeffs.pdf", dpi=400)
 plt.show()
-
-# Print out numerical information for coefficients
-print("--Normalized-squared coefficients (A,B)")
-for i, n in enumerate(nterms):
-    print(f"### Coeff. Values Squared Normalized by Maximum Coeff. ###")
-    print(f"--n={n}")
-    print(f"(An^2, Bn^2): ({An[i]/norm:.5E}, {Bn[i]/norm:.5E})")
-    print(f"An^2 + Bn^2: {(An[i] + Bn[i])/norm:.5E}")
-    print("")
