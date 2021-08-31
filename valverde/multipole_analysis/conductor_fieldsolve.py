@@ -453,7 +453,7 @@ wp.w3d.zmmin = -wallzcent - walllength - 0.5 * mm
 wp.w3d.zmmax = wallzcent + walllength + 0.5 * mm
 design_dz = 5 * um
 calc_nz = (wp.w3d.zmmax - wp.w3d.zmmin) / design_dz
-wp.w3d.nz = 700
+wp.w3d.nz = 650
 print(int(calc_nz))
 
 # Add boundary conditions
@@ -788,6 +788,34 @@ wp.top.getgrid2d(
 #                    Calculate multipole coefficients
 # ------------------------------------------------------------------------------
 # Evaluate the coefficients a_n and b_n for Ex and Ey.
+
+make_3d_integrand_plot = False
+if make_3d_integrand_plot:
+    # Make contour polot of integrated z values for Ex
+    theta3d = np.linspace(0, 2 * np.pi, int(2 * 4))
+    # x3d = np.zeros(theta3d)
+    # y3d = np.zeros(theta3d)
+    dtheta = interp_theta[1] - interp_theta[0]
+    # for i,angle in enumerate(theta3d):
+    #     # find value in x and y
+    #     index = getindex(angle, interp_theta, dtheta)
+    #     x3d[i] = interp_x[index]
+    #
+
+    fig = plt.figure(figsize=(10, 8))
+    ax = plt.axes(projection="3d")
+    ax.set_title(r"Value of Integration $\int E_x(x,y,z)dz$", fontsize="small")
+    ax.plot3D(interp_x, interp_y, np.zeros(len(interp_x)), "gray")
+    ax.scatter3D(interp_x, interp_y, interp_Ex, c=interp_Ex, cmap="Greens")
+    # for (xi,yi,Ei) in zip(interp_x, interp_y, interp_Ex):
+    #     ax.plot([xi,xi], [yi,yi], [0,Ei], 'k--')
+    ax.set_xlabel(r"$x = R\cos(\theta)$ [mm]")
+    ax.set_ylabel(r"$y = R\sin(\theta)$ [mm]")
+    ax.set_zlabel(r"$\bar{E}_x(r, \theta)$ [V/m]")
+    plt.tight_layout()
+    plt.savefig(savepath + "z_integration_visual.pdf", dpi=400)
+    plt.show()
+
 n_order = 14
 nterms = np.array([i for i in range(1, n_order + 1)])
 dtheta = interp_theta[1] - interp_theta[0]
