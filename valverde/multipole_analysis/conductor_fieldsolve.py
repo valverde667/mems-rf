@@ -426,40 +426,40 @@ def interp2d_area(x_interp, y_interp, xmesh, ymesh, grid_data):
 # ------------------------------------------------------------------------------
 # Set paraemeeters for conductors
 voltage = 0.3 * kV
-separation = 1.8 * mm
+separation = 0 * mm
 Nesq = 1
-ESQ_length = Nesq * 0.695 * mm
+ESQ_length = 150 * mm
 
-zc = separation / 2 + ESQ_length / 2
+zc = 0 * mm
 wallvoltage = 0 * kV
-scale_pol_rad = 1.25  # Scale pole radius with aperture radius
+scale_pol_rad = 8 / 7  # Scale pole radius with aperture radius
 aperture = 0.55 * mm
 pole_rad = aperture * scale_pol_rad
 xycent = aperture + pole_rad
 walllength = 0.1 * mm
-wallzcent = separation / 2 + ESQ_length + 1.0 * mm + walllength / 2
+wallzcent = ESQ_length / 2 + 1.0 * mm + walllength / 2
 
 # Creat mesh using conductor geometries (above) to keep resolution consistent
-wp.w3d.xmmin = -xycent
-wp.w3d.xmmax = xycent
-wp.w3d.nx = 250
+wp.w3d.xmmin = -xycent - pole_rad * (1 + 0.10)
+wp.w3d.xmmax = xycent + pole_rad * (1 + 0.10)
+wp.w3d.nx = 300
 
-wp.w3d.ymmin = -xycent
-wp.w3d.ymmax = xycent
-wp.w3d.ny = 250
+wp.w3d.ymmin = -xycent - pole_rad * (1 + 0.10)
+wp.w3d.ymmax = xycent + pole_rad * (1 + 0.10)
+wp.w3d.ny = 300
 
 # Calculate nz to get about designed dz
-wp.w3d.zmmin = -wallzcent - walllength - 0.5 * mm
-wp.w3d.zmmax = wallzcent + walllength + 0.5 * mm
+wp.w3d.zmmin = -ESQ_length
+wp.w3d.zmmax = ESQ_length
 design_dz = 5 * um
 calc_nz = (wp.w3d.zmmax - wp.w3d.zmmin) / design_dz
 wp.w3d.nz = 650
 print(int(calc_nz))
 
 # Add boundary conditions
-wp.w3d.bound0 = wp.dirichlet
-wp.w3d.boundnz = wp.dirichlet
-wp.w3d.boundxy = wp.periodic
+wp.w3d.bound0 = wp.neumann
+wp.w3d.boundnz = wp.neumann
+wp.w3d.boundxy = wp.neumann
 
 wp.w3d.l4symtry = False
 solver = wp.MRBlock3D()
@@ -470,19 +470,19 @@ leftconductor = ESQ_SolidCyl(zc=-zc, radius=pole_rad, length=ESQ_length)
 leftquad = leftconductor.generate(
     voltage=voltage, xcent=xycent, ycent=xycent, data=False
 )
-rightconductor = ESQ_SolidCyl(zc=zc, radius=pole_rad, length=ESQ_length)
-rightquad = rightconductor.generate(
-    voltage=-voltage, xcent=xycent, ycent=xycent, data=False
-)
+# rightconductor = ESQ_SolidCyl(zc=zc, radius=pole_rad, length=ESQ_length)
+# rightquad = rightconductor.generate(
+#     voltage=-voltage, xcent=xycent, ycent=xycent, data=False
+# )
 
 leftwall = Wall().generate(apperture=aperture, voltage=wallvoltage, zcenter=-wallzcent)
 rightwall = Wall().generate(apperture=aperture, voltage=wallvoltage, zcenter=wallzcent)
 
 # Install Conductors and generate mesh
 wp.installconductor(leftquad)
-wp.installconductor(rightquad)
-wp.installconductor(leftwall)
-wp.installconductor(rightwall)
+# wp.installconductor(rightquad)
+# wp.installconductor(leftwall)
+# wp.installconductor(rightwall)
 
 wp.generate()
 
@@ -497,11 +497,10 @@ xzeroindex = getindex(x, 0.0, wp.w3d.dx)
 yzeroindex = getindex(y, 0.0, wp.w3d.dy)
 
 # Create Warp plots. Useful for quick-checking
-warpplots = False
+warpplots = True
 if warpplots:
     wp.setup()
     leftquad.drawzx(filled=True)
-    rightquad.drawzx(filled=True)
     rightwall.drawzx(filled=True)
     leftwall.drawzx(filled=True)
     wp.fma()
@@ -532,7 +531,7 @@ Ex = wp.getselfe(comp="x")
 Ey = wp.getselfe(comp="y")
 gradex = Ex[xzeroindex + 1, yzeroindex, :] / wp.w3d.dx
 
-make_effective_length_plots = False
+make_effective_length_plots = True
 if make_effective_length_plots:
     # Create plot of Ex gradient
     fig, ax = plt.subplots()
@@ -564,7 +563,7 @@ if make_effective_length_plots:
 
 # Plot and calculate effective length
 # Integrate over right esq. Note, this gradient is negative.
-dEdx = abs(gradex[zzeroindex:])
+dEdx = abs(gradex[:])
 ell = efflength(dEdx, wp.w3d.dz)
 print("Effective Length = ", ell / mm)
 
@@ -576,7 +575,7 @@ if make_effective_length_plots:
     )
     ax.set_ylabel(r"$|E(x=dx,y=0,z)$/dx| [kV mm$^{-2}$]")
     ax.set_xlabel("z [mm]")
-    ax.scatter(z[zzeroindex:] / mm, dEdx / kV / 1000 / 1000, s=0.5)
+    ax.scatter(z / mm, dEdx / kV / 1000 / 1000, s=0.5)
     # Annotate
     ax.axhline(y=0, lw=0.5, c="k")
     ax.axvline(x=esq2left / mm, c="r", lw=0.8, ls="--", label="ESQ Edges")
@@ -603,8 +602,8 @@ if make_effective_length_plots:
 # Find fields in the region from -ell/2 to ell/2
 eff_index_left = getindex(z, 0 * mm, wp.w3d.dz)
 eff_index_right = getindex(z, z.max(), wp.w3d.dz)
-Ex_comp = Ex.copy()[:, :, zzeroindex:]
-Ey_comp = Ey.copy()[:, :, zzeroindex:]
+Ex_comp = Ex.copy()[:, :, :]
+Ey_comp = Ey.copy()[:, :, :]
 nx, ny, nz = Ex_comp.shape
 
 # Reshape the fields to nx*ny by nz. This will give a column of vectors, where
@@ -617,7 +616,7 @@ np.save("Ey_comp", Ey_comp)
 integrated_Ex = integrate.simpson(Ex_comp, dx=wp.w3d.dz) / ell
 integrated_Ey = integrate.simpson(Ey_comp, dx=wp.w3d.dz) / ell
 
-make_transField_plots = False
+make_transField_plots = True
 if make_transField_plots:
     fig, ax = plt.subplots()
     ax.set_title(r"$E_x(x,y,z=zcent)$")
@@ -719,6 +718,8 @@ Eytest = Eyfun(X, Y)
 # Set up paramters for interpolation
 interp_R = aperture - 2 * wp.w3d.dx
 interp_np = math.ceil(np.sqrt(2) * np.pi * wp.w3d.nx / (1 + aperture / interp_R))
+print(f"Np = {interp_np}")
+# interp_np = 100
 interp_theta = np.linspace(0, 2 * np.pi, interp_np)
 interp_x = interp_R * np.cos(interp_theta)
 interp_y = interp_R * np.sin(interp_theta)
@@ -784,6 +785,7 @@ wp.top.getgrid2d(
 #     ytest.min(),
 #     ytest.max(),
 # )
+
 # ------------------------------------------------------------------------------
 #                    Calculate multipole coefficients
 # ------------------------------------------------------------------------------
@@ -856,21 +858,6 @@ for i in range(1, len(nterms)):
 
     Excoeff_array[:, i] = Ax, Bx
     Eycoeff_array[:, i] = Ay, By
-
-text_coefficient_table = False
-if text_coefficient_table:
-    print("==== Normalized Ex coefficients =====")
-    for i in range(len(nterms)):
-        print(f"--n:{i+1}---")
-        print(f"An:{Excoeff_array[0,i]/Exmag:.5E}")
-        print(f"Bn:{Excoeff_array[1,i]/Exmag:.5E}")
-
-    print("")
-    print("==== Normalized Ey coefficients =====")
-    for i in range(len(nterms)):
-        print(f"--n:{i+1}---")
-        print(f"An:{Excoeff_array[0,i]/Eymag:.5E}")
-        print(f"Bn:{Excoeff_array[1,i]/Eymag:.5E}")
 
 # ------------------------------------------------------------------------------
 #                           Make plots of coefficient data
