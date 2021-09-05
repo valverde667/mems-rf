@@ -455,7 +455,7 @@ ESQ_length = aperture * scale_Lesq
 xycent = aperture + pole_rad
 walllength = 0.1 * mm
 wallzcent = ESQ_length / 2 + 1.0 * mm + walllength / 2
-ddd
+
 # Creat mesh using conductor geometries (above) to keep resolution consistent
 wp.w3d.xmmin = -xycent - pole_rad * (1 + 0.10)
 wp.w3d.xmmax = xycent + pole_rad * (1 + 0.10)
