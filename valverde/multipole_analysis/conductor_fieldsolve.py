@@ -428,7 +428,7 @@ def interp2d_area(x_interp, y_interp, xmesh, ymesh, grid_data):
 voltage = 0.3 * kV
 separation = 0 * mm
 Nesq = 1
-ESQ_length = 150 * mm
+ESQ_length = 10 * mm
 
 zc = 0 * mm
 wallvoltage = 0 * kV
@@ -460,6 +460,7 @@ print(int(calc_nz))
 wp.w3d.bound0 = wp.neumann
 wp.w3d.boundnz = wp.neumann
 wp.w3d.boundxy = wp.neumann
+wp.f3d.mgtol = 1e-8
 
 wp.w3d.l4symtry = False
 solver = wp.MRBlock3D()
