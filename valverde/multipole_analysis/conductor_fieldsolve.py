@@ -430,13 +430,14 @@ def interp2d_area(x_interp, y_interp, xmesh, ymesh, grid_data):
 voltage = 0.3 * kV
 separation = 0 * mm
 Nesq = 1
-ESQ_length = 10 * mm
 
 zc = 0 * mm
 wallvoltage = 0 * kV
 scale_pol_rad = 8 / 7  # Scale pole radius with aperture radius
+scale_Lesq = 36
 aperture = 0.55 * mm
 pole_rad = aperture * scale_pol_rad
+ESQ_length = aperture * scale_Lesq
 xycent = aperture + pole_rad
 walllength = 0.1 * mm
 wallzcent = ESQ_length / 2 + 1.0 * mm + walllength / 2
@@ -899,7 +900,7 @@ df = pd.DataFrame()
 df["init"] = [np.nan]
 df["n-max"] = nmax_index
 df["R_pole/R_aper"] = scale_pol_rad
-df["L_esq/R_aper"] = 1
+df["L_esq/R_aper"] = scale_Lesq
 df["separation[mm]"] = separation
 df["n-interp"] = interp_np
 for i in range(len(nterms)):
