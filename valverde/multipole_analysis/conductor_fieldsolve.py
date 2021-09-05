@@ -15,9 +15,23 @@ import os
 import math
 import csv
 import pdb
-
-# import conductors as cond
 import sys
+
+# Create argument parser for scaling. Must be done before importing Warp
+import warpoptions
+
+warpoptions.parser.add_argument("--scale_pole", default=False, type=float)
+warpoptions.parser.add_argument("--scale_length", default=False, type=float)
+inputs = warpoptions.parser.parse_args()
+if inputs.scale_pole != False:
+    scale_pole_rad = inputs.scale_pole
+else:
+    scale_pole_rad = 8 / 7
+if inputs.scale_length != False:
+    scale_Lesq = inputs.scale_length
+else:
+    scale_Lesq = 36.0
+
 import warp as wp
 
 # Save string for convenience
@@ -27,6 +41,8 @@ savepath = "/Users/nickvalverde/Desktop/ESQ_files/"
 kV = wp.kV
 mm = wp.mm
 um = 1e-6
+print(f"--Using Pole Scale Factor of {scale_pole_rad}")
+print(f"--Using ESQ Length Scale Factor of {scale_Lesq}")
 
 # ------------------------------------------------------------------------------
 #                     User Defined function
@@ -433,15 +449,13 @@ Nesq = 1
 
 zc = 0 * mm
 wallvoltage = 0 * kV
-scale_pol_rad = 8 / 7  # Scale pole radius with aperture radius
-scale_Lesq = 36
 aperture = 0.55 * mm
-pole_rad = aperture * scale_pol_rad
+pole_rad = aperture * scale_pole_rad
 ESQ_length = aperture * scale_Lesq
 xycent = aperture + pole_rad
 walllength = 0.1 * mm
 wallzcent = ESQ_length / 2 + 1.0 * mm + walllength / 2
-
+ddd
 # Creat mesh using conductor geometries (above) to keep resolution consistent
 wp.w3d.xmmin = -xycent - pole_rad * (1 + 0.10)
 wp.w3d.xmmax = xycent + pole_rad * (1 + 0.10)
@@ -899,7 +913,7 @@ file_exists = filename in os.listdir(savepath)
 df = pd.DataFrame()
 df["init"] = [np.nan]
 df["n-max"] = nmax_index
-df["R_pole/R_aper"] = scale_pol_rad
+df["R_pole/R_aper"] = scale_pole_rad
 df["L_esq/R_aper"] = scale_Lesq
 df["separation[mm]"] = separation
 df["n-interp"] = interp_np
@@ -920,7 +934,7 @@ with open(os.path.join(savepath, filename), "a") as f:
     df.to_csv(f, header=not (file_exists), index=False)
 
 # Print out numerical information for coefficients
-print(f"--Scale Fraction {scale_pol_rad}")
+print(f"--Scale Fraction {scale_pole_rad}")
 print(f"--Max order n = {nterms[nmax_index]}:")
 print("--Normalized-squared coefficients (A,B)")
 print(f"### Coeff. Values Squared Normalized by Maximum Coeff. ###")
