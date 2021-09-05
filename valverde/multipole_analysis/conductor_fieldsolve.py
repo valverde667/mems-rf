@@ -899,78 +899,85 @@ for i, n in enumerate(nterms):
     print(f"An^2 + Bn^2: {(An[i] + Bn[i])/norm:.5E}")
     print("")
 
-# Plot An, Bn and An+Bn on bar plot where height represents fraction of Max pole
-ax.bar3d(nterms, 1 * y3, z3, xbar_width, ybar_width, An / norm, color="b")
-ax.bar3d(nterms, 3 * y3, z3, xbar_width, ybar_width, Bn / norm, color="g")
-ax.bar3d(nterms, 6 * y3, z3, xbar_width, ybar_width, (An + Bn) / norm, color="k")
+do_multple_barplots = False
+if do_multple_barplots:
+    # Plot An, Bn and An+Bn on bar plot where height represents fraction of Max pole
+    ax.bar3d(nterms, 1 * y3, z3, xbar_width, ybar_width, An / norm, color="b")
+    ax.bar3d(nterms, 3 * y3, z3, xbar_width, ybar_width, Bn / norm, color="g")
+    ax.bar3d(nterms, 6 * y3, z3, xbar_width, ybar_width, (An + Bn) / norm, color="k")
 
-ax.set_title(
-    fr"Normalized Squared-Multipole Coefficients for $E(x,y)$", fontsize="x-small",
-)
-ax.set_xlabel("n", fontsize="small")
-ax.set_ylabel("")
-ax.set_zlabel(r"Fraction of $\max[A_n^2 + B_n^2]$", fontsize="small")
-ax.set_yticks([])
+    ax.set_title(
+        fr"Normalized Squared-Multipole Coefficients for $E(x,y)$", fontsize="x-small",
+    )
+    ax.set_xlabel("n", fontsize="small")
+    ax.set_ylabel("")
+    ax.set_zlabel(r"Fraction of $\max[A_n^2 + B_n^2]$", fontsize="small")
+    ax.set_yticks([])
 
-# Create legend labels using a proxy. Needed for 3D bargraph
-blue_proxy = plt.Rectangle((0, 0), 1, 1, fc="b")
-green_proxy = plt.Rectangle((0, 0), 1, 1, fc="g")
-black_proxy = plt.Rectangle((0, 0), 1, 1, fc="k")
-ax.legend(
-    [blue_proxy, green_proxy, black_proxy],
-    [r"$A_n^2$", r"$B_n^2$", r"$A_n^2 + B_n^2$"],
-    fontsize="x-small",
-)
-plt.tight_layout()
-plt.savefig(savepath + "multipole_coeffs.pdf", dpi=400)
-plt.show()
+    # Create legend labels using a proxy. Needed for 3D bargraph
+    blue_proxy = plt.Rectangle((0, 0), 1, 1, fc="b")
+    green_proxy = plt.Rectangle((0, 0), 1, 1, fc="g")
+    black_proxy = plt.Rectangle((0, 0), 1, 1, fc="k")
+    ax.legend(
+        [blue_proxy, green_proxy, black_proxy],
+        [r"$A_n^2$", r"$B_n^2$", r"$A_n^2 + B_n^2$"],
+        fontsize="x-small",
+    )
+    plt.tight_layout()
+    plt.savefig(savepath + "multipole_coeffs.pdf", dpi=400)
+    plt.show()
 
-# Make plot taking out maximum contribution for 'zoomed in' look
-maskAn = An < An_norm
-maskBn = Bn < Bn_norm
-mask_sum = (An + Bn) < (An_norm + Bn_norm)
-An_masked = An[maskAn]
-Bn_masked = Bn[maskBn]
-sum_masked = (An + Bn)[mask_sum]
-n_maskedA = nterms[maskAn]
-n_maskedB = nterms[maskBn]
+    # Make plot taking out maximum contribution for 'zoomed in' look
+    maskAn = An < An_norm
+    maskBn = Bn < Bn_norm
+    mask_sum = (An + Bn) < (An_norm + Bn_norm)
+    An_masked = An[maskAn]
+    Bn_masked = Bn[maskBn]
+    sum_masked = (An + Bn)[mask_sum]
+    n_maskedA = nterms[maskAn]
+    n_maskedB = nterms[maskBn]
 
-fig = plt.figure(figsize=(10, 8))
-ax = fig.add_subplot(211, projection="3d")
+    fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(211, projection="3d")
 
-y3 = np.ones(len(An_masked))
-z3 = np.zeros(len(An_masked))
+    y3 = np.ones(len(An_masked))
+    z3 = np.zeros(len(An_masked))
 
-# Set width of bars. These settings are for plot aesthetics and not significant
-xbar_width = np.ones(len(n_maskedA)) / 4
-ybar_width = np.ones(len(n_maskedA)) / 2
+    # Set width of bars. These settings are for plot aesthetics and not significant
+    xbar_width = np.ones(len(n_maskedA)) / 4
+    ybar_width = np.ones(len(n_maskedA)) / 2
 
+    # Plot An, Bn and An+Bn on bar plot where height represents fraction of Max pole
+    ax.bar3d(n_maskedA, 1 * y3, z3, xbar_width, ybar_width, An_masked / norm, color="b")
+    ax.bar3d(n_maskedB, 3 * y3, z3, xbar_width, ybar_width, Bn_masked / norm, color="g")
+    ax.bar3d(
+        nterms[mask_sum],
+        6 * y3,
+        z3,
+        xbar_width,
+        ybar_width,
+        sum_masked / norm,
+        color="k",
+    )
 
-# Plot An, Bn and An+Bn on bar plot where height represents fraction of Max pole
-ax.bar3d(n_maskedA, 1 * y3, z3, xbar_width, ybar_width, An_masked / norm, color="b")
-ax.bar3d(n_maskedB, 3 * y3, z3, xbar_width, ybar_width, Bn_masked / norm, color="g")
-ax.bar3d(
-    nterms[mask_sum], 6 * y3, z3, xbar_width, ybar_width, sum_masked / norm, color="k"
-)
+    ax.set_title(
+        fr"Normalized Squared-Multipole Coefficients (Dominant Term Removed)",
+        fontsize="x-small",
+    )
+    ax.set_xlabel("n", fontsize="small")
+    ax.set_ylabel("")
+    ax.set_zlabel(r"Fraction of $\max[A_n^2 + B_n^2]$", fontsize="small")
+    ax.set_yticks([])
 
-ax.set_title(
-    fr"Normalized Squared-Multipole Coefficients (Dominant Term Removed)",
-    fontsize="x-small",
-)
-ax.set_xlabel("n", fontsize="small")
-ax.set_ylabel("")
-ax.set_zlabel(r"Fraction of $\max[A_n^2 + B_n^2]$", fontsize="small")
-ax.set_yticks([])
-
-# Create legend labels using a proxy. Needed for 3D bargraph
-blue_proxy = plt.Rectangle((0, 0), 1, 1, fc="b")
-green_proxy = plt.Rectangle((0, 0), 1, 1, fc="g")
-black_proxy = plt.Rectangle((0, 0), 1, 1, fc="k")
-ax.legend(
-    [blue_proxy, green_proxy],
-    [r"$A_n^2$", r"$B_n^2$", r"$A_n^2 + B_n^2$"],
-    fontsize="x-small",
-)
-plt.tight_layout()
-plt.savefig(savepath + "zoomed_multipole_coeffs.pdf", dpi=400)
-plt.show()
+    # Create legend labels using a proxy. Needed for 3D bargraph
+    blue_proxy = plt.Rectangle((0, 0), 1, 1, fc="b")
+    green_proxy = plt.Rectangle((0, 0), 1, 1, fc="g")
+    black_proxy = plt.Rectangle((0, 0), 1, 1, fc="k")
+    ax.legend(
+        [blue_proxy, green_proxy],
+        [r"$A_n^2$", r"$B_n^2$", r"$A_n^2 + B_n^2$"],
+        fontsize="x-small",
+    )
+    plt.tight_layout()
+    plt.savefig(savepath + "zoomed_multipole_coeffs.pdf", dpi=400)
+    plt.show()
