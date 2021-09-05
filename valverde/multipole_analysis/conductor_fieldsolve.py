@@ -7,9 +7,11 @@
 
 
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import axes3d
 import scipy.integrate as integrate
+import os
 import math
 import csv
 import pdb
@@ -498,7 +500,7 @@ xzeroindex = getindex(x, 0.0, wp.w3d.dx)
 yzeroindex = getindex(y, 0.0, wp.w3d.dy)
 
 # Create Warp plots. Useful for quick-checking
-warpplots = True
+warpplots = False
 if warpplots:
     wp.setup()
     leftquad.drawzx(filled=True)
@@ -532,7 +534,7 @@ Ex = wp.getselfe(comp="x")
 Ey = wp.getselfe(comp="y")
 gradex = Ex[xzeroindex + 1, yzeroindex, :] / wp.w3d.dx
 
-make_effective_length_plots = True
+make_effective_length_plots = False
 if make_effective_length_plots:
     # Create plot of Ex gradient
     fig, ax = plt.subplots()
@@ -617,7 +619,7 @@ np.save("Ey_comp", Ey_comp)
 integrated_Ex = integrate.simpson(Ex_comp, dx=wp.w3d.dz) / ell
 integrated_Ey = integrate.simpson(Ey_comp, dx=wp.w3d.dz) / ell
 
-make_transField_plots = True
+make_transField_plots = False
 if make_transField_plots:
     fig, ax = plt.subplots()
     ax.set_title(r"$E_x(x,y,z=zcent)$")
@@ -881,23 +883,54 @@ xbar_width = np.ones(len(nterms)) / 4
 ybar_width = np.ones(len(nterms)) / 2
 
 # Take squared-coefficients from Ex
-An = pow(Excoeff_array[0, :], 2)
-Bn = pow(Excoeff_array[1, :], 2)
+An = Excoeff_array[0, :].copy()
+Bn = Excoeff_array[1, :].copy()
 
 # Use maximum multipole value for normalization
-An_norm = np.max(An)
-Bn_norm = np.max(Bn)
-norm = An_norm + Bn_norm
+norm = np.max(np.sqrt(pow(An, 2) + pow(Bn, 2)))
+nmax_index = nterms[np.argmax(np.sqrt(pow(An, 2) + pow(Bn, 2)))]
+An_norm = np.max(abs(An))
+Bn_norm = np.max(abs(Bn))
+
+# Store data in a dataframe and append to csv file. If csv file already exists
+# the column headers are ignored. If not, the file is created with headers.
+filename = "multipole_data.csv"
+file_exists = filename in os.listdir(savepath)
+df = pd.DataFrame()
+df["init"] = [np.nan]
+df["n-max"] = nmax_index
+df["R_pole/R_aper"] = scale_pol_rad
+df["L_esq/R_aper"] = 1
+df["separation[mm]"] = separation
+for i in range(len(nterms)):
+    # Loop through n-poles and create column header
+    df[f"Norm A{i+1}"] = An[i] / An_norm
+    df[f"Norm B{i+1}"] = Bn[i] / An_norm
+for i in range(len(nterms)):
+    df[f"A{i+1}"] = An[i]
+    df[f"B{i+1}"] = Bn[i]
+df["n-interp"] = interp_np
+df["dx[mm]"] = wp.w3d.dx / mm
+df["dy[mm]"] = wp.w3d.dy / mm
+df["dz[mm]"] = wp.w3d.dz / mm
+df["mesh_zext[mm]"] = (wp.w3d.zmmax - wp.w3d.zmmin) / mm
+df.drop("init", axis=1, inplace=True)
+
+with open(os.path.join(savepath, filename), "a") as f:
+    df.to_csv(f, header=not (file_exists), index=False)
 
 # Print out numerical information for coefficients
 print(f"--Scale Fraction {scale_pol_rad}")
+print(f"--Max order n = {nterms[nmax_index]}:")
 print("--Normalized-squared coefficients (A,B)")
 print(f"### Coeff. Values Squared Normalized by Maximum Coeff. ###")
 
 for i, n in enumerate(nterms):
     print(f"--n={n}")
-    print(f"(An^2, Bn^2): ({An[i]/norm:.5E}, {Bn[i]/norm:.5E})")
-    print(f"An^2 + Bn^2: {(An[i] + Bn[i])/norm:.5E}")
+    print(f"(An, Bn): ({An[i]:.5E},  {Bn[i]:.5E})")
+    print(
+        f"Noramalized by max n-term (An, Bn): ({An[i]/An_norm:.5E}, {Bn[i]/Bn_norm:.5E})"
+    )
     print("")
 
 do_multple_barplots = False
