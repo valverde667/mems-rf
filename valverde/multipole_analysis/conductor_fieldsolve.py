@@ -720,9 +720,8 @@ Eytest = Eyfun(X, Y)
 
 # Set up paramters for interpolation
 interp_R = aperture - 2 * wp.w3d.dx
-interp_np = math.ceil(np.sqrt(2) * np.pi * wp.w3d.nx / (1 + aperture / interp_R))
+interp_np = math.ceil(np.sqrt(2) * np.pi * wp.w3d.nx * interp_R / aperture)
 print(f"Np = {interp_np}")
-# interp_np = 100
 interp_theta = np.linspace(0, 2 * np.pi, interp_np)
 interp_x = interp_R * np.cos(interp_theta)
 interp_y = interp_R * np.sin(interp_theta)
@@ -902,6 +901,7 @@ df["n-max"] = nmax_index
 df["R_pole/R_aper"] = scale_pol_rad
 df["L_esq/R_aper"] = 1
 df["separation[mm]"] = separation
+df["n-interp"] = interp_np
 for i in range(len(nterms)):
     # Loop through n-poles and create column header
     df[f"Norm A{i+1}"] = An[i] / An_norm
@@ -909,7 +909,6 @@ for i in range(len(nterms)):
 for i in range(len(nterms)):
     df[f"A{i+1}"] = An[i]
     df[f"B{i+1}"] = Bn[i]
-df["n-interp"] = interp_np
 df["dx[mm]"] = wp.w3d.dx / mm
 df["dy[mm]"] = wp.w3d.dy / mm
 df["dz[mm]"] = wp.w3d.dz / mm
