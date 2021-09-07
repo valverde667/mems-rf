@@ -457,12 +457,12 @@ walllength = 0.1 * mm
 wallzcent = ESQ_length / 2 + 1.0 * mm + walllength / 2
 
 # Creat mesh using conductor geometries (above) to keep resolution consistent
-wp.w3d.xmmin = -xycent - pole_rad * (1 + 0.10)
-wp.w3d.xmmax = xycent + pole_rad * (1 + 0.10)
+wp.w3d.xmmin = -xycent - pole_rad * (1 + 0.70)
+wp.w3d.xmmax = xycent + pole_rad * (1 + 0.70)
 wp.w3d.nx = 300
 
-wp.w3d.ymmin = -xycent - pole_rad * (1 + 0.10)
-wp.w3d.ymmax = xycent + pole_rad * (1 + 0.10)
+wp.w3d.ymmin = -xycent - pole_rad * (1 + 0.70)
+wp.w3d.ymmax = xycent + pole_rad * (1 + 0.70)
 wp.w3d.ny = 300
 
 # Calculate nz to get about designed dz
