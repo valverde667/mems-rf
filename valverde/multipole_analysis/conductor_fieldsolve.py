@@ -26,7 +26,7 @@ inputs = warpoptions.parser.parse_args()
 if inputs.scale_pole != False:
     scale_pole_rad = inputs.scale_pole
 else:
-    scale_pole_rad = 8 / 7
+    scale_pole_rad = 1.151
 if inputs.scale_length != False:
     scale_Lesq = inputs.scale_length
 else:
@@ -474,9 +474,9 @@ wp.w3d.nz = 650
 print(int(calc_nz))
 
 # Add boundary conditions
-wp.w3d.bound0 = wp.neumann
-wp.w3d.boundnz = wp.neumann
-wp.w3d.boundxy = wp.neumann
+wp.w3d.bound0 = wp.dirichlet
+wp.w3d.boundnz = wp.dirichlet
+wp.w3d.boundxy = wp.dirichlet
 wp.f3d.mgtol = 1e-8
 
 wp.w3d.l4symtry = False
@@ -519,7 +519,7 @@ warpplots = False
 if warpplots:
     wp.setup()
     leftquad.drawzx(filled=True)
-    rightwall.drawzx(filled=True)
+    # rightwall.drawzx(filled=True)
     leftwall.drawzx(filled=True)
     wp.fma()
 
@@ -533,12 +533,24 @@ if warpplots:
     wp.fma()
 
     wp.pfxy(
-        plotselfe=1, plotphi=0, comp="x", fill=1, filled=1, contours=50, iz=zcenterindex
+        plotselfe=1,
+        plotphi=0,
+        comp="x",
+        fill=1,
+        filled=1,
+        contours=100,
+        iz=zcenterindex,
     )
     wp.fma()
 
     wp.pfxy(
-        plotselfe=1, plotphi=0, comp="y", fill=1, filled=1, contours=50, iz=zcenterindex
+        plotselfe=1,
+        plotphi=0,
+        comp="y",
+        fill=1,
+        filled=1,
+        contours=100,
+        iz=zcenterindex,
     )
     wp.fma()
 
@@ -563,18 +575,18 @@ if make_effective_length_plots:
     # add ESQ markers to plot
     esq1left = -zc - ESQ_length / 2
     esq1right = -zc + ESQ_length / 2
-    esq2left = zc - ESQ_length / 2
-    esq2right = zc + ESQ_length / 2
-    ax.axvline(x=esq1left / mm, c="b", lw=0.8, ls="--", label="First ESQ")
+    # esq2left = zc - ESQ_length / 2
+    # esq2right = zc + ESQ_length / 2
+    ax.axvline(x=esq1left / mm, c="b", lw=0.8, ls="--", label="ESQ Ends")
     ax.axvline(x=esq1right / mm, c="b", lw=0.8, ls="--")
-    ax.axvline(x=esq2left / mm, c="r", lw=0.8, ls="--", label="Second ESQ")
-    ax.axvline(x=esq2right / mm, c="r", lw=0.8, ls="--")
-    ax.axvline(
-        x=(wallzcent - walllength / 2) / mm, c="grey", lw=0.8, ls="--", label="Wall"
-    )
-    ax.axvline(x=-(wallzcent - walllength / 2) / mm, c="grey", lw=0.8, ls="--")
-    ax.axvline(x=(wallzcent + walllength / 2) / mm, c="grey", lw=0.8, ls="--")
-    ax.axvline(x=-(wallzcent + walllength / 2) / mm, c="grey", lw=0.8, ls="--")
+    # ax.axvline(x=esq2left / mm, c="r", lw=0.8, ls="--", label="Second ESQ")
+    # ax.axvline(x=esq2right / mm, c="r", lw=0.8, ls="--")
+    # ax.axvline(
+    #     x=(wallzcent - walllength / 2) / mm, c="grey", lw=0.8, ls="--", label="Wall"
+    # )
+    # ax.axvline(x=-(wallzcent - walllength / 2) / mm, c="grey", lw=0.8, ls="--")
+    # ax.axvline(x=(wallzcent + walllength / 2) / mm, c="grey", lw=0.8, ls="--")
+    # ax.axvline(x=-(wallzcent + walllength / 2) / mm, c="grey", lw=0.8, ls="--")
     plt.legend()
     plt.savefig(savepath + "full-mesh.pdf", dpi=400)
     plt.show()
@@ -596,12 +608,12 @@ if make_effective_length_plots:
     ax.scatter(z / mm, dEdx / kV / 1000 / 1000, s=0.5)
     # Annotate
     ax.axhline(y=0, lw=0.5, c="k")
-    ax.axvline(x=esq2left / mm, c="r", lw=0.8, ls="--", label="ESQ Edges")
-    ax.axvline(x=esq2right / mm, c="r", lw=0.8, ls="--")
-    ax.axvline(
-        x=(wallzcent - walllength / 2) / mm, c="grey", lw=0.8, ls="--", label="Wall"
-    )
-    ax.axvline(x=(wallzcent + walllength / 2) / mm, c="grey", lw=0.8, ls="--")
+    ax.axvline(x=esq1left / mm, c="r", lw=0.8, ls="--", label="ESQ Edges")
+    ax.axvline(x=esq1right / mm, c="r", lw=0.8, ls="--")
+    # ax.axvline(
+    #     x=(wallzcent - walllength / 2) / mm, c="grey", lw=0.8, ls="--", label="Wall"
+    # )
+    # ax.axvline(x=(wallzcent + walllength / 2) / mm, c="grey", lw=0.8, ls="--")
     ax.legend()
     plt.savefig(savepath + "integrand.pdf", dpi=400)
     plt.show()
@@ -640,13 +652,13 @@ if make_transField_plots:
     ax.set_title(r"$E_x(x,y,z=zcent)$")
     X, Y = np.meshgrid(x, y, indexing="ij")
     contourx = ax.contourf(
-        X / mm, Y / mm, Ex[:, :, zcenterindex], levels=50, cmap="viridis"
+        X / mm, Y / mm, Ex[:, :, zcenterindex], levels=500, cmap="viridis"
     )
     ax.contour(
         X / mm,
         Y / mm,
         Ex[:, :, zcenterindex],
-        levels=50,
+        levels=100,
         linewidths=0.1,
         linestyles="solid",
         colors="k",
@@ -660,13 +672,13 @@ if make_transField_plots:
     fig, ax = plt.subplots()
     ax.set_title(r" $E_y(x,y,z=zcent)$")
     contourx = ax.contourf(
-        X / mm, Y / mm, Ey[:, :, zcenterindex], levels=50, cmap="viridis"
+        X / mm, Y / mm, Ey[:, :, zcenterindex], levels=500, cmap="viridis"
     )
     ax.contour(
         X / mm,
         Y / mm,
         Ey[:, :, zcenterindex],
-        levels=50,
+        levels=100,
         linewidths=0.1,
         linestyles="solid",
         colors="k",
