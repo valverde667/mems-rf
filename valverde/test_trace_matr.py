@@ -167,7 +167,7 @@ def thick_phase_adv(kappa, Lp=18.6 * mm, lq=0.695 * mm):
     return sigma
 
 
-def thin_accel_gap(volt, Energy, g, phi, mass=Ar_mass, transit_factor=1, q=1):
+def thin_accel_gap(volt, Energy, phi, mass=Ar_mass, g=2 * mm, transit_factor=1, q=1):
     """Build a thin RF-gap matrix element.
 
     Modeling the RF acceleration gap as a thin element requires knowledge of the
