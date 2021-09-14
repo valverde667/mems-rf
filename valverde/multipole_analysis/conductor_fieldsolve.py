@@ -474,8 +474,8 @@ wp.w3d.ymmax = aperture + (pole_rad * rod_fraction)
 wp.w3d.ny = 300
 
 # Calculate nz to get about designed dz
-wp.w3d.zmmin = -ESQ_length
-wp.w3d.zmmax = ESQ_length
+wp.w3d.zmmin = -(wallzcent + separation)
+wp.w3d.zmmax = wallzcent + separation
 design_dz = 5 * um
 calc_nz = (wp.w3d.zmmax - wp.w3d.zmmin) / design_dz
 wp.w3d.nz = 650
