@@ -22,15 +22,23 @@ import warpoptions
 
 warpoptions.parser.add_argument("--scale_pole", default=False, type=float)
 warpoptions.parser.add_argument("--scale_length", default=False, type=float)
+warpoptions.parser.add_argument("--rod_fraction", default=False, type=float)
 inputs = warpoptions.parser.parse_args()
 if inputs.scale_pole != False:
     scale_pole_rad = inputs.scale_pole
 else:
+    # Around optimum value found for isolated single quad.
     scale_pole_rad = 1.151
 if inputs.scale_length != False:
     scale_Lesq = inputs.scale_length
 else:
-    scale_Lesq = 36.0
+    # Actual length of 0.695 * mm
+    scale_Lesq = 1.264
+if inputs.rod_fraction != False:
+    rod_fraction = inputs.rod_fraction
+else:
+    # Full rod plus spacing between rod end and mesh limit
+    rod_fraction = 2.5
 
 import warp as wp
 
@@ -454,15 +462,15 @@ pole_rad = aperture * scale_pole_rad
 ESQ_length = aperture * scale_Lesq
 xycent = aperture + pole_rad
 walllength = 0.1 * mm
-wallzcent = ESQ_length / 2 + 1.0 * mm + walllength / 2
+wallzcent = ESQ_length + 1.0 * mm + walllength / 2
 
 # Creat mesh using conductor geometries (above) to keep resolution consistent
-wp.w3d.xmmin = -xycent - pole_rad * (1 + 0.70)
-wp.w3d.xmmax = xycent + pole_rad * (1 + 0.70)
+wp.w3d.xmmin = -aperture - (pole_rad * rod_fraction)
+wp.w3d.xmmax = aperture + (pole_rad * rod_fraction)
 wp.w3d.nx = 300
 
-wp.w3d.ymmin = -xycent - pole_rad * (1 + 0.70)
-wp.w3d.ymmax = xycent + pole_rad * (1 + 0.70)
+wp.w3d.ymmin = -aperture - (pole_rad * rod_fraction)
+wp.w3d.ymmax = aperture + (pole_rad * rod_fraction)
 wp.w3d.ny = 300
 
 # Calculate nz to get about designed dz
@@ -925,8 +933,9 @@ file_exists = filename in os.listdir(savepath)
 df = pd.DataFrame()
 df["init"] = [np.nan]
 df["n-max"] = nmax_index
-df["R_pole/R_aper"] = scale_pole_rad
+df["R_rod/R_aper"] = scale_pole_rad
 df["L_esq/R_aper"] = scale_Lesq
+df["rod-fraction"] = rod_fraction
 df["separation[mm]"] = separation
 df["n-interp"] = interp_np
 for i in range(len(nterms)):
