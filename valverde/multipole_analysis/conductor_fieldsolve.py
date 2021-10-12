@@ -467,18 +467,18 @@ wallzcent = ESQ_length + 1.0 * mm + walllength / 2
 # Creat mesh using conductor geometries (above) to keep resolution consistent
 wp.w3d.xmmin = -aperture - (pole_rad * rod_fraction)
 wp.w3d.xmmax = aperture + (pole_rad * rod_fraction)
-wp.w3d.nx = 300
+wp.w3d.nx = 100
 
 wp.w3d.ymmin = -aperture - (pole_rad * rod_fraction)
 wp.w3d.ymmax = aperture + (pole_rad * rod_fraction)
-wp.w3d.ny = 300
+wp.w3d.ny = 100
 
 # Calculate nz to get about designed dz
 wp.w3d.zmmin = -(wallzcent + separation)
 wp.w3d.zmmax = wallzcent + separation
 design_dz = 5 * um
 calc_nz = (wp.w3d.zmmax - wp.w3d.zmmin) / design_dz
-wp.w3d.nz = 650
+wp.w3d.nz = 250
 print(int(calc_nz))
 
 # Add boundary conditions
@@ -528,7 +528,7 @@ if warpplots:
     wp.setup()
     leftquad.drawzx(filled=True)
     # rightwall.drawzx(filled=True)
-    leftwall.drawzx(filled=True)
+    # leftwall.drawzx(filled=True)
     wp.fma()
 
     leftquad.drawxy(filled=True)
@@ -859,42 +859,28 @@ n_order = 14
 nterms = np.array([i for i in range(1, n_order + 1)])
 dtheta = interp_theta[1] - interp_theta[0]
 
-Excoeff_array = np.zeros((2, len(nterms)))
-Eycoeff_array = np.zeros((2, len(nterms)))
+Ancoeff_array = np.zeros(len(nterms))
+Bncoeff_array = np.zeros(len(nterms))
+
 R = interp_R / aperture
 
 for i in range(1, len(nterms)):
     n = nterms[i]
 
-    # Treat n=0 coefficient separately since coeff is different
-    if n == 1:
-        coeff = 1 / 2 / np.pi
-        Ax_integrand = interp_Ex
-        Bx_integrand = 0
-        Ay_integrand = 0
-        By_integrand = interp_Ey
+    coeff = pow(1.0 / R, n - 1) / 2 / np.pi
+    # Partition Ex and Ey parts of integral for An and Bn for clarity
+    An_Ex_integrand = interp_Ex * np.cos((n - 1) * interp_theta)
+    An_Ey_integrand = -interp_Ey * np.sin((n - 1) * interp_theta)
+    An_integrand = An_Ex_integrand + An_Ey_integrand
 
-        Ax = coeff * integrate.simpson(Ax_integrand, dx=dtheta)
-        Bx = 0
-        Ay = 0
-        By = coeff * integrate.simpson(By_integrand, dx=dtheta)
+    Bn_Ex_integrand = interp_Ex * np.sin((n - 1) * interp_theta)
+    Bn_Ey_integrand = interp_Ey * np.cos((n - 1) * interp_theta)
+    Bn_integrand = Bn_Ex_integrand + Bn_Ey_integrand
 
-        Excoeff_array[:, i] = Ax, Bx
-        Eycoeff_array[:, i] = Ay, By
-
-    coeff = pow(1 / R, n - 1) / np.pi
-    Ax_integrand = interp_Ex * np.cos((n - 1) * interp_theta)
-    Bx_integrand = interp_Ex * np.sin((n - 1) * interp_theta)
-    Ay_integrand = -1.0 * interp_Ey * np.sin((n - 1) * interp_theta)
-    By_integrand = interp_Ey * np.cos((n - 1) * interp_theta)
-
-    Ax = coeff * integrate.simpson(Ax_integrand, dx=dtheta)
-    Bx = coeff * integrate.simpson(Bx_integrand, dx=dtheta)
-    Ay = coeff * integrate.simpson(Ay_integrand, dx=dtheta)
-    By = coeff * integrate.simpson(By_integrand, dx=dtheta)
-
-    Excoeff_array[:, i] = Ax, Bx
-    Eycoeff_array[:, i] = Ay, By
+    An = coeff * integrate.trapezoid(An_integrand, dx=dtheta)
+    Bn = coeff * integrate.trapezoid(Bn_integrand, dx=dtheta)
+    Ancoeff_array[n - 1] = An
+    Bncoeff_array[n - 1] = Bn
 
 # ------------------------------------------------------------------------------
 #                           Make plots of coefficient data
