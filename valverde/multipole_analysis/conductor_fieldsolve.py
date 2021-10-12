@@ -902,15 +902,11 @@ z3 = np.zeros(len(nterms))
 xbar_width = np.ones(len(nterms)) / 4
 ybar_width = np.ones(len(nterms)) / 2
 
-# Take squared-coefficients from Ex
-An = Excoeff_array[0, :].copy()
-Bn = Excoeff_array[1, :].copy()
-
 # Use maximum multipole value for normalization
-norm = np.max(np.sqrt(pow(An, 2) + pow(Bn, 2)))
-nmax_index = nterms[np.argmax(np.sqrt(pow(An, 2) + pow(Bn, 2)))]
-An_norm = np.max(abs(An))
-Bn_norm = np.max(abs(Bn))
+norm = np.max(abs(Ancoeff_array) + abs(Bncoeff_array))
+nmax_index = np.argmax(abs(Ancoeff_array) + abs(Bncoeff_array))
+An_norm = np.max(abs(Ancoeff_array))
+Bn_norm = np.max(abs(Bncoeff_array))
 
 # Store data in a dataframe and append to csv file. If csv file already exists
 # the column headers are ignored. If not, the file is created with headers.
@@ -918,7 +914,7 @@ filename = "multipole_data.csv"
 file_exists = filename in os.listdir(savepath)
 df = pd.DataFrame()
 df["init"] = [np.nan]
-df["n-max"] = nmax_index
+df["n-max"] = nmax_index + 1
 df["R_rod/R_aper"] = scale_pole_rad
 df["L_esq/R_aper"] = scale_Lesq
 df["rod-fraction"] = rod_fraction
@@ -926,11 +922,11 @@ df["separation[mm]"] = separation
 df["n-interp"] = interp_np
 for i in range(len(nterms)):
     # Loop through n-poles and create column header
-    df[f"Norm A{i+1}"] = An[i] / An_norm
-    df[f"Norm B{i+1}"] = Bn[i] / An_norm
+    df[f"Norm A{i+1}"] = Ancoeff_array[i] / An_norm
+    df[f"Norm B{i+1}"] = Bncoeff_array[i] / Bn_norm
 for i in range(len(nterms)):
-    df[f"A{i+1}"] = An[i]
-    df[f"B{i+1}"] = Bn[i]
+    df[f"A{i+1}"] = Ancoeff_array[i]
+    df[f"B{i+1}"] = Bncoeff_array[i]
 df["dx[mm]"] = wp.w3d.dx / mm
 df["dy[mm]"] = wp.w3d.dy / mm
 df["dz[mm]"] = wp.w3d.dz / mm
@@ -947,11 +943,10 @@ print("--Normalized-squared coefficients (A,B)")
 print(f"### Coeff. Values Squared Normalized by Maximum Coeff. ###")
 
 for i, n in enumerate(nterms):
-    print(f"--n={n}")
-    print(f"(An, Bn): ({An[i]:.5E},  {Bn[i]:.5E})")
-    print(
-        f"Noramalized by max n-term (An, Bn): ({An[i]/An_norm:.5E}, {Bn[i]/Bn_norm:.5E})"
-    )
+    print(f"####  n={n}  ####")
+    print(f"(An, Bn): ({Ancoeff_array[i]:.5E},  {Bncoeff_array[i]:.5E})")
+    print(f"Normed An: {Ancoeff_array[i]/An_norm:.5E}")
+    print(f"Normed Bn: {Bncoeff_array[i]/Bn_norm:.5E}")
     print("")
 
 do_multple_barplots = False
