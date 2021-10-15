@@ -22,6 +22,7 @@ p_mass = amu
 kV = 1000
 MHz = 1e6
 mm = 1e-3
+ns = 1e-9  # nanoseconds
 
 
 def beta(E, mass=Ar_mass, q=1, nonrel=True):
@@ -35,7 +36,7 @@ def beta(E, mass=Ar_mass, q=1, nonrel=True):
     return beta
 
 
-def load_lattice(
+def setup_gaps(
     synch_phase,
     init_synch_energy,
     rf_freq,
@@ -45,7 +46,6 @@ def load_lattice(
     mass=Ar_mass,
     q=1,
     Fcup_dist=50 * mm,
-    verbose=False,
 ):
     """ "Place RF-Gap centers for acceleration
 
@@ -54,39 +54,54 @@ def load_lattice(
     phase. At each gap, the design particle's energy is incremented based on
     the RF-voltage and synchronous phase. """
 
-    # Calculate start position for synchronous particle
-    bc = beta(init_synch_energy, mass, q) * SC.c
-
     gap_centers = []
+    start_pos = [0.0]
     Fcup = [50 * mm]
     const = SC.c / 2 / rf_freq
     E = init_synch_energy
-    for i in range(Ngaps):
-        this_gap = const * beta(E, mass, q)
-        gap_centers.append(this_gap)
-
+    for i in range(Ngaps - 1):
+        # First gap is at z=0. This loop starts at placing next gap.
         E_gain = rf_volt * np.cos(synch_phase)
         E += E_gain
 
-    pos = np.array(gap_centers + Fcup)
+        this_gap = const * beta(E, mass, q)
+        gap_centers.append(this_gap)
+
+    pos = np.array(start_pos + gap_centers + Fcup)
     pos = pos.cumsum()
 
     return pos
 
 
-def load_particles(synch_phase, synch_energy, num_parts):
-    """Create injection of particles based on synchronous particle"""
+def setup_beam(E, num_parts, pulse_length, mass=Ar_mass, q=1):
+    """Starting conditions for a beam of a given pulse length and energy"""
+
+    # store information in a 2d array
+    StartingCondition = np.zeros(shape=(num_parts, 3))
+
+    xmin = beta(E, mass, q) * SC.c * pulse_length  # beam pulse is [-xmim, 0]
+
+    # Set starting conditions. Columns are position, energy, and time
+    StartingCondition[: int(num_parts / 2), 0] = np.linspace(
+        -xmin / 2, 0, int(num_parts / 2)
+    )
+    StartingCondition[int(num_parts / 2) :, 0] = np.linspace(
+        0, xmin / 2, int(num_parts / 2)
+    )
+    StartingCondition[:, 1] = E
+    StartingCondition[:, 2] = 0.0
+
+    return StartingCondition
 
 
-# Simulation paramters
+# Simulation parameters
 init_energy = 3 * kV
 rf_volt = 7 * kV
 rf_offset = 0
 rf_freq = 13.6 * MHz
 Ngaps = 3
+Nparticles = 100
+beam_length = 1 / rf_freq
 synch_phase = np.pi / 4
-centers = load_lattice(synch_phase, init_energy, rf_freq, rf_volt, Ngaps=Ngaps)
-print(centers / mm)
-
-
-#
+centers = setup_gaps(synch_phase, init_energy, rf_freq, rf_volt, Ngaps=Ngaps)
+beam = setup_beam(init_energy, Nparticles, beam_length)
