@@ -168,7 +168,7 @@ def trace_particles(
                 mask = particles[:, 1] > 0
 
                 phase = 2 * np.pi * f * particles.copy()[:, 2] + phase_offset
-                phase %= 2 * np.pi
+                phase %= np.pi
                 energy_history.append(particles.copy()[:, 1])
                 phase_history.append(phase)
         else:
