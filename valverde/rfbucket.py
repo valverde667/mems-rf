@@ -125,11 +125,7 @@ def trace_particles(
 
     # Create history arrays for particle energy and phase
     particles = StartingCondition.copy()
-    # Create vector of initial positions
-    initial_pos = particles.copy()[:, 0]
-    initial_pos = initial_pos[:, np.newaxis]
-    # Add vector to particle matrix as final column
-    particles = np.hstack((particles, initial_pos))
+
     # Create history and phase arrays
     energy_history = [particles.copy()[:, 1]]
     phase_history = [0 * particles.copy()[:, 1]]
