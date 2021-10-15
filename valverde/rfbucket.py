@@ -196,6 +196,13 @@ synch_phase = np.pi / 4
 centers = setup_gaps(synch_phase, init_energy, rf_freq, rf_volt, Ngaps=Ngaps)
 beam = setup_beam(init_energy, Nparticles, beam_length)
 
+# Simulate particles
 particles, energies, phases = trace_particles(
     centers, rf_freq, rf_volt, beam, phase_offset=synch_phase
 )
+
+# Grab design particle characterisitcs
+design_ind = int(Nparticles / 2)
+design_part = particles[design_ind, :]
+design_energies = energies[design_ind, :]
+design_phases = phases[design_ind, :]
