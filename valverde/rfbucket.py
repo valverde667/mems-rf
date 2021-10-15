@@ -95,7 +95,15 @@ def setup_beam(E, num_parts, pulse_length, mass=Ar_mass, q=1):
 
 
 def trace_particles(
-    pos, f, V, StartingCondition, mass=Ar_mass, q=1, d=0.75e-3, steps=1
+    pos,
+    f,
+    V,
+    StartingCondition,
+    phase_offset=0.0,
+    mass=Ar_mass,
+    q=1,
+    d=0.75e-3,
+    steps=1,
 ):
     """Simulate particles acclerated through RF-gaps.
 
@@ -144,14 +152,23 @@ def trace_particles(
                 dt = dx / beta(particles[mask, 1], mass, q) / SC.c
                 particles[mask, 2] += dt
                 if i % 2 == 0:
-                    dE = V * np.cos(2 * np.pi * f * particles[mask, 2]) / steps
+                    dE = (
+                        V
+                        * np.cos(2 * np.pi * f * particles[mask, 2] + phase_offset)
+                        / steps
+                    )
                 else:
-                    dE = -V * np.cos(2 * np.pi * f * particles[mask, 2]) / steps
+                    dE = (
+                        -V
+                        * np.cos(2 * np.pi * f * particles[mask, 2] + phase_offset)
+                        / steps
+                    )
                 particles[mask, 0] += dx
                 particles[mask, 1] += dE
                 mask = particles[:, 1] > 0
 
-                phase = 2 * np.pi * f * particles.copy()[:, 2] % (2 * np.pi)
+                phase = 2 * np.pi * f * particles.copy()[:, 2] + phase_offset
+                phase %= 2 * np.pi
                 energy_history.append(particles.copy()[:, 1])
                 phase_history.append(phase)
         else:
@@ -178,3 +195,7 @@ beam_length = 1 / rf_freq
 synch_phase = np.pi / 4
 centers = setup_gaps(synch_phase, init_energy, rf_freq, rf_volt, Ngaps=Ngaps)
 beam = setup_beam(init_energy, Nparticles, beam_length)
+
+particles, energies, phases = trace_particles(
+    centers, rf_freq, rf_volt, beam, phase_offset=synch_phase
+)
