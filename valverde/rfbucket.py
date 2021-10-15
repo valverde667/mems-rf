@@ -81,7 +81,7 @@ def setup_beam(E, num_parts, pulse_length, mass=Ar_mass, q=1):
 
     xmin = beta(E, mass, q) * SC.c * pulse_length  # beam pulse is [-xmim, 0]
 
-    # Set starting conditions. Columns are position, energy, and time
+    # Set starting conditions. Columns are position, energy, and time/phase
     StartingCondition[: int(num_parts / 2), 0] = np.linspace(
         -xmin / 2, 0, int(num_parts / 2)
     )
@@ -128,7 +128,7 @@ def trace_particles(
 
     # Create history and phase arrays
     energy_history = [particles.copy()[:, 1]]
-    phase_history = [0 * particles.copy()[:, 1]]
+    phase_history = []
 
     for i, x in enumerate(pos):
         mask = particles[:, 1] > 0
