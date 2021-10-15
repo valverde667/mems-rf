@@ -94,6 +94,83 @@ def setup_beam(E, num_parts, pulse_length, mass=Ar_mass, q=1):
     return StartingCondition
 
 
+def trace_particles(
+    pos, f, V, StartingCondition, mass=Ar_mass, q=1, d=0.75e-3, steps=1
+):
+    """Simulate particles acclerated through RF-gaps.
+
+    The rf-wafers will be at the position given in pos, the last entry
+    in pos will be assumed to be a F-cup, so no acceleration will be
+    calculated for this one.
+    The simulation will assume a frequency f and an amplitude V.
+
+    d      is the thickness of the acceleration gap and
+    steps gives the number of steps inside the acceleration gaps
+
+    In case the wavelength is not large compared to d, steps needs to be increased!
+
+    Returns
+    -------
+    particles : ndarray
+        rows represent the particles. columns represent initial position, final
+        position, energy, and time.
+    energy_history : ndarray
+        rows represent particles. Columns represent the energy gain per step in
+        the acceleration gap. 0th column is the initial energy.
+    phase_history : ndarray
+        rows represent particles. Columns represent the phase at which particle
+        recieved acceleration. 0th column set to 0.
+
+    """
+
+    # Create history arrays for particle energy and phase
+    particles = StartingCondition.copy()
+    # Create vector of initial positions
+    initial_pos = particles.copy()[:, 0]
+    initial_pos = initial_pos[:, np.newaxis]
+    # Add vector to particle matrix as final column
+    particles = np.hstack((particles, initial_pos))
+    # Create history and phase arrays
+    energy_history = [particles.copy()[:, 1]]
+    phase_history = [0 * particles.copy()[:, 1]]
+
+    for i, x in enumerate(pos):
+        mask = particles[:, 1] > 0
+        particles[mask, 2] += (x - d / 2 - particles[mask, 0]) / (
+            beta(particles[mask, 1], mass, q) * SC.c
+        )
+        particles[mask, 0] = x - d / 2
+        # last element is the F-cup, no change in E
+        if x != pos[-1]:
+            # the rf-gaps alternate in pull and push
+            for a in range(steps):
+                dx = d / (steps + 1)
+                dt = dx / beta(particles[mask, 1], mass, q) / SC.c
+                particles[mask, 2] += dt
+                if i % 2 == 0:
+                    dE = V * np.sin(2 * np.pi * f * particles[mask, 2]) / steps
+                else:
+                    dE = -V * np.sin(2 * np.pi * f * particles[mask, 2]) / steps
+                particles[mask, 0] += dx
+                particles[mask, 1] += dE
+                mask = particles[:, 1] > 0
+
+                phase = 2 * np.pi * f * particles.copy()[:, 2] % (2 * np.pi)
+                energy_history.append(particles.copy()[:, 1])
+                phase_history.append(phase)
+        else:
+            # do another d/2 step to get to the final position
+            dx = d / 2
+            dt = dx / beta(particles[mask, 1], mass, q) / SC.c
+            particles[mask, 2] += dt
+            particles[mask, 0] += dx
+
+    energy_history = np.array(energy_history)
+    phase_history = np.array(phase_history)
+
+    return particles, energy_history.T, phase_history.T
+
+
 # Simulation parameters
 init_energy = 3 * kV
 rf_volt = 7 * kV
