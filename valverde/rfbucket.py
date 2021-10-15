@@ -148,9 +148,9 @@ def trace_particles(
                 dt = dx / beta(particles[mask, 1], mass, q) / SC.c
                 particles[mask, 2] += dt
                 if i % 2 == 0:
-                    dE = V * np.sin(2 * np.pi * f * particles[mask, 2]) / steps
+                    dE = V * np.cos(2 * np.pi * f * particles[mask, 2]) / steps
                 else:
-                    dE = -V * np.sin(2 * np.pi * f * particles[mask, 2]) / steps
+                    dE = -V * np.cos(2 * np.pi * f * particles[mask, 2]) / steps
                 particles[mask, 0] += dx
                 particles[mask, 1] += dE
                 mask = particles[:, 1] > 0
