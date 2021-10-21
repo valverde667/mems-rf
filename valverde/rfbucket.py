@@ -187,56 +187,56 @@ def trace_particles(
 
 
 # Simulation parameters
-init_energy = 3 * kV
-rf_volt = 7 * kV
-rf_offset = 0
-rf_freq = 13.6 * MHz
-Ngaps = 3
-Nparticles = 1000
-beam_length = 1 / rf_freq
-synch_phase = np.pi / 4
-centers = setup_gaps(synch_phase, init_energy, rf_freq, rf_volt, Ngaps=Ngaps)
-beam = setup_beam(init_energy, Nparticles, beam_length)
+beam_length_sets = np.linspace(0.1, 1, 10) / 13.6 / MHz
+for beam_length in beam_length_sets:
+    init_energy = 3 * kV
+    rf_volt = 7 * kV
+    rf_offset = 0
+    rf_freq = 13.6 * MHz
+    synch_phase = np.pi / 4
+    Ngaps = 10
+    Nparticles = 10000
+    centers = setup_gaps(synch_phase, init_energy, rf_freq, rf_volt, Ngaps=Ngaps)
+    beam = setup_beam(init_energy, Nparticles, beam_length)
 
-# Simulate particles
-particles, energies, phases = trace_particles(
-    centers, rf_freq, rf_volt, beam, phase_offset=synch_phase
-)
+    # Simulate particles
+    particles, energies, phases = trace_particles(
+        centers, rf_freq, rf_volt, beam, phase_offset=synch_phase
+    )
 
-# Grab design particle characterisitcs
-design_ind = int(Nparticles / 2)
-design_part = particles[design_ind, :]
-design_energies = energies[design_ind, :]
-design_phases = phases[design_ind, :]
+    # Grab design particle characterisitcs
+    design_ind = int(Nparticles / 2)
+    design_part = particles[design_ind, :]
+    design_energies = energies[design_ind, :]
+    design_phases = phases[design_ind, :]
 
-# Find differences in phase and energy from design particles
-delta_phases = phases - design_phases
-delta_energies = energies[:, 1:] - design_energies[1:]
+    # Find differences in phase and energy from design particles
+    delta_phases = phases - design_phases
+    delta_energies = energies[:, 1:] - design_energies[1:]
 
+    # Create phase-space plots in delta phi and delta E. Save to pdfs.
+    today = datetime.datetime.today()
+    date_string = today.strftime("%m-%d-%Y_%H-%M-%S_")
 
-# Create phase-space plots in delta phi and delta E. Save to pdfs.
-today = datetime.datetime.today()
-date_string = today.strftime("%m-%d-%Y_%H-%M-%S_")
-
-with PdfPages(f"phase-space-plots_{date_string}.pdf") as pdf:
-    plt.figure()
-    plt.axis("off")
-    plt.text(0.5, 1.0, "Simulation Characteristics")
-    plt.text(0.5, 0.9, f"Injection Energy: {init_energy/kV} [kV]")
-    plt.text(0.5, 0.8, fr"Synchronous Phase: {synch_phase/np.pi:.3f} $\pi$")
-    plt.text(0.5, 0.7, f"Gap Voltage: {rf_volt/kV:.2f} [kV]")
-    plt.text(0.5, 0.6, f"RF Frequency: {rf_freq/MHz:.2f} [MHz]")
-    plt.text(0.5, 0.5, fr"Beam Length: {beam_length*rf_freq:.2f} $\tau_{{rf}}$")
-    plt.tight_layout()
-    pdf.savefig()
-    plt.close()
-
-    # Save phase-space plot for each gap to pdf
-    for i in range(delta_phases.shape[-1]):
-        fig, ax = plt.subplots()
-        ax.set_title(f"Phase Space for Gap {i+1}")
-        ax.set_xlabel(r"$\Delta \phi$ [rad]")
-        ax.set_ylabel(r"$\Delta {\cal E}$ [kV]")
-        ax.scatter(delta_phases[:, i], delta_energies[:, i] / kV, s=2)
+    with PdfPages(f"phase-space-plots_{date_string}.pdf") as pdf:
+        plt.figure()
+        plt.axis("off")
+        plt.text(0.5, 1.0, "Simulation Characteristics")
+        plt.text(0.5, 0.9, f"Injection Energy: {init_energy/kV} [kV]")
+        plt.text(0.5, 0.8, fr"Synchronous Phase: {synch_phase/np.pi:.3f} $\pi$")
+        plt.text(0.5, 0.7, f"Gap Voltage: {rf_volt/kV:.2f} [kV]")
+        plt.text(0.5, 0.6, f"RF Frequency: {rf_freq/MHz:.2f} [MHz]")
+        plt.text(0.5, 0.5, fr"Beam Length: {beam_length*rf_freq:.2f} $\tau_{{rf}}$")
+        plt.tight_layout()
         pdf.savefig()
         plt.close()
+
+        # Save phase-space plot for each gap to pdf
+        for i in range(delta_phases.shape[-1]):
+            fig, ax = plt.subplots()
+            ax.set_title(f"Phase Space for Gap {i+1}")
+            ax.set_xlabel(r"$\Delta \phi$ [rad]")
+            ax.set_ylabel(r"$\Delta {\cal E}$ [kV]")
+            ax.scatter(delta_phases[:, i], delta_energies[:, i] / kV, s=2)
+            pdf.savefig()
+            plt.close()
