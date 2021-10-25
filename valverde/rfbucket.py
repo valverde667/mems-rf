@@ -55,7 +55,7 @@ def setup_gaps(
     The design particle is initialized at z=0 with t=0. The gaps are then placed
     such that the design particle arrives at each gap at the set synchronous
     phase. At each gap, the design particle's energy is incremented based on
-    the RF-voltage and synchronous phase. """
+    the RF-voltage and synchronous phase."""
 
     gap_centers = []
     start_pos = [0.0]
@@ -298,17 +298,33 @@ parts_pos[:, 1] = init_gap
 parts_time[:, 1] = time
 parts_E[:, 1] = parts_E[:, 0] + parts_Egain
 
-
 for i in range(1, Ng):
     newz = calc_pires(dsgn_E[i], design_freq)
-    print(newz / mm)
-    newv = np.sqrt(dsgn_E[i] * 2 / Ar_mass) * SC.c
-    newt = newz / newv
+
+    # Update design particle
+    dsgn_dv = np.sqrt(2 * dsgn_E[i] / Ar_mass) * SC.c
+    dsgn_dt = newz / dsgn_dv
+
+    # Update other particles
+    direction = np.sign(parts_E[:, i])
+    parts_dv = np.sqrt(2 * abs(parts_E[:, i]) / Ar_mass) * SC.c * direction
+    parts_dt = newz / parts_dv
+
     if i % 2 == 0:
-        Egain = design_gap_volt * np.cos(design_omega * (newt + dsgn_time[i]))
+        dsgn_Egain = design_gap_volt * np.cos(design_omega * (dsgn_dt + dsgn_time[i]))
+        parts_Egain = design_gap_volt * np.cos(
+            design_omega * (parts_dt + parts_time[:, i])
+        )
     else:
-        Egain = -design_gap_volt * np.cos(design_omega * (newt + dsgn_time[i]))
+        dsgn_Egain = -design_gap_volt * np.cos(design_omega * (dsgn_dt + dsgn_time[i]))
+        parts_Egain = -design_gap_volt * np.cos(
+            design_omega * (parts_dt + parts_time[:, i])
+        )
 
     dsgn_pos[i + 1] = newz
-    dsgn_E[i + 1] = dsgn_E[i] + Egain
-    dsgn_time[i + 1] = dsgn_time[i] + newt
+    dsgn_E[i + 1] = dsgn_E[i] + dsgn_Egain
+    dsgn_time[i + 1] = dsgn_time[i] + dsgn_dt
+
+    parts_pos[:, i + 1] = newz
+    parts_E[:, i + 1] = parts_E[:, i] + parts_Egain
+    parts_time[:, i + 1] = parts_time[:, i] + parts_dt
