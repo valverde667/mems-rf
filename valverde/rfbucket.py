@@ -278,6 +278,27 @@ dsgn_pos[1] = init_gap
 Egain = design_gap_volt * np.cos(design_omega * t1)
 dsgn_E[1] = dsgn_E[0] + Egain
 
+# Distribute particles around design particle. Model CW beam with full RF load
+design_period = 1 / design_freq
+rf_lambda = vstart * design_period
+particle_dist = np.linspace(-rf_lambda / 2, rf_lambda / 2, Np)
+
+# Create particle arrays to store histories
+parts_pos = np.zeros(shape=(Np, Ng + 1))
+parts_pos[:, 0] = particle_dist
+parts_E = np.zeros(shape=(Np, Ng + 1))
+parts_time = np.zeros(shape=(Np, Ng + 1))
+parts_E[:, 0] = dsgn_initE
+
+# Advance particles to first gap
+vparts = np.sqrt(2 * parts_E[:, 0] / Ar_mass) * SC.c
+time = (init_gap - parts_pos[:, 0]) / vparts
+parts_Egain = design_gap_volt * np.cos(design_omega * time)
+parts_pos[:, 1] = init_gap
+parts_time[:, 1] = time
+parts_E[:, 1] = parts_E[:, 0] + parts_Egain
+
+
 for i in range(1, Ng):
     newz = calc_pires(dsgn_E[i], design_freq)
     print(newz / mm)
