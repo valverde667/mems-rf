@@ -283,7 +283,10 @@ for i in range(1, Ng):
     print(newz / mm)
     newv = np.sqrt(dsgn_E[i] * 2 / Ar_mass) * SC.c
     newt = newz / newv
-    Egain = design_gap_volt * np.cos(design_omega * (newt + dsgn_time[i]))
+    if i % 2 == 0:
+        Egain = design_gap_volt * np.cos(design_omega * (newt + dsgn_time[i]))
+    else:
+        Egain = -design_gap_volt * np.cos(design_omega * (newt + dsgn_time[i]))
 
     dsgn_pos[i + 1] = newz
     dsgn_E[i + 1] = dsgn_E[i] + Egain
