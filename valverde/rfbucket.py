@@ -328,3 +328,15 @@ for i in range(1, Ng):
     parts_pos[:, i + 1] = newz
     parts_E[:, i + 1] = parts_E[:, i] + parts_Egain
     parts_time[:, i + 1] = parts_time[:, i] + parts_dt
+
+
+# Make phase space plots using delta E and phase from design particle
+delta_E = parts_E.copy()
+delta_time = parts_time.copy()
+delta_phase = np.zeros(shape=(Np, Ng + 1))
+
+for i in range(len(dsgn_E)):
+    delta_E[:, i] = dsgn_E[i] - parts_E[:, i]
+    delta_time[:, i] = dsgn_time[i] - parts_time[:, i]
+    dphi = np.arccos(np.cos(design_omega * delta_time[:, i])) / 2 / np.pi
+    delta_phase[:, i] = dphi
