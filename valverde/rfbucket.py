@@ -192,6 +192,15 @@ def calc_pires(energy, freq, mass=Ar_mass, q=1):
     return beta_lambda / 2
 
 
+def plot_phase(phi, E):
+    fig, ax = plt.subplots()
+    ax.scatter(phi, E, s=2)
+    ax.set_xlabel(r"$\Delta \phi$ [rad]")
+    ax.set_ylabel(r"$\Delta {\cal E}$ [kV]")
+    plt.tight_layout()
+    plt.show()
+
+
 # Simulation parameters
 # beam_length_sets = np.linspace(0.1, 1, 10) / 13.6 / MHz
 # for beam_length in beam_length_sets:
@@ -251,13 +260,13 @@ def calc_pires(energy, freq, mass=Ar_mass, q=1):
 design_phase = -np.pi / 6
 dsgn_initE = 7 * kV
 mass = 39.948 * amu  # [eV]
-Np = 1000
+Np = 50
 
 # Simulation parameters for gaps and geometries
 design_gap_volt = 7 * kV
 design_freq = 13.6 * MHz
 design_omega = 2 * np.pi * design_freq
-Ng = 3
+Ng = 2
 gap_pos = []
 
 # Initialize simulation by setting up first gap commensurate with the design
@@ -271,17 +280,16 @@ dsgn_E[0] = dsgn_initE
 dsgn_time[0] = 0.0
 
 vstart = np.sqrt(2 * dsgn_initE / Ar_mass) * SC.c
-init_gap = vstart / design_omega * (2 * np.pi - design_phase)
+init_gap = vstart / design_omega * (np.pi - design_phase)
 t1 = init_gap / vstart
 dsgn_time[1] = t1
 dsgn_pos[1] = init_gap
 Egain = design_gap_volt * np.cos(design_omega * t1)
 dsgn_E[1] = dsgn_E[0] + Egain
 
-# Distribute particles around design particle. Model CW beam with full RF load
-design_period = 1 / design_freq
-rf_lambda = vstart * design_period
-particle_dist = np.linspace(-rf_lambda / 2, rf_lambda / 2, Np)
+# Distribute uniformly for one rf-wavlenghth from the start of the gap and back
+beta_lambda = vstart / design_freq
+particle_dist = np.linspace(init_gap - beta_lambda, init_gap, Np)
 
 # Create particle arrays to store histories
 parts_pos = np.zeros(shape=(Np, Ng + 1))
@@ -336,7 +344,46 @@ delta_time = parts_time.copy()
 delta_phase = np.zeros(shape=(Np, Ng + 1))
 
 for i in range(len(dsgn_E)):
-    delta_E[:, i] = dsgn_E[i] - parts_E[:, i]
-    delta_time[:, i] = dsgn_time[i] - parts_time[:, i]
-    dphi = np.arccos(np.cos(design_omega * delta_time[:, i])) / 2 / np.pi
+    delta_E[:, i] = parts_E[:, i] - dsgn_E[i]
+    delta_time[:, i] = parts_time[:, i] - dsgn_time[i]
+    dphi = design_omega * delta_time[:, i]
     delta_phase[:, i] = dphi
+
+
+# Create and save plots to pdf
+today = datetime.datetime.today()
+date_string = today.strftime("%m-%d-%Y_%H-%M-%S_")
+with PdfPages(f"phase-space-plots_{date_string}.pdf") as pdf:
+    plt.figure()
+    plt.axis("off")
+    plt.text(0.5, 1.0, "Simulation Characteristics")
+    plt.text(0.5, 0.9, f"Injection Energy: {dsgn_initE/kV} [keV]")
+    plt.text(0.5, 0.8, fr"Synchronous Phase: {design_phase/np.pi:.3f} $\pi$")
+    plt.text(0.5, 0.7, f"Gap Voltage: {design_gap_volt/kV:.2f} [kV]")
+    plt.text(0.5, 0.6, f"RF Frequency: {design_freq/MHz:.2f} [MHz]")
+    plt.text(
+        0.5, 0.5, fr"Beam Length: {(particle_dist[-1] - particle_dist[0])/mm:.2f} [mm]"
+    )
+    plt.tight_layout()
+    pdf.savefig()
+    plt.close()
+
+    # Save phase-space plot for each gap to pdf
+    for i in range(1, Ng):
+        fig, ax = plt.subplots()
+        ax.set_title(
+            fr"Phase Space for Gap {i}, ${{\cal E}}_2$ = {dsgn_E[i]/kV:.2f} [kV]"
+        )
+        ax.set_xlabel(r"$\Delta \phi$ ")
+        ax.set_ylabel(r"$\Delta {\cal E}$ [keV]")
+
+        ax.scatter(
+            (np.arccos(np.cos(delta_phase[:, i])) - np.pi) / twopi,
+            delta_E[:, i] / kV,
+            s=2,
+        )
+        ax.axvline(x=design_phase / twopi, c="k", ls="--", lw="2", label=r"$\phi_s$")
+        ax.legend()
+        plt.tight_layout()
+        pdf.savefig()
+        plt.close()
