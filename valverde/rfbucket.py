@@ -260,7 +260,7 @@ def plot_phase(phi, E):
 design_phase = -np.pi / 6
 dsgn_initE = 7 * kV
 mass = 39.948 * amu  # [eV]
-Np = 50
+Np = 500
 
 # Simulation parameters for gaps and geometries
 design_gap_volt = 7 * kV
@@ -280,16 +280,16 @@ dsgn_E[0] = dsgn_initE
 dsgn_time[0] = 0.0
 
 vstart = np.sqrt(2 * dsgn_initE / Ar_mass) * SC.c
-init_gap = vstart / design_omega * (np.pi - design_phase)
+init_gap = vstart / design_omega * (2 * np.pi - design_phase)
 t1 = init_gap / vstart
 dsgn_time[1] = t1
 dsgn_pos[1] = init_gap
 Egain = design_gap_volt * np.cos(design_omega * t1)
 dsgn_E[1] = dsgn_E[0] + Egain
 
-# Distribute uniformly for one rf-wavlenghth from the start of the gap and back
+# Distribute uniformly for one centered on design particle.
 beta_lambda = vstart / design_freq
-particle_dist = np.linspace(init_gap - beta_lambda, init_gap, Np)
+particle_dist = np.linspace(-beta_lambda / 2, beta_lambda / 2, Np)
 
 # Create particle arrays to store histories
 parts_pos = np.zeros(shape=(Np, Ng + 1))
