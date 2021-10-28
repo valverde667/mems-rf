@@ -1,11 +1,9 @@
-""" simulate some of the experimental data """
+# Simulate injection of particles and model longitudinal phase-space in Energy
+# and phase.
 
-import concurrent.futures
 import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 import datetime
-
-
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import scipy.constants as SC
@@ -40,6 +38,7 @@ def beta(E, mass=Ar_mass, q=1, nonrel=True):
 
 
 def calc_pires(energy, freq, mass=Ar_mass, q=1):
+    """RF resonance condition in pi-mode"""
     beta_lambda = beta(energy, mass=mass, q=q) * SC.c / freq
     return beta_lambda / 2
 
