@@ -260,13 +260,13 @@ def plot_phase(phi, E):
 design_phase = -np.pi / 6
 dsgn_initE = 7 * kV
 mass = 39.948 * amu  # [eV]
-Np = 500
+Np = 10000
 
 # Simulation parameters for gaps and geometries
-design_gap_volt = 7 * kV
+design_gap_volt = 7 * kV * 0.1
 design_freq = 13.6 * MHz
 design_omega = 2 * np.pi * design_freq
-Ng = 2
+Ng = 50
 gap_pos = []
 
 # Initialize simulation by setting up first gap commensurate with the design
@@ -289,7 +289,7 @@ dsgn_E[1] = dsgn_E[0] + Egain
 
 # Distribute uniformly for one centered on design particle.
 beta_lambda = vstart / design_freq
-particle_dist = np.linspace(-beta_lambda / 2, beta_lambda / 2, Np)
+particle_dist = np.linspace(init_gap - beta_lambda, init_gap - beta_lambda / 2, Np)
 
 # Create particle arrays to store histories
 parts_pos = np.zeros(shape=(Np, Ng + 1))
@@ -342,6 +342,7 @@ for i in range(1, Ng):
 delta_E = parts_E.copy()
 delta_time = parts_time.copy()
 delta_phase = np.zeros(shape=(Np, Ng + 1))
+parts_phase = design_omega * parts_time
 
 for i in range(len(dsgn_E)):
     delta_E[:, i] = parts_E[:, i] - dsgn_E[i]
@@ -349,6 +350,7 @@ for i in range(len(dsgn_E)):
     dphi = design_omega * delta_time[:, i]
     delta_phase[:, i] = dphi
 
+dsgn_phase = dsgn_time * design_omega
 
 # Create and save plots to pdf
 today = datetime.datetime.today()
@@ -372,18 +374,17 @@ with PdfPages(f"phase-space-plots_{date_string}.pdf") as pdf:
     for i in range(1, Ng):
         fig, ax = plt.subplots()
         ax.set_title(
-            fr"Phase Space for Gap {i}, ${{\cal E}}_2$ = {dsgn_E[i]/kV:.2f} [kV]"
+            fr"Phase Space for Gap {i}, ${{\cal E}}_s$ = {dsgn_E[i]/kV:.2f} [kV]"
         )
-        ax.set_xlabel(r"$\Delta \phi$ ")
+        ax.set_xlabel(r"$\phi/2\pi$")
         ax.set_ylabel(r"$\Delta {\cal E}$ [keV]")
 
-        ax.scatter(
-            (np.arccos(np.cos(delta_phase[:, i])) - np.pi) / twopi,
-            delta_E[:, i] / kV,
-            s=2,
-        )
-        ax.axvline(x=design_phase / twopi, c="k", ls="--", lw="2", label=r"$\phi_s$")
-        ax.legend()
+        Eselect = abs(delta_E[:, i] / dsgn_E[i]) < 0.20
+        part_frac = np.sum(Eselect) / Np
+
+        ax.scatter(parts_phase[Eselect, i] / twopi, delta_E[Eselect, i] / kV, s=2)
+        black_proxy = plt.Rectangle((0, 0), 0.5, 0.5, fc="k")
+        ax.legend([black_proxy], [f"Np Frac Remaining: {part_frac:.2f}"])
         plt.tight_layout()
         pdf.savefig()
         plt.close()
