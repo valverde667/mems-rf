@@ -64,6 +64,15 @@ design_omega = 2 * np.pi * design_freq
 Ng = 75
 gap_pos = []
 
+# ------------------------------------------------------------------------------
+#                         Initial Setup
+# Start design particle with design phase at z=0. Place first gap so that design
+# particle arrives at design phase. Since gaps are initialized to have peak
+# voltage at t=0, the first gap is placed such that the field oscillates one full
+# period before arrival of design particle. Other particles can be centered on
+# the design particle, or distributed from the gap center towards z=0 or z<0.
+# ------------------------------------------------------------------------------
+
 # Initialize simulation by setting up first gap commensurate with the design
 # particle. Gaps are initialized to have peak output at t=0
 dsgn_pos = np.zeros(Ng + 1)
@@ -82,7 +91,7 @@ dsgn_pos[1] = init_gap
 Egain = design_gap_volt * np.cos(design_omega * t1)
 dsgn_E[1] = dsgn_E[0] + Egain
 
-# Distribute uniformly for one centered on design particle.
+# Create simulation particles and initialize data arrays
 beta_lambda = vstart / design_freq
 particle_dist = np.linspace(init_gap - beta_lambda, init_gap, Np)
 
@@ -101,6 +110,7 @@ parts_pos[:, 1] = init_gap
 parts_time[:, 1] = time
 parts_E[:, 1] = parts_E[:, 0] + parts_Egain
 
+# Advance through the rest of the gaps
 for i in range(1, Ng):
     newz = calc_pires(dsgn_E[i], design_freq)
 
@@ -132,19 +142,24 @@ for i in range(1, Ng):
     parts_E[:, i + 1] = parts_E[:, i] + parts_Egain
     parts_time[:, i + 1] = parts_time[:, i] + parts_dt
 
-
-# Make phase space plots using delta E and phase from design particle
+# ------------------------------------------------------------------------------
+#                        Analysis/Plotting Section
+# Make plots and analyze phase space distribution of particles after simulation.
+# The analysis sets the y-axis in any plots to be change in energy. However,
+# on the x-axis it can be change in phase w.r.t. the design particle, or it
+# can be the phase over time through multiple RF cycles. The latter case makes
+# it easier to see the difference buckets forming and particles dropping out.
+# ------------------------------------------------------------------------------
+# Initialize empty delta arrays. Loop through data arrays and populate deltas.
 delta_E = parts_E.copy()
 delta_time = parts_time.copy()
 delta_phase = np.zeros(shape=(Np, Ng + 1))
 parts_phase = design_omega * parts_time
-
 for i in range(len(dsgn_E)):
     delta_E[:, i] = parts_E[:, i] - dsgn_E[i]
     delta_time[:, i] = parts_time[:, i] - dsgn_time[i]
     dphi = design_omega * delta_time[:, i]
     delta_phase[:, i] = dphi
-
 dsgn_phase = dsgn_time * design_omega
 
 # Create and save plots to pdf
