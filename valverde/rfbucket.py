@@ -62,7 +62,6 @@ design_gap_volt = 7 * kV * 0.01
 design_freq = 13.6 * MHz
 design_omega = 2 * np.pi * design_freq
 Ng = 75
-gap_pos = []
 
 # ------------------------------------------------------------------------------
 #                         Initial Setup
