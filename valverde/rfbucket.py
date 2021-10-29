@@ -53,15 +53,15 @@ def plot_phase(phi, E):
 
 
 # Simulation Parameters for design particle
-design_phase = -np.pi / 6
+design_phase = -np.pi / 4
 dsgn_initE = 7 * kV
 Np = 10000
 
 # Simulation parameters for gaps and geometries
-design_gap_volt = 7 * kV * 0.1
+design_gap_volt = 7 * kV * 0.01
 design_freq = 13.6 * MHz
 design_omega = 2 * np.pi * design_freq
-Ng = 50
+Ng = 75
 gap_pos = []
 
 # Initialize simulation by setting up first gap commensurate with the design
@@ -84,7 +84,7 @@ dsgn_E[1] = dsgn_E[0] + Egain
 
 # Distribute uniformly for one centered on design particle.
 beta_lambda = vstart / design_freq
-particle_dist = np.linspace(init_gap - beta_lambda, init_gap - beta_lambda / 2, Np)
+particle_dist = np.linspace(init_gap - beta_lambda, init_gap, Np)
 
 # Create particle arrays to store histories
 parts_pos = np.zeros(shape=(Np, Ng + 1))
@@ -169,12 +169,12 @@ with PdfPages(f"phase-space-plots_{date_string}.pdf") as pdf:
     for i in range(1, Ng):
         fig, ax = plt.subplots()
         ax.set_title(
-            fr"Phase Space for Gap {i}, ${{\cal E}}_s$ = {dsgn_E[i]/kV:.2f} [kV]"
+            fr"Phase Space for Gap {i}, ${{\cal E}}_s$ = {dsgn_E[i]/kV:.2f} [keV]"
         )
         ax.set_xlabel(r"$\phi/2\pi$")
         ax.set_ylabel(r"$\Delta {\cal E}$ [keV]")
 
-        Eselect = abs(delta_E[:, i] / dsgn_E[i]) < 0.20
+        Eselect = abs(delta_E[:, i] / dsgn_E[i]) < 0.2
         part_frac = np.sum(Eselect) / Np
 
         ax.scatter(parts_phase[Eselect, i] / twopi, delta_E[Eselect, i] / kV, s=2)
