@@ -53,7 +53,7 @@ def plot_phase(phi, E):
 
 
 # Simulation Parameters for design particle
-design_phase = -np.pi / 4
+design_phase = -np.pi / 2
 dsgn_initE = 7 * kV
 Np = 10000
 
@@ -141,6 +141,7 @@ for i in range(1, Ng):
     parts_E[:, i + 1] = parts_E[:, i] + parts_Egain
     parts_time[:, i + 1] = parts_time[:, i] + parts_dt
 
+
 # ------------------------------------------------------------------------------
 #                        Analysis/Plotting Section
 # Make plots and analyze phase space distribution of particles after simulation.
@@ -164,6 +165,43 @@ dsgn_phase = dsgn_time * design_omega
 # Create and save plots to pdf
 today = datetime.datetime.today()
 date_string = today.strftime("%m-%d-%Y_%H-%M-%S_")
+with PdfPages(f"continuous_phase-space-plots_{date_string}.pdf") as pdf:
+    plt.figure()
+    plt.axis("off")
+    plt.text(0.5, 1.0, "Simulation Characteristics")
+    plt.text(0.5, 0.9, f"Injection Energy: {dsgn_initE/kV} [keV]")
+    plt.text(0.5, 0.8, fr"Synchronous Phase: {design_phase/np.pi:.3f} $\pi$")
+    plt.text(0.5, 0.7, f"Gap Voltage: {design_gap_volt/kV:.2f} [kV]")
+    plt.text(0.5, 0.6, f"RF Frequency: {design_freq/MHz:.2f} [MHz]")
+    plt.text(
+        0.5, 0.5, fr"Beam Length: {(particle_dist[-1] - particle_dist[0])/mm:.2f} [mm]"
+    )
+    plt.tight_layout()
+    pdf.savefig()
+    plt.close()
+
+    # Save phase-space plot for each gap to pdf
+    for i in range(1, 20):
+        fig, ax = plt.subplots()
+        ax.set_title(
+            fr"Phase Space for Gap {i}, ${{\cal E}}_s$ = {dsgn_E[i]/kV:.2f} [keV]"
+        )
+        ax.set_xlabel(r"Time Progression of $\phi/2\pi$")
+        ax.set_ylabel(r"$\Delta {\cal E}$ [keV]")
+
+        Eselect = abs(delta_E[:, i] / dsgn_E[i]) < 0.2
+        part_frac = np.sum(Eselect) / Np
+
+        ax.scatter(parts_phase[Eselect, i] / twopi, delta_E[Eselect, i] / kV, s=2)
+        black_proxy = plt.Rectangle((0, 0), 0.5, 0.5, fc="k")
+        ax.legend([black_proxy], [f"Np Frac Remaining: {part_frac:.2f}"])
+        plt.tight_layout()
+        pdf.savefig()
+        plt.close()
+
+# Create phase-space plots without accounting for RF cycles
+today = datetime.datetime.today()
+date_string = today.strftime("%m-%d-%Y_%H-%M-%S_")
 with PdfPages(f"phase-space-plots_{date_string}.pdf") as pdf:
     plt.figure()
     plt.axis("off")
@@ -180,18 +218,24 @@ with PdfPages(f"phase-space-plots_{date_string}.pdf") as pdf:
     plt.close()
 
     # Save phase-space plot for each gap to pdf
-    for i in range(1, Ng):
+    for i in range(1, 20):
         fig, ax = plt.subplots()
         ax.set_title(
             fr"Phase Space for Gap {i}, ${{\cal E}}_s$ = {dsgn_E[i]/kV:.2f} [keV]"
         )
-        ax.set_xlabel(r"$\phi/2\pi$")
+        ax.set_xlabel(r"$\Delta \phi/2\pi$")
+        ax.set_xlim(-1.2, 1.2)
         ax.set_ylabel(r"$\Delta {\cal E}$ [keV]")
+        ax.axhline(y=0, ls="--", c="k", lw=1)
+        ax.axvline(x=0, ls="--", c="k", lw=1)
 
-        Eselect = abs(delta_E[:, i] / dsgn_E[i]) < 0.2
+        Eselect = abs(delta_E[:, 0:i] / dsgn_E[0:i]) < 0.3
         part_frac = np.sum(Eselect) / Np
 
-        ax.scatter(parts_phase[Eselect, i] / twopi, delta_E[Eselect, i] / kV, s=2)
+        # Transform phase coordinates
+        dphi = np.cos(delta_phase.copy())
+
+        ax.scatter((dphi[:, 0:i] - np.pi / 2) / twopi, delta_E[:, 0:i] / kV, s=2)
         black_proxy = plt.Rectangle((0, 0), 0.5, 0.5, fc="k")
         ax.legend([black_proxy], [f"Np Frac Remaining: {part_frac:.2f}"])
         plt.tight_layout()
