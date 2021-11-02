@@ -67,9 +67,9 @@ init_E = 7 * keV
 init_dsgn_phi = -np.pi / 2
 init_phi = -np.pi / 4
 q = 1
-Np = 200
+Np = 1000
 
-Ng = 25
+Ng = 100
 dsgn_freq = 13.6 * MHz
 dsgn_gap_volt = 7 * kV * 0.01
 dsgn_gap_width = 2 * mm
@@ -77,7 +77,7 @@ dsgn_DC_Efield = dsgn_gap_volt / dsgn_gap_width
 transit_tfactor = 1.0
 
 # ------------------------------------------------------------------------------
-#           Simulation and particle advancement
+#           Naive Simulation and particle advancement
 # The phase and kinetic energy arrays for both design and non-design particles
 # are initialized and initial conditions included. The particles are then
 # advanced for the specefied numbrer of gaps while updating the phases first
@@ -104,13 +104,63 @@ for i in range(1, Ng):
     dsgn_E[i] = dsgn_E[i - 1] + coeff * np.cos(dsgn_phase[i])
 
 # Make phase space plots for each gap. Do 10 gaps to keep small
+# for i in range(Ng):
+#     fig, ax = plt.subplots()
+#     dphi = phase[:, i] - dsgn_phase[i]
+#     dE = E[:, i] - dsgn_E[i]
+#
+#     # Shift dphi to be between -pi and pi
+#     shift_dphi = twopi - dphi % twopi - np.pi
+#     ax.scatter(shift_dphi / np.pi, dE / kV)
+#     ax.set_title(f"Gap {i + 1}")
+#     plt.show()
+
+# ------------------------------------------------------------------------------
+#           Simulation and particle advancement of differences
+# The differences in phase and differences in kinetic energies between the design
+# particle and not are incremented rather than computing the inidividual phases
+# and energy then taking the difference. This is to see if there is any
+# difference (I'd imagine not) and check understanding.
+# ------------------------------------------------------------------------------
+phi = np.zeros(shape=(Np, Ng))
+phi_s = np.zeros(Ng)
+phi[:, 0] = np.linspace(-np.pi, np.pi, Np)
+phi_s[0] = init_dsgn_phi
+
+W = np.zeros(shape=(Np, Ng))
+W_s = np.zeros(Ng)
+W[:, 0] = init_E
+W_s[0] = init_dsgn_E
+
+dW = np.zeros(shape=(Np, Ng))
+dphi = np.zeros(shape=(Np, Ng))
+dW[0] = 0
+dphi[:, 0] = 0
+
+# Main loop. Update phi and phi_s and then calculate dW which is used to calculate
+# dphase
+for i in range(1, Ng):
+    # Update individual phases and Energy
+    beta_s = calc_beta(W_s[i - 1])
+    beta = calc_beta(W[:, i - 1])
+    phi[:, i] = phi[:, i - 1] + np.pi * beta_s / beta + np.pi
+    phi_s[i] = phi_s[i - 1] + twopi
+
+    coeff = q * dsgn_gap_volt * transit_tfactor
+    W[:, i] = W[:, i - 1] + coeff * np.cos(phi[:, i])
+    W_s[i] = W_s[i - 1] + coeff * np.cos(phi_s[i])
+
+    # Update differences
+    dW[:, i] = dW[:, i - 1] + coeff * (np.cos(phi[:, i]) - np.cos(phi_s[i]))
+    dphi[:, i] = dphi[:, i - 1] - np.pi / pow(beta_s, 2) * dW[:, i - 1] / Ar_mass
+
+
 for i in range(Ng):
     fig, ax = plt.subplots()
-    dphi = phase[:, i] - dsgn_phase[i]
-    dE = E[:, i] - dsgn_E[i]
+    this_dW, this_dphi = dW[:, i], dphi[:, i]
 
     # Shift dphi to be between -pi and pi
-    shift_dphi = twopi - dphi % twopi - np.pi
-    ax.scatter(shift_dphi / np.pi, dE / kV)
+    this_dphi = twopi - this_dphi % twopi - np.pi
+    ax.scatter(dphi[:, i] / np.pi, this_dW / kV)
     ax.set_title(f"Gap {i + 1}")
     plt.show()
