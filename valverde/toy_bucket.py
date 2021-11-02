@@ -122,46 +122,25 @@ for i in range(1, Ng):
 # and energy then taking the difference. This is to see if there is any
 # difference (I'd imagine not) and check understanding.
 # ------------------------------------------------------------------------------
-phi = np.zeros(shape=(Np, Ng))
-phi_s = np.zeros(Ng)
-# phi[:,0] = np.linspace(-np.pi, np.pi, Np)
-phi[:, 0] = init_dsgn_phi
-phi_s[0] = init_dsgn_phi
-
-W = np.zeros(shape=(Np, Ng))
+phi = np.zeros(Ng)
+dW = np.zeros(Ng)
 W_s = np.zeros(Ng)
-W[:, 0] = np.linspace(init_dsgn_E - 1 * kV, init_dsgn_E + 1 * kV, Np)
+init_phi = init_dsgn_phi
+init_dW = -0.1 * init_dsgn_E
+
+phi[0] = init_phi
+dW[0] = init_dW
 W_s[0] = init_dsgn_E
 
-beta_hist = np.zeros(Ng)
-beta_hist[0] = calc_beta(init_dsgn_E)
-
-dW = np.zeros(shape=(Np, Ng))
-dphi = np.zeros(shape=(Np, Ng))
-
-# Initial conditions for differences
-dW[:, 0] = W[:, 0] - W_s[0]
-
-# Main loop. Update phi and phi_s and then calculate dW which is used to calculate
-# dphase
 for i in range(1, Ng):
     beta_s = calc_beta(W_s[i - 1])
-    dphi[i] = dphi[i - 1] - np.pi / pow(beta_s, 2) * W[i - 1] / Ar_mass
-
+    phi[i] = phi[i - 1] - np.pi * dW[i - 1] / pow(beta_s, 2) / Ar_mass
     coeff = q * dsgn_gap_volt * transit_tfactor
-    dW[:, i] = dW[:, i - 1] + coeff * (np.cos(phi[:, i]) - np.cos(phi_s[i]))
+    dW[i] = dW[i - 1] + coeff * (np.cos(phi[i]) - np.cos(init_dsgn_phi))
 
-    phi[:, i] = phi[:, i - 1] + dphi[i]
-    W[:, i] = W[:, i - 1] + dW[:, i - 1]
     W_s[i] = W_s[i - 1] + coeff * np.cos(init_dsgn_phi)
-    beta_hist[i] = beta_s
 
-for i in range(Ng):
-    fig, ax = plt.subplots()
-    this_dW, this_dphi = dW[:, i], dphi[:, i]
 
-    # Shift dphi to be between -pi and pi
-    this_dphi = twopi - this_dphi % twopi - np.pi
-    ax.scatter(dphi[:, i] / np.pi, this_dW / kV)
-    ax.set_title(f"Gap {i + 1}")
-    plt.show()
+fig, ax = plt.subplots()
+ax.scatter(phi + np.pi, dW / kV)
+plt.show()
