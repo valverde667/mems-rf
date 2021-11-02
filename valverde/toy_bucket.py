@@ -67,9 +67,9 @@ init_E = 7 * keV
 init_dsgn_phi = -np.pi / 2
 init_phi = -np.pi / 4
 q = 1
-Np = 1000
+Np = 10
 
-Ng = 100
+Ng = 10
 dsgn_freq = 13.6 * MHz
 dsgn_gap_volt = 7 * kV * 0.01
 dsgn_gap_width = 2 * mm
@@ -124,36 +124,37 @@ for i in range(1, Ng):
 # ------------------------------------------------------------------------------
 phi = np.zeros(shape=(Np, Ng))
 phi_s = np.zeros(Ng)
-phi[:, 0] = np.linspace(-np.pi, np.pi, Np)
+# phi[:,0] = np.linspace(-np.pi, np.pi, Np)
+phi[:, 0] = init_dsgn_phi
 phi_s[0] = init_dsgn_phi
 
 W = np.zeros(shape=(Np, Ng))
 W_s = np.zeros(Ng)
-W[:, 0] = init_E
+W[:, 0] = np.linspace(init_dsgn_E - 1 * kV, init_dsgn_E + 1 * kV, Np)
 W_s[0] = init_dsgn_E
+
+beta_hist = np.zeros(Ng)
+beta_hist[0] = calc_beta(init_dsgn_E)
 
 dW = np.zeros(shape=(Np, Ng))
 dphi = np.zeros(shape=(Np, Ng))
-dW[0] = 0
-dphi[:, 0] = 0
+
+# Initial conditions for differences
+dW[:, 0] = W[:, 0] - W_s[0]
 
 # Main loop. Update phi and phi_s and then calculate dW which is used to calculate
 # dphase
 for i in range(1, Ng):
-    # Update individual phases and Energy
     beta_s = calc_beta(W_s[i - 1])
-    beta = calc_beta(W[:, i - 1])
-    phi[:, i] = phi[:, i - 1] + np.pi * beta_s / beta + np.pi
-    phi_s[i] = phi_s[i - 1] + twopi
+    dphi[i] = dphi[i - 1] - np.pi / pow(beta_s, 2) * W[i - 1] / Ar_mass
 
     coeff = q * dsgn_gap_volt * transit_tfactor
-    W[:, i] = W[:, i - 1] + coeff * np.cos(phi[:, i])
-    W_s[i] = W_s[i - 1] + coeff * np.cos(phi_s[i])
-
-    # Update differences
     dW[:, i] = dW[:, i - 1] + coeff * (np.cos(phi[:, i]) - np.cos(phi_s[i]))
-    dphi[:, i] = dphi[:, i - 1] - np.pi / pow(beta_s, 2) * dW[:, i - 1] / Ar_mass
 
+    phi[:, i] = phi[:, i - 1] + dphi[i]
+    W[:, i] = W[:, i - 1] + dW[:, i - 1]
+    W_s[i] = W_s[i - 1] + coeff * np.cos(init_dsgn_phi)
+    beta_hist[i] = beta_s
 
 for i in range(Ng):
     fig, ax = plt.subplots()
