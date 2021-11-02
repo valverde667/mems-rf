@@ -31,7 +31,8 @@ amu = SC.physical_constants["atomic mass constant energy equivalent in MeV"][0] 
 Ar_mass = 39.948 * amu
 He_mass = 4 * amu
 p_mass = amu
-kV = 1000
+kV = 1e3
+keV = 1e3
 MHz = 1e6
 mm = 1e-3
 ns = 1e-9  # nanoseconds
@@ -53,3 +54,20 @@ def calc_pires(energy, freq, mass=Ar_mass, q=1):
     """RF resonance condition in pi-mode"""
     beta_lambda = beta(energy, mass=mass, q=q) * SC.c / freq
     return beta_lambda / 2
+
+
+# ------------------------------------------------------------------------------
+#           Simulation Parameters/Settings
+# This section sets various simulation parameters. In this case, initial kinetic
+# energies, gap geometries, design settings such as frequency or phase, etc.
+# ------------------------------------------------------------------------------
+init_dsgn_E = 7 * keV
+init_E = 7 * keV
+init_dsgn_phi = -np.pi / 2
+init_phi = -np.pi / 4
+
+dsgn_freq = 13.6 * MHz
+dsgn_gap_volt = 7 * kV
+dsgn_gap_width = 2 * mm
+dsgn_DC_Efield = dsgn_gap_volt / dsgn_gap_width
+transit_tfactor = 1.0
