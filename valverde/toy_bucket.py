@@ -39,10 +39,11 @@ ns = 1e-9  # nanoseconds
 twopi = 2 * np.pi
 
 # Function definitions start.
-def beta(E, mass=Ar_mass, q=1, nonrel=True):
+def calc_beta(E, mass=Ar_mass, q=1, nonrel=True):
     """Velocity of a particle with energy E."""
     if nonrel:
-        beta = np.sqrt(2 * E / mass)
+        sign = np.sign(E)
+        beta = np.sqrt(2 * abs(E) / mass) * sign
     else:
         gamma = (E + mass) / mass
         beta = np.sqrt(1 - 1 / gamma / gamma)
@@ -65,9 +66,37 @@ init_dsgn_E = 7 * keV
 init_E = 7 * keV
 init_dsgn_phi = -np.pi / 2
 init_phi = -np.pi / 4
+q = 1
 
+Ng = 25
 dsgn_freq = 13.6 * MHz
 dsgn_gap_volt = 7 * kV
 dsgn_gap_width = 2 * mm
 dsgn_DC_Efield = dsgn_gap_volt / dsgn_gap_width
 transit_tfactor = 1.0
+
+# ------------------------------------------------------------------------------
+#           Simulation and particle advancement
+# The phase and kinetic energy arrays for both design and non-design particles
+# are initialized and initial conditions included. The particles are then
+# advanced for the specefied numbrer of gaps while updating the phases first
+# and then using the updated phase to update the energy.
+# ------------------------------------------------------------------------------
+dsgn_phase = np.zeros(Ng)
+dsgn_E = np.zeros(Ng)
+dsgn_phase[0], dsgn_E[0] = init_dsgn_phi, init_dsgn_E
+phase = np.zeros(Ng)
+E = np.zeros(Ng)
+phase[0], E[0] = init_phi, init_E
+
+# Main loop. Advance particles through rest of gaps and update arrays.
+for i in range(1, Ng):
+    beta_s = calc_beta(dsgn_E[i - 1])
+    beta = calc_beta(E[i - 1])
+    phase[i] = phase[i - 1] + np.pi * beta_s / beta + np.pi
+    dsgn_phase[i] = dsgn_phase[i - 1] + twopi
+
+    # Calculate coefficient in energy update for better organization
+    coeff = q * dsgn_DC_Efield * dsgn_gap_width * transit_tfactor
+    E[i] = E[i - 1] + coeff * np.cos(phase[i])
+    dsgn_E[i] = dsgn_E[i - 1] + coeff * np.cos(dsgn_phase[i])
