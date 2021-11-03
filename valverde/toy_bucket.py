@@ -67,9 +67,9 @@ init_E = 7 * keV
 init_dsgn_phi = -np.pi / 2
 init_phi = -np.pi / 4
 q = 1
-Np = 10
+Np = 15
 
-Ng = 10
+Ng = 25
 dsgn_freq = 13.6 * MHz
 dsgn_gap_volt = 7 * kV * 0.01
 dsgn_gap_width = 2 * mm
@@ -122,25 +122,26 @@ for i in range(1, Ng):
 # and energy then taking the difference. This is to see if there is any
 # difference (I'd imagine not) and check understanding.
 # ------------------------------------------------------------------------------
-phi = np.zeros(Ng)
-dW = np.zeros(Ng)
+phi = np.zeros(shape=(Np, Ng))
+dW = np.zeros(shape=(Np, Ng))
 W_s = np.zeros(Ng)
 init_phi = init_dsgn_phi
-init_dW = -0.1 * init_dsgn_E
+init_dW = np.linspace(0.1, 3, Np) * kV
 
-phi[0] = init_phi
-dW[0] = init_dW
+phi[:, 0] = init_phi
+dW[:, 0] = init_dW
 W_s[0] = init_dsgn_E
 
 for i in range(1, Ng):
     beta_s = calc_beta(W_s[i - 1])
-    phi[i] = phi[i - 1] - np.pi * dW[i - 1] / pow(beta_s, 2) / Ar_mass
+    phi[:, i] = phi[:, i - 1] - np.pi * dW[:, i - 1] / pow(beta_s, 2) / Ar_mass
     coeff = q * dsgn_gap_volt * transit_tfactor
-    dW[i] = dW[i - 1] + coeff * (np.cos(phi[i]) - np.cos(init_dsgn_phi))
+    dW[:, i] = dW[:, i - 1] + coeff * (np.cos(phi[:, i]) - np.cos(init_dsgn_phi))
 
     W_s[i] = W_s[i - 1] + coeff * np.cos(init_dsgn_phi)
 
-
 fig, ax = plt.subplots()
-ax.scatter(phi + np.pi, dW / kV)
+for i in range(Np):
+    ax.scatter(phi[i, :], dW[i, :] / kV, s=4, c="k")
+
 plt.show()
