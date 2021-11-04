@@ -126,7 +126,7 @@ phi = np.zeros(shape=(Np, Ng))
 dW = np.zeros(shape=(Np, Ng))
 W_s = np.zeros(Ng)
 init_phi = init_dsgn_phi
-init_dW = np.linspace(0.1, 3, Np) * kV
+init_dW = np.linspace(-1.5, 1.5, Np) * kV
 
 phi[:, 0] = init_phi
 dW[:, 0] = init_dW
@@ -141,7 +141,9 @@ for i in range(1, Ng):
     W_s[i] = W_s[i - 1] + coeff * np.cos(init_dsgn_phi)
 
 fig, ax = plt.subplots()
+ax.set_title(f"Phase Space Trajectories for {Np} Particles and {Ng} gaps")
 for i in range(Np):
     ax.scatter(phi[i, :], dW[i, :] / kV, s=4, c="k")
-
+ax.set_xlabel(fr"$\phi$ [rad], $\phi_s =$ {init_dsgn_phi/np.pi:.3f} $\pi$")
+ax.set_ylabel(r"$\Delta {{\cal E}}$ [keV]")
 plt.show()
