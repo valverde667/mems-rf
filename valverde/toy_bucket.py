@@ -17,7 +17,7 @@ import os
 
 
 # ------------------------------------------------------------------------------
-#            Constants and definitions section
+#     Constants and definitions section
 # Establish some useful constants that will be used as units. Also, establish
 # variable names that will be repeatedly used like mass, or 2 * np.pi, etc.
 # This section will also contain function calls that are necessary to script.
@@ -58,7 +58,7 @@ def calc_pires(energy, freq, mass=Ar_mass, q=1):
 
 
 # ------------------------------------------------------------------------------
-#           Simulation Parameters/Settings
+#     Simulation Parameters/Settings
 # This section sets various simulation parameters. In this case, initial kinetic
 # energies, gap geometries, design settings such as frequency or phase, etc.
 # ------------------------------------------------------------------------------
@@ -77,7 +77,7 @@ dsgn_DC_Efield = dsgn_gap_volt / dsgn_gap_width
 transit_tfactor = 1.0
 
 # ------------------------------------------------------------------------------
-#           Naive Simulation and particle advancement
+#     Naive Simulation and particle advancement
 # The phase and kinetic energy arrays for both design and non-design particles
 # are initialized and initial conditions included. The particles are then
 # advanced for the specefied numbrer of gaps while updating the phases first
@@ -116,7 +116,7 @@ for i in range(1, Ng):
 #     plt.show()
 
 # ------------------------------------------------------------------------------
-#           Simulation and particle advancement of differences
+#     Simulation and particle advancement of differences
 # The differences in phase and differences in kinetic energies between the design
 # particle and not are incremented rather than computing the inidividual phases
 # and energy then taking the difference. This is to see if there is any
