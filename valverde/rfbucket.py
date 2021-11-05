@@ -55,16 +55,16 @@ def plot_phase(phi, E):
 # Simulation Parameters for design particle
 design_phase = -np.pi / 2
 dsgn_initE = 7 * kV
-Np = 10000
+Np = 10
 
 # Simulation parameters for gaps and geometries
 design_gap_volt = 7 * kV * 0.01
 design_freq = 13.6 * MHz
 design_omega = 2 * np.pi * design_freq
-Ng = 75
+Ng = 15
 
 # ------------------------------------------------------------------------------
-#                         Initial Setup
+#     Initial Setup
 # Start design particle with design phase at z=0. Place first gap so that design
 # particle arrives at design phase. Since gaps are initialized to have peak
 # voltage at t=0, the first gap is placed such that the field oscillates one full
@@ -143,7 +143,7 @@ for i in range(1, Ng):
 
 
 # ------------------------------------------------------------------------------
-#                        Analysis/Plotting Section
+#     Analysis/Plotting Section
 # Make plots and analyze phase space distribution of particles after simulation.
 # The analysis sets the y-axis in any plots to be change in energy. However,
 # on the x-axis it can be change in phase w.r.t. the design particle, or it
