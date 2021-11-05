@@ -67,9 +67,9 @@ init_E = 7 * keV
 init_dsgn_phi = -np.pi / 2
 init_phi = -np.pi / 4
 q = 1
-Np = 15
+Np = 10
 
-Ng = 25
+Ng = 30
 dsgn_freq = 13.6 * MHz
 dsgn_gap_volt = 7 * kV * 0.01
 dsgn_gap_width = 2 * mm
@@ -139,6 +139,27 @@ for i in range(1, Ng):
     dW[:, i] = dW[:, i - 1] + coeff * (np.cos(phi[:, i]) - np.cos(init_dsgn_phi))
 
     W_s[i] = W_s[i - 1] + coeff * np.cos(init_dsgn_phi)
+
+# Create dynamic plotting to visualize individual particle trajectories
+do_dynamic_plot = False
+if do_dynamic_plot:
+    fig, ax = plt.subplots()
+    ax.set_xlabel(fr"$\phi$ [rad], $\phi_s =$ {init_dsgn_phi/np.pi:.3f} $\pi$")
+    ax.set_ylabel(r"$\Delta {{\cal E}}$ [keV]")
+
+    plt.ion()
+    plt.show()
+
+    # Loop through the particles. For each particle loop through the gaps and plot
+    # the particle's position in phase space.
+    for i in range(0, Np - 3, 3):
+        for j in range(Ng):
+            ax.scatter(phi[i : i + 3, j], dW[i : i + 3, j] / kV, c="k", s=3)
+            plt.draw()
+            plt.pause(0.0001)
+    fig.savefig(f"phase-space_{Np}Np{Ng}Ng", dpi=400)
+
+    input("Press [enter] to continue.")
 
 fig, ax = plt.subplots()
 ax.set_title(f"Phase Space Trajectories for {Np} Particles and {Ng} gaps")
