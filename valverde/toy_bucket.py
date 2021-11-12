@@ -147,6 +147,18 @@ for i in range(1, Ng):
 
     W_s[i] = W_s[i - 1] + coeff * np.cos(init_dsgn_phi)
 
+
+# ------------------------------------------------------------------------------
+#    Plotting/Visualization
+# The main figure plots the phase-space for the energy difference and phase
+# difference for all particles relative to the design particle.
+# A useful plot to be added is the phase over time. This would show the
+# synchrotron oscillations as the particles progress through successive gaps.
+# The phase space plots can be viewed through the dynamic plots by setting the
+# switch to True. This is a quick and dirty animation and for many gaps and
+# particles the dynamic plotting will get slow very fast. Use this for quick
+# analysis and looking at the phase space trajectory.
+# ------------------------------------------------------------------------------
 # Create dynamic plotting to visualize individual particle trajectories
 do_dynamic_plot = False
 if do_dynamic_plot:
