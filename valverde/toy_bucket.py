@@ -77,45 +77,6 @@ dsgn_DC_Efield = dsgn_gap_volt / dsgn_gap_width
 transit_tfactor = 1.0
 
 # ------------------------------------------------------------------------------
-#     Naive Simulation and particle advancement
-# The phase and kinetic energy arrays for both design and non-design particles
-# are initialized and initial conditions included. The particles are then
-# advanced for the specefied numbrer of gaps while updating the phases first
-# and then using the updated phase to update the energy. Plots are made by taking
-# the difference for phase - design_phase and E - dsgn_E for each gap.
-# ------------------------------------------------------------------------------
-dsgn_phase = np.zeros(Ng)
-dsgn_E = np.zeros(Ng)
-dsgn_phase[0], dsgn_E[0] = init_dsgn_phi, init_dsgn_E
-phase = np.zeros(shape=(Np, Ng))
-E = np.zeros(shape=(Np, Ng))
-phase[:, 0], E[:, 0] = np.linspace(-np.pi, np.pi, Np), init_E * np.ones(Np)
-
-# Main loop. Advance particles through rest of gaps and update arrays.
-for i in range(1, Ng):
-    beta_s = calc_beta(dsgn_E[i - 1])
-    beta = calc_beta(E[:, i - 1])
-    phase[:, i] = phase[:, i - 1] + np.pi * beta_s / beta + np.pi
-    dsgn_phase[i] = dsgn_phase[i - 1] + twopi
-
-    # Calculate coefficient in energy update for better organization
-    coeff = q * dsgn_gap_volt * transit_tfactor
-    E[:, i] = E[:, i - 1] + coeff * np.cos(phase[:, i])
-    dsgn_E[i] = dsgn_E[i - 1] + coeff * np.cos(dsgn_phase[i])
-
-# Make phase space plots for each gap. Do 10 gaps to keep small
-# for i in range(Ng):
-#     fig, ax = plt.subplots()
-#     dphi = phase[:, i] - dsgn_phase[i]
-#     dE = E[:, i] - dsgn_E[i]
-#
-#     # Shift dphi to be between -pi and pi
-#     shift_dphi = twopi - dphi % twopi - np.pi
-#     ax.scatter(shift_dphi / np.pi, dE / kV)
-#     ax.set_title(f"Gap {i + 1}")
-#     plt.show()
-
-# ------------------------------------------------------------------------------
 #     Simulation and particle advancement of differences
 # The differences in phase and differences in kinetic energies between the design
 # particle and not are incremented rather than computing the inidividual phases
