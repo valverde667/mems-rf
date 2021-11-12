@@ -57,6 +57,51 @@ def calc_pires(energy, freq, mass=Ar_mass, q=1):
     return beta_lambda / 2
 
 
+def calc_synch_ang_freq(f, V, phi_s, W_s, T=1, g=1 * mm, m=Ar_mass, q=1):
+    """Calculate synchrotron angular frequency for small acceleration and phase diff.
+
+    The formula assumes that the velocity of the design particle is
+    approximately constants (beta_s and gamma_s ≈ const.) and that other
+    particles only slightly deviate from the design particle in phase.
+    This leads to a linear second order ODE and a conservation of phase space.
+    The wavenumber and hence frequency is a function of the input parameters
+    listed below.
+
+    Parameters:
+    -----------
+    f : float
+        RF frequency for the system.
+    V : float
+        The voltage amplitude applied to the RF gap.
+    phi_s : float
+        Design frequency. For the harmonic expression of the 2nd Order ODE, this
+        value should be negative.
+    W_s : float
+        The kinetic energy of the design particle. This is assumed to remain
+        constant throughout the acceleration gaps.
+    T : float
+        Transit time factor. Can be treated as a parameter to be varied but
+        initialized to 1. Values are between [0,1].
+    g : float
+        Thickness of accelerating gap.
+    """
+    # Evaluate a few variables before hand
+    beta_s = calc_beta(W_s, mass=m, q=q)
+    E0 = V / g
+    lambda_rf = SC.c / f
+
+    # Evaluate chunks of the expression for the wave number k_s
+    energy_chunk = q * E0 * T * np.sin(-phi_s) / m
+    wave_chunk = 2 * np.pi / lambda_rf / pow(beta_s, 3)
+
+    # Compute wavenumber. Since this approximation assumes small phase deviation
+    # and small acceleration beta ≈ beta_s so omega = k_s * beta_s * c
+    wave_number = np.sqrt(wave_chunk * energy_chunk)
+    omega_synch = wave_number * beta_s * SC.c
+
+    return omega_synch
+
+
 # ------------------------------------------------------------------------------
 #     Simulation Parameters/Settings
 # This section sets various simulation parameters. In this case, initial kinetic
@@ -71,10 +116,11 @@ Np = 10
 
 Ng = 30
 dsgn_freq = 13.6 * MHz
-dsgn_gap_volt = 7 * kV * 0.01
+dsgn_gap_volt = 7 * kV
 dsgn_gap_width = 2 * mm
 dsgn_DC_Efield = dsgn_gap_volt / dsgn_gap_width
 transit_tfactor = 1.0
+omega_s = calc_synch_ang_freq(dsgn_freq, dsgn_gap_volt, init_dsgn_phi, init_dsgn_E)
 
 # ------------------------------------------------------------------------------
 #     Simulation and particle advancement of differences
