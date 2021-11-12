@@ -164,7 +164,9 @@ if do_dynamic_plot:
 fig, ax = plt.subplots()
 ax.set_title(f"Phase Space Trajectories for {Np} Particles and {Ng} gaps")
 for i in range(Np):
-    ax.scatter(phi[i, :], dW[i, :] / kV, s=4, c="k")
-ax.set_xlabel(fr"$\phi$ [rad], $\phi_s =$ {init_dsgn_phi/np.pi:.3f} $\pi$")
+    ax.scatter(phi[i, :] - init_dsgn_phi, dW[i, :] / kV, s=4, c="k")
+ax.axhline(y=0, c="k", ls="--", lw=1)
+ax.axvline(x=0, c="k", ls="--", lw=1)
+ax.set_xlabel(fr"$\Delta \phi$ [rad], $\phi_s =$ {init_dsgn_phi/np.pi:.3f} $\pi$")
 ax.set_ylabel(r"$\Delta {{\cal E}}$ [keV]")
 plt.show()
