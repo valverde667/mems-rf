@@ -102,6 +102,64 @@ def calc_synch_ang_freq(f, V, phi_s, W_s, T=1, g=1 * mm, m=Ar_mass, q=1):
     return omega_synch
 
 
+def convert_to_spatial(dW, W_s, dphi, phi_s, f, gap_centers):
+    """Take dW and dphi coordinates and convert to dphi and z
+
+    The main script evaluates the relative change in phase and kinetic energy
+    from the synchronous particle gap-to-gap. It is also useful to see the
+    change in phase and energy as the particles progress down the beamline in
+    z. Especially in the contant energy and small phase change approximation
+    scheme where the difference equations can be analytically evaluated giving
+    sinusoid formulations. This can be plotted along with the finite difference
+    evaluations for comparison and checking.
+
+    Parameters
+    ----------
+    dW : ndarray
+        This array represents the relative change from the synchronous energy W_s
+        from gap-to-gap. Thus, the dimensions are #particles by # gaps (Np, Ng)
+    W_s : ndarray
+        This array gives the design kinetic for the design particle for each
+        gaps and is a 1 by Ng array.
+    dphi : ndarray
+        This array gives the relative phase difference gap-to-gap from the
+        design particle and is of shape (Np, Ng).
+    phi_s : float
+        The design phase used in the simulation.
+    f : float
+        The RF frequency used in the simulation.
+    gap_centers : ndarray
+        The locations of the gap centers. Shape of (1, Ng).
+
+    Returns
+    -------
+    z : ndarray
+        This array gives the position of the particles corresponding to the
+        phasing down the beamline.
+    """
+    # Assign the number of particles and number of gaps used
+    Np, Ng = dW.shape
+
+    # Calculate beta for each particle after each gap.
+    beta = np.zeros(shape=(Np, Ng))
+    for i in range(Ng):
+        # Use relative energy difference to calc particle energy and corresponding
+        # beta
+        beta[:, i] = calc_beta(dW[:, i] + W_s[i])
+
+    # Calculate z-coordinates for each particle when design particle is at gap
+    # center.
+    coeff = SC.c / 2 / np.pi / f
+    z = np.zeros(shape=(Np, Ng))
+    for i in range(Ng):
+        zs_i = gap_centers[i]
+        dz_i = beta[:, i] * dphi[:, i] + (beta[:, i] - beta_s[i]) * phi_s
+
+        z[:, i] = zs_i + coeff * dz_i
+
+    return z
+
+
 # ------------------------------------------------------------------------------
 #     Simulation Parameters/Settings
 # This section sets various simulation parameters. In this case, initial kinetic
@@ -132,21 +190,29 @@ omega_s = calc_synch_ang_freq(dsgn_freq, dsgn_gap_volt, init_dsgn_phi, init_dsgn
 phi = np.zeros(shape=(Np, Ng))
 dW = np.zeros(shape=(Np, Ng))
 W_s = np.zeros(Ng)
+beta_s = np.zeros(Ng)
 init_phi = init_dsgn_phi
 init_dW = np.linspace(-1.5, 1.5, Np) * kV
 
 phi[:, 0] = init_phi
 dW[:, 0] = init_dW
 W_s[0] = init_dsgn_E
+beta_s[0] = calc_beta(init_dsgn_E)
 
 for i in range(1, Ng):
-    beta_s = calc_beta(W_s[i - 1])
-    phi[:, i] = phi[:, i - 1] - np.pi * dW[:, i - 1] / pow(beta_s, 2) / Ar_mass
+    this_beta_s = calc_beta(W_s[i - 1])
+    phi[:, i] = phi[:, i - 1] - np.pi * dW[:, i - 1] / pow(this_beta_s, 2) / Ar_mass
     coeff = q * dsgn_gap_volt * transit_tfactor
     dW[:, i] = dW[:, i - 1] + coeff * (np.cos(phi[:, i]) - np.cos(init_dsgn_phi))
 
     W_s[i] = W_s[i - 1] + coeff * np.cos(init_dsgn_phi)
+    beta_s[i] = this_beta_s
 
+
+# Use relative phase and energy differences to find the longitudinal positions
+# of the particles when the design particle hits the gap centers.
+gaps = np.array([b * SC.c / 2 / dsgn_freq for b in beta_s]).cumsum()
+pos = convert_to_spatial(dW, W_s, phi, init_dsgn_phi, dsgn_freq, gaps)
 
 # ------------------------------------------------------------------------------
 #    Plotting/Visualization
