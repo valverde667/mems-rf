@@ -160,6 +160,52 @@ def convert_to_spatial(dW, W_s, dphi, phi_s, f, gap_centers):
     return z
 
 
+def multiple_formatter(denominator=4, number=np.pi, latex="\pi"):
+    def gcd(a, b):
+        while b:
+            a, b = b, a % b
+        return a
+
+    def _multiple_formatter(x, pos):
+        den = denominator
+        num = np.int(np.rint(den * x / number))
+        com = gcd(num, den)
+        (num, den) = (int(num / com), int(den / com))
+        if den == 1:
+            if num == 0:
+                return r"$0$"
+            if num == 1:
+                return r"$%s$" % latex
+            elif num == -1:
+                return r"$-%s$" % latex
+            else:
+                return r"$%s%s$" % (num, latex)
+        else:
+            if num == 1:
+                return r"$\frac{%s}{%s}$" % (latex, den)
+            elif num == -1:
+                return r"$\frac{-%s}{%s}$" % (latex, den)
+            else:
+                return r"$\frac{%s%s}{%s}$" % (num, latex, den)
+
+    return _multiple_formatter
+
+
+def plot_initial_bucket(phases, phi_s, plot_ax, format=multiple_formatter()):
+    """Show particle locations along RF phase curve from -pi to pi."""
+    x = np.linspace(-np.pi, np.pi, 100)
+    plot_ax.plot(x, np.cos(x))
+    plot_ax.scatter(phases, np.cos(phases), c="k")
+    plot_ax.scatter(
+        phi_s, np.cos(phi_s), c="g", label=fr"$\phi_s$ = {phi_s/np.pi}$\pi$"
+    )
+    plot_ax.grid(alpha=0.5, ls="--")
+    plot_ax.xaxis.set_major_locator(plt.MultipleLocator(np.pi / 4))
+    plot_ax.xaxis.set_minor_locator(plt.MultipleLocator(np.pi / 12))
+    plot_ax.xaxis.set_major_formatter(plt.FuncFormatter(multiple_formatter()))
+    plot_ax.legend()
+
+
 # ------------------------------------------------------------------------------
 #     Simulation Parameters/Settings
 # This section sets various simulation parameters. In this case, initial kinetic
