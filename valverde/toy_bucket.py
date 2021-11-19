@@ -57,7 +57,7 @@ def calc_pires(energy, freq, mass=Ar_mass, q=1):
     return beta_lambda / 2
 
 
-def calc_synch_ang_freq(f, V, phi_s, W_s, T=1, g=1 * mm, m=Ar_mass, q=1):
+def calc_synch_ang_freq(f, V, phi_s, W_s, T=1, g=2 * mm, m=Ar_mass, q=1):
     """Calculate synchrotron angular frequency for small acceleration and phase diff.
 
     The formula assumes that the velocity of the design particle is
@@ -69,20 +69,20 @@ def calc_synch_ang_freq(f, V, phi_s, W_s, T=1, g=1 * mm, m=Ar_mass, q=1):
 
     Parameters:
     -----------
-    f : float
+    f [Hz units] : float
         RF frequency for the system.
-    V : float
+    V [Volts units] : float
         The voltage amplitude applied to the RF gap.
     phi_s : float
         Design frequency. For the harmonic expression of the 2nd Order ODE, this
         value should be negative.
-    W_s : float
+    W_s [eV units] : float
         The kinetic energy of the design particle. This is assumed to remain
         constant throughout the acceleration gaps.
     T : float
         Transit time factor. Can be treated as a parameter to be varied but
         initialized to 1. Values are between [0,1].
-    g : float
+    g [mm units] : float
         Thickness of accelerating gap.
     """
     # Evaluate a few variables before hand
@@ -100,6 +100,70 @@ def calc_synch_ang_freq(f, V, phi_s, W_s, T=1, g=1 * mm, m=Ar_mass, q=1):
     omega_synch = wave_number * beta_s * SC.c
 
     return omega_synch
+
+
+def calc_max_deviations(phi_s, W_s, dW, dphi, f, V, T=1, g=2 * mm, m=Ar_mass, q=1):
+    """Use approximation formulas to evaluate max dW and dphi from Hamiltonian.
+
+    In the small phase-excursion approximation with no/small acceleration, the
+    dynamical equations for the kinetic energy and phase deviations relative
+    to the design particle result in a conservative phase-space area. This
+    phase-space area is related to an analog hamiltonian by
+        H = 0.5 * A^2 w^2 + 0.5 * ks^2 dphi*2
+    where w = dW/mc^2 and ks is the wavenumber. Since this Hamiltonian is
+    conserved, the initial conditions of dW and dphi can be used to evaluate
+    H which can then be used to find the maximum excursions
+
+    Parameters:
+    -----------
+    phi_s : float
+        The design frequency used. Assumed not to change.
+    W_s [eV units] : float
+        The kinetic energy of the design particle. Assumed to be in units of eV.
+    dphi : float
+        The initil phase deviation from the design particle.
+    dW [eV units] : float
+        The initial kinetic energy deviation form the design particle. Assumed
+        to be in units of eV.
+    f [Hz units] : float
+        RF frequency for the system. Units of Hz
+    V [Volts units] : float
+        The voltage amplitude applied to the RF gap.
+    T : float
+        Transit time factor. Can be treated as a parameter to be varied but
+        initialized to 1. Values are between [0,1].
+    g [mm units] : float
+        Thickness of accelerating gap.
+
+    Return:
+    -------
+    max_excursion : tuple
+        The max deviations in kinetic energy (first entry) and phase (second).
+    """
+
+    # Evaluate and initialize some easy variables
+    beta_s = calc_beta(W_s, mass=m, q=q)
+    lambda_rf = SC.c / f
+    E0 = V / g
+
+    # Evaluate A-coefficient for energy assuming non-rel (gamma ≈ 1)
+    A = 2 * np.pi / lambda_rf / pow(beta_s, 3)
+
+    # Evaluate chunks of the expression for the wave number k_s
+    energy_chunk = q * E0 * T * np.sin(-phi_s) / m
+
+    # Compute wavenumber. Since this approximation assumes small phase deviation
+    # and small acceleration beta ≈ beta_s so omega = k_s * beta_s * c
+    wave_number = np.sqrt(A * energy_chunk)
+
+    # Calculate constant Hamiltonian from initial values
+    H = 0.5 * pow(A * dW / m, 2) + 0.5 * pow(wave_number * dphi, 2)
+
+    # Calculate max excursion using H
+    max_dW = m * np.sqrt(2 * H) / A
+    max_dphi = np.sqrt(2 * H) / wave_number
+
+    return (max_dW, max_dphi)
 
 
 def convert_to_spatial(dW, W_s, dphi, phi_s, f, gap_centers):
@@ -224,7 +288,6 @@ dsgn_gap_volt = 7 * kV
 dsgn_gap_width = 2 * mm
 dsgn_DC_Efield = dsgn_gap_volt / dsgn_gap_width
 transit_tfactor = 1.0
-omega_s = calc_synch_ang_freq(dsgn_freq, dsgn_gap_volt, init_dsgn_phi, init_dsgn_E)
 
 # ------------------------------------------------------------------------------
 #     Simulation and particle advancement of differences
@@ -300,7 +363,6 @@ with PdfPages(f"phase-space-plots_{date_string}.pdf") as pdf:
         pdf.savefig()
         plt.close()
 
-ddd
 # Use relative phase and energy differences to find the longitudinal positions
 # of the particles when the design particle hits the gap centers.
 gaps = np.array([b * SC.c / 2 / dsgn_freq for b in beta_s]).cumsum()
