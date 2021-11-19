@@ -297,71 +297,73 @@ transit_tfactor = 1.0
 # difference (I'd imagine not) and check understanding.
 # ------------------------------------------------------------------------------
 # Create phase-space plots without accounting for RF cycles
-today = datetime.datetime.today()
-date_string = today.strftime("%m-%d-%Y_%H-%M-%S_")
-with PdfPages(f"phase-space-plots_{date_string}.pdf") as pdf:
-    plt.figure()
-    plt.axis("off")
-    plt.text(0.5, 1.0, "Simulation Characteristics")
-    plt.text(0.5, 0.9, f"Injection Energy: {init_dsgn_E/kV} [keV]")
-    plt.text(0.5, 0.8, fr"Synchronous Phase: varied")
-    plt.text(0.5, 0.7, f"Gap Voltage: {dsgn_gap_volt/kV:.2f} [kV]")
-    plt.text(0.5, 0.6, f"RF Frequency: {dsgn_freq/MHz:.2f} [MHz]")
-    plt.text(0.5, 0.5, r"Vary $\phi_s$ with approx const acceleration.")
-    plt.tight_layout()
-    pdf.savefig()
-    plt.close()
-
-    phi_s_list = np.array([-1 / 2, -1 / 4, -1 / 6, -1 / 8, 0]) * np.pi
-    for init_dsgn_phi in phi_s_list:
-
-        phi = np.zeros(shape=(Np, Ng))
-        dW = np.zeros(shape=(Np, Ng))
-        W_s = np.zeros(Ng)
-        beta_s = np.zeros(Ng)
-        init_phi = init_dsgn_phi * np.linspace(0.99, 1.01, Np)
-        init_dW = np.linspace(-1.5, 1.5, Np) * kV * 0
-
-        phi[:, 0] = init_phi
-        dW[:, 0] = init_dW
-        W_s[0] = init_dsgn_E
-        beta_s[0] = calc_beta(init_dsgn_E)
-
-        for i in range(1, Ng):
-            this_beta_s = calc_beta(W_s[0])
-            phi[:, i] = (
-                phi[:, i - 1] - np.pi * dW[:, i - 1] / pow(this_beta_s, 2) / Ar_mass
-            )
-            coeff = q * dsgn_gap_volt * transit_tfactor
-            dW[:, i] = dW[:, i - 1] + coeff * (
-                np.cos(phi[:, i]) - np.cos(init_dsgn_phi)
-            )
-
-            W_s[i] = W_s[i - 1] + coeff * np.cos(init_dsgn_phi)
-            beta_s[i] = this_beta_s
-
-        # Make panel plots. First plot is visual aid of initial bucket on the
-        # RF phase diagram. The second plot will be the initial condition in
-        # dphi and dW. The last plot is the phase-space.
-        fig, ax = plt.subplots(nrows=3, figsize=(8, 12))
-        plot_initial_bucket(init_phi, init_dsgn_phi, ax[0])
-        ax[1].scatter(phi[:, 0] - init_dsgn_phi, dW[:, 0] / kV)
-        ax[1].set_title("Initial Conditions for All Particles")
-        ax[1].set_ylabel(r"$\Delta W$ [keV]")
-        ax[1].set_xlabel(
-            fr"$\Delta \phi$ [rad], $\phi_s =$ {init_dsgn_phi/np.pi:.3f} $\pi$"
-        )
-        for i in range(Np):
-            ax[2].scatter(phi[i, :] - init_dsgn_phi, dW[i, :] / kV)
-        ax[2].set_ylabel(r"$\Delta W$ [keV]")
-        ax[2].set_xlabel(
-            fr"$\Delta \phi$ [rad], $\phi_s =$ {init_dsgn_phi/np.pi:.3f} $\pi$"
-        )
-        ax[2].axhline(y=0, c="k", ls="--", lw=1)
-        ax[2].axvline(x=0, c="k", ls="--", lw=1)
+make_pdfs = False
+if make_pdfs:
+    today = datetime.datetime.today()
+    date_string = today.strftime("%m-%d-%Y_%H-%M-%S_")
+    with PdfPages(f"phase-space-plots_{date_string}.pdf") as pdf:
+        plt.figure()
+        plt.axis("off")
+        plt.text(0.5, 1.0, "Simulation Characteristics")
+        plt.text(0.5, 0.9, f"Injection Energy: {init_dsgn_E/kV} [keV]")
+        plt.text(0.5, 0.8, fr"Synchronous Phase: varied")
+        plt.text(0.5, 0.7, f"Gap Voltage: {dsgn_gap_volt/kV:.2f} [kV]")
+        plt.text(0.5, 0.6, f"RF Frequency: {dsgn_freq/MHz:.2f} [MHz]")
+        plt.text(0.5, 0.5, r"Vary $\phi_s$ with approx const acceleration.")
         plt.tight_layout()
         pdf.savefig()
         plt.close()
+
+        phi_s_list = np.array([-1 / 2, -1 / 4, -1 / 6, -1 / 8, 0]) * np.pi
+        for init_dsgn_phi in phi_s_list:
+
+            phi = np.zeros(shape=(Np, Ng))
+            dW = np.zeros(shape=(Np, Ng))
+            W_s = np.zeros(Ng)
+            beta_s = np.zeros(Ng)
+            init_phi = init_dsgn_phi * np.linspace(0.99, 1.01, Np)
+            init_dW = np.linspace(-1.5, 1.5, Np) * kV * 0
+
+            phi[:, 0] = init_phi
+            dW[:, 0] = init_dW
+            W_s[0] = init_dsgn_E
+            beta_s[0] = calc_beta(init_dsgn_E)
+
+            for i in range(1, Ng):
+                this_beta_s = calc_beta(W_s[0])
+                phi[:, i] = (
+                    phi[:, i - 1] - np.pi * dW[:, i - 1] / pow(this_beta_s, 2) / Ar_mass
+                )
+                coeff = q * dsgn_gap_volt * transit_tfactor
+                dW[:, i] = dW[:, i - 1] + coeff * (
+                    np.cos(phi[:, i]) - np.cos(init_dsgn_phi)
+                )
+
+                W_s[i] = W_s[i - 1] + coeff * np.cos(init_dsgn_phi)
+                beta_s[i] = this_beta_s
+
+            # Make panel plots. First plot is visual aid of initial bucket on the
+            # RF phase diagram. The second plot will be the initial condition in
+            # dphi and dW. The last plot is the phase-space.
+            fig, ax = plt.subplots(nrows=3, figsize=(8, 12))
+            plot_initial_bucket(init_phi, init_dsgn_phi, ax[0])
+            ax[1].scatter(phi[:, 0] - init_dsgn_phi, dW[:, 0] / kV)
+            ax[1].set_title("Initial Conditions for All Particles")
+            ax[1].set_ylabel(r"$\Delta W$ [keV]")
+            ax[1].set_xlabel(
+                fr"$\Delta \phi$ [rad], $\phi_s =$ {init_dsgn_phi/np.pi:.3f} $\pi$"
+            )
+            for i in range(Np):
+                ax[2].scatter(phi[i, :] - init_dsgn_phi, dW[i, :] / kV)
+            ax[2].set_ylabel(r"$\Delta W$ [keV]")
+            ax[2].set_xlabel(
+                fr"$\Delta \phi$ [rad], $\phi_s =$ {init_dsgn_phi/np.pi:.3f} $\pi$"
+            )
+            ax[2].axhline(y=0, c="k", ls="--", lw=1)
+            ax[2].axvline(x=0, c="k", ls="--", lw=1)
+            plt.tight_layout()
+            pdf.savefig()
+            plt.close()
 
 # Use relative phase and energy differences to find the longitudinal positions
 # of the particles when the design particle hits the gap centers.
