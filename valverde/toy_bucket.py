@@ -278,16 +278,71 @@ def plot_initial_bucket(phases, phi_s, plot_ax, format=multiple_formatter()):
 init_dsgn_E = 7 * keV
 init_E = 7 * keV
 init_dsgn_phi = -np.pi / 2
-init_phi = -np.pi / 4
+phi_dev = np.pi / 50
+W_dev = 0.01 * kV
 q = 1
-Np = 10
+Np = 50
 
-Ng = 30
+Ng = 300
 dsgn_freq = 13.6 * MHz
-dsgn_gap_volt = 7 * kV
+dsgn_gap_volt = 7 * kV * 1e-4
 dsgn_gap_width = 2 * mm
 dsgn_DC_Efield = dsgn_gap_volt / dsgn_gap_width
 transit_tfactor = 1.0
+
+# Advance particles using initial conditions
+phi = np.zeros(shape=(Np, Ng))
+dW = np.zeros(shape=(Np, Ng))
+W_s = np.zeros(Ng)
+beta_s = np.zeros(Ng)
+init_phi = np.linspace(init_dsgn_phi - phi_dev, init_dsgn_phi + phi_dev, Np)
+init_dW = np.linspace(-W_dev, W_dev, Np)
+
+phi[:, 0] = init_phi
+dW[:, 0] = init_dW
+W_s[0] = init_dsgn_E
+beta_s[0] = calc_beta(init_dsgn_E)
+
+# Calculate max deviations in W and phi from initial conditions used.
+max_dev_dW = np.zeros(Np)
+max_dev_dphi = np.zeros(Np)
+for i in range(Np):
+    this_dphi = init_phi[0] - init_dsgn_phi
+    this_dW = init_dW[i]
+
+    idW, idphi = calc_max_deviations(
+        init_dsgn_phi, W_s[0], this_dW, this_dphi, dsgn_freq, dsgn_gap_volt
+    )
+    max_dev_dW[i] = idW
+    max_dev_dphi[i] = idphi
+
+for i in range(1, Ng):
+    this_beta_s = calc_beta(W_s[0])
+    phi[:, i] = phi[:, i - 1] - np.pi * dW[:, i - 1] / pow(this_beta_s, 2) / Ar_mass
+    coeff = q * dsgn_gap_volt * transit_tfactor
+    dW[:, i] = dW[:, i - 1] + coeff * (np.cos(phi[:, i]) - np.cos(init_dsgn_phi))
+
+    W_s[i] = W_s[i - 1] + coeff * np.cos(init_dsgn_phi)
+    beta_s[i] = this_beta_s
+
+fig, ax = plt.subplots()
+ax.axhline(y=0, c="k", ls="--", lw=1)
+ax.axvline(x=0, c="k", ls="--", lw=1)
+max_dW = np.max(abs(max_dev_dW))
+max_dphi = np.max(abs(max_dev_dphi))
+ax.set_xlim(-1.25 * max_dphi / np.pi, 1.25 * max_dphi / np.pi)
+ax.set_ylim(-1.05 * max_dW / keV, 1.05 * max_dW / keV)
+ax.set_xlim(-0.5, 0.5)
+ax.set_ylim(-5, 5)
+for i in range(0, Np, 1):
+    ax.scatter((phi[i, :] - init_dsgn_phi) / np.pi, dW[i, :] / keV, c="k", s=1)
+
+ax.scatter([0.0], [0.0], c="k", s=10)
+ax.set_xlabel(fr"$\Delta \phi$ $\pi$,   $\phi_s =$ {init_dsgn_phi/np.pi:.3f}$\pi$")
+ax.set_ylabel(r"$\Delta W$ [keV]")
+plt.tight_layout()
+plt.savefig("/Users/nickvalverde/Desktop/bucket", dpi=400)
+plt.show()
 
 # ------------------------------------------------------------------------------
 #     Simulation and particle advancement of differences
