@@ -476,19 +476,16 @@ plt.show()
 # Make plot of the energy difference over time to see evolutuion
 fig, ax = plt.subplots()
 ax.set_title(
-    fr"Energy Deviation Along Beamline, $\phi_s =$ {init_dsgn_phi/np.pi:.3f}$\pi$"
+    fr"Energy Deviations From Design Particle at Each Gap for $\phi_s =$ {init_dsgn_phi/np.pi:.3f}$\pi$"
 )
 ax.axhline(y=0, c="k", ls="--", lw=1)
 ax.set_ylim(-1.0 * max_dW / keV, 1.0 * max_dW / keV)
+gap_ind = np.array([i + 1 for i in range(Ng)], dtype=int)
 for i in range(0, Np, 1):
-    ax.scatter(pos[i, :] / mm, dW[i, :] / keV, c="k", s=1)
-    ax.plot(pos[i, :] / mm, dW[i, :] / keV, c="k", lw=0.8)
+    ax.scatter(gap_ind, dW[i, :] / keV, c="k", s=1)
+    ax.plot(gap_ind, dW[i, :] / keV, c="k", lw=0.8)
 
-# Put vertical lines where gaps are
-for g in gaps:
-    ax.axvline(x=g / mm, ls="--", lw=1, c="g", alpha=0.5)
-
-ax.set_xlabel(fr"z [mm]")
+ax.set_xlabel("Acceleration Gap")
 ax.set_ylabel(r"$\Delta W$ [keV]")
 plt.tight_layout()
 plt.show()
