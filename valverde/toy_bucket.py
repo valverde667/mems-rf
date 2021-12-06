@@ -278,14 +278,14 @@ def plot_initial_bucket(phases, phi_s, plot_ax, format=multiple_formatter()):
 init_dsgn_E = 7 * keV
 init_E = 7 * keV
 init_dsgn_phi = -np.pi / 2
-phi_dev = np.pi / 50
-W_dev = 0.01 * kV
+phi_dev = np.pi / 5
+W_dev = 1.5 * kV
 q = 1
-Np = 50
+Np = 35
 
-Ng = 300
+Ng = 100
 dsgn_freq = 13.6 * MHz
-dsgn_gap_volt = 7 * kV * 1e-4
+dsgn_gap_volt = 7 * kV * 0.01
 dsgn_gap_width = 2 * mm
 dsgn_DC_Efield = dsgn_gap_volt / dsgn_gap_width
 transit_tfactor = 1.0
@@ -303,6 +303,18 @@ dW[:, 0] = init_dW
 W_s[0] = init_dsgn_E
 beta_s[0] = calc_beta(init_dsgn_E)
 
+# Switch to control whether or not the synchronous beta should be updated.
+# Setting True will evaluate beta_s at each gap and the phase-space can no
+# longer be considered conserved
+update_beta_s = False
+
+# ------------------------------------------------------------------------------
+#     Simulation and particle advancement of differences
+# The differences in phase and differences in kinetic energies between the design
+# particle and not are incremented rather than computing the inidividual phases
+# and energy then taking the difference. This is to see if there is any
+# difference (I'd imagine not) and check understanding.
+# ------------------------------------------------------------------------------
 # Calculate max deviations in W and phi from initial conditions used.
 max_dev_dW = np.zeros(Np)
 max_dev_dphi = np.zeros(Np)
@@ -316,40 +328,38 @@ for i in range(Np):
     max_dev_dW[i] = idW
     max_dev_dphi[i] = idphi
 
+# Loop through each gap and calculate energy difference and phase difference.
 for i in range(1, Ng):
-    this_beta_s = calc_beta(W_s[0])
-    phi[:, i] = phi[:, i - 1] - np.pi * dW[:, i - 1] / pow(this_beta_s, 2) / Ar_mass
+    if update_beta_s:
+        this_beta_s = calc_beta(W_s[i - 1])
+    else:
+        this_beta_s = calc_beta(W_s[0])
+
+    phi[:, i] = (
+        phi[:, i - 1] - np.pi * dW[:, i - 1] / Ar_mass / this_beta_s / this_beta_s
+    )
+
     coeff = q * dsgn_gap_volt * transit_tfactor
     dW[:, i] = dW[:, i - 1] + coeff * (np.cos(phi[:, i]) - np.cos(init_dsgn_phi))
 
     W_s[i] = W_s[i - 1] + coeff * np.cos(init_dsgn_phi)
     beta_s[i] = this_beta_s
 
-fig, ax = plt.subplots()
-ax.axhline(y=0, c="k", ls="--", lw=1)
-ax.axvline(x=0, c="k", ls="--", lw=1)
-max_dW = np.max(abs(max_dev_dW))
-max_dphi = np.max(abs(max_dev_dphi))
-ax.set_xlim(-1.25 * max_dphi / np.pi, 1.25 * max_dphi / np.pi)
-ax.set_ylim(-1.05 * max_dW / keV, 1.05 * max_dW / keV)
-ax.set_xlim(-0.5, 0.5)
-ax.set_ylim(-5, 5)
-for i in range(0, Np, 1):
-    ax.scatter((phi[i, :] - init_dsgn_phi) / np.pi, dW[i, :] / keV, c="k", s=1)
-
-ax.scatter([0.0], [0.0], c="k", s=10)
-ax.set_xlabel(fr"$\Delta \phi$ $\pi$,   $\phi_s =$ {init_dsgn_phi/np.pi:.3f}$\pi$")
-ax.set_ylabel(r"$\Delta W$ [keV]")
-plt.tight_layout()
-plt.savefig("/Users/nickvalverde/Desktop/bucket", dpi=400)
-plt.show()
+# Use relative phase and energy differences to find the longitudinal positions
+# of the particles when the design particle hits the gap centers.
+gaps = np.array([b * SC.c / 2 / dsgn_freq for b in beta_s]).cumsum()
+pos = convert_to_spatial(dW, W_s, phi, init_dsgn_phi, dsgn_freq, gaps)
 
 # ------------------------------------------------------------------------------
-#     Simulation and particle advancement of differences
-# The differences in phase and differences in kinetic energies between the design
-# particle and not are incremented rather than computing the inidividual phases
-# and energy then taking the difference. This is to see if there is any
-# difference (I'd imagine not) and check understanding.
+#    Plotting/Visualization
+# The main figure plots the phase-space for the energy difference and phase
+# difference for all particles relative to the design particle.
+# A useful plot to be added is the phase over time. This would show the
+# synchrotron oscillations as the particles progress through successive gaps.
+# The phase space plots can be viewed through the dynamic plots by setting the
+# switch to True. This is a quick and dirty animation and for many gaps and
+# particles the dynamic plotting will get slow very fast. Use this for quick
+# analysis and looking at the phase space trajectory.
 # ------------------------------------------------------------------------------
 # Create phase-space plots without accounting for RF cycles
 make_pdfs = False
@@ -420,23 +430,9 @@ if make_pdfs:
             pdf.savefig()
             plt.close()
 
-# Use relative phase and energy differences to find the longitudinal positions
-# of the particles when the design particle hits the gap centers.
-gaps = np.array([b * SC.c / 2 / dsgn_freq for b in beta_s]).cumsum()
-pos = convert_to_spatial(dW, W_s, phi, init_dsgn_phi, dsgn_freq, gaps)
-
-# ------------------------------------------------------------------------------
-#    Plotting/Visualization
-# The main figure plots the phase-space for the energy difference and phase
-# difference for all particles relative to the design particle.
-# A useful plot to be added is the phase over time. This would show the
-# synchrotron oscillations as the particles progress through successive gaps.
-# The phase space plots can be viewed through the dynamic plots by setting the
-# switch to True. This is a quick and dirty animation and for many gaps and
-# particles the dynamic plotting will get slow very fast. Use this for quick
-# analysis and looking at the phase space trajectory.
-# ------------------------------------------------------------------------------
-# Create dynamic plotting to visualize individual particle trajectories
+# Create dynamic plotting to visualize individual particle trajectories. Should
+# select a few particles and a few gaps to plot since plotting will start to
+# run long.
 do_dynamic_plot = False
 if do_dynamic_plot:
     fig, ax = plt.subplots()
@@ -457,12 +453,42 @@ if do_dynamic_plot:
 
     input("Press [enter] to continue.")
 
+# Plot the phase space using the max deviations found from the initial conditions.
 fig, ax = plt.subplots()
-ax.set_title(f"Phase Space Trajectories for {Np} Particles and {Ng} gaps")
-for i in range(Np):
-    ax.scatter(phi[i, :] - init_dsgn_phi, dW[i, :] / kV, s=4, c="k")
 ax.axhline(y=0, c="k", ls="--", lw=1)
 ax.axvline(x=0, c="k", ls="--", lw=1)
-ax.set_xlabel(fr"$\Delta \phi$ [rad], $\phi_s =$ {init_dsgn_phi/np.pi:.3f} $\pi$")
-ax.set_ylabel(r"$\Delta {{\cal E}}$ [keV]")
+max_dW = np.max(abs(max_dev_dW))
+max_dphi = np.max(abs(max_dev_dphi))
+ax.set_xlim(-1.0 * max_dphi / np.pi, 1.0 * max_dphi / np.pi)
+ax.set_ylim(-1.0 * max_dW / keV, 1.0 * max_dW / keV)
+
+for i in range(0, Np, 1):
+    ax.scatter((phi[i, :] - init_dsgn_phi) / np.pi, dW[i, :] / keV, c="k", s=1)
+
+ax.scatter([0.0], [0.0], c="k", s=10)
+ax.set_xlabel(fr"$\Delta \phi/$$\pi$, $\phi_s =$ {init_dsgn_phi/np.pi:.3f}$\pi$")
+ax.set_ylabel(r"$\Delta W$ [keV]")
+ax.legend()
+plt.tight_layout()
+plt.savefig("/Users/nickvalverde/Desktop/bucket", dpi=400)
+plt.show()
+
+# Make plot of the energy difference over time to see evolutuion
+fig, ax = plt.subplots()
+ax.set_title(
+    fr"Energy Deviation Along Beamline, $\phi_s =$ {init_dsgn_phi/np.pi:.3f}$\pi$"
+)
+ax.axhline(y=0, c="k", ls="--", lw=1)
+ax.set_ylim(-1.0 * max_dW / keV, 1.0 * max_dW / keV)
+for i in range(0, Np, 1):
+    ax.scatter(pos[i, :] / mm, dW[i, :] / keV, c="k", s=1)
+    ax.plot(pos[i, :] / mm, dW[i, :] / keV, c="k", lw=0.8)
+
+# Put vertical lines where gaps are
+for g in gaps:
+    ax.axvline(x=g / mm, ls="--", lw=1, c="g", alpha=0.5)
+
+ax.set_xlabel(fr"z [mm]")
+ax.set_ylabel(r"$\Delta W$ [keV]")
+plt.tight_layout()
 plt.show()
