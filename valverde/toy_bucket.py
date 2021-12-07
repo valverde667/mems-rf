@@ -102,7 +102,7 @@ def calc_synch_ang_freq(f, V, phi_s, W_s, T=1, g=2 * mm, m=Ar_mass, q=1):
     return omega_synch
 
 
-def calc_max_deviations(phi_s, W_s, dW, dphi, f, V, T=1, g=2 * mm, m=Ar_mass, q=1):
+def calc_Hamiltonian(phi_s, W_s, dW, dphi, f, V, T=1, g=2 * mm, m=Ar_mass, q=1):
     """Use approximation formulas to evaluate max dW and dphi from Hamiltonian.
 
     In the small phase-excursion approximation with no/small acceleration, the
@@ -281,7 +281,7 @@ init_dsgn_phi = -np.pi / 2
 phi_dev = np.pi / 5
 W_dev = 1.5 * kV
 q = 1
-Np = 35
+Np = 50
 
 Ng = 100
 dsgn_freq = 13.6 * MHz
@@ -322,7 +322,7 @@ for i in range(Np):
     this_dphi = init_phi[0] - init_dsgn_phi
     this_dW = init_dW[i]
 
-    idW, idphi = calc_max_deviations(
+    idW, idphi = calc_Hamiltonian(
         init_dsgn_phi, W_s[0], this_dW, this_dphi, dsgn_freq, dsgn_gap_volt
     )
     max_dev_dW[i] = idW
