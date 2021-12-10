@@ -102,17 +102,16 @@ def calc_synch_ang_freq(f, V, phi_s, W_s, T=1, g=2 * mm, m=Ar_mass, q=1):
     return omega_synch
 
 
-def calc_Hamiltonian(phi_s, W_s, dW, dphi, f, V, T=1, g=2 * mm, m=Ar_mass, q=1):
-    """Use approximation formulas to evaluate max dW and dphi from Hamiltonian.
+def calc_Hamiltonian(
+    phi_s, W_s, dW, phi, f, V, T=1, g=2 * mm, m=Ar_mass, q=1, giveAB=True
+):
+    """Calculate Hamiltonian for longitudinal motion.
 
-    In the small phase-excursion approximation with no/small acceleration, the
-    dynamical equations for the kinetic energy and phase deviations relative
-    to the design particle result in a conservative phase-space area. This
-    phase-space area is related to an analog hamiltonian by
-        H = 0.5 * A^2 w^2 + 0.5 * ks^2 dphi*2
-    where w = dW/mc^2 and ks is the wavenumber. Since this Hamiltonian is
-    conserved, the initial conditions of dW and dphi can be used to evaluate
-    H which can then be used to find the maximum excursions
+    The Hamiltonian for the longitudinal motion that doesn't assume small angle
+    excursions about the synchronous particle is
+        H = Aw^2/2 + B [sin(phi) - phi * cos(phi_s)]
+    where w = dW/mc^2, A = 2pi / lambda_rf / (gamma_s^3 beta_s^3) and
+    B = qE0T/mc^2.
 
     Parameters:
     -----------
@@ -139,6 +138,7 @@ def calc_Hamiltonian(phi_s, W_s, dW, dphi, f, V, T=1, g=2 * mm, m=Ar_mass, q=1):
     -------
     max_excursion : tuple
         The max deviations in kinetic energy (first entry) and phase (second).
+        The last enetry is the Hamiltonian.
     """
 
     # Evaluate and initialize some easy variables
@@ -147,23 +147,20 @@ def calc_Hamiltonian(phi_s, W_s, dW, dphi, f, V, T=1, g=2 * mm, m=Ar_mass, q=1):
     E0 = V / g
 
     # Evaluate A-coefficient for energy assuming non-rel (gamma ≈ 1)
-    A = 2 * np.pi / lambda_rf / pow(beta_s, 3)
+    A = 2 * np.pi / lambda_rf / beta_s / beta_s / beta_s
+    B = q * E0 * T / m
 
-    # Evaluate chunks of the expression for the wave number k_s
-    energy_chunk = q * E0 * T * np.sin(-phi_s) / m
+    # Evaluat parts of Hamiltonian
+    potential = B * (np.sin(phi) - phi * np.cos(phi_s))
+    kinetic = A * pow(dW / m, 2) / 2
 
-    # Compute wavenumber. Since this approximation assumes small phase deviation
-    # and small acceleration beta ≈ beta_s so omega = k_s * beta_s * c
-    wave_number = np.sqrt(A * energy_chunk)
+    # Calculate Hamiltonian
+    H = kinetic + potential
 
-    # Calculate constant Hamiltonian from initial values
-    H = 0.5 * pow(A * dW / m, 2) + 0.5 * pow(wave_number * dphi, 2)
-
-    # Calculate max excursion using H
-    max_dW = m * np.sqrt(2 * H) / A
-    max_dphi = np.sqrt(2 * H) / wave_number
-
-    return (max_dW, max_dphi)
+    if giveAB:
+        return H, A, B
+    else:
+        return H
 
 
 def convert_to_spatial(dW, W_s, dphi, phi_s, f, gap_centers):
@@ -270,6 +267,21 @@ def plot_initial_bucket(phases, phi_s, plot_ax, format=multiple_formatter()):
     plot_ax.legend()
 
 
+def calc_transit_factor(W_s, f, g=2 * mm, q=1, mass=Ar_mass):
+    """ "Calculate transit time factor for even-symmetric gap"""
+
+    # Calculate the design particle beta and RF-wavelength
+    beta_s = calc_beta(W_s, mass=m, q=q)
+    lambda_rf = SC.c / f
+
+    # Calculate argument of sine that is also denominator in expression
+    argument = np.pi * g / beta_s / lambda_rf
+
+    transit_factor = np.sin(argument) / argument
+
+    return transit_factor
+
+
 # ------------------------------------------------------------------------------
 #     Simulation Parameters/Settings
 # This section sets various simulation parameters. In this case, initial kinetic
@@ -277,15 +289,15 @@ def plot_initial_bucket(phases, phi_s, plot_ax, format=multiple_formatter()):
 # ------------------------------------------------------------------------------
 init_dsgn_E = 7 * keV
 init_E = 7 * keV
-init_dsgn_phi = -np.pi / 2
-phi_dev = np.pi / 5
-W_dev = 1.5 * kV
+init_dsgn_phi = -np.pi / 6
+phi_dev = np.pi / 20
+W_dev = 0.5 * kV
 q = 1
-Np = 50
+Np = 25
 
-Ng = 100
+Ng = 200
 dsgn_freq = 13.6 * MHz
-dsgn_gap_volt = 7 * kV * 0.01
+dsgn_gap_volt = 7 * kV * 0.001
 dsgn_gap_width = 2 * mm
 dsgn_DC_Efield = dsgn_gap_volt / dsgn_gap_width
 transit_tfactor = 1.0
@@ -295,7 +307,8 @@ phi = np.zeros(shape=(Np, Ng))
 dW = np.zeros(shape=(Np, Ng))
 W_s = np.zeros(Ng)
 beta_s = np.zeros(Ng)
-init_phi = np.linspace(init_dsgn_phi - phi_dev, init_dsgn_phi + phi_dev, Np)
+# init_phi = np.linspace(init_dsgn_phi - phi_dev, init_dsgn_phi + phi_dev, Np)
+init_phi = np.linspace(-np.pi, np.pi, Np)
 init_dW = np.linspace(-W_dev, W_dev, Np)
 
 phi[:, 0] = init_phi
@@ -306,7 +319,7 @@ beta_s[0] = calc_beta(init_dsgn_E)
 # Switch to control whether or not the synchronous beta should be updated.
 # Setting True will evaluate beta_s at each gap and the phase-space can no
 # longer be considered conserved
-update_beta_s = False
+update_beta_s = True
 
 # ------------------------------------------------------------------------------
 #     Simulation and particle advancement of differences
@@ -315,18 +328,6 @@ update_beta_s = False
 # and energy then taking the difference. This is to see if there is any
 # difference (I'd imagine not) and check understanding.
 # ------------------------------------------------------------------------------
-# Calculate max deviations in W and phi from initial conditions used.
-max_dev_dW = np.zeros(Np)
-max_dev_dphi = np.zeros(Np)
-for i in range(Np):
-    this_dphi = init_phi[0] - init_dsgn_phi
-    this_dW = init_dW[i]
-
-    idW, idphi = calc_Hamiltonian(
-        init_dsgn_phi, W_s[0], this_dW, this_dphi, dsgn_freq, dsgn_gap_volt
-    )
-    max_dev_dW[i] = idW
-    max_dev_dphi[i] = idphi
 
 # Loop through each gap and calculate energy difference and phase difference.
 for i in range(1, Ng):
@@ -453,14 +454,33 @@ if do_dynamic_plot:
 
     input("Press [enter] to continue.")
 
+Hi, A, B = calc_Hamiltonian(
+    init_dsgn_phi, W_s[0], dW[:, 0], phi[:, 0], dsgn_freq, dsgn_gap_volt
+)
+Hf = calc_Hamiltonian(
+    init_dsgn_phi,
+    W_s[0],
+    dW[:, -1],
+    phi[:, -1],
+    dsgn_freq,
+    dsgn_gap_volt,
+    giveAB=False,
+)
 # Plot the phase space using the max deviations found from the initial conditions.
 fig, ax = plt.subplots()
 ax.axhline(y=0, c="k", ls="--", lw=1)
 ax.axvline(x=0, c="k", ls="--", lw=1)
-max_dW = np.max(abs(max_dev_dW))
-max_dphi = np.max(abs(max_dev_dphi))
-ax.set_xlim(-1.0 * max_dphi / np.pi, 1.0 * max_dphi / np.pi)
-ax.set_ylim(-1.0 * max_dW / keV, 1.0 * max_dW / keV)
+ax.set_xlim(-1.1, 1.1)
+max_dW = (
+    np.sqrt(4 * B / A * (init_dsgn_phi * np.cos(init_dsgn_phi) - np.sin(init_dsgn_phi)))
+    * Ar_mass
+)
+ax.axhline(y=max_dW / kV, c="r", ls="--", lw=1)
+ax.axhline(y=-max_dW / kV, c="r", ls="--", lw=1)
+# max_dW = np.max(abs(max_dev_dW))
+# max_dphi = np.max(abs(max_dev_dphi))
+# ax.set_xlim(-1.0 * max_dphi / np.pi, 1.0 * max_dphi / np.pi)
+# ax.set_ylim(-1.0 * max_dW / keV, 1.0 * max_dW / keV)
 
 for i in range(0, Np, 1):
     ax.scatter((phi[i, :] - init_dsgn_phi) / np.pi, dW[i, :] / keV, c="k", s=1)
@@ -474,18 +494,55 @@ plt.savefig("/Users/nickvalverde/Desktop/bucket", dpi=400)
 plt.show()
 
 # Make plot of the energy difference over time to see evolutuion
-fig, ax = plt.subplots()
-ax.set_title(
-    fr"Energy Deviations From Design Particle at Each Gap for $\phi_s =$ {init_dsgn_phi/np.pi:.3f}$\pi$"
-)
-ax.axhline(y=0, c="k", ls="--", lw=1)
-ax.set_ylim(-1.0 * max_dW / keV, 1.0 * max_dW / keV)
-gap_ind = np.array([i + 1 for i in range(Ng)], dtype=int)
-for i in range(0, Np, 1):
-    ax.scatter(gap_ind, dW[i, :] / keV, c="k", s=1)
-    ax.plot(gap_ind, dW[i, :] / keV, c="k", lw=0.8)
+# fig, ax = plt.subplots()
+# ax.set_title(
+#     fr"Energy Deviations From Design Particle at Each Gap for $\phi_s =$ {init_dsgn_phi/np.pi:.3f}$\pi$"
+# )
+# ax.axhline(y=0, c="k", ls="--", lw=1)
+# # ax.set_ylim(-1.0 * max_dW / keV, 1.0 * max_dW / keV)
+# gap_ind = np.array([i + 1 for i in range(Ng)], dtype=int)
+# for i in range(0, Np, 1):
+#     ax.scatter(gap_ind, dW[i, :] / keV, c="k", s=1)
+#     ax.plot(gap_ind, dW[i, :] / keV, c="k", lw=0.8)
+#
+# ax.set_xlabel("Acceleration Gap")
+# ax.set_ylabel(r"$\Delta W$ [keV]")
+# plt.tight_layout()
+# plt.show()
+garbage
+# Check Hamiltonian conservation
+per_diff = abs((Hf - Hi) / Hi) * 100
+per_diff_W = abs((dW[:, -1] - dW[:, 0]) / dW[:, 0])
 
-ax.set_xlabel("Acceleration Gap")
-ax.set_ylabel(r"$\Delta W$ [keV]")
-plt.tight_layout()
+fig, ax = plt.subplots()
+ax.plot(phi[:, 0] / np.pi, per_diff)
+ax.set_title("Percent Difference Between Initial and Final H by Initial Phase Choice")
+ax.set_ylabel(r"Percent Difference ($H_f - H_i$)")
+ax.set_xlabel(r"Initial Phase Choice [$\pi$-units]")
+plt.show()
+
+fig, ax = plt.subplots()
+ax.plot(phi[:, 0] / np.pi, per_diff_W)
+ax.set_title(
+    "Percent Difference Between Initial and Final Energy by Initial Phase Choice"
+)
+ax.set_ylabel(r"Percent Difference ($\Delta W_f - \Delta W_i$)")
+ax.set_xlabel(r"Initial Phase Choice [$\pi$-units]")
+plt.show()
+garbage
+# Plot changes in Hamiltonian for farthest (left) particle
+fig, ax = plt.subplots()
+H_at_gaps = np.zeros(Ng)
+for i in range(Ng):
+    this_H = calc_Hamiltonian(
+        init_dsgn_phi, W_s[i], dW[0, i], phi[0, i], dsgn_freq, dsgn_gap_volt
+    )
+    H_at_gaps[i] = this_H
+
+ax.scatter(np.arange(Ng) + 1, H_at_gaps, c="k", s=1)
+ax.set_xlabel("Gap Index")
+ax.set_ylabel(r"$H_\phi$ at Each Gap")
+ax.set_title(
+    fr"Evolution of the Hamiltonian for a Selected Particle at $\Delta \phi_i$ = {(phi[0,0] - init_dsgn_phi)/np.pi:.3f}"
+)
 plt.show()
