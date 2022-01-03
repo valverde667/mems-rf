@@ -10,7 +10,9 @@ import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 import datetime
 import matplotlib.pyplot as plt
+from matplotlib.patches import Ellipse
 import scipy.constants as SC
+import scipy.optimize as optimize
 import time
 import pdb
 import os
@@ -282,6 +284,14 @@ def calc_transit_factor(W_s, f, g=2 * mm, q=1, mass=Ar_mass):
     return transit_factor
 
 
+def phase_root(phi, phi_s):
+    """Calculat phase intercepts from nonlinear Hamiltonian"""
+
+    target = np.sin(phi_s) - np.sin(phi) + (phi - phi_s) * np.cos(phi_s)
+
+    return target
+
+
 # ------------------------------------------------------------------------------
 #     Simulation Parameters/Settings
 # This section sets various simulation parameters. In this case, initial kinetic
@@ -466,17 +476,36 @@ Hf = calc_Hamiltonian(
     dsgn_gap_volt,
     giveAB=False,
 )
+
+# Calculate phase crossings
+solver_args = init_dsgn_phi
+sol = optimize.root(
+    phase_root, np.array([-np.pi, np.pi]), args=solver_args, method="df-sane"
+)
+phi1, phi2 = sol.x[0] - abs(init_dsgn_phi), sol.x[1] - abs(init_dsgn_phi)
+print("****** Root Solutions")
+print(f"Root 1: {phi1/np.pi:.4f}")
+print(f"Root 2: {phi2/np.pi:.4f}")
+print(f"Difference: {abs(phi1-phi2)/np.pi:.4f}")
+
 # Plot the phase space using the max deviations found from the initial conditions.
 fig, ax = plt.subplots()
 ax.axhline(y=0, c="k", ls="--", lw=1)
 ax.axvline(x=0, c="k", ls="--", lw=1)
 ax.set_xlim(-1.1, 1.1)
-max_dW = (
-    np.sqrt(4 * B / A * (init_dsgn_phi * np.cos(init_dsgn_phi) - np.sin(init_dsgn_phi)))
-    * Ar_mass
+max_dW = Ar_mass * np.sqrt(
+    4 * B / A * (init_dsgn_phi * np.cos(init_dsgn_phi) - np.sin(init_dsgn_phi))
 )
-ax.axhline(y=max_dW / kV, c="r", ls="--", lw=1)
-ax.axhline(y=-max_dW / kV, c="r", ls="--", lw=1)
+ax.set_xlim(-1.1, 1.1)
+ax.set_ylim(-max_dW / kV * 1.1, max_dW / kV * 1.1)
+ax.axhline(y=max_dW / kV, c="r", ls="--", lw=2)
+ax.axhline(y=-max_dW / kV, c="r", ls="--", lw=2)
+ax.axvline(x=phi1 / np.pi, c="r", ls="--", lw=2)
+ax.axvline(x=phi2 / np.pi, c="r", ls="--", lw=2)
+width = abs(phi2 - phi1)
+height = max_dW
+ellipse = Ellipse((0, 0), width / np.pi, height / kV, fc="b", alpha=0.5)
+ax.add_patch(ellipse)
 # max_dW = np.max(abs(max_dev_dW))
 # max_dphi = np.max(abs(max_dev_dphi))
 # ax.set_xlim(-1.0 * max_dphi / np.pi, 1.0 * max_dphi / np.pi)
