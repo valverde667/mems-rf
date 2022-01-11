@@ -333,7 +333,7 @@ Hamiltonian_array[:, 0], _, _ = calc_Hamiltonian(
 # Switch to control whether or not the synchronous beta should be updated.
 # Setting True will evaluate beta_s at each gap and the phase-space can no
 # longer be considered conserved
-update_beta_s = False
+update_beta_s = True
 
 # ------------------------------------------------------------------------------
 #     Simulation and particle advancement of differences
@@ -429,17 +429,36 @@ max_right, max_left = coord_pairs[max_cont_ind, 1], coord_pairs[max_cont_ind, 2]
 
 fig, ax = plt.subplots()
 for i in range(phi.shape[0]):
-    ax.plot(phi[i, :] - init_dsgn_phi, dW[i, :] / keV)
+    ax.plot(phi[i, :] - init_dsgn_phi, dW[i, :] / keV, c="k")
 
 max_phi_pts = np.array([phi[max_part, max_right], phi[max_part, max_left]])
 max_dW_pts = np.array([dW[max_part, max_right], dW[max_part, max_right]])
 max_dW_val = np.max(dW[max_part, :])
 min_dW_val = np.min(dW[max_part, :])
 
+# Calculate max metric and use to calculate particles lost
+buck_metric = pow(max_dW_val, 2) + pow(np.max(abs(max_phi_pts)), 2)
+whole_metric = pow(phi[:, -1], 2) + pow(dW[:, -1], 2)
+parts_survived = np.sum(whole_metric < buck_metric)
+
+
 ax.scatter(max_phi_pts - init_dsgn_phi, max_dW_pts / keV, c="r")
 ax.scatter([0, 0], [min_dW_val / keV, max_dW_val / keV], c="r")
-ax.set_ylim(-0.6, 0.6)
-ax.set_xlim(-1.2 * np.pi, 1.2 * np.pi)
+ax.set_ylim(-max_dW_val * 1.3 / keV, max_dW_val * 1.3 / keV)
+ax.set_xlim(-1.0 * np.pi, 1.0 * np.pi)
+ax.axhline(y=0, c="k", lw=1)
+ax.axvline(x=0, c="k", lw=1)
+ax.text(
+    0.2,
+    0.9,
+    f"{parts_survived/Np * 100:2g}% Particles Captured",
+    ha="center",
+    va="center",
+    transform=ax.transAxes,
+)
+
+ax.set_xlabel(fr"$\Delta \phi$, $\phi_s$ = {init_dsgn_phi/np.pi:.4f}$\pi$")
+ax.set_ylabel(fr"$\Delta W$ [keV], $W_{{s,i}}$ = {init_dsgn_E/keV:.3f} [keV]")
 plt.show()
 
 garbage
