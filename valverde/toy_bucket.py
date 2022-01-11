@@ -301,9 +301,9 @@ init_dsgn_E = 7 * keV
 init_E = 7 * keV
 init_dsgn_phi = -np.pi / 2
 phi_dev = np.pi / 20
-W_dev = 0.5 * kV * 0
+W_dev = 0.5 * kV * 0.0
 q = 1
-Np = 6
+Np = 10
 
 Ng = 400
 dsgn_freq = 13.6 * MHz
@@ -415,19 +415,22 @@ for part, ind in zip(coord_pairs[:, 0], coord_pairs[:, 1]):
 
 phi_vals = np.array(phi_vals)
 max_cont_ind = np.argmax(phi_vals)
+max_part = coord_pairs[max_cont_ind, 0]
 max_right, max_left = coord_pairs[max_cont_ind, 1], coord_pairs[max_cont_ind, 2]
 
 fig, ax = plt.subplots()
 for i in range(phi.shape[0]):
     ax.plot(phi[i, :] - init_dsgn_phi, dW[i, :] / keV)
 
-max_phi_pts = np.array([phi[max_cont_ind, max_right], phi[max_cont_ind, max_left]])
-max_dW_pts = np.array([dW[max_cont_ind, max_right], dW[max_cont_ind, max_right]])
-max_dW_val = np.max(dW[max_cont_ind, :])
-min_dW_val = np.min(dW[max_cont_ind, :])
+max_phi_pts = np.array([phi[max_part, max_right], phi[max_part, max_left]])
+max_dW_pts = np.array([dW[max_part, max_right], dW[max_part, max_right]])
+max_dW_val = np.max(dW[max_part, :])
+min_dW_val = np.min(dW[max_part, :])
 
 ax.scatter(max_phi_pts - init_dsgn_phi, max_dW_pts / keV, c="r")
 ax.scatter([0, 0], [min_dW_val / keV, max_dW_val / keV], c="r")
+ax.set_ylim(-0.6, 0.6)
+ax.set_xlim(-1.2 * np.pi, 1.2 * np.pi)
 plt.show()
 garbage
 
