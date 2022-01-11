@@ -316,6 +316,7 @@ transit_tfactor = 1.0
 phi = np.zeros(shape=(Np, Ng))
 dW = np.zeros(shape=(Np, Ng))
 W_s = np.zeros(Ng)
+Hamiltonian_array = np.zeros(shape=(Np, Ng))
 beta_s = np.zeros(Ng)
 # init_phi = np.linspace(init_dsgn_phi - phi_dev, init_dsgn_phi + phi_dev, Np)
 init_phi = np.linspace(-np.pi, np.pi, Np)
@@ -325,11 +326,14 @@ phi[:, 0] = init_phi
 dW[:, 0] = init_dW
 W_s[0] = init_dsgn_E
 beta_s[0] = calc_beta(init_dsgn_E)
+Hamiltonian_array[:, 0], _, _ = calc_Hamiltonian(
+    init_dsgn_phi, W_s[0], dW[:, 0], phi[:, 0], dsgn_freq, dsgn_gap_volt
+)
 
 # Switch to control whether or not the synchronous beta should be updated.
 # Setting True will evaluate beta_s at each gap and the phase-space can no
 # longer be considered conserved
-update_beta_s = True
+update_beta_s = False
 
 # ------------------------------------------------------------------------------
 #     Simulation and particle advancement of differences
@@ -355,6 +359,11 @@ for i in range(1, Ng):
 
     W_s[i] = W_s[i - 1] + coeff * np.cos(init_dsgn_phi)
     beta_s[i] = this_beta_s
+
+    this_H, _, _, = calc_Hamiltonian(
+        init_dsgn_phi, W_s[i], dW[:, i], phi[:, i], dsgn_freq, dsgn_gap_volt
+    )
+    Hamiltonian_array[:, i] = this_H
 
 # Use relative phase and energy differences to find the longitudinal positions
 # of the particles when the design particle hits the gap centers.
@@ -432,8 +441,8 @@ ax.scatter([0, 0], [min_dW_val / keV, max_dW_val / keV], c="r")
 ax.set_ylim(-0.6, 0.6)
 ax.set_xlim(-1.2 * np.pi, 1.2 * np.pi)
 plt.show()
-garbage
 
+garbage
 # ------------------------------------------------------------------------------
 #    Plotting/Visualization
 # The main figure plots the phase-space for the energy difference and phase
