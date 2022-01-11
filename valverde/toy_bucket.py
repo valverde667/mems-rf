@@ -299,13 +299,13 @@ def phase_root(phi, phi_s):
 # ------------------------------------------------------------------------------
 init_dsgn_E = 7 * keV
 init_E = 7 * keV
-init_dsgn_phi = -np.pi / 6
+init_dsgn_phi = -np.pi / 2
 phi_dev = np.pi / 20
-W_dev = 0.5 * kV
+W_dev = 0.5 * kV * 0
 q = 1
-Np = 25
+Np = 6
 
-Ng = 200
+Ng = 400
 dsgn_freq = 13.6 * MHz
 dsgn_gap_volt = 7 * kV * 0.001
 dsgn_gap_width = 2 * mm
@@ -360,6 +360,76 @@ for i in range(1, Ng):
 # of the particles when the design particle hits the gap centers.
 gaps = np.array([b * SC.c / 2 / dsgn_freq for b in beta_s]).cumsum()
 pos = convert_to_spatial(dW, W_s, phi, init_dsgn_phi, dsgn_freq, gaps)
+
+# ------------------------------------------------------------------------------
+#    Identify Max Contour
+# The bucket can be found by finding the outer most contour to cross the x-axis.
+# This outer most trajectory will be the separatrix and can be used to find the
+# max energy deviation as well. To do this this, the x-crossings need to be
+# sought out in the particle arrays. The x-crossings can be find by assigning
+# positions in +y a +1 and positions in -y a -1. A crossing occurs anywhere
+# there is a different of |2|. This will be the crossing the point from which
+# the x-coordinate can be grabbed and compared with other particle orbits.
+# ------------------------------------------------------------------------------
+# To avoid selecting the contours of the second bucket, the arrays are pre selected.
+# If the particle phase coordinates are greater them +-pi from the design, they
+# are ignored.
+bucket_mask = np.zeros(phi.shape[0])
+for i in range(phi.shape[0]):
+    if (np.max(phi[i, :] - init_dsgn_phi) > 1.1 * np.pi) or (
+        np.min(phi[i, :] - init_dsgn_phi) < -1.1 * np.pi
+    ):
+        bucket_mask[i] = 0
+    else:
+        bucket_mask[i] = 1
+
+# Search dW array. Positive values are +1 while negative values are -1
+val_mask = np.where(dW > 0.0, np.ones(dW.shape), -1.0)
+
+# Take difference of val_mask and identify crossing points. +2 and -2 correspond
+# to positive-negative and negative-positive corssing. Both are needed to ensure
+# there is a stable contour.
+diff = np.diff(val_mask, axis=1)
+coord_pairs = []
+for i, row in enumerate(diff):
+    # Check if this particle is in center bucket:
+    if bucket_mask[i]:
+        pass
+    else:
+        continue
+
+    pos = np.where(row > 1.0)[0]
+    neg = np.where(row < -1.0)[0]
+    if len(pos) > 0.0:
+        if len(neg) > 0.0:
+            coord_pairs.append(np.array([i, pos[0], neg[0]]))
+
+coord_pairs = np.array(coord_pairs)
+
+# Cycle through the particles in the coordinate pairs. Record the positive crossing
+# and then find the index for the maximum positive crossing. This is the max contour.
+phi_vals = []
+for part, ind in zip(coord_pairs[:, 0], coord_pairs[:, 1]):
+    this_val = phi[part, ind]
+    phi_vals.append(this_val)
+
+phi_vals = np.array(phi_vals)
+max_cont_ind = np.argmax(phi_vals)
+max_right, max_left = coord_pairs[max_cont_ind, 1], coord_pairs[max_cont_ind, 2]
+
+fig, ax = plt.subplots()
+for i in range(phi.shape[0]):
+    ax.plot(phi[i, :] - init_dsgn_phi, dW[i, :] / keV)
+
+max_phi_pts = np.array([phi[max_cont_ind, max_right], phi[max_cont_ind, max_left]])
+max_dW_pts = np.array([dW[max_cont_ind, max_right], dW[max_cont_ind, max_right]])
+max_dW_val = np.max(dW[max_cont_ind, :])
+min_dW_val = np.min(dW[max_cont_ind, :])
+
+ax.scatter(max_phi_pts - init_dsgn_phi, max_dW_pts / keV, c="r")
+ax.scatter([0, 0], [min_dW_val / keV, max_dW_val / keV], c="r")
+plt.show()
+garbage
 
 # ------------------------------------------------------------------------------
 #    Plotting/Visualization
