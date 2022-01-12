@@ -492,14 +492,12 @@ if identify_bucket:
 
 # ------------------------------------------------------------------------------
 #    Plotting/Visualization
-# The main figure plots the phase-space for the energy difference and phase
-# difference for all particles relative to the design particle.
-# A useful plot to be added is the phase over time. This would show the
-# synchrotron oscillations as the particles progress through successive gaps.
-# The phase space plots can be viewed through the dynamic plots by setting the
-# switch to True. This is a quick and dirty animation and for many gaps and
-# particles the dynamic plotting will get slow very fast. Use this for quick
-# analysis and looking at the phase space trajectory.
+# The routine above identifies the bucket and plots the phase-space contours.
+# This is done for a few particles, else the plots will be ink blots. Here,
+# the number of particles are assumed to be increased so that distributions can
+# be plotted (i.e. energy distribution, phase distribution, initial conditions).
+# The number of particles does not have to have been increased, but a majority
+# of the plots will have too little particles to have sensible visualizations.
 # ------------------------------------------------------------------------------
 # Create phase-space plots without accounting for RF cycles
 make_pdfs = False
@@ -592,19 +590,6 @@ if do_dynamic_plot:
     fig.savefig(f"phase-space_{Np}Np{Ng}Ng", dpi=400)
 
     input("Press [enter] to continue.")
-
-Hi, A, B = calc_Hamiltonian(
-    init_dsgn_phi, W_s[0], dW[:, 0], phi[:, 0], dsgn_freq, dsgn_gap_volt
-)
-Hf = calc_Hamiltonian(
-    init_dsgn_phi,
-    W_s[0],
-    dW[:, -1],
-    phi[:, -1],
-    dsgn_freq,
-    dsgn_gap_volt,
-    giveAB=False,
-)
 
 
 # ------------------------------------------------------------------------------
