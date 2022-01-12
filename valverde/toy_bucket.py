@@ -380,12 +380,12 @@ pos = convert_to_spatial(dW, W_s, phi, init_dsgn_phi, dsgn_freq, gaps)
 # there is a different of |2|. This will be the crossing the point from which
 # the x-coordinate can be grabbed and compared with other particle orbits.
 # ------------------------------------------------------------------------------
-# To avoid selecting the contours of the second bucket, the arrays are pre selected.
+# To avoid selecting the contours of a different bucket, the arrays are pre-selected.
 # If the particle phase coordinates are greater them +-pi from the design, they
 # are ignored.
 identify_bucket = True
 if identify_bucket:
-    # Only look at particles within a 2pi width of the design particle
+    # Only look at particles within a pi width of the design particle
     bucket_mask = np.zeros(phi.shape[0])
     for i in range(phi.shape[0]):
         if (np.max(phi[i, :] - init_dsgn_phi) > 1.1 * np.pi) or (
@@ -405,7 +405,7 @@ if identify_bucket:
     coord_pairs = []
     phi_widths = np.zeros(Np)
     for i, row in enumerate(diff):
-        # Check if this particle is in center bucket:
+        # Check if this particle is in desired bucket:
         if bucket_mask[i]:
             phi_widths[i] = 0.0
             pass
@@ -413,7 +413,7 @@ if identify_bucket:
             continue
 
         # Calculate width from maximum and minimum crossing point. Particle
-        # with largest width will be the bucket particle.
+        # with largest width will is target particle.
         locs = np.where(row != 0)[0]
         this_phi_array = phi[i, locs]
         this_phi_max = np.max(this_phi_array)
@@ -421,20 +421,10 @@ if identify_bucket:
         this_width = abs(this_phi_max - this_phi_min)
         phi_widths[i] = this_width
 
-        # Find crossing points. Particles will cross multiple times and may
-        # cross at different points. For Each particle, identify the maximum
-        # and minimum crossing point and take those values.
-        pos = np.where(row > 1.0)[0]
-        neg = np.where(row < -1.0)[0]
-        if len(pos) > 0.0:
-            if len(neg) > 0.0:
-                coord_pairs.append(np.array([i, pos[0], neg[0]]))
-
-    coord_pairs = np.array(coord_pairs)
     # Identify extreme particle by maximum width.
     max_particle_ind = np.argmax(phi_widths)
 
-    # Identify the crossing points
+    # Identify the phi coordinates for crossing.
     max_cross_locs = np.where(diff[max_particle_ind] != 0)[0]
     max_cross = phi[max_particle_ind, max_cross_locs].max()
     min_cross = phi[max_particle_ind, max_cross_locs].min()
@@ -448,6 +438,8 @@ if identify_bucket:
     max_dW_phi = phi[max_particle_ind, max_dW_loc]
     min_dW_phi = phi[max_particle_ind, min_dW_loc]
 
+    # Plot Bucket. Limit x and y axis by maximum excursions. Plot dashed lines
+    # to represent the dW and dphi widths of the bucket.
     fig, ax = plt.subplots()
     for i in range(Np):
         ax.plot(phi[i, :] - init_dsgn_phi, dW[i, :] / keV, c="k")
@@ -471,7 +463,10 @@ if identify_bucket:
         label=fr"Width ={(max_dW - min_dW)/keV:.4f}[keV]",
     )
 
-    # Calculate max metric and use to calculate particles lost
+    # Calculate max metric and use to calculate particles lost. The metric here
+    # is the sum of squares of the max energy and phase deviations. The
+    # extrememum particle will have the largest and everything within bucket
+    # should be smaller than this value.
     buck_metric = pow(max_dW, 2) + pow(max_dphi, 2)
     particle_metrics = np.zeros(Np)
     for i in range(Np):
@@ -490,7 +485,7 @@ if identify_bucket:
     ax.legend()
     plt.show()
 
-    print("Coordinate Values for Max Contour")
+    print("Crossing Points and Width for Bucket")
     print(f"Left Phase Crossing: {min_cross/ np.pi:.4f} [pi-units]")
     print(f"Right Phase Crossing: {max_cross / np.pi:.4f} [pi-units]")
     print(f"Phase Width: {(max_cross - min_cross) / np.pi:.4f} [pi-units]")
