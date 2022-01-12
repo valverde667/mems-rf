@@ -606,101 +606,109 @@ Hf = calc_Hamiltonian(
     giveAB=False,
 )
 
+
+# ------------------------------------------------------------------------------
+#    Archived Scripting
+# This portion below was a previous routine for finding the bucket using a
+# combination of Scipy and theory to try and predict the bucket beforehand.
+# It was not the most effective method but would like to keep it here for
+# possible use later. There is also so good graphing procedures I'd like to store.
+# ------------------------------------------------------------------------------
 # Calculate phase crossings
-solver_args = init_dsgn_phi
-sol = optimize.root(
-    phase_root, np.array([-np.pi, np.pi]), args=solver_args, method="df-sane"
-)
-phi1, phi2 = sol.x[0] - abs(init_dsgn_phi), sol.x[1] - abs(init_dsgn_phi)
-print("****** Root Solutions")
-print(f"Root 1: {phi1/np.pi:.4f}")
-print(f"Root 2: {phi2/np.pi:.4f}")
-print(f"Difference: {abs(phi1-phi2)/np.pi:.4f}")
-
-# Plot the phase space using the max deviations found from the initial conditions.
-fig, ax = plt.subplots()
-ax.axhline(y=0, c="k", ls="--", lw=1)
-ax.axvline(x=0, c="k", ls="--", lw=1)
-ax.set_xlim(-1.1, 1.1)
-max_dW = Ar_mass * np.sqrt(
-    4 * B / A * (init_dsgn_phi * np.cos(init_dsgn_phi) - np.sin(init_dsgn_phi))
-)
-ax.set_xlim(-1.1, 1.1)
-ax.set_ylim(-max_dW / kV * 1.1, max_dW / kV * 1.1)
-ax.axhline(y=max_dW / kV, c="r", ls="--", lw=2)
-ax.axhline(y=-max_dW / kV, c="r", ls="--", lw=2)
-ax.axvline(x=phi1 / np.pi, c="r", ls="--", lw=2)
-ax.axvline(x=phi2 / np.pi, c="r", ls="--", lw=2)
-width = abs(phi2 - phi1)
-height = max_dW
-ellipse = Ellipse((0, 0), width / np.pi, height / kV, fc="b", alpha=0.5)
-ax.add_patch(ellipse)
-# max_dW = np.max(abs(max_dev_dW))
-# max_dphi = np.max(abs(max_dev_dphi))
-# ax.set_xlim(-1.0 * max_dphi / np.pi, 1.0 * max_dphi / np.pi)
-# ax.set_ylim(-1.0 * max_dW / keV, 1.0 * max_dW / keV)
-
-for i in range(0, Np, 1):
-    ax.scatter((phi[i, :] - init_dsgn_phi) / np.pi, dW[i, :] / keV, c="k", s=1)
-
-ax.scatter([0.0], [0.0], c="k", s=10)
-ax.set_xlabel(fr"$\Delta \phi/$$\pi$, $\phi_s =$ {init_dsgn_phi/np.pi:.3f}$\pi$")
-ax.set_ylabel(r"$\Delta W$ [keV]")
-ax.legend()
-plt.tight_layout()
-plt.savefig("/Users/nickvalverde/Desktop/bucket", dpi=400)
-plt.show()
-
-# Make plot of the energy difference over time to see evolutuion
-# fig, ax = plt.subplots()
-# ax.set_title(
-#     fr"Energy Deviations From Design Particle at Each Gap for $\phi_s =$ {init_dsgn_phi/np.pi:.3f}$\pi$"
+# solver_args = init_dsgn_phi
+# sol = optimize.root(
+#     phase_root, np.array([-np.pi, np.pi]), args=solver_args, method="df-sane"
 # )
-# ax.axhline(y=0, c="k", ls="--", lw=1)
-# # ax.set_ylim(-1.0 * max_dW / keV, 1.0 * max_dW / keV)
-# gap_ind = np.array([i + 1 for i in range(Ng)], dtype=int)
-# for i in range(0, Np, 1):
-#     ax.scatter(gap_ind, dW[i, :] / keV, c="k", s=1)
-#     ax.plot(gap_ind, dW[i, :] / keV, c="k", lw=0.8)
+# phi1, phi2 = sol.x[0] - abs(init_dsgn_phi), sol.x[1] - abs(init_dsgn_phi)
+# print("****** Root Solutions")
+# print(f"Root 1: {phi1/np.pi:.4f}")
+# print(f"Root 2: {phi2/np.pi:.4f}")
+# print(f"Difference: {abs(phi1-phi2)/np.pi:.4f}")
 #
-# ax.set_xlabel("Acceleration Gap")
+# # Plot the phase space using the max deviations found from the initial conditions.
+# fig, ax = plt.subplots()
+# ax.axhline(y=0, c="k", ls="--", lw=1)
+# ax.axvline(x=0, c="k", ls="--", lw=1)
+# ax.set_xlim(-1.1, 1.1)
+# max_dW = Ar_mass * np.sqrt(
+#     4 * B / A * (init_dsgn_phi * np.cos(init_dsgn_phi) - np.sin(init_dsgn_phi))
+# )
+# ax.set_xlim(-1.1, 1.1)
+# ax.set_ylim(-max_dW / kV * 1.1, max_dW / kV * 1.1)
+# ax.axhline(y=max_dW / kV, c="r", ls="--", lw=2)
+# ax.axhline(y=-max_dW / kV, c="r", ls="--", lw=2)
+# ax.axvline(x=phi1 / np.pi, c="r", ls="--", lw=2)
+# ax.axvline(x=phi2 / np.pi, c="r", ls="--", lw=2)
+# width = abs(phi2 - phi1)
+# height = max_dW
+# ellipse = Ellipse((0, 0), width / np.pi, height / kV, fc="b", alpha=0.5)
+# ax.add_patch(ellipse)
+# # max_dW = np.max(abs(max_dev_dW))
+# # max_dphi = np.max(abs(max_dev_dphi))
+# # ax.set_xlim(-1.0 * max_dphi / np.pi, 1.0 * max_dphi / np.pi)
+# # ax.set_ylim(-1.0 * max_dW / keV, 1.0 * max_dW / keV)
+#
+# for i in range(0, Np, 1):
+#     ax.scatter((phi[i, :] - init_dsgn_phi) / np.pi, dW[i, :] / keV, c="k", s=1)
+#
+# ax.scatter([0.0], [0.0], c="k", s=10)
+# ax.set_xlabel(fr"$\Delta \phi/$$\pi$, $\phi_s =$ {init_dsgn_phi/np.pi:.3f}$\pi$")
 # ax.set_ylabel(r"$\Delta W$ [keV]")
+# ax.legend()
 # plt.tight_layout()
+# plt.savefig("/Users/nickvalverde/Desktop/bucket", dpi=400)
 # plt.show()
-garbage
-# Check Hamiltonian conservation
-per_diff = abs((Hf - Hi) / Hi) * 100
-per_diff_W = abs((dW[:, -1] - dW[:, 0]) / dW[:, 0])
-
-fig, ax = plt.subplots()
-ax.plot(phi[:, 0] / np.pi, per_diff)
-ax.set_title("Percent Difference Between Initial and Final H by Initial Phase Choice")
-ax.set_ylabel(r"Percent Difference ($H_f - H_i$)")
-ax.set_xlabel(r"Initial Phase Choice [$\pi$-units]")
-plt.show()
-
-fig, ax = plt.subplots()
-ax.plot(phi[:, 0] / np.pi, per_diff_W)
-ax.set_title(
-    "Percent Difference Between Initial and Final Energy by Initial Phase Choice"
-)
-ax.set_ylabel(r"Percent Difference ($\Delta W_f - \Delta W_i$)")
-ax.set_xlabel(r"Initial Phase Choice [$\pi$-units]")
-plt.show()
-garbage
-# Plot changes in Hamiltonian for farthest (left) particle
-fig, ax = plt.subplots()
-H_at_gaps = np.zeros(Ng)
-for i in range(Ng):
-    this_H = calc_Hamiltonian(
-        init_dsgn_phi, W_s[i], dW[0, i], phi[0, i], dsgn_freq, dsgn_gap_volt
-    )
-    H_at_gaps[i] = this_H
-
-ax.scatter(np.arange(Ng) + 1, H_at_gaps, c="k", s=1)
-ax.set_xlabel("Gap Index")
-ax.set_ylabel(r"$H_\phi$ at Each Gap")
-ax.set_title(
-    fr"Evolution of the Hamiltonian for a Selected Particle at $\Delta \phi_i$ = {(phi[0,0] - init_dsgn_phi)/np.pi:.3f}"
-)
-plt.show()
+#
+# # Make plot of the energy difference over time to see evolutuion
+# # fig, ax = plt.subplots()
+# # ax.set_title(
+# #     fr"Energy Deviations From Design Particle at Each Gap for $\phi_s =$ {init_dsgn_phi/np.pi:.3f}$\pi$"
+# # )
+# # ax.axhline(y=0, c="k", ls="--", lw=1)
+# # # ax.set_ylim(-1.0 * max_dW / keV, 1.0 * max_dW / keV)
+# # gap_ind = np.array([i + 1 for i in range(Ng)], dtype=int)
+# # for i in range(0, Np, 1):
+# #     ax.scatter(gap_ind, dW[i, :] / keV, c="k", s=1)
+# #     ax.plot(gap_ind, dW[i, :] / keV, c="k", lw=0.8)
+# #
+# # ax.set_xlabel("Acceleration Gap")
+# # ax.set_ylabel(r"$\Delta W$ [keV]")
+# # plt.tight_layout()
+# # plt.show()
+# garbage
+# # Check Hamiltonian conservation
+# per_diff = abs((Hf - Hi) / Hi) * 100
+# per_diff_W = abs((dW[:, -1] - dW[:, 0]) / dW[:, 0])
+#
+# fig, ax = plt.subplots()
+# ax.plot(phi[:, 0] / np.pi, per_diff)
+# ax.set_title("Percent Difference Between Initial and Final H by Initial Phase Choice")
+# ax.set_ylabel(r"Percent Difference ($H_f - H_i$)")
+# ax.set_xlabel(r"Initial Phase Choice [$\pi$-units]")
+# plt.show()
+#
+# fig, ax = plt.subplots()
+# ax.plot(phi[:, 0] / np.pi, per_diff_W)
+# ax.set_title(
+#     "Percent Difference Between Initial and Final Energy by Initial Phase Choice"
+# )
+# ax.set_ylabel(r"Percent Difference ($\Delta W_f - \Delta W_i$)")
+# ax.set_xlabel(r"Initial Phase Choice [$\pi$-units]")
+# plt.show()
+# garbage
+# # Plot changes in Hamiltonian for farthest (left) particle
+# fig, ax = plt.subplots()
+# H_at_gaps = np.zeros(Ng)
+# for i in range(Ng):
+#     this_H = calc_Hamiltonian(
+#         init_dsgn_phi, W_s[i], dW[0, i], phi[0, i], dsgn_freq, dsgn_gap_volt
+#     )
+#     H_at_gaps[i] = this_H
+#
+# ax.scatter(np.arange(Ng) + 1, H_at_gaps, c="k", s=1)
+# ax.set_xlabel("Gap Index")
+# ax.set_ylabel(r"$H_\phi$ at Each Gap")
+# ax.set_title(
+#     fr"Evolution of the Hamiltonian for a Selected Particle at $\Delta \phi_i$ = {(phi[0,0] - init_dsgn_phi)/np.pi:.3f}"
+# )
+# plt.show()
