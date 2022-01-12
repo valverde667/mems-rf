@@ -301,7 +301,7 @@ init_dsgn_E = 7 * keV
 init_E = 7 * keV
 init_dsgn_phi = -np.pi / 2
 phi_dev = np.pi / 20
-W_dev = 0.5 * kV * 0.0
+W_dev = 0.1 * keV * 0.0
 q = 1
 Np = 10
 
@@ -333,7 +333,7 @@ Hamiltonian_array[:, 0], _, _ = calc_Hamiltonian(
 # Switch to control whether or not the synchronous beta should be updated.
 # Setting True will evaluate beta_s at each gap and the phase-space can no
 # longer be considered conserved
-update_beta_s = True
+update_beta_s = False
 
 # ------------------------------------------------------------------------------
 #     Simulation and particle advancement of differences
@@ -383,85 +383,94 @@ pos = convert_to_spatial(dW, W_s, phi, init_dsgn_phi, dsgn_freq, gaps)
 # To avoid selecting the contours of the second bucket, the arrays are pre selected.
 # If the particle phase coordinates are greater them +-pi from the design, they
 # are ignored.
-bucket_mask = np.zeros(phi.shape[0])
-for i in range(phi.shape[0]):
-    if (np.max(phi[i, :] - init_dsgn_phi) > 1.1 * np.pi) or (
-        np.min(phi[i, :] - init_dsgn_phi) < -1.1 * np.pi
-    ):
-        bucket_mask[i] = 0
-    else:
-        bucket_mask[i] = 1
+identify_bucket = True
+if identify_bucket:
+    bucket_mask = np.zeros(phi.shape[0])
+    for i in range(phi.shape[0]):
+        if (np.max(phi[i, :] - init_dsgn_phi) > 1.1 * np.pi) or (
+            np.min(phi[i, :] - init_dsgn_phi) < -1.1 * np.pi
+        ):
+            bucket_mask[i] = 0
+        else:
+            bucket_mask[i] = 1
 
-# Search dW array. Positive values are +1 while negative values are -1
-val_mask = np.where(dW > 0.0, np.ones(dW.shape), -1.0)
+    # Search dW array. Positive values are +1 while negative values are -1
+    val_mask = np.where(dW > 0.0, np.ones(dW.shape), -1.0)
 
-# Take difference of val_mask and identify crossing points. +2 and -2 correspond
-# to positive-negative and negative-positive corssing. Both are needed to ensure
-# there is a stable contour.
-diff = np.diff(val_mask, axis=1)
-coord_pairs = []
-for i, row in enumerate(diff):
-    # Check if this particle is in center bucket:
-    if bucket_mask[i]:
-        pass
-    else:
-        continue
+    # Take difference of val_mask and identify crossing points. +2 and -2 correspond
+    # to positive-negative and negative-positive corssing. Both are needed to ensure
+    # there is a stable contour.
+    diff = np.diff(val_mask, axis=1)
+    coord_pairs = []
+    for i, row in enumerate(diff):
+        # Check if this particle is in center bucket:
+        if bucket_mask[i]:
+            pass
+        else:
+            continue
 
-    pos = np.where(row > 1.0)[0]
-    neg = np.where(row < -1.0)[0]
-    if len(pos) > 0.0:
-        if len(neg) > 0.0:
-            coord_pairs.append(np.array([i, pos[0], neg[0]]))
+        pos = np.where(row > 1.0)[0]
+        neg = np.where(row < -1.0)[0]
+        if len(pos) > 0.0:
+            if len(neg) > 0.0:
+                coord_pairs.append(np.array([i, pos[0], neg[0]]))
 
-coord_pairs = np.array(coord_pairs)
+    coord_pairs = np.array(coord_pairs)
 
-# Cycle through the particles in the coordinate pairs. Record the positive crossing
-# and then find the index for the maximum positive crossing. This is the max contour.
-phi_vals = []
-for part, ind in zip(coord_pairs[:, 0], coord_pairs[:, 1]):
-    this_val = phi[part, ind]
-    phi_vals.append(this_val)
+    # Cycle through the particles in the coordinate pairs. Record the positive crossing
+    # and then find the index for the maximum positive crossing. This is the max contour.
+    phi_vals = []
+    for part, ind in zip(coord_pairs[:, 0], coord_pairs[:, 1]):
+        this_val = phi[part, ind]
+        phi_vals.append(this_val)
 
-phi_vals = np.array(phi_vals)
-max_cont_ind = np.argmax(phi_vals)
-max_part = coord_pairs[max_cont_ind, 0]
-max_right, max_left = coord_pairs[max_cont_ind, 1], coord_pairs[max_cont_ind, 2]
+    phi_vals = np.array(phi_vals)
+    max_cont_ind = np.argmax(phi_vals)
+    max_part = coord_pairs[max_cont_ind, 0]
+    max_right, max_left = coord_pairs[max_cont_ind, 1], coord_pairs[max_cont_ind, 2]
 
-fig, ax = plt.subplots()
-for i in range(phi.shape[0]):
-    ax.plot(phi[i, :] - init_dsgn_phi, dW[i, :] / keV, c="k")
+    fig, ax = plt.subplots()
+    for i in range(phi.shape[0]):
+        ax.plot(phi[i, :] - init_dsgn_phi, dW[i, :] / keV, c="k")
 
-max_phi_pts = np.array([phi[max_part, max_right], phi[max_part, max_left]])
-max_dW_pts = np.array([dW[max_part, max_right], dW[max_part, max_right]])
-max_dW_val = np.max(dW[max_part, :])
-min_dW_val = np.min(dW[max_part, :])
+    max_phi_pts = np.array([phi[max_part, max_right], phi[max_part, max_left]])
+    left_phi_pt = np.min(max_phi_pts)
+    right_phi_pt = np.max(max_phi_pts)
+    max_dW_pts = np.array([dW[max_part, max_right], dW[max_part, max_right]])
+    max_dW_val = np.max(dW[max_part, :])
+    min_dW_val = np.min(dW[max_part, :])
 
-# Calculate max metric and use to calculate particles lost
-buck_metric = pow(max_dW_val, 2) + pow(np.max(abs(max_phi_pts)), 2)
-whole_metric = pow(phi[:, -1], 2) + pow(dW[:, -1], 2)
-parts_survived = np.sum(whole_metric < buck_metric)
+    # Calculate max metric and use to calculate particles lost
+    buck_metric = pow(max_dW_val, 2) + pow(np.max(abs(max_phi_pts)), 2)
+    whole_metric = pow(phi[:, -1], 2) + pow(dW[:, -1], 2)
+    parts_survived = np.sum(whole_metric < buck_metric)
 
+    ax.scatter(max_phi_pts - init_dsgn_phi, max_dW_pts / keV, c="r")
+    ax.scatter([0, 0], [min_dW_val / keV, max_dW_val / keV], c="r")
+    ax.set_ylim(-max_dW_val * 1.3 / keV, max_dW_val * 1.3 / keV)
+    ax.set_xlim(-1.0 * np.pi, 1.0 * np.pi)
+    ax.axhline(y=0, c="k", lw=1)
+    ax.axvline(x=0, c="k", lw=1)
+    ax.text(
+        0.2,
+        0.9,
+        f"{parts_survived/Np * 100:2g}% Particles Captured",
+        ha="center",
+        va="center",
+        transform=ax.transAxes,
+    )
 
-ax.scatter(max_phi_pts - init_dsgn_phi, max_dW_pts / keV, c="r")
-ax.scatter([0, 0], [min_dW_val / keV, max_dW_val / keV], c="r")
-ax.set_ylim(-max_dW_val * 1.3 / keV, max_dW_val * 1.3 / keV)
-ax.set_xlim(-1.0 * np.pi, 1.0 * np.pi)
-ax.axhline(y=0, c="k", lw=1)
-ax.axvline(x=0, c="k", lw=1)
-ax.text(
-    0.2,
-    0.9,
-    f"{parts_survived/Np * 100:2g}% Particles Captured",
-    ha="center",
-    va="center",
-    transform=ax.transAxes,
-)
+    ax.set_xlabel(fr"$\Delta \phi$, $\phi_s$ = {init_dsgn_phi/np.pi:.4f}$\pi$")
+    ax.set_ylabel(fr"$\Delta W$ [keV], $W_{{s,i}}$ = {init_dsgn_E/keV:.3f} [keV]")
+    plt.show()
 
-ax.set_xlabel(fr"$\Delta \phi$, $\phi_s$ = {init_dsgn_phi/np.pi:.4f}$\pi$")
-ax.set_ylabel(fr"$\Delta W$ [keV], $W_{{s,i}}$ = {init_dsgn_E/keV:.3f} [keV]")
-plt.show()
+    print("Coordinate Values for Max Contour")
+    print(f"Phase Left Point: {left_phi_pt / np.pi:.4f} [pi-units]")
+    print(f"Phase Right Point: {right_phi_pt / np.pi:.4f} [pi-units]")
+    print(f"Phase Width: {(right_phi_pt - left_phi_pt) / np.pi:.4f} [pi-units]")
+    print(f"Energy Spread: {(max_dW_val - min_dW_val)/keV:.4f} [keV]")
 
-garbage
+    garbage
 # ------------------------------------------------------------------------------
 #    Plotting/Visualization
 # The main figure plots the phase-space for the energy difference and phase
