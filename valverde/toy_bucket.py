@@ -383,6 +383,9 @@ pos = convert_to_spatial(dW, W_s, phi, init_dsgn_phi, dsgn_freq, gaps)
 # To avoid selecting the contours of the second bucket, the arrays are pre selected.
 # If the particle phase coordinates are greater them +-pi from the design, they
 # are ignored.
+phi = np.load("phi_test.npy")
+dW = np.load("dW_test.npy")
+Np = phi.shape[0]
 identify_bucket = True
 if identify_bucket:
     bucket_mask = np.zeros(phi.shape[0])
