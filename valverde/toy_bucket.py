@@ -636,8 +636,7 @@ ax.bar(
 ax.set_xlabel(fr"$W$ [keV], $W_{{s,f}}$ = {final_dsgn_E/keV:.3f} [keV]")
 ax.set_ylabel(f"Fraction of {Np:.1E}-Particles ")
 ax.legend()
-plt.savefig("energy_distribution", dpi=400)
-plt.show()
+plt.savefig("energy_dist", dpi=400)
 
 # Create Histogram of just the distribution in the energy difference from design
 fig, ax = plt.subplots()
@@ -658,9 +657,57 @@ ax.bar(
 ax.set_xlabel(fr"$\Delta W$ [keV], $W_{{s,f}}$ = {final_dsgn_E/keV:.3f} [keV]")
 ax.set_ylabel(f"Fraction of {Np:.1E}-Particles ")
 ax.legend()
-plt.savefig("energy_diff_stribution", dpi=400)
-plt.show()
+plt.savefig("energy_diff_dist", dpi=400)
 
+# Create Histogram showing the distribution of the phasing
+fig, ax = plt.subplots()
+ax.set_title("Distribution of Final Arrival Phase Relative to Design")
+counts, edges = np.histogram(phi[:, -1] - init_dsgn_phi, bins=50)
+left_edges = edges[:-1]
+width = 0.85 * (left_edges[1] - left_edges[0])
+ax.bar(
+    left_edges / np.pi,
+    counts / total,
+    align="edge",
+    width=width / np.pi,
+    alpha=0.5,
+    edgecolor="black",
+    linewidth=1,
+    label=fr"Full Distribution",
+)
+ax.set_xlabel(
+    fr"Relative Phase Difference $\Delta \phi / \pi$, $\phi_s$ = {init_dsgn_phi/np.pi:.4f}$\pi$"
+)
+ax.set_ylabel(f"Fraction of {Np:.1E}-Particles ")
+ax.legend()
+plt.savefig("dphi_dist", dpi=400)
+
+# Create histogram for phasing but only within bucket
+# Add histogram for particles within bucket
+fig, ax = plt.subplots()
+bucket_counts, bucket_edges = np.histogram(
+    phi[bucket_mask, -1] - init_dsgn_phi, bins=50
+)
+bucket_ledges = bucket_edges[:-1]
+width = 0.85 * (bucket_ledges[1] - bucket_ledges[0])
+ax.bar(
+    bucket_ledges / np.pi,
+    bucket_counts / total,
+    align="edge",
+    width=width / np.pi,
+    alpha=0.5,
+    color="red",
+    edgecolor="black",
+    linewidth=1,
+    label=fr"Bucket Dist. {np.sum(np.sum(bucket_counts)/total)*100:.1f}% of Total",
+)
+ax.set_xlabel(
+    fr"Relative Phase Difference $\Delta \phi / \pi$, $\phi_s$ = {init_dsgn_phi/np.pi:.4f}$\pi$"
+)
+ax.set_ylabel(f"Fraction of {Np:.1E}-Particles ")
+ax.legend()
+plt.savefig("dphi_bucket_dist", dpi=400)
+plt.show()
 # ------------------------------------------------------------------------------
 #    Archived Scripting
 # This portion below was a previous routine for finding the bucket using a
