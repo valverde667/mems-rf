@@ -631,7 +631,7 @@ ax.bar(
     color="red",
     edgecolor="black",
     linewidth=1,
-    label=fr"Bucket Dist. {np.sum(np.sum(bucket_counts)/total)*100:.1f}% Full",
+    label=fr"Bucket Dist. {np.sum(np.sum(bucket_counts)/total)*100:.1f}% of Total",
 )
 ax.set_xlabel(fr"$W$ [keV], $W_{{s,f}}$ = {final_dsgn_E/keV:.3f} [keV]")
 ax.set_ylabel(f"Fraction of {Np:.1E}-Particles ")
@@ -639,6 +639,27 @@ ax.legend()
 plt.savefig("energy_distribution", dpi=400)
 plt.show()
 
+# Create Histogram of just the distribution in the energy difference from design
+fig, ax = plt.subplots()
+ax.set_title(
+    "Distribution of the Energy Difference \n (Relative to Design) within Bucket"
+)
+ax.bar(
+    bucket_ledges,
+    bucket_counts / total,
+    align="edge",
+    width=width,
+    alpha=0.5,
+    color="red",
+    edgecolor="black",
+    linewidth=1,
+    label=fr"Bucket Dist. {np.sum(np.sum(bucket_counts)/total)*100:.1f}% of Total",
+)
+ax.set_xlabel(fr"$\Delta W$ [keV], $W_{{s,f}}$ = {final_dsgn_E/keV:.3f} [keV]")
+ax.set_ylabel(f"Fraction of {Np:.1E}-Particles ")
+ax.legend()
+plt.savefig("energy_diff_stribution", dpi=400)
+plt.show()
 
 # ------------------------------------------------------------------------------
 #    Archived Scripting
