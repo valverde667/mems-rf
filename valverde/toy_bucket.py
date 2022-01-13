@@ -17,6 +17,8 @@ import time
 import pdb
 import os
 
+plt.style.use("seaborn-deep")
+
 
 # ------------------------------------------------------------------------------
 #     Constants and definitions section
@@ -303,14 +305,15 @@ init_dsgn_phi = -np.pi / 2
 phi_dev = np.pi / 20
 W_dev = 0.1 * keV * 0.0
 q = 1
-Np = 10
+Np = 10000
 
-Ng = 700
+Ng = 15
 dsgn_freq = 13.6 * MHz
 dsgn_gap_volt = 7 * kV
 dsgn_gap_width = 2 * mm
 dsgn_DC_Efield = dsgn_gap_volt / dsgn_gap_width
 transit_tfactor = 1.0
+final_dsgn_E = init_dsgn_E + Ng * dsgn_gap_volt * np.cos(-init_dsgn_phi)
 
 # Advance particles using initial conditions
 phi = np.zeros(shape=(Np, Ng))
@@ -383,7 +386,7 @@ pos = convert_to_spatial(dW, W_s, phi, init_dsgn_phi, dsgn_freq, gaps)
 # To avoid selecting the contours of a different bucket, the arrays are pre-selected.
 # If the particle phase coordinates are greater them +-pi from the design, they
 # are ignored.
-identify_bucket = True
+identify_bucket = False
 if identify_bucket:
     # Only look at particles within a pi width of the design particle
     bucket_mask = np.zeros(phi.shape[0])
@@ -590,6 +593,51 @@ if do_dynamic_plot:
     fig.savefig(f"phase-space_{Np}Np{Ng}Ng", dpi=400)
 
     input("Press [enter] to continue.")
+
+# Create mask for selecting particles within bucket.
+min_cross = -0.8886 * np.pi
+max_cross = -0.1111 * np.pi
+bucket_mask = (phi[:, 0] >= min_cross) & (phi[:, 0] <= max_cross)
+
+# Create histogram of energy spread.
+fig, ax = plt.subplots(figsize=(10, 8))
+# Create histogram for all particles
+counts, edges = np.histogram(dW[:, -1] / keV, bins=50)
+total = np.sum(counts)
+
+left_edges = edges[:-1]
+width = 0.85 * (left_edges[1] - left_edges[0])
+ax.bar(
+    (left_edges + final_dsgn_E / keV),
+    counts / total,
+    align="edge",
+    width=width,
+    alpha=0.5,
+    edgecolor="black",
+    linewidth=1,
+    label=fr"Full Distribution",
+)
+
+# Add histogram for particles within bucket
+bucket_counts, bucket_edges = np.histogram(dW[bucket_mask, -1] / keV, bins=50)
+bucket_ledges = bucket_edges[:-1]
+width = 0.75 * (bucket_ledges[1] - bucket_ledges[0])
+ax.bar(
+    (bucket_ledges + final_dsgn_E / keV),
+    bucket_counts / total,
+    align="edge",
+    width=width,
+    alpha=0.5,
+    color="red",
+    edgecolor="black",
+    linewidth=1,
+    label=fr"Bucket Dist. {np.sum(np.sum(bucket_counts)/total)*100:.1f}% Full",
+)
+ax.set_xlabel(fr"$W$ [keV], $W_{{s,f}}$ = {final_dsgn_E/keV:.3f} [keV]")
+ax.set_ylabel(f"Fraction of {Np:.1E}-Particles ")
+ax.legend()
+plt.savefig("energy_distribution", dpi=400)
+plt.show()
 
 
 # ------------------------------------------------------------------------------
