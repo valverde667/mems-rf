@@ -301,7 +301,7 @@ def phase_root(phi, phi_s):
 # ------------------------------------------------------------------------------
 init_dsgn_E = 7 * keV
 init_E = 7 * keV
-init_dsgn_phi = -np.pi / 2
+init_dsgn_phi = -np.pi / 3
 phi_dev = np.pi / 20
 W_dev = 0.1 * keV * 0.0
 q = 1
@@ -595,8 +595,8 @@ if do_dynamic_plot:
     input("Press [enter] to continue.")
 
 # Create mask for selecting particles within bucket.
-min_cross = -0.8886 * np.pi
-max_cross = -0.1111 * np.pi
+min_cross = -0.6116 * np.pi
+max_cross = 0.1110 * np.pi
 bucket_mask = (phi[:, 0] >= min_cross) & (phi[:, 0] <= max_cross)
 
 # Create histogram of energy spread.
