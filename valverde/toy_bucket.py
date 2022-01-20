@@ -295,26 +295,40 @@ def phase_root(phi, phi_s):
 
 
 def output_sim_params(
+    phi,
+    dW,
     Einj=7 * keV,
     Efin=7 * keV,
     phi_s=-np.pi / 2,
     Np=100,
     Ng=20,
+    inj_type="DC",
     bucket_phase_width=twopi,
-    bucket_W_width=0 * keV,
+    bucket_dW_width=0 * keV,
     parts_survived=100,
 ):
     """Function to print simulation parameters to terminal screen"""
+    init_min_phase = phi[:, 0].min()
+    init_max_phase = phi[:, 0].max()
+    inj_phase_width = init_max_phase - init_min_phase
+
+    init_min_dW = dW[:, 0].min()
+    init_max_dW = dW[:, 0].max()
+    inj_dW_width = init_max_dW - init_min_dW
+
     print("### Simulation Parameters")
     print(f"- Injection Energy [keV]: {Einj/keV:.2f}")
     print(f"- Design Phase: {phi_s/np.pi:.4f} pi")
     print(f"- Final Design Energy [keV]: {Efin/keV:.2f}")
     print(f"- Number of Particles Np: {Np:.0f}")
     print(f"- Number of Gaps Ng: {Ng:.0f}")
+    print(f"- Injection Type: {inj_type}")
+    print(f"- Initial Phase Width: {inj_phase_width/np.pi:.4f} pi")
+    print(f"- Initial Relative Energy Distribution: {inj_dW_width/1000:.4f}[keV]")
     print("")
     print("### Bucket Characteristics")
-    print(f"- Relative Phase Width: {bucket_phase_width/np.pi:.4f} pi")
-    print(f"- Relative Energy Width [keV]: {bucket_W_width/keV:.4f}")
+    print(f"- Phase Width: {bucket_phase_width/np.pi:.4f} pi")
+    print(f"- Relative Energy Width [keV]: {bucket_dW_width/keV:.4f}")
     print(f"- Particles in Bucket: {parts_survived:.0f}%")
 
 
@@ -462,14 +476,22 @@ if identify_bucket:
     min_dW_loc = np.argmin(dW[max_particle_ind, :])
     max_dW = dW[max_particle_ind, max_dW_loc]
     min_dW = dW[max_particle_ind, min_dW_loc]
-    max_dW_phi = phi[max_particle_ind, max_dW_loc]
-    min_dW_phi = phi[max_particle_ind, min_dW_loc]
+    max_dW_dphi = phi[max_particle_ind, max_dW_loc] - init_dsgn_phi
+    min_dW_dphi = phi[max_particle_ind, min_dW_loc] - init_dsgn_phi
 
     # Plot Bucket. Limit x and y axis by maximum excursions. Plot dashed lines
     # to represent the dW and dphi widths of the bucket.
     fig, ax = plt.subplots()
     for i in range(0, Np, 2):
         ax.plot(phi[i, :] - init_dsgn_phi, dW[i, :] / keV, c="k", lw=1)
+
+    # Specifically plot separatrix just in case it wasn't captured in for loop
+    ax.plot(
+        phi[max_particle_ind, :] - init_dsgn_phi,
+        dW[max_particle_ind, :] / keV,
+        c="k",
+        lw=1,
+    )
 
     # Add maximum phase points
     ax.scatter([max_dphi, min_dphi], [0, 0], c="r")
@@ -481,7 +503,7 @@ if identify_bucket:
         label=fr"Width ={(max_cross - min_cross)/np.pi:.4f}$\pi$",
     )
     ax.plot(
-        [max_dW_phi - init_dsgn_phi, min_dW_phi - init_dsgn_phi],
+        [max_dW_dphi, min_dW_dphi],
         [max_dW / keV, min_dW / keV],
         c="g",
         lw=3,
@@ -515,7 +537,7 @@ if identify_bucket:
     print(f"Right Phase Crossing: {max_cross / np.pi:.4f} [pi-units]")
     print(f"Phase Width: {(max_cross - min_cross) / np.pi:.4f} [pi-units]")
     print(
-        f"Bucket Particle Initial Relative Phase: {(phi[max_particle_ind,0] - init_dsgn_phi)/np.pi:.4f} [pi-units]"
+        f"Bucket Particle Initial Relative Phase: {phi[max_particle_ind,0]/np.pi:.4f} [pi-units]"
     )
 
 # ------------------------------------------------------------------------------
@@ -622,8 +644,35 @@ if do_dynamic_plot:
 # Create mask for selecting particles within bucket.
 min_cross = -0.6116 * np.pi
 max_cross = 0.1110 * np.pi
+bucket_init_phase = 0.2945
 bucket_mask = (phi[:, 0] >= min_cross) & (phi[:, 0] <= max_cross)
+parts_survived = np.sum(bucket_mask)
 
+# Locate bucket particle in array
+dtheta = phi[1, 0] - phi[0, 0]
+mask1 = phi[:, 0] >= bucket_init_phase - dtheta
+mask2 = phi[:, 0] <= bucket_init_phase + dtheta
+mask = mask1 & mask2
+separatrix_ind = np.where(mask)[0][0]
+
+# Use separatrix to find bucket widths
+phase_width = phi[separatrix_ind, :].max() - phi[separatrix_ind, :].min()
+dW_width = dW[separatrix_ind, :].max() - dW[separatrix_ind, :].min()
+
+
+# Outpute simulation characterisitcs
+output_sim_params(
+    phi,
+    dW,
+    Einj=init_dsgn_E,
+    Efin=final_dsgn_E,
+    phi_s=init_dsgn_phi,
+    Np=Np,
+    Ng=Ng,
+    bucket_phase_width=phase_width,
+    bucket_dW_width=dW_width,
+    parts_survived=parts_survived / Np * 100,
+)
 # Create histogram of energy spread.
 fig, ax = plt.subplots(figsize=(10, 8))
 # Create histogram for all particles
