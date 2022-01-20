@@ -294,6 +294,30 @@ def phase_root(phi, phi_s):
     return target
 
 
+def output_sim_params(
+    Einj=7 * keV,
+    Efin=7 * keV,
+    phi_s=-np.pi / 2,
+    Np=100,
+    Ng=20,
+    bucket_phase_width=twopi,
+    bucket_W_width=0 * keV,
+    parts_survived=100,
+):
+    """Function to print simulation parameters to terminal screen"""
+    print("### Simulation Parameters")
+    print(f"- Injection Energy [keV]: {Einj/keV:.2f}")
+    print(f"- Design Phase: {phi_s/np.pi:.4f} pi")
+    print(f"- Final Design Energy [keV]: {Efin/keV:.2f}")
+    print(f"- Number of Particles Np: {Np:.0f}")
+    print(f"- Number of Gaps Ng: {Ng:.0f}")
+    print("")
+    print("### Bucket Characteristics")
+    print(f"- Relative Phase Width: {bucket_phase_width/np.pi:.4f} pi")
+    print(f"- Relative Energy Width [keV]: {bucket_W_width/keV:.4f}")
+    print(f"- Particles in Bucket: {parts_survived:.0f}%")
+
+
 # ------------------------------------------------------------------------------
 #     Simulation Parameters/Settings
 # This section sets various simulation parameters. In this case, initial kinetic
@@ -444,8 +468,8 @@ if identify_bucket:
     # Plot Bucket. Limit x and y axis by maximum excursions. Plot dashed lines
     # to represent the dW and dphi widths of the bucket.
     fig, ax = plt.subplots()
-    for i in range(Np):
-        ax.plot(phi[i, :] - init_dsgn_phi, dW[i, :] / keV, c="k")
+    for i in range(0, Np, 2):
+        ax.plot(phi[i, :] - init_dsgn_phi, dW[i, :] / keV, c="k", lw=1)
 
     # Add maximum phase points
     ax.scatter([max_dphi, min_dphi], [0, 0], c="r")
@@ -490,6 +514,9 @@ if identify_bucket:
     print(f"Left Phase Crossing: {min_cross/ np.pi:.4f} [pi-units]")
     print(f"Right Phase Crossing: {max_cross / np.pi:.4f} [pi-units]")
     print(f"Phase Width: {(max_cross - min_cross) / np.pi:.4f} [pi-units]")
+    print(
+        f"Bucket Particle Initial Relative Phase: {(phi[max_particle_ind,0] - init_dsgn_phi)/np.pi:.4f} [pi-units]"
+    )
 
 # ------------------------------------------------------------------------------
 #    Plotting/Visualization
