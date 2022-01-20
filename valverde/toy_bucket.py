@@ -336,7 +336,7 @@ Hamiltonian_array[:, 0], _, _ = calc_Hamiltonian(
 # Switch to control whether or not the synchronous beta should be updated.
 # Setting True will evaluate beta_s at each gap and the phase-space can no
 # longer be considered conserved
-update_beta_s = False
+update_beta_s = True
 
 # ------------------------------------------------------------------------------
 #     Simulation and particle advancement of differences
@@ -453,16 +453,14 @@ if identify_bucket:
         [max_dphi, min_dphi],
         [0, 0],
         c="r",
-        ls="--",
-        lw=5,
+        lw=3,
         label=fr"Width ={(max_cross - min_cross)/np.pi:.4f}$\pi$",
     )
     ax.plot(
         [max_dW_phi - init_dsgn_phi, min_dW_phi - init_dsgn_phi],
         [max_dW / keV, min_dW / keV],
         c="g",
-        ls="--",
-        lw=5,
+        lw=3,
         label=fr"Width ={(max_dW - min_dW)/keV:.4f}[keV]",
     )
 
