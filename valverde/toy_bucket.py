@@ -103,7 +103,7 @@ def calc_synch_ang_freq(f, V, phi_s, W_s, T=1, g=2 * mm, m=Ar_mass, q=1):
     wave_number = np.sqrt(wave_chunk * energy_chunk)
     omega_synch = wave_number * beta_s * SC.c
 
-    return omega_synch
+    return omega_synch, wave_number
 
 
 def calc_Hamiltonian(
@@ -299,6 +299,9 @@ def output_sim_params(
     dW,
     Einj=7 * keV,
     Efin=7 * keV,
+    f=13.6 * MHz,
+    Vg=7 * kV,
+    gap=2 * mm,
     phi_s=-np.pi / 2,
     Np=100,
     Ng=20,
@@ -316,12 +319,18 @@ def output_sim_params(
     init_max_dW = dW[:, 0].max()
     inj_dW_width = init_max_dW - init_min_dW
 
+    omega_synch, ks = calc_synch_ang_freq(f, Vg, phi_s, Einj, g=gap)
+    beta_s = calc_beta(Einj)
+
     print("### Simulation Parameters")
     print(f"- Injection Energy [keV]: {Einj/keV:.2f}")
     print(f"- Design Phase: {phi_s/np.pi:.4f} pi")
     print(f"- Final Design Energy [keV]: {Efin/keV:.2f}")
-    print(f"- Number of Particles Np: {Np:.0f}")
+    print(f"- Number of Particles Np: {Np:.0E}")
     print(f"- Number of Gaps Ng: {Ng:.0f}")
+    print(f"- Gap Voltage [kV]: {Vg/kV:.4f}")
+    print(f"- Synchrotron Wavenumber [1/m]: {ks:.4f}")
+    print(f"- Synchronous Beta: {beta_s:.4E}")
     print(f"- Injection Type: {inj_type}")
     print(f"- Initial Phase Width: {inj_phase_width/np.pi:.4f} pi")
     print(f"- Initial Relative Energy Distribution: {inj_dW_width/1000:.4f}[keV]")
@@ -666,6 +675,9 @@ output_sim_params(
     dW,
     Einj=init_dsgn_E,
     Efin=final_dsgn_E,
+    f=dsgn_freq,
+    Vg=dsgn_gap_volt,
+    gap=dsgn_gap_width,
     phi_s=init_dsgn_phi,
     Np=Np,
     Ng=Ng,
