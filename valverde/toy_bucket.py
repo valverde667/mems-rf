@@ -11,6 +11,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 import datetime
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
+from scipy import integrate
 import scipy.constants as SC
 import scipy.optimize as optimize
 import time
@@ -167,6 +168,70 @@ def calc_Hamiltonian(
         return H
 
 
+def calc_linear_bucket_area(
+    phase_width, phi_s, W_s, f=13.6 * MHz, Vg=7 * kV, T=1, g=2 * mm, m=Ar_mass, q=1,
+):
+    """ "Calculate the bucket area using a linear approximation
+
+    In this case the bucket area is constant and is equal to the product of the
+    major and semi-major axis of the phase space ellipse multiplied by pi. Here,
+    axis representing the relative energy difference is calculated as a function
+    of the design energy and design phase.
+    """
+    # Calculate constants
+    E0 = Vg / g
+    lambda_rf = SC.c / f
+    beta_s = calc_beta(W_s, mass=m, q=q, nonrel=True)
+    coeff = np.pi * np.sqrt(q * E0 * T * m * lambda_rf / twopi)
+
+    # Instantiate phasewidth term and dependent energy terms.
+    term1 = pow(phase_width, 2)
+    term2 = np.sqrt(pow(beta_s, 3) * np.sin(-phi_s))
+
+    area = coeff * term1 * term2
+
+    return area
+
+
+def calc_bucket_area(
+    min_bound,
+    max_bound,
+    phi_s,
+    W_s,
+    f=13.6 * MHz,
+    Vg=7 * kV,
+    T=1,
+    g=2 * mm,
+    m=Ar_mass,
+    q=1,
+):
+    """Calculate bucket area using non-linear Hamiltonian
+
+    This calculation assumes constant beta_s gamma_s and integrates the 'fish'
+    shape over the non-linear Hamiltonian using the given bounds of integration.
+    """
+    # Create array of points between bounds
+    phi = np.linspace(min_bound, max_bound, 1000)
+    dphi = phi[1] - phi[0]
+
+    # Calculate necessary variables and coefficients
+    lambda_rf = SC.c / f
+    beta_s = calc_beta(W_s, mass=Ar_mass, q=1, nonrel=True)
+    E0 = Vg / g
+    C1 = twopi / lambda_rf / pow(beta_s, 3)
+    C2 = q * E0 * T / m
+    coeff = 2 * np.sqrt(2 * C1 * C2)
+
+    # Create function to be integrated
+    func = lambda ang: np.sin(phi_s) - np.sin(ang) - (phi_s - ang) * np.cos(phi_s)
+    y = abs(func(phi))
+
+    # Integrate
+    integral = integrate.simpson(y, phi, dx=dphi)
+
+    return coeff * integral
+
+
 def convert_to_spatial(dW, W_s, dphi, phi_s, f, gap_centers):
     """Take dW and dphi coordinates and convert to dphi and z
 
@@ -309,6 +374,7 @@ def output_sim_params(
     bucket_phase_width=twopi,
     bucket_dW_width=0 * keV,
     parts_survived=100,
+    other_parts_survived=0,
 ):
     """Function to print simulation parameters to terminal screen"""
     init_min_phase = phi[:, 0].min()
@@ -339,6 +405,7 @@ def output_sim_params(
     print(f"- Phase Width: {bucket_phase_width/np.pi:.4f} pi")
     print(f"- Relative Energy Width [keV]: {bucket_dW_width/keV:.4f}")
     print(f"- Particles in Bucket: {parts_survived:.0f}%")
+    print(f"- Particles in Outer Buckets: {other_parts_survived:.0f}%")
 
 
 # ------------------------------------------------------------------------------
@@ -360,7 +427,7 @@ dsgn_gap_volt = 7 * kV
 dsgn_gap_width = 2 * mm
 dsgn_DC_Efield = dsgn_gap_volt / dsgn_gap_width
 transit_tfactor = 1.0
-final_dsgn_E = init_dsgn_E + Ng * dsgn_gap_volt * np.cos(-init_dsgn_phi)
+final_dsgn_E = init_dsgn_E + (Ng - 1) * dsgn_gap_volt * np.cos(-init_dsgn_phi)
 
 # Advance particles using initial conditions
 phi = np.zeros(shape=(Np, Ng))
@@ -419,6 +486,15 @@ for i in range(1, Ng):
 # of the particles when the design particle hits the gap centers.
 gaps = np.array([b * SC.c / 2 / dsgn_freq for b in beta_s]).cumsum()
 pos = convert_to_spatial(dW, W_s, phi, init_dsgn_phi, dsgn_freq, gaps)
+
+buck_areas = np.zeros(W_s.shape)
+lin_areas = buck_areas.copy()
+for i in range(len(W_s)):
+    this_area = calc_bucket_area(-0.6116 * np.pi, 0.1110 * np.pi, init_dsgn_phi, W_s[i])
+    this_lin = calc_linear_bucket_area(0.111 * np.pi, init_dsgn_phi, W_s[i])
+
+    buck_areas[i] = this_area
+    lin_areas[i] = this_lin
 
 # ------------------------------------------------------------------------------
 #    Identify Max Contour
@@ -548,6 +624,7 @@ if identify_bucket:
     print(
         f"Bucket Particle Initial Relative Phase: {phi[max_particle_ind,0]/np.pi:.4f} [pi-units]"
     )
+    end
 
 # ------------------------------------------------------------------------------
 #    Plotting/Visualization
@@ -657,6 +734,18 @@ bucket_init_phase = 0.2945
 bucket_mask = (phi[:, 0] >= min_cross) & (phi[:, 0] <= max_cross)
 parts_survived = np.sum(bucket_mask)
 
+# Calculate particles in other buckets by shifting separatrix by 2pi
+outer_parts_survived = 0
+for i in range(1, 10):
+    pos_mask = (phi[:, -1] >= min_cross + i * twopi) & (
+        phi[:, -1] <= max_cross + i * twopi
+    )
+    neg_mask = (phi[:, -1] >= min_cross - i * twopi) & (
+        phi[:, -1] <= max_cross - i * twopi
+    )
+    this_bucket = np.sum(neg_mask) + np.sum(pos_mask)
+    outer_parts_survived += this_bucket
+
 # Locate bucket particle in array
 dtheta = phi[1, 0] - phi[0, 0]
 mask1 = phi[:, 0] >= bucket_init_phase - dtheta
@@ -668,6 +757,29 @@ separatrix_ind = np.where(mask)[0][0]
 phase_width = phi[separatrix_ind, :].max() - phi[separatrix_ind, :].min()
 dW_width = dW[separatrix_ind, :].max() - dW[separatrix_ind, :].min()
 
+# Calculate Hamiltonian values and plot relative change with H_s over gaps
+Harr = np.zeros(Ng)
+for i in range(Ng):
+    this_H = calc_Hamiltonian(
+        init_dsgn_phi,
+        W_s[i],
+        dW[separatrix_ind, i],
+        phi[separatrix_ind, i],
+        dsgn_freq,
+        dsgn_gap_volt,
+    )[0]
+    Harr[i] = this_H
+
+H_s = calc_Hamiltonian(
+    init_dsgn_phi, W_s[i], 0, init_dsgn_phi, dsgn_freq, dsgn_gap_volt
+)[0]
+
+fig, ax = plt.subplots()
+ax.set_title("Evolution of Separatrix Hamiltonian")
+ax.set_ylabel(r"Relative Change in Hamilitonian $(H_{sep} - H_s)/|H_s|$")
+ax.set_xlabel("Gap Index")
+ax.plot([i + 1 for i in range(Ng)], (Harr - H_s) / abs(H_s))
+plt.show()
 
 # Outpute simulation characterisitcs
 output_sim_params(
@@ -684,6 +796,7 @@ output_sim_params(
     bucket_phase_width=phase_width,
     bucket_dW_width=dW_width,
     parts_survived=parts_survived / Np * 100,
+    other_parts_survived=outer_parts_survived / Np * 100,
 )
 # Create histogram of energy spread.
 fig, ax = plt.subplots(figsize=(10, 8))
