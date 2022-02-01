@@ -20,6 +20,7 @@ Ar_mass = 39.948 * amu
 He_mass = 4 * amu
 p_mass = amu
 kV = 1000
+keV = 1000
 MHz = 1e6
 mm = 1e-3
 ns = 1e-9  # nanoseconds
@@ -54,14 +55,14 @@ def plot_phase(phi, E):
 
 # Simulation Parameters for design particle
 design_phase = -np.pi / 2
-dsgn_initE = 7 * kV
-Np = 10
+dsgn_initE = 7 * kV * 0.01
+Np = 40
 
 # Simulation parameters for gaps and geometries
-design_gap_volt = 7 * kV * 0.01
+design_gap_volt = 7 * kV
 design_freq = 13.6 * MHz
 design_omega = 2 * np.pi * design_freq
-Ng = 15
+Ng = 150
 
 # ------------------------------------------------------------------------------
 #     Initial Setup
@@ -82,17 +83,34 @@ dsgn_pos[0] = 0.0
 dsgn_E[0] = dsgn_initE
 dsgn_time[0] = 0.0
 
-vstart = np.sqrt(2 * dsgn_initE / Ar_mass) * SC.c
-init_gap = vstart / design_omega * (2 * np.pi - design_phase)
-t1 = init_gap / vstart
-dsgn_time[1] = t1
+# Calculate full DC beam length and start position of design particle. The
+# convention here is to start with a gaining gap voltage. Since the design particle
+# convention enters the gap when the fielding is going from neg -> pos, the
+# first gap needs to be placed a RF cycle away
+coeff = np.sqrt(2 * dsgn_initE / Ar_mass)
+
+tDC = 1.0 / design_freq
+that = 0.5 / design_freq
+ts = -design_phase / 2 / np.pi / design_freq
+
+DC_length = coeff * SC.c * tDC
+zhat = coeff * SC.c * that
+zs = coeff * SC.c * ts
+
+init_gap = zhat + zs
+
+
+# Instantiate the design particle metrics to first gap
+vs_start = coeff * SC.c
+ts_start = init_gap / vs_start
+dsgn_time[1] = ts_start
 dsgn_pos[1] = init_gap
-Egain = design_gap_volt * np.cos(design_omega * t1)
+Egain = design_gap_volt * np.cos(design_omega * ts_start)
 dsgn_E[1] = dsgn_E[0] + Egain
 
 # Create simulation particles and initialize data arrays
-beta_lambda = vstart / design_freq
-particle_dist = np.linspace(init_gap - beta_lambda, init_gap, Np)
+beta_lambda = vs_start / design_freq
+particle_dist = np.linspace(-DC_length / 2, DC_length / 2, Np)
 
 # Create particle arrays to store histories
 parts_pos = np.zeros(shape=(Np, Ng + 1))
@@ -155,7 +173,7 @@ delta_E = parts_E.copy()
 delta_time = parts_time.copy()
 delta_phase = np.zeros(shape=(Np, Ng + 1))
 parts_phase = design_omega * parts_time
-for i in range(len(dsgn_E)):
+for i in range(Ng + 1):
     delta_E[:, i] = parts_E[:, i] - dsgn_E[i]
     delta_time[:, i] = parts_time[:, i] - dsgn_time[i]
     dphi = design_omega * delta_time[:, i]
@@ -180,8 +198,8 @@ with PdfPages(f"continuous_phase-space-plots_{date_string}.pdf") as pdf:
     pdf.savefig()
     plt.close()
 
-    # Save phase-space plot for each gap to pdf
-    for i in range(1, 20):
+    # Plot phase-space trajectory of each particle
+    for i in range(Np):
         fig, ax = plt.subplots()
         ax.set_title(
             fr"Phase Space for Gap {i}, ${{\cal E}}_s$ = {dsgn_E[i]/kV:.2f} [keV]"
@@ -189,15 +207,12 @@ with PdfPages(f"continuous_phase-space-plots_{date_string}.pdf") as pdf:
         ax.set_xlabel(r"Time Progression of $\phi/2\pi$")
         ax.set_ylabel(r"$\Delta {\cal E}$ [keV]")
 
-        Eselect = abs(delta_E[:, i] / dsgn_E[i]) < 0.2
-        part_frac = np.sum(Eselect) / Np
-
-        ax.scatter(parts_phase[Eselect, i] / twopi, delta_E[Eselect, i] / kV, s=2)
-        black_proxy = plt.Rectangle((0, 0), 0.5, 0.5, fc="k")
-        ax.legend([black_proxy], [f"Np Frac Remaining: {part_frac:.2f}"])
-        plt.tight_layout()
-        pdf.savefig()
-        plt.close()
+        ax.scatter((delta_phase[i, :]) / np.pi, delta_E[i, :] / kV, s=2)
+    black_proxy = plt.Rectangle((0, 0), 0.5, 0.5, fc="k")
+    # ax.legend([black_proxy], [f"Np Frac Remaining: {part_frac:.2f}"])
+    plt.tight_layout()
+    pdf.savefig()
+    plt.close()
 
 # Create phase-space plots without accounting for RF cycles
 today = datetime.datetime.today()
