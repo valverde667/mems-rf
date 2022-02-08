@@ -8,6 +8,7 @@
 
 import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
+import matplotlib.animation as animation
 import datetime
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
@@ -340,7 +341,7 @@ def calc_transit_factor(W_s, f, g=2 * mm, q=1, mass=Ar_mass):
     """ "Calculate transit time factor for even-symmetric gap"""
 
     # Calculate the design particle beta and RF-wavelength
-    beta_s = calc_beta(W_s, mass=m, q=q)
+    beta_s = calc_beta(W_s, mass=mass, q=q)
     lambda_rf = SC.c / f
 
     # Calculate argument of sine that is also denominator in expression
@@ -415,18 +416,20 @@ def output_sim_params(
 # ------------------------------------------------------------------------------
 init_dsgn_E = 7 * keV
 init_E = 7 * keV
-init_dsgn_phi = -np.pi / 3
+init_dsgn_phi = -np.pi / 2
 phi_dev = np.pi / 20
 W_dev = 0.1 * keV * 0.0
 q = 1
 Np = 10000
 
-Ng = 15
+Ng = 25
 dsgn_freq = 13.6 * MHz
 dsgn_gap_volt = 7 * kV
 dsgn_gap_width = 2 * mm
 dsgn_DC_Efield = dsgn_gap_volt / dsgn_gap_width
-transit_tfactor = 1.0
+transit_tfactor = calc_transit_factor(
+    init_dsgn_E, dsgn_freq, g=2 * mm, q=1, mass=Ar_mass
+)
 final_dsgn_E = init_dsgn_E + (Ng - 1) * dsgn_gap_volt * np.cos(-init_dsgn_phi)
 
 # Advance particles using initial conditions
@@ -467,9 +470,7 @@ for i in range(1, Ng):
     else:
         this_beta_s = calc_beta(W_s[0])
 
-    phi[:, i] = (
-        phi[:, i - 1] - np.pi * dW[:, i - 1] / Ar_mass / this_beta_s / this_beta_s
-    )
+    phi[:, i] = phi[:, i - 1] - np.pi * dW[:, i - 1] / Ar_mass / pow(this_beta_s, 2)
 
     coeff = q * dsgn_gap_volt * transit_tfactor
     dW[:, i] = dW[:, i - 1] + coeff * (np.cos(phi[:, i]) - np.cos(init_dsgn_phi))
@@ -481,6 +482,12 @@ for i in range(1, Ng):
         init_dsgn_phi, W_s[i], dW[:, i], phi[:, i], dsgn_freq, dsgn_gap_volt
     )
     Hamiltonian_array[:, i] = this_H
+
+hrf = SC.c / dsgn_freq
+B = q * dsgn_DC_Efield / Ar_mass
+beta_i = calc_beta(init_dsgn_E)
+A = twopi / hrf / pow(beta_i, 3)
+hs = np.sqrt(A * B * np.sin(-init_dsgn_phi))
 
 # Use relative phase and energy differences to find the longitudinal positions
 # of the particles when the design particle hits the gap centers.
@@ -624,8 +631,35 @@ if identify_bucket:
     print(
         f"Bucket Particle Initial Relative Phase: {phi[max_particle_ind,0]/np.pi:.4f} [pi-units]"
     )
-    end
+    print(f"Relative Energy Width: {(max_dW - min_dW)/keV:.4f} [keV]")
 
+# H0 = B * (np.sin(init_dsgn_phi - init_dsgn_phi * np.cos(init_dsgn_phi)))
+# Hsep = Hamiltonian_array[max_particle_ind,:]
+# fig,ax = plt.subplots()
+# ax.set_title(fr"Hamiltonian of Separatrix at Gap for $\phi_s = -\pi/3$")
+# ax.set_xlabel("Gap Index")
+# ax.set_ylabel(r"$H_{sep} / |H_0| + 1$")
+# ax.scatter([i+1 for i in range(Ng)], Hsep / abs(H0) + 1, c='k')
+# ax.plot([i+1 for i in range(Ng)], Hsep / abs(H0) + 1, c='k', lw=2)
+# ax.axhline(y=0, c='k', lw=1)
+# plt.show()
+#
+#
+# fig,ax = plt.subplots()
+# from matplotlib.patches import Ellipse
+# ax.scatter(phi[max_particle_ind, :] - init_dsgn_phi, dW[max_particle_ind, :]/keV, c='k')
+# ax.plot(phi[max_particle_ind, :] - init_dsgn_phi, dW[max_particle_ind, :]/keV, c='k', lw=2)
+# w = np.max(abs(phi[max_particle_ind, :])) - init_dsgn_phi
+# h = np.max(abs(dW[max_particle_ind, :])) / keV
+# patch = Ellipse((0,0), width=w, height=2*h, angle=0)
+# patch.set_fill(False)
+# patch.set_edgecolor('b')
+# patch.set_linewidth(2)
+# ax.add_patch(patch)
+# ax.set_xlabel(fr"$\Delta \phi$, $\phi_s$ = {init_dsgn_phi/np.pi:.4f}$\pi$")
+# ax.set_ylabel(fr"$\Delta W$ [keV], $W_{{s,i}}$ = {init_dsgn_E/keV:.3f} [keV]")
+# plt.show()
+# garbage
 # ------------------------------------------------------------------------------
 #    Plotting/Visualization
 # The routine above identifies the bucket and plots the phase-space contours.
@@ -709,28 +743,54 @@ if make_pdfs:
 # run long.
 do_dynamic_plot = False
 if do_dynamic_plot:
-    fig, ax = plt.subplots()
-    ax.set_xlabel(fr"$\phi$ [rad], $\phi_s =$ {init_dsgn_phi/np.pi:.3f} $\pi$")
-    ax.set_ylabel(r"$\Delta {{\cal E}}$ [keV]")
+    # fig, ax = plt.subplots()
+    # ax.set_xlabel(fr"$\phi$ [rad], $\phi_s =$ {init_dsgn_phi/np.pi:.3f} $\pi$")
+    # ax.set_ylabel(r"$\Delta {{\cal E}}$ [keV]")
+    #
+    # plt.ion()
+    # plt.show()
+    #
+    # # Loop through the particles. For each particle loop through the gaps and plot
+    # # the particle's position in phase space.
+    # for i in range(0, Np - 3, 3):
+    #     for j in range(Ng):
+    #         ax.scatter(phi[i : i + 3, j], dW[i : i + 3, j] / kV, c="k", s=3)
+    #         plt.draw()
+    #         plt.pause(0.0001)
+    # fig.savefig(f"phase-space_{Np}Np{Ng}Ng", dpi=400)
+
+    fig, axes = plt.subplots(nrows=2, figsize=(10, 8))
+    axes[0].set_ylim(min_dW / keV * 1.01, max_dW / keV * 1.01)
+    axes[0].set_xlim(-np.pi * 1.01, 1.01 * np.pi)
+    axes[1].set_xlim(0, Ng + 1)
+    axes[1].set_ylim(-np.max(abs(Hsep / H0)) + 1, np.max(abs(Hsep / H0)) + 1)
+    axes[0].plot(
+        phi[max_particle_ind, :] - init_dsgn_phi,
+        dW[max_particle_ind, :] / keV,
+        c="k",
+        lw=1,
+    )
+    axes[1].plot([i + 1 for i in range(Ng)], Hsep / abs(H0) + 1, c="k", lw=1)
+    axes[0].axhline(y=0, lw=1, c="k")
+    axes[1].axhline(y=0, lw=1, c="k")
 
     plt.ion()
     plt.show()
-
-    # Loop through the particles. For each particle loop through the gaps and plot
-    # the particle's position in phase space.
-    for i in range(0, Np - 3, 3):
-        for j in range(Ng):
-            ax.scatter(phi[i : i + 3, j], dW[i : i + 3, j] / kV, c="k", s=3)
-            plt.draw()
-            plt.pause(0.0001)
-    fig.savefig(f"phase-space_{Np}Np{Ng}Ng", dpi=400)
-
-    input("Press [enter] to continue.")
+    for i in range(0, Ng):
+        axes[0].scatter(
+            phi[max_particle_ind, i] - init_dsgn_phi,
+            dW[max_particle_ind, i] / keV,
+            c="k",
+        )
+        axes[1].scatter([i + 1], Hsep[i] / abs(H0) + 1, c="k")
+        plt.draw()
+        plt.pause(0.001)
+        input("Press [enter] to continue.")
 
 # Create mask for selecting particles within bucket.
-min_cross = -0.6116 * np.pi
-max_cross = 0.1110 * np.pi
-bucket_init_phase = 0.2945
+min_cross = -0.6464 * np.pi
+max_cross = 0.3197 * np.pi
+bucket_init_phase = -0.7959 + init_dsgn_phi
 bucket_mask = (phi[:, 0] >= min_cross) & (phi[:, 0] <= max_cross)
 parts_survived = np.sum(bucket_mask)
 
