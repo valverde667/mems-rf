@@ -47,7 +47,7 @@ def calc_pires(energy, freq, mass=Ar_mass, q=1):
 
 
 def gap_voltage(t):
-    """"Sinusoidal function of the gap voltage"""
+    """ "Sinusoidal function of the gap voltage"""
 
     v = 7 * kV * np.cos(2 * np.pi * 13.6 * MHz * t)
 
@@ -55,7 +55,7 @@ def gap_voltage(t):
 
 
 def neg_gap_voltage(t):
-    """"Sinusoidal function of the gap voltage"""
+    """ "Sinusoidal function of the gap voltage"""
 
     v = 7 * kV * np.cos(2 * np.pi * 13.6 * MHz * t)
 
@@ -74,11 +74,11 @@ def create_gap(
     """Create an acceleration gap consisting of two wafers."""
 
     left_wafer = wp.Annulus(
-        rmin=rin, rmax=rout, length=length, zcent=cent - length / 2, voltage=left_volt
+        rmin=rin, rmax=rout, length=length, zcent=cent - width / 2, voltage=left_volt
     )
 
     right_wafer = wp.Annulus(
-        rmin=rin, rmax=rout, length=length, zcent=cent + length / 2, voltage=left_volt
+        rmin=rin, rmax=rout, length=length, zcent=cent + width / 2, voltage=right_volt
     )
     gap = left_wafer + right_wafer
     return gap
@@ -89,34 +89,42 @@ def create_gap(
 rout = 0.75 * mm
 rin = 0.50 * mm
 length = 0.035 * mm
-test_length_fact = 3
-gap_width = 2 * mm
-zcenter = abs(0.0 - gap_width / 2)
+gap_width = 2.0 * mm
+zcenter = abs(0.0 - gap_width / 2.0)
 f = 13.6 * MHz
 Ng = 12
-Vg = 7 * kV
+Vg = 7.0 * kV
 E_DC = Vg / gap_width
-dsgn_phase = -np.pi / 2
+dsgn_phase = -np.pi / 2.0
 gap_cent_dist = []
-Einit = 7 * keV
+Einit = 7.0 * keV
+rf_wave = beta(Einit) * SC.c / 2.0 / f
+fcup_dist = 50.0 * mm
+Egains = [Einit]
 
 for i in range(Ng):
     this_dist = calc_pires(Einit, freq=f)
     gap_cent_dist.append(this_dist)
-    Einit += 7 * keV * np.cos(dsgn_phase)  # Max acceleration
+    Egain = Vg * np.cos(dsgn_phase)  # Max acceleration
+    Egains.append(Egain)
+
+Egains = np.array(Egains)
 
 # Real gap positions are the cumulative sums
 gap_cent_dist = np.array(gap_cent_dist)
 gap_centers = gap_cent_dist.cumsum()
+# Shift gaps by drift space to allow for the field to start from minimum and climb.
+zs = beta(Einit) * SC.c / 2.0 / np.pi / f * (dsgn_phase + np.pi)
+gap_centers += zs
 
 # Shift all gap positions to be centered on the middle lattice period
 cell1 = gap_centers[0:4]
 cell2 = gap_centers[4:8]
 cell3 = gap_centers[8:]
-cell2_center = (cell2[1] + cell2[2]) / 2
+cell2_center = (cell2[1] + cell2[2]) / 2.0
 
-shift_gap_centers = gap_centers
-print(shift_gap_centers / mm)
+print("--Gap Centers")
+print(gap_centers / mm)
 
 # class Wafer(wp.Assembly):
 #     """A single RF gap comprised of two wafers time varying voltage"""
@@ -205,9 +213,9 @@ wp.w3d.ny = 60
 
 # use gap positioning to find limits on zmesh. Add some spacing at end points.
 # Use enough zpoint to resolve the wafers. In this case, resolve with 2 points.
-wp.w3d.zmmin = shift_gap_centers.min() - 1.5 * cm
-wp.w3d.zmmax = shift_gap_centers.max() + 1.5 * cm
-wp.w3d.nz = round(2 * (wp.w3d.zmmax - wp.w3d.zmmin) / length)
+wp.w3d.zmmin = -rf_wave / 2
+wp.w3d.zmmax = gap_centers[-1] + fcup_dist
+wp.w3d.nz = round(3 * (wp.w3d.zmmax - wp.w3d.zmmin) / length)
 
 # Add boundary conditions
 wp.w3d.bound0 = wp.dirichlet
@@ -222,7 +230,7 @@ wp.registersolver(solver)
 # Create accleration gaps with correct coordinates and settings. Collect in
 # list and then loop through and install on the mesh.
 conductors = []
-for i, cent in enumerate(shift_gap_centers):
+for i, cent in enumerate(gap_centers):
     if i % 2 == 0:
         this_cond = create_gap(cent, left_volt=0, right_volt=Vg)
     else:
@@ -247,6 +255,7 @@ phi0 = wp.getphi()[0, 0, :]
 # Save arrays
 np.save("potential_array", phi0)
 np.save("field_array", Ez0)
+np.save("gap_centers", gap_centers)
 np.save("zmesh", z)
 
 # load arrays
@@ -261,7 +270,7 @@ ax.plot(z / mm, phi0 / kV)
 ax.set_xlabel("z [mm]")
 ax.set_ylabel("Potential [kV]")
 ymin, ymax = ax.get_ylim()
-for cent in shift_gap_centers:
+for cent in gap_centers:
     left = cent - length / 2
     right = cent + length / 2
     ax.axvline(x=left / mm, c="gray", lw=0.7)
@@ -274,7 +283,7 @@ ax.plot(z / mm, Ez0 / E_DC)
 ax.set_xlabel("z [mm]")
 ax.set_ylabel("On-axis E-field E(x=0, y=0, z) [V/m]")
 ymin, ymax = ax.get_ylim()
-for cent in shift_gap_centers:
+for cent in gap_centers:
     left = cent - length / 2
     right = cent + length / 2
     ax.axvline(x=left / mm, c="gray", lw=0.7)
@@ -290,8 +299,6 @@ if warpplots:
     wp.setup()
     wp.pfzx(fill=1, filled=1)
     wp.fma()
-
-stop_here
 
 for i in range(steps):
     Ez = wp.getselfe(comp="z")[0, 0, :]
@@ -315,6 +322,7 @@ ax.axvline(x=zcenter / mm, c="gray", lw=1)
 ax.legend()
 plt.show()
 
+stop
 # Post process
 # Ez_array = np.load("Ez_gap_field_151.npy")
 # time_array = np.load(f"time_{steps}.npy")
