@@ -95,10 +95,10 @@ f = 13.6 * MHz
 Ng = 12
 Vg = 7.0 * kV
 E_DC = Vg / gap_width
-dsgn_phase = -np.pi / 2.0
+dsgn_phase = -np.pi
 gap_cent_dist = []
 Einit = 7.0 * keV
-rf_wave = beta(Einit) * SC.c / 2.0 / f
+rf_wave = beta(Einit) * SC.c / f
 fcup_dist = 50.0 * mm
 Egains = [Einit]
 
