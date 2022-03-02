@@ -26,6 +26,7 @@ MHz = 1e6
 cm = 1e-2
 mm = 1e-3
 ns = 1e-9  # nanoseconds
+uA = 1e-6
 twopi = 2 * np.pi
 
 
@@ -92,7 +93,7 @@ length = 0.035 * mm
 gap_width = 2.0 * mm
 zcenter = abs(0.0 - gap_width / 2.0)
 f = 13.6 * MHz
-Ng = 12
+Ng = 8
 Vg = 7.0 * kV
 E_DC = Vg / gap_width
 dsgn_phase = -np.pi
@@ -202,6 +203,22 @@ print(gap_centers / mm)
 #         return v
 
 
+# Create beam
+beam = wp.Species(type=wp.Argon, charge_state=+1, name="Argon Beam")
+beam.a0 = 0.25 * mm
+beam.b0 = 0.25 * mm
+beam.emit = 1.344e-6
+beam.ap0 = 0.0
+beam.bp0 = 0.0
+beam.ibeam = 10 * uA
+beam.beam = 0.0
+beam.ekin = 7.0 * keV
+wp.derivqty()
+
+beam.vthz = 0.5 * beam.vbeam * beam.emit / wp.sqrt(beam.a0 * beam.b0)
+
+# Set up the 3D simulation
+
 # Create mesh
 wp.w3d.xmmin = -2.5 * mm
 wp.w3d.xmmax = 2.5 * mm
@@ -215,12 +232,33 @@ wp.w3d.ny = 60
 # Use enough zpoint to resolve the wafers. In this case, resolve with 2 points.
 wp.w3d.zmmin = -rf_wave / 2
 wp.w3d.zmmax = gap_centers[-1] + fcup_dist
-wp.w3d.nz = round(3 * (wp.w3d.zmmax - wp.w3d.zmmin) / length)
+wp.w3d.nz = round(1 * (wp.w3d.zmmax - wp.w3d.zmmin) / length)
+wp.top.dt = (wp.w3d.zmmax - wp.w3d.zmmin) / wp.w3d.nz / beam.vbeam
 
 # Add boundary conditions
 wp.w3d.bound0 = wp.dirichlet
 wp.w3d.boundnz = wp.dirichlet
 wp.w3d.boundxy = wp.periodic
+
+
+wp.top.pbound0 = wp.absorb
+wp.top.pboundnz = wp.absorb
+wp.top.pboundxy = wp.absorb
+
+
+beam.zimin = -rf_wave / 1.95
+beam.zimax = rf_wave / 2
+
+wp.top.npmax = 10000
+
+wp.w3d.distrbtn = "uniform"
+wp.w3d.distr_l = "uniform"
+
+
+wp.w3d.cigarld = True
+beam.straight = 0.5
+wp.fstype = 0
+
 
 wp.w3d.l4symtry = True
 solver = wp.MRBlock3D()
@@ -242,7 +280,9 @@ for cond in conductors:
     wp.installconductor(cond)
 
 # Perform initial field solve for mesh.
+wp.package("w3d")
 wp.generate()
+stop
 
 # Collect data from the mesh and initialize useful variables.
 z = wp.w3d.zmesh
