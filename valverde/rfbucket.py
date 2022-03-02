@@ -54,15 +54,15 @@ def plot_phase(phi, E):
 
 
 # Simulation Parameters for design particle
-design_phase = -np.pi / 2
-dsgn_initE = 7 * kV * 0.01
-Np = 40
+design_phase = -0
+dsgn_initE = 7 * kV
+Np = 4000
 
 # Simulation parameters for gaps and geometries
 design_gap_volt = 7 * kV
 design_freq = 13.6 * MHz
 design_omega = 2 * np.pi * design_freq
-Ng = 150
+Ng = 12
 
 # ------------------------------------------------------------------------------
 #     Initial Setup
@@ -159,6 +159,52 @@ for i in range(1, Ng):
     parts_E[:, i + 1] = parts_E[:, i] + parts_Egain
     parts_time[:, i + 1] = parts_time[:, i] + parts_dt
 
+
+# ------------------------------------------------------------------------------
+#     Simulation with Warp Found Fields
+# Here the electric field Ez is calculated over the entire simulation mesh for 12
+# gaps (≈91 keV at end). The particles are initialized to start at the minimum
+# z-point and the advanced backward in time. All particles are then advanced
+# along to each gridpoint. The electric field is modulated with a cosine function
+# to simulate the time variation, i.e. E(z,t) = E(z) cos(wt). The particles are
+# advanced a dz each time and gain an energy E(z,t)dz
+# ------------------------------------------------------------------------------
+# Load arrays
+phi0 = np.load("potential_array.npy")
+Ez0 = np.load("field_array.npy")
+z = np.load("zmesh.npy")
+gap_centers = np.load("gap_centers.npy")
+dz = z[1] - z[0]
+
+# Define the cosine energy modulation
+rfvolt = lambda t: np.cos(design_omega * t)
+
+# initialze arrays to hold particle information
+pos = np.zeros(shape=(Np, len(z)))
+energy = np.zeros(shape=(Np, len(z)))
+time = np.zeros(shape=(Np, len(z)))
+energy[:, 0] = dsgn_initE
+
+# Calculate time to reverse particles all to minimum z coordinate which is
+# the lambda_rf / 2
+vstart = beta(dsgn_initE) * SC.c
+tstart = (particle_dist - z.min()) / vstart
+time[:, 0] = tstart
+Egain_maxs = np.zeros(len(z))
+
+# Advance particles through the zmesh and add energy gains along the way
+# pdb.set_trace()
+for i in range(1, len(z)):
+    mask = energy[:, i - 1] > 0
+    vi = beta(energy[mask, i - 1]) * SC.c
+    dt = dz / vi
+
+    time[mask, i] = time[mask, i - 1] + dt
+    pos[mask, i] = pos[mask, i - 1] + dz
+
+    Egain = Ez0[i - 1] * rfvolt(time[mask, i]) * dz
+    Egain_maxs[i - 1] = Egain.max()
+    energy[mask, i] = energy[mask, i - 1] + Egain
 
 # ------------------------------------------------------------------------------
 #     Analysis/Plotting Section
