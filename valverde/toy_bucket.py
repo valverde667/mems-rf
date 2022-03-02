@@ -433,14 +433,22 @@ transit_tfactor = calc_transit_factor(
 final_dsgn_E = init_dsgn_E + (Ng - 1) * dsgn_gap_volt * np.cos(-init_dsgn_phi)
 
 # Advance particles using initial conditions
-phi = np.zeros(shape=(Np, Ng))
-dW = np.zeros(shape=(Np, Ng))
-W_s = np.zeros(Ng)
 Hamiltonian_array = np.zeros(shape=(Np, Ng))
 beta_s = np.zeros(Ng)
 # init_phi = np.linspace(init_dsgn_phi - phi_dev, init_dsgn_phi + phi_dev, Np)
 init_phi = np.linspace(-np.pi, np.pi, Np)
 init_dW = np.linspace(-W_dev, W_dev, Np)
+loadin_data = False
+if loadin_data:
+    init_dW = np.load("delta_E.npy")
+    init_phi = np.load("delta_phi.npy")
+    init_dsgn_E = np.load("design_E.npy")[-1]
+    Np = len(init_dW)
+
+Hamiltonian_array = np.zeros(shape=(Np, Ng))
+phi = np.zeros(shape=(Np, Ng))
+dW = np.zeros(shape=(Np, Ng))
+W_s = np.zeros(Ng)
 
 phi[:, 0] = init_phi
 dW[:, 0] = init_dW

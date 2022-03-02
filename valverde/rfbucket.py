@@ -91,7 +91,7 @@ coeff = np.sqrt(2 * dsgn_initE / Ar_mass)
 
 tDC = 1.0 / design_freq
 that = 0.5 / design_freq
-ts = -design_phase / 2 / np.pi / design_freq
+ts = (np.pi - design_phase) / 2 / np.pi / design_freq
 
 DC_length = coeff * SC.c * tDC
 zhat = coeff * SC.c * that
@@ -180,6 +180,24 @@ for i in range(Ng + 1):
     delta_phase[:, i] = dphi
 dsgn_phase = dsgn_time * design_omega
 
+
+# Set bounds on plotting using output data from toybucket program
+min_cross = -1.4899 * np.pi
+max_cross = 0.4899 * np.pi
+bucket_init_phase = 0.4899
+bucket_mask = (delta_phase[:, 1] >= min_cross) & (delta_phase[:, 1] <= max_cross)
+separatrix_ind = np.argmax(abs(particle_dist[bucket_mask]))
+parts_survived = np.sum(bucket_mask)
+max_dW = delta_E[separatrix_ind, :].max()
+min_dW = delta_E[separatrix_ind, :].min()
+
+fig, ax = plt.subplots()
+ax.set_xlim(-np.pi, np.pi)
+ax.set_ylim(min_dW / keV, max_dW / keV)
+for i in range(Np):
+    plt.plot(delta_phase[i, :], delta_E[i, :] / keV, c="k", lw=1)
+
+garbage
 # Create and save plots to pdf
 today = datetime.datetime.today()
 date_string = today.strftime("%m-%d-%Y_%H-%M-%S_")
