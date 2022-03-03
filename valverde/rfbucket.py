@@ -54,12 +54,12 @@ def plot_phase(phi, E):
 
 
 # Simulation Parameters for design particle
-design_phase = -0
+design_phase = -np.pi / 3
 dsgn_initE = 7 * kV
-Np = 4000
+Np = 1000
 
 # Simulation parameters for gaps and geometries
-design_gap_volt = 7 * kV
+design_gap_volt = 5 * kV
 design_freq = 13.6 * MHz
 design_omega = 2 * np.pi * design_freq
 Ng = 12
@@ -185,6 +185,8 @@ energy = np.zeros(shape=(Np, len(z)))
 time = np.zeros(shape=(Np, len(z)))
 energy[:, 0] = dsgn_initE
 
+predicted_Efin = Ng * design_gap_volt * np.cos(design_phase) + dsgn_initE
+
 # Calculate time to reverse particles all to minimum z coordinate which is
 # the lambda_rf / 2
 vstart = beta(dsgn_initE) * SC.c
@@ -193,7 +195,6 @@ time[:, 0] = tstart
 Egain_maxs = np.zeros(len(z))
 
 # Advance particles through the zmesh and add energy gains along the way
-# pdb.set_trace()
 for i in range(1, len(z)):
     mask = energy[:, i - 1] > 0
     vi = beta(energy[mask, i - 1]) * SC.c
@@ -206,6 +207,41 @@ for i in range(1, len(z)):
     Egain_maxs[i - 1] = Egain.max()
     energy[mask, i] = energy[mask, i - 1] + Egain
 
+# Histogram Final energies
+# Create histogram of energy spread.
+fig, ax = plt.subplots(figsize=(10, 8))
+# Create histogram for all particles
+counts, edges = np.histogram(energy[:, -1] / keV, bins=50)
+total = np.sum(counts)
+
+left_edges = edges[:-1]
+width = 0.85 * (left_edges[1] - left_edges[0])
+ax.bar(
+    left_edges,
+    counts / total,
+    align="edge",
+    width=width,
+    alpha=0.5,
+    edgecolor="black",
+    linewidth=1,
+    label=fr"Full DC Distribution",
+)
+ax.bar(
+    left_edges[-1],
+    counts[-1] / total,
+    align="edge",
+    width=width,
+    alpha=0.5,
+    edgecolor="black",
+    facecolor="red",
+    linewidth=1,
+    label=f"Bin {left_edges[-1]:.2f} keV, {counts[-1]/total*100:.1f}%",
+)
+ax.legend()
+ax.set_xlabel(f"Final Energy [keV], Pred. Design Energy {predicted_Efin/keV:.2f} [keV]")
+plt.show()
+
+stop
 # ------------------------------------------------------------------------------
 #     Analysis/Plotting Section
 # Make plots and analyze phase space distribution of particles after simulation.
