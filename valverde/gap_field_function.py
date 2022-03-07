@@ -20,8 +20,8 @@ amu = SC.physical_constants["atomic mass constant energy equivalent in MeV"][0] 
 Ar_mass = 39.948 * amu
 He_mass = 4 * amu
 p_mass = amu
-kV = 1000
-keV = 1000
+kV = 1000.0
+keV = 1000.0
 MHz = 1e6
 cm = 1e-2
 mm = 1e-3
@@ -93,23 +93,23 @@ length = 0.035 * mm
 gap_width = 2.0 * mm
 zcenter = abs(0.0 - gap_width / 2.0)
 f = 13.6 * MHz
-Ng = 8
+Ng = 2
 Vg = 7.0 * kV
 E_DC = Vg / gap_width
-dsgn_phase = -np.pi
+dsgn_phase = -0.0 * np.pi
 gap_cent_dist = []
 Einit = 7.0 * keV
 rf_wave = beta(Einit) * SC.c / f
 fcup_dist = 50.0 * mm
-Egains = [Einit]
+Energy = [Einit]
 
 for i in range(Ng):
-    this_dist = calc_pires(Einit, freq=f)
+    this_dist = calc_pires(Energy[i], freq=f)
     gap_cent_dist.append(this_dist)
     Egain = Vg * np.cos(dsgn_phase)  # Max acceleration
-    Egains.append(Egain)
+    Energy.append(Egain + Energy[i])
 
-Egains = np.array(Egains)
+Energy = np.array(Energy)
 
 # Real gap positions are the cumulative sums
 gap_cent_dist = np.array(gap_cent_dist)
@@ -117,12 +117,6 @@ gap_centers = gap_cent_dist.cumsum()
 # Shift gaps by drift space to allow for the field to start from minimum and climb.
 zs = beta(Einit) * SC.c / 2.0 / np.pi / f * (dsgn_phase + np.pi)
 gap_centers += zs
-
-# Shift all gap positions to be centered on the middle lattice period
-cell1 = gap_centers[0:4]
-cell2 = gap_centers[4:8]
-cell3 = gap_centers[8:]
-cell2_center = (cell2[1] + cell2[2]) / 2.0
 
 print("--Gap Centers")
 print(gap_centers / mm)
