@@ -159,25 +159,6 @@ wp.w3d.boundnz = wp.dirichlet
 wp.w3d.boundxy = wp.periodic
 
 
-wp.top.pbound0 = wp.absorb
-wp.top.pboundnz = wp.absorb
-wp.top.pboundxy = wp.absorb
-
-
-beam.zimin = -rf_wave / 1.95
-beam.zimax = rf_wave / 2
-
-wp.top.npmax = 10000
-
-wp.w3d.distrbtn = "uniform"
-wp.w3d.distr_l = "uniform"
-
-
-wp.w3d.cigarld = True
-beam.straight = 0.5
-wp.fstype = 0
-
-
 wp.w3d.l4symtry = True
 solver = wp.MRBlock3D()
 wp.registersolver(solver)
@@ -200,7 +181,7 @@ for cond in conductors:
 # Perform initial field solve for mesh.
 wp.package("w3d")
 wp.generate()
-stop
+
 
 # Collect data from the mesh and initialize useful variables.
 z = wp.w3d.zmesh
@@ -211,8 +192,8 @@ Ez0 = wp.getselfe(comp="z")[0, 0, :]
 phi0 = wp.getphi()[0, 0, :]
 
 # Save arrays
-np.save("potential_array", phi0)
-np.save("field_array", Ez0)
+np.save("potential_arrays", phi0)
+np.save("field_arrays", Ez0)
 np.save("gap_centers", gap_centers)
 np.save("zmesh", z)
 
@@ -257,7 +238,7 @@ if warpplots:
     wp.setup()
     wp.pfzx(fill=1, filled=1)
     wp.fma()
-
+stop
 for i in range(steps):
     Ez = wp.getselfe(comp="z")[0, 0, :]
     Ez_array[i, :] = Ez
