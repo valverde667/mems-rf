@@ -71,7 +71,7 @@ gap_width = 2 * mm
 design_gap_volt = 5 * kV
 design_freq = 13.6 * MHz
 design_omega = 2 * np.pi * design_freq
-Ng = 1
+Ng = 2
 Fcup_dist = 30 * mm
 
 # ------------------------------------------------------------------------------
@@ -136,6 +136,16 @@ dt = (init_gap - dsgn_pos[0]) / dsgn_v
 Egain = design_gap_volt * np.cos(design_omega * dt)
 dsgn_E[1] = dsgn_E[0] + Egain
 
+# Calculate additional gap centers if applicable
+if Ng > 1:
+    gap_dist = [init_gap]
+    for i in range(1, Ng):
+        dsgn_Egain = design_gap_volt * np.cos(-design_phase)
+        E = dsgn_initE + i * dsgn_Egain
+        this_cent = beta(E) * SC.c / 2 / design_freq
+        gap_dist.append(this_cent)
+
+    gap_centers = np.array(gap_dist).cumsum()
 
 # ------------------------------------------------------------------------------
 #    Mesh setup
@@ -146,16 +156,35 @@ dsgn_E[1] = dsgn_E[0] + Egain
 z = np.linspace(0.0, init_gap + Fcup_dist, 1000)
 dz = z[1] - z[0]
 Ez0 = z.copy()
+if Ng > 1:
+    for i, cent in enumerate(gap_centers):
+        if i % 2 == 0:
+            field_loc = np.where(
+                (z >= cent - gap_width / 2) & (z <= cent + gap_width / 2)
+            )
+            Ez0[field_loc] = design_gap_volt / gap_width
+        else:
+            field_loc = np.where(
+                (z >= cent - gap_width / 2) & (z <= cent + gap_width / 2)
+            )
+            Ez0[field_loc] = -design_gap_volt / gap_width
 
-field_loc = np.where((z >= init_gap - gap_width / 2) & (z <= init_gap + gap_width / 2))
-Ez0[field_loc] = design_gap_volt / gap_width
+else:
+    field_loc = np.where(
+        (z >= init_gap - gap_width / 2) & (z <= init_gap + gap_width / 2)
+    )
+    Ez0[field_loc] = design_gap_volt / gap_width
 
 # Plot field
 fig, ax = plt.subplots()
 ax.set_xlabel("z [mm]")
 ax.set_ylabel(r"On-axis E-field $E(r=0, z)$ [kV/mm]")
 ax.plot(z / mm, Ez0 / kV * mm)
-ax.axvline(init_gap / mm, c="grey", lw=1, ls="--")
+if Ng > 1:
+    for cent in gap_centers:
+        ax.axvline(cent / mm, c="grey", lw=1, ls="--")
+else:
+    ax.axvline(init_gap / mm, c="grey", lw=1, ls="--")
 
 W_s = np.zeros(len(z))
 W = np.zeros(shape=(Np, len(z)))
