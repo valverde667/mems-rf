@@ -25,6 +25,7 @@ keV = 1000.0
 MHz = 1e6
 cm = 1e-2
 mm = 1e-3
+um = 1e-6
 ns = 1e-9  # nanoseconds
 uA = 1e-6
 twopi = 2 * np.pi
@@ -68,28 +69,125 @@ def create_gap(
     left_volt,
     right_volt,
     width=2 * mm,
-    length=0.035 * mm,
+    length=0.7 * mm,
     rin=0.55 * mm,
     rout=0.75 * mm,
 ):
-    """Create an acceleration gap consisting of two wafers."""
+    """Create an acceleration gap consisting of two wafers.
 
+    The wafer consists of a thin annulus with four rods attaching to the conducting
+    cell wall. The cell is 5mm where the edge is a conducting square. The annulus
+    is approximately 0.2mm in thickness with an inner radius of 0.55mm and outer
+    radius of 0.75mm. The top, bottom, and two sides of the annulus are connected
+    to the outer conducting box by 4 prongs that are of approximately equal
+    thickness to the ring.
+
+    Here, the annuli are created easy enough. The box and prongs are created
+    individually for each left/right wafer and then added to give the overall
+    conductor.
+
+    Note, this assumes l4 symmetry is turned on. Thus, only one set of prongs needs
+    to be created for top/bottom left/right symmetry."""
+
+    # Left wafer first.
     left_wafer = wp.Annulus(
-        rmin=rin, rmax=rout, length=length, zcent=cent - width / 2, voltage=left_volt
+        rmin=rin,
+        rmax=rout,
+        length=length,
+        zcent=cent - width / 2 - length / 2,
+        voltage=left_volt,
     )
+
+    # Create box surrounding wafer. The extent is slightly larger than 5mm unit
+    # cell. The simulation cell will chop this to be correct so long as the
+    # inner box separation is correct (approximately 0.2mm thickness)
+    l_box_out = wp.Box(
+        xsize=5.01 * mm,
+        ysize=5.01 * mm,
+        zsize=length,
+        voltage=left_volt,
+        zcent=cent - width / 2 - length / 2,
+    )
+    l_box_in = wp.Box(
+        xsize=4.90 * mm,
+        ysize=4.90 * mm,
+        zsize=length,
+        voltage=left_volt,
+        zcent=cent - width / 2 - length / 2,
+    )
+    l_box = l_box_out - l_box_in
+
+    # Create prongs. This is done using four box conductors and shifting
+    # respective x/y centers to create the prong.
+    l_top_prong = wp.Box(
+        xsize=0.1 * mm,
+        ysize=(2.5 - 0.65) * mm,
+        zsize=length,
+        voltage=left_volt,
+        zcent=cent - width / 2 - length / 2,
+        ycent=(2.5 + 0.65) * mm / 2,
+    )
+    l_side_prong = wp.Box(
+        xsize=(2.5 - 0.65) * mm,
+        ysize=0.1 * mm,
+        zsize=length,
+        voltage=left_volt,
+        zcent=cent - width / 2 - length / 2,
+        xcent=(2.5 + 0.65) * mm / 2,
+    )
+
+    # Add together
+    left = left_wafer + l_box + l_top_prong + l_side_prong
 
     right_wafer = wp.Annulus(
-        rmin=rin, rmax=rout, length=length, zcent=cent + width / 2, voltage=right_volt
+        rmin=rin,
+        rmax=rout,
+        length=length,
+        zcent=cent + width / 2 + length / 2,
+        voltage=right_volt,
     )
-    gap = left_wafer + right_wafer
+
+    r_box_out = wp.Box(
+        xsize=5.01 * mm,
+        ysize=5.01 * mm,
+        zsize=length,
+        voltage=right_volt,
+        zcent=cent + width / 2 + length / 2,
+    )
+    r_box_in = wp.Box(
+        xsize=4.90 * mm,
+        ysize=4.90 * mm,
+        zsize=length,
+        voltage=right_volt,
+        zcent=cent + width / 2 + length / 2,
+    )
+    r_box = r_box_out - r_box_in
+
+    r_top_prong = wp.Box(
+        xsize=0.1 * mm,
+        ysize=(2.5 - 0.65) * mm,
+        zsize=length,
+        voltage=right_volt,
+        zcent=cent + width / 2 + length / 2,
+        ycent=(2.5 + 0.65) * mm / 2,
+    )
+    r_side_prong = wp.Box(
+        xsize=(2.5 - 0.65) * mm,
+        ysize=0.1 * mm,
+        zsize=length,
+        voltage=right_volt,
+        zcent=cent + width / 2 + length / 2,
+        xcent=(2.5 + 0.65) * mm / 2,
+    )
+    right = right_wafer + r_box + r_top_prong + r_side_prong
+
+    gap = left + right
     return gap
 
 
 # Find gap positions. The gap positions will be calculated for 12 gaps giving
 # three lattice periods.
-rout = 0.75 * mm
-rin = 0.50 * mm
-length = 0.035 * mm
+length = 0.7 * mm
 gap_width = 2.0 * mm
 zcenter = abs(0.0 - gap_width / 2.0)
 f = 13.6 * MHz
@@ -100,7 +198,7 @@ dsgn_phase = -0.0 * np.pi
 gap_cent_dist = []
 Einit = 7.0 * keV
 rf_wave = beta(Einit) * SC.c / f
-fcup_dist = 50.0 * mm
+fcup_dist = 20.0 * mm
 Energy = [Einit]
 
 for i in range(Ng):
@@ -120,7 +218,6 @@ gap_centers += zs
 
 print("--Gap Centers")
 print(gap_centers / mm)
-
 # Create beam
 beam = wp.Species(type=wp.Argon, charge_state=+1, name="Argon Beam")
 beam.a0 = 0.25 * mm
@@ -140,18 +237,17 @@ beam.vthz = 0.5 * beam.vbeam * beam.emit / wp.sqrt(beam.a0 * beam.b0)
 # Create mesh
 wp.w3d.xmmin = -2.5 * mm
 wp.w3d.xmmax = 2.5 * mm
-wp.w3d.nx = 60
+wp.w3d.nx = 110
 
 wp.w3d.ymmin = -2.5 * mm
 wp.w3d.ymmax = 2.5 * mm
-wp.w3d.ny = 60
+wp.w3d.ny = 110
 
 # use gap positioning to find limits on zmesh. Add some spacing at end points.
 # Use enough zpoint to resolve the wafers. In this case, resolve with 2 points.
 wp.w3d.zmmin = -rf_wave / 2
 wp.w3d.zmmax = gap_centers[-1] + fcup_dist
-wp.w3d.nz = round(1 * (wp.w3d.zmmax - wp.w3d.zmmin) / length)
-wp.top.dt = (wp.w3d.zmmax - wp.w3d.zmmin) / wp.w3d.nz / beam.vbeam
+wp.w3d.nz = round(4 * (wp.w3d.zmmax - wp.w3d.zmmin) / length)
 
 # Add boundary conditions
 wp.w3d.bound0 = wp.dirichlet
@@ -169,9 +265,9 @@ wp.registersolver(solver)
 conductors = []
 for i, cent in enumerate(gap_centers):
     if i % 2 == 0:
-        this_cond = create_gap(cent, left_volt=0, right_volt=Vg)
+        this_cond = create_gap(cent, left_volt=0, right_volt=Vg,)
     else:
-        this_cond = create_gap(cent, left_volt=Vg, right_volt=0)
+        this_cond = create_gap(cent, left_volt=Vg, right_volt=0,)
 
     conductors.append(this_cond)
 
@@ -198,9 +294,18 @@ np.save("gap_centers", gap_centers)
 np.save("zmesh", z)
 
 # load arrays
-# Ez0 = np.load('field_array.npy')
-# phi0 = np.load('potential_array.npy')
-# z = np.load('zmesh.npy')
+# Ez0_arrays = np.load('field_arrays.npy')
+# phi0_arrays = np.load('potential_arrays.npy')
+# gaps_arrays = np.load('gap_centers.npy')
+# z_arrays = np.load('zmesh.npy')
+#
+# newEz = np.vstack((Ez0_arrays, Ez0))
+# newphi = np.vstack((phi0_arrays, phi0))
+# newgaps = np.vstack((gaps_arrays, gap_centers))
+#
+# np.save("potential_arrays", newEz)
+# np.save("field_arrays", newphi)
+# np.save("gap_centers", newgaps)
 
 
 # Plot potential and electric field (z-direction) on-axis.
@@ -209,12 +314,12 @@ ax.plot(z / mm, phi0 / kV)
 ax.set_xlabel("z [mm]")
 ax.set_ylabel("Potential [kV]")
 ymin, ymax = ax.get_ylim()
-for cent in gap_centers:
-    left = cent - length / 2
-    right = cent + length / 2
+for i, cent in enumerate(gap_centers):
+    left = cent - gap_width / 2 - length / 2
+    right = cent + gap_width / 2 + length / 2
     ax.axvline(x=left / mm, c="gray", lw=0.7)
     ax.axvline(x=right / mm, c="gray", lw=0.7)
-    ax.fill_between([left / mm, right / mm], [ymin, ymax], color="grey", alpha=0.5)
+    ax.axvspan(left / mm, right / mm, color="grey", alpha=0.5)
 ax.axhline(y=0, c="k", lw=1)
 
 fig, ax = plt.subplots()
@@ -222,12 +327,12 @@ ax.plot(z / mm, Ez0 / E_DC)
 ax.set_xlabel("z [mm]")
 ax.set_ylabel("On-axis E-field E(x=0, y=0, z) [V/m]")
 ymin, ymax = ax.get_ylim()
-for cent in gap_centers:
-    left = cent - length / 2
-    right = cent + length / 2
+for i, cent in enumerate(gap_centers):
+    left = cent - gap_width / 2 - length / 2
+    right = cent + gap_width / 2 + length / 2
     ax.axvline(x=left / mm, c="gray", lw=0.7)
     ax.axvline(x=right / mm, c="gray", lw=0.7)
-    ax.fill_between([left / mm, right / mm], [ymin, ymax], color="grey", alpha=0.5)
+    ax.axvspan(left / mm, right / mm, color="grey", alpha=0.5)
 ax.axhline(y=0, c="k", lw=1)
 plt.show()
 
@@ -237,6 +342,14 @@ warpplots = True
 if warpplots:
     wp.setup()
     wp.pfzx(fill=1, filled=1)
+    wp.fma()
+    plate_cent = gap_centers[0] + length / 2 + gap_width / 2
+    dz = z[1] - z[0]
+    plate_cent_ind = np.where((z >= plate_cent - dz) & (z <= plate_cent + dz))
+    zind = plate_cent_ind[0][0]
+    wp.pfxy(iz=zind, fill=1, filled=1)
+    wp.fma()
+    wp.pfxy(iz=int(wp.w3d.nz / 2), fill=1, filled=1)
     wp.fma()
 stop
 for i in range(steps):
