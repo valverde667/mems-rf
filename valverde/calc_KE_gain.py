@@ -6,9 +6,14 @@
 # calculated the energy gain for more complicated fields with severe fringes.
 
 import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+from matplotlib.animation import FuncAnimation
+from matplotlib.patches import Ellipse
 import scipy.constants as SC
 import scipy.integrate as integrate
+import os
 
 
 # different particle masses in eV
@@ -68,11 +73,13 @@ Np = 10000
 gap_width = 2 * mm
 
 # Simulation parameters for gaps and geometries
-design_gap_volt = 5 * kV
+design_gap_volt = 7 * kV
 design_freq = 13.6 * MHz
 design_omega = 2 * np.pi * design_freq
-Ng = 2
+E_DC = design_gap_volt / gap_width
+Ng = 4
 Fcup_dist = 30 * mm
+Emax = dsgn_initE + Ng * design_gap_volt * np.cos(design_phase)
 
 # ------------------------------------------------------------------------------
 #     Initial Setup
@@ -129,7 +136,6 @@ time = (parts_pos[:, 0]) / vparts
 parts_pos[:, 0] = 0
 parts_time[:, 0] = time
 
-
 # Advance particles to first gap
 dsgn_v = np.sqrt(2 * dsgn_E[0] / Ar_mass) * SC.c
 dt = (init_gap - dsgn_pos[0]) / dsgn_v
@@ -153,7 +159,7 @@ if Ng > 1:
 # particle arrives in phase. To do this, the gap is placed an extra rf phase
 # away from beta lambda / 2 since the field originally starts out positive.
 # ------------------------------------------------------------------------------
-z = np.linspace(0.0, init_gap + Fcup_dist, 1000)
+z = np.linspace(0.0, gap_centers[-1] + Fcup_dist, 1000)
 dz = z[1] - z[0]
 Ez0 = z.copy()
 if Ng > 1:
@@ -178,13 +184,11 @@ else:
 # Plot field
 fig, ax = plt.subplots()
 ax.set_xlabel("z [mm]")
-ax.set_ylabel(r"On-axis E-field $E(r=0, z)$ [kV/mm]")
-ax.plot(z / mm, Ez0 / kV * mm)
+ax.set_ylabel(r"On-axis E-field $E(r=0, z)/E_{DC}$ [kV/mm]")
+ax.plot(z / mm, Ez0 / E_DC)
 if Ng > 1:
     for cent in gap_centers:
         ax.axvline(cent / mm, c="grey", lw=1, ls="--")
-else:
-    ax.axvline(init_gap / mm, c="grey", lw=1, ls="--")
 
 W_s = np.zeros(len(z))
 W = np.zeros(shape=(Np, len(z)))
@@ -209,6 +213,93 @@ for i in range(1, len(z)):
     W[:, i] = W[:, i - 1] + Egain
 
 
-fig, ax = plt.subplots()
-ax.hist(W[:, -1] / keV, bins=50)
+fig, axes = plt.subplots(nrows=2, figsize=(10, 2), sharex=True)
+axes[0].hist(W[:, -1] / keV, bins=50)
+
+
+# ------------------------------------------------------------------------------
+#    Warp Fields
+# Here the Warp calculated fields and mesh are imported.
+# ------------------------------------------------------------------------------
+zwarp = np.load("zmesh.npy")
+warpEz0 = np.load("field_arrays.npy")
+warpphi = np.load("potential_arrays.npy")
+warpdz = zwarp[1] - zwarp[0]
+
+warp_Ws = np.zeros(len(zwarp))
+warp_W = np.zeros(shape=(Np, len(zwarp)))
+warp_Ws[0], warp_W[:, 0] = dsgn_initE, dsgn_initE
+ts = np.zeros(len(zwarp))
+
+# Initialize particle times by distributing particles uniformly around zero.
+# Then advance particles forward and backward in time so that all particles
+# advance form z=0
+init_time = (0 - particle_dist) / vparts
+t = np.zeros(shape=(Np, len(zwarp)))
+t[:, 0] = init_time
+for i in range(1, len(zwarp)):
+    # Do design particle
+    this_vs = beta(warp_Ws[i - 1]) * SC.c
+    this_dt = warpdz / this_vs
+    ts[i] = ts[i - 1] + this_dt
+
+    Egain = warpEz0[i - 1] * rf_volt(ts[i - 1], freq=design_freq) * warpdz
+
+    warp_Ws[i] = warp_Ws[i - 1] + Egain
+
+    # Do other particles
+    this_v = beta(warp_W[:, i - 1]) * SC.c
+    this_dt = warpdz / this_v
+    t[:, i] = t[:, i - 1] + this_dt
+
+    Egain = warpEz0[i - 1] * rf_volt(t[:, i - 1], freq=design_freq) * warpdz
+    warp_W[:, i] = warp_W[:, i - 1] + Egain
+
+axes[1].hist(warp_W[:, -1] / keV, bins=50)
+axes[1].set_xlabel("Final Kinetic Energy [keV]")
+
+
+fig = plt.figure()
+xlim = (1.15 * zwarp.min() / mm, 1.05 * zwarp.max() / mm)
+ylim = (-1.05 * abs(warpEz0).max() / kV * mm, abs(warpEz0).max() * mm / kV * 1.05)
+axis = plt.axes(xlim=xlim, ylim=ylim)
+axis.axhline(y=0, c="k", lw=1)
+axis2 = axis.twinx()
+axis2.axhline(y=7, c="k", ls="--", lw=1)
+axis2.set_ylim(0, Emax * 1.05 / keV)
+
+(line,) = axis.plot([], [], lw=2, c="b")
+(energy_line,) = axis2.plot([], [], lw=2, c="r")
+axis.set_xlabel("z [mm]")
+axis.set_ylabel(r"On-axis E-field $E(r=0, z)$ [kV/mm]")
+axis2.set_ylabel("Kinetic Energy [keV]")
+axis.yaxis.label.set_color("blue")
+axis2.yaxis.label.set_color("red")
+
+
+def init():
+    line.set_data([], [])
+    energy_line.set_data([], [])
+    return line, energy_line
+
+
+def animate(i):
+
+    this_Ez = warpEz0 * rf_volt(ts[i], freq=design_freq)
+    # this_Ez = warpEz0 * rf_volt(t[3867, i], freq=design_freq)
+    line.set_data(zwarp / mm, this_Ez / kV * mm)
+
+    energy_line.set_data(zwarp[:i] / mm, warp_Ws[:i] / keV)
+    # energy_line.set_data(zwarp[:i] / mm, warp_W[3867,:i]/keV)
+
+    return (line, energy_line)
+
+
+anim = FuncAnimation(
+    fig, animate, init_func=init, frames=len(zwarp), interval=5, blit=True
+)
 plt.show()
+# Writer = animation.writers['ffmpeg'] #for saving purposes
+# writer = Writer(fps=20, metadata=dict(artist='Me'), bitrate=1800) #Some video settings.
+
+# anim.save(os.getcwd() + "/animation.mp4", writer=writer)
