@@ -247,12 +247,13 @@ wp.w3d.ny = 110
 # Use enough zpoint to resolve the wafers. In this case, resolve with 2 points.
 wp.w3d.zmmin = -rf_wave / 2
 wp.w3d.zmmax = gap_centers[-1] + fcup_dist
-wp.w3d.nz = round(4 * (wp.w3d.zmmax - wp.w3d.zmmin) / length)
+# Set resolution to be 20um giving 35 points to resolve plates and 100 pts in gap
+wp.w3d.nz = round((wp.w3d.zmmax - wp.w3d.zmmin) / 20 / um)
 
 # Add boundary conditions
 wp.w3d.bound0 = wp.dirichlet
 wp.w3d.boundnz = wp.dirichlet
-wp.w3d.boundxy = wp.periodic
+wp.w3d.boundxy = wp.dirichlet
 
 
 wp.w3d.l4symtry = True
@@ -303,8 +304,8 @@ np.save("zmesh", z)
 # newphi = np.vstack((phi0_arrays, phi0))
 # newgaps = np.vstack((gaps_arrays, gap_centers))
 #
-# np.save("potential_arrays", newEz)
-# np.save("field_arrays", newphi)
+# np.save("field_arrays", newEz)
+# np.save("potential_arrays", newphi)
 # np.save("gap_centers", newgaps)
 
 
@@ -321,11 +322,12 @@ for i, cent in enumerate(gap_centers):
     ax.axvline(x=right / mm, c="gray", lw=0.7)
     ax.axvspan(left / mm, right / mm, color="grey", alpha=0.5)
 ax.axhline(y=0, c="k", lw=1)
+plt.savefig("potential", dpi=400)
 
 fig, ax = plt.subplots()
 ax.plot(z / mm, Ez0 / E_DC)
 ax.set_xlabel("z [mm]")
-ax.set_ylabel("On-axis E-field E(x=0, y=0, z) [V/m]")
+ax.set_ylabel(r"Normed On-axis E-field $E(x=0, y=0, z)/E_{DC}$ [V/m]")
 ymin, ymax = ax.get_ylim()
 for i, cent in enumerate(gap_centers):
     left = cent - gap_width / 2 - length / 2
@@ -334,6 +336,7 @@ for i, cent in enumerate(gap_centers):
     ax.axvline(x=right / mm, c="gray", lw=0.7)
     ax.axvspan(left / mm, right / mm, color="grey", alpha=0.5)
 ax.axhline(y=0, c="k", lw=1)
+plt.savefig("Efield", dpi=400)
 plt.show()
 
 
