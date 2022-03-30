@@ -253,7 +253,7 @@ wp.w3d.nz = round((wp.w3d.zmmax - wp.w3d.zmmin) / 20 / um)
 # Add boundary conditions
 wp.w3d.bound0 = wp.dirichlet
 wp.w3d.boundnz = wp.dirichlet
-wp.w3d.boundxy = wp.dirichlet
+wp.w3d.boundxy = wp.periodic
 
 
 wp.w3d.l4symtry = True
