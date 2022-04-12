@@ -54,7 +54,7 @@ def plot_phase(phi, E):
 
 
 # Simulation Parameters for design particle
-design_phase = -np.pi / 3
+design_phase = -0
 dsgn_initE = 7 * kV
 Np = 1000
 
@@ -62,7 +62,7 @@ Np = 1000
 design_gap_volt = 5 * kV
 design_freq = 13.6 * MHz
 design_omega = 2 * np.pi * design_freq
-Ng = 12
+Ng = 2
 
 # ------------------------------------------------------------------------------
 #     Initial Setup
@@ -129,6 +129,7 @@ parts_E[:, 1] = parts_E[:, 0] + parts_Egain
 
 # Advance through the rest of the gaps
 for i in range(1, Ng):
+    mask = parts_E[:, i] > 0
     newz = calc_pires(dsgn_E[i], design_freq)
 
     # Update design particle
@@ -136,28 +137,28 @@ for i in range(1, Ng):
     dsgn_dt = newz / dsgn_dv
 
     # Update other particles
-    direction = np.sign(parts_E[:, i])
-    parts_dv = np.sqrt(2 * abs(parts_E[:, i]) / Ar_mass) * SC.c * direction
+    direction = np.sign(parts_E[mask, i])
+    parts_dv = np.sqrt(2 * abs(parts_E[mask, i]) / Ar_mass) * SC.c * direction
     parts_dt = newz / parts_dv
 
     if i % 2 == 0:
         dsgn_Egain = design_gap_volt * np.cos(design_omega * (dsgn_dt + dsgn_time[i]))
         parts_Egain = design_gap_volt * np.cos(
-            design_omega * (parts_dt + parts_time[:, i])
+            design_omega * (parts_dt + parts_time[mask, i])
         )
     else:
         dsgn_Egain = -design_gap_volt * np.cos(design_omega * (dsgn_dt + dsgn_time[i]))
         parts_Egain = -design_gap_volt * np.cos(
-            design_omega * (parts_dt + parts_time[:, i])
+            design_omega * (parts_dt + parts_time[mask, i])
         )
 
     dsgn_pos[i + 1] = newz
     dsgn_E[i + 1] = dsgn_E[i] + dsgn_Egain
     dsgn_time[i + 1] = dsgn_time[i] + dsgn_dt
 
-    parts_pos[:, i + 1] = newz
-    parts_E[:, i + 1] = parts_E[:, i] + parts_Egain
-    parts_time[:, i + 1] = parts_time[:, i] + parts_dt
+    parts_pos[mask, i + 1] = newz
+    parts_E[mask, i + 1] = parts_E[mask, i] + parts_Egain
+    parts_time[mask, i + 1] = parts_time[mask, i] + parts_dt
 
 
 # ------------------------------------------------------------------------------
@@ -170,11 +171,35 @@ for i in range(1, Ng):
 # advanced a dz each time and gain an energy E(z,t)dz
 # ------------------------------------------------------------------------------
 # Load arrays
-phi0 = np.load("potential_array.npy")
-Ez0 = np.load("field_array.npy")
+max_energys = []
+gap_used = []
+# Test with square gap
+Ez0 = np.load("field_arrays.npy")[0]
 z = np.load("zmesh.npy")
-gap_centers = np.load("gap_centers.npy")
 dz = z[1] - z[0]
+gap_centers = np.load("gap_centers.npy")[0]
+
+Ez0 *= 0
+indices = []
+for cent in [gap_centers]:
+    mask = (z >= cent - 1 * mm) & (z <= cent + 1 * mm)
+    inds = np.where(mask)
+    indices.append(inds)
+    continue
+
+for i, index in enumerate(indices):
+    if i % 2 == 0:
+        Ez0[index] = 1 * keV / dz
+    else:
+        Ez0[index] = -1 * keV / dz
+
+fig, ax = plt.subplots()
+ax.plot(z / mm, Ez0 / kV / mm)
+for cent in [gap_centers]:
+    ax.axvline(x=cent / mm, c="grey", lw=1)
+ax.set_xlabel("z [mm]")
+ax.set_ylabel("On-axis Electric Field [kV/mm]")
+plt.show()
 
 # Define the cosine energy modulation
 rfvolt = lambda t: np.cos(design_omega * t)
@@ -196,7 +221,7 @@ Egain_maxs = np.zeros(len(z))
 
 # Advance particles through the zmesh and add energy gains along the way
 for i in range(1, len(z)):
-    mask = energy[:, i - 1] > 0
+    mask = energy[:, i - 1] > 0.0 * keV
     vi = beta(energy[mask, i - 1]) * SC.c
     dt = dz / vi
 
@@ -207,40 +232,127 @@ for i in range(1, len(z)):
     Egain_maxs[i - 1] = Egain.max()
     energy[mask, i] = energy[mask, i - 1] + Egain
 
-# Histogram Final energies
-# Create histogram of energy spread.
-fig, ax = plt.subplots(figsize=(10, 8))
-# Create histogram for all particles
-counts, edges = np.histogram(energy[:, -1] / keV, bins=50)
-total = np.sum(counts)
-
-left_edges = edges[:-1]
-width = 0.85 * (left_edges[1] - left_edges[0])
-ax.bar(
-    left_edges,
-    counts / total,
-    align="edge",
-    width=width,
-    alpha=0.5,
-    edgecolor="black",
-    linewidth=1,
-    label=fr"Full DC Distribution",
-)
-ax.bar(
-    left_edges[-1],
-    counts[-1] / total,
-    align="edge",
-    width=width,
-    alpha=0.5,
-    edgecolor="black",
-    facecolor="red",
-    linewidth=1,
-    label=f"Bin {left_edges[-1]:.2f} keV, {counts[-1]/total*100:.1f}%",
-)
-ax.legend()
-ax.set_xlabel(f"Final Energy [keV], Pred. Design Energy {predicted_Efin/keV:.2f} [keV]")
+fig, ax = plt.subplots()
+ax.hist(energy[:, -1] / keV, bins=50)
 plt.show()
+stop
+for i in range(18):
+    phi0 = np.load("potential_arrays.npy")[i]
+    Ez0 = np.load("field_arrays.npy")[i]
+    z = np.load("zmesh.npy")
+    gap_centers = np.load("gap_centers.npy")[i]
+    print(f"Gap: {gap_centers[-1]/mm} mm")
+    dz = z[1] - z[0]
 
+    # Define the cosine energy modulation
+    rfvolt = lambda t: np.cos(design_omega * t)
+
+    # initialze arrays to hold particle information
+    pos = np.zeros(shape=(Np, len(z)))
+    energy = np.zeros(shape=(Np, len(z)))
+    time = np.zeros(shape=(Np, len(z)))
+    energy[:, 0] = dsgn_initE
+
+    predicted_Efin = Ng * design_gap_volt * np.cos(design_phase) + dsgn_initE
+
+    # Calculate time to reverse particles all to minimum z coordinate which is
+    # the lambda_rf / 2
+    vstart = beta(dsgn_initE) * SC.c
+    tstart = (particle_dist - z.min()) / vstart
+    time[:, 0] = tstart
+    Egain_maxs = np.zeros(len(z))
+
+    # Advance particles through the zmesh and add energy gains along the way
+    for i in range(1, len(z)):
+        mask = energy[:, i - 1] > 0.0 * keV
+        vi = beta(energy[mask, i - 1]) * SC.c
+        dt = dz / vi
+
+        time[mask, i] = time[mask, i - 1] + dt
+        pos[mask, i] = pos[mask, i - 1] + dz
+
+        Egain = Ez0[i - 1] * rfvolt(time[mask, i]) * dz
+        Egain_maxs[i - 1] = Egain.max()
+        energy[mask, i] = energy[mask, i - 1] + Egain
+
+    print(f"Max Energy: {energy[:,-1].max()/keV:.4f} [keV]")
+    max_energys.append(energy[:, -1].max())
+    gap_used.append(gap_centers[-1])
+    # Histogram Final energies
+    # Create histogram of energy spread.
+    # fig, axes = plt.subplots(nrows=2, sharex=True, figsize=(10, 8))
+    # # Create histogram for all particles
+    # counts, edges = np.histogram(parts_E[:, -1] / keV, bins=50)
+    # total = np.sum(counts)
+    #
+    # left_edges = edges[:-1]
+    # width = 0.85 * (left_edges[1] - left_edges[0])
+    # axes[0].bar(
+    #     left_edges,
+    #     counts / total,
+    #     align="edge",
+    #     width=width,
+    #     alpha=0.5,
+    #     edgecolor="black",
+    #     linewidth=1,
+    #     label=fr"Full DC Distribution",
+    # )
+    # axes[0].bar(
+    #     left_edges[-1],
+    #     counts[-1] / total,
+    #     align="edge",
+    #     width=width,
+    #     alpha=0.5,
+    #     edgecolor="black",
+    #     facecolor="red",
+    #     linewidth=1,
+    #     label=f"Bin {left_edges[-1]:.2f} keV, {counts[-1]/total*100:.1f}%",
+    # )
+    # axes[0].legend()
+    # axes[0].set_ylabel('Thin Gap Kick Model')
+    # # Create histogram for all particles
+    # counts, edges = np.histogram(energy[:, -1] / keV, bins=50)
+    # total = np.sum(counts)
+    #
+    # left_edges = edges[:-1]
+    # width = 0.85 * (left_edges[1] - left_edges[0])
+    # axes[1].bar(
+    #     left_edges,
+    #     counts / total,
+    #     align="edge",
+    #     width=width,
+    #     alpha=0.5,
+    #     edgecolor="black",
+    #     linewidth=1,
+    #     label=fr"Full DC Distribution",
+    # )
+    # axes[1].bar(
+    #     left_edges[-1],
+    #     counts[-1] / total,
+    #     align="edge",
+    #     width=width,
+    #     alpha=0.5,
+    #     edgecolor="black",
+    #     facecolor="red",
+    #     linewidth=1,
+    #     label=f"Bin {left_edges[-1]:.2f} keV, {counts[-1]/total*100:.1f}%",
+    # )
+    # axes[1].legend()
+    # axes[1].set_ylabel("Using Warp Calculated Field")
+    # axes[1].set_xlabel(f"Final Energy [keV], Pred. Design Energy {predicted_Efin/keV:.2f} [keV]")
+    # plt.tight_layout()
+    # plt.show()
+fig, ax = plt.subplots()
+x, y = zip(*sorted(zip(gap_used, max_energys)))
+x = np.array(x)
+y = np.array(y)
+ax.scatter(x / mm, y / keV)
+ax.plot(x / mm, y / keV)
+ax.axvline(x=34.79127414, c="grey", lw=1, label=r"$\beta \lambda / 2$")
+ax.set_xlabel("Gap Placement [mm]")
+ax.set_ylabel("Max Energy Acheived [keV]")
+ax.legend()
+plt.show()
 stop
 # ------------------------------------------------------------------------------
 #     Analysis/Plotting Section
