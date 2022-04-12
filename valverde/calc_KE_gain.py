@@ -77,7 +77,7 @@ design_gap_volt = 7 * kV
 design_freq = 13.6 * MHz
 design_omega = 2 * np.pi * design_freq
 E_DC = design_gap_volt / gap_width
-Ng = 4
+Ng = 2
 Fcup_dist = 30 * mm
 Emax = dsgn_initE + Ng * design_gap_volt * np.cos(design_phase)
 
@@ -200,7 +200,7 @@ for i in range(1, len(z)):
     this_dt = dz / this_vs
     dsgn_time[0] += this_dt
 
-    Egain = Ez0[i - 1] * rf_volt(dsgn_time[0]) * dz
+    Egain = Ez0[i - 1] * rf_volt(dsgn_time[0], freq=design_freq) * dz
 
     W_s[i] = W_s[i - 1] + Egain
 
@@ -209,7 +209,7 @@ for i in range(1, len(z)):
     this_dt = dz / this_v
     parts_time[:, 0] += this_dt
 
-    Egain = Ez0[i - 1] * rf_volt(parts_time[:, 0]) * dz
+    Egain = Ez0[i - 1] * rf_volt(parts_time[:, 0], freq=design_freq) * dz
     W[:, i] = W[:, i - 1] + Egain
 
 
