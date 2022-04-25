@@ -30,7 +30,10 @@ ns = 1e-9  # nanoseconds
 uA = 1e-6
 twopi = 2 * np.pi
 
-
+# ------------------------------------------------------------------------------
+#     Functions
+# This section is dedicated to creating useful functions for the script.
+# ------------------------------------------------------------------------------
 def beta(E, mass=Ar_mass, q=1, nonrel=True):
     """Velocity of a particle with energy E."""
     if nonrel:
@@ -243,6 +246,13 @@ def create_gap(
     return gap
 
 
+# ------------------------------------------------------------------------------
+#     Script parameter settings
+# This section is dedicated to naming and setting the various parameters of the
+# the script. These settings are used throughout the script and thus different
+# settings can be tested by changing the values here. This section will also
+# perform quick calculations for the script setup up like the gap positions.
+# ------------------------------------------------------------------------------
 # Find gap positions. The gap positions will be calculated for 12 gaps giving
 # three lattice periods.
 length = 0.7 * mm
@@ -259,6 +269,7 @@ rf_wave = beta(Einit) * SC.c / f
 fcup_dist = 20.0 * mm
 Energy = [Einit]
 
+# Evaluate and store gap distances and design energy gains.
 for i in range(Ng):
     this_dist = calc_pires(Energy[i], freq=f)
     gap_cent_dist.append(this_dist)
@@ -276,7 +287,8 @@ gap_centers += zs
 
 print("--Gap Centers")
 print(gap_centers / mm)
-# Create beam
+
+# Create beam and initialize beam parameters
 beam = wp.Species(type=wp.Argon, charge_state=+1, name="Argon Beam")
 beam.a0 = 0.25 * mm
 beam.b0 = 0.25 * mm
@@ -290,6 +302,14 @@ wp.derivqty()
 
 beam.vthz = 0.5 * beam.vbeam * beam.emit / wp.sqrt(beam.a0 * beam.b0)
 
+# ------------------------------------------------------------------------------
+#     Simulation Paramter settings.
+# This section is dedicated to initializing the parameters necessary to run a
+# Warp simulation. This section also creates and loads the conductors.
+# ! As of right now the resolution on the x and y meshing is done on the fly. In
+#   z however the resoultion is done to give dz = 20um which gives about 100 points
+#   in the gap.
+# ------------------------------------------------------------------------------
 # Set up the 3D simulation
 
 # Create mesh
@@ -381,7 +401,15 @@ np.save("ymesh", y)
 # np.save("potential_arrays", newphi)
 # np.save("gap_centers", newgaps)
 
-
+# ------------------------------------------------------------------------------
+#     Post Analysis
+# This section is dedicated to some post analysis work. As of right now, plots
+# are generated for the electric fields in z and the potential field. The electric
+# field is normalized using the ideal geometry: a gap width of 2mm and a potential
+# bias of 7kV.
+# Plots using Warp's plotting tools are also used so that the conductors can be
+# visualized in the cgm files.
+# ------------------------------------------------------------------------------
 # Plot potential and electric field (z-direction) on-axis.
 fig, ax = plt.subplots()
 ax.plot(z / mm, phi0 / kV)
@@ -449,22 +477,3 @@ ax.axvline(x=-zcenter / mm, c="gray", lw=1)
 ax.axvline(x=zcenter / mm, c="gray", lw=1)
 ax.legend()
 plt.show()
-
-stop
-# Post process
-# Ez_array = np.load("Ez_gap_field_151.npy")
-# time_array = np.load(f"time_{steps}.npy")
-# z_array = np.load("zmesh.npy")
-
-
-# fig,ax = plt.subplots()
-# ax.axhline(y=1 , c='r', lw=1, label='Average DC Field')
-# ax.plot(z/mm, Ez_array[0, :]/E_DC, c='k', label=f'Time: {time_array[0]/ns:.2f} [ns]')
-# ax.plot(z/mm, Ez_array[20, :]/E_DC, c='b', label=f'Time: {time_array[20]/ns:.2f} [ns]')
-# ax.plot(z/mm, Ez_array[35, :]/E_DC, c='g', label=f'Time: {time_array[35]/ns:.2f} [ns]')
-# ax.set_xlabel('z [mm]')
-# ax.set_ylabel(fr"On-axis Electric field $E_z(r=0, z,t)/E_{{dc}}$ [kV/mm]")
-# ax.axvline(x=-zcenter/mm, c='g', lw=1)
-# ax.axvline(x=zcenter/mm, c='g', lw=1)
-# ax.legend()
-# plt.show()
