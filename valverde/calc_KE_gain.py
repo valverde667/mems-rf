@@ -265,7 +265,7 @@ ylim = (-1.05 * abs(warpEz0).max() / kV * mm, abs(warpEz0).max() * mm / kV * 1.0
 axis = plt.axes(xlim=xlim, ylim=ylim)
 axis.axhline(y=0, c="k", lw=1)
 axis2 = axis.twinx()
-axis2.axhline(y=7, c="k", ls="--", lw=1)
+axis2.axhline(y=7, c="r", ls="--", lw=1)
 axis2.set_ylim(0, Emax * 1.05 / keV)
 
 (line,) = axis.plot([], [], lw=2, c="b")
@@ -296,7 +296,7 @@ def animate(i):
 
 
 anim = FuncAnimation(
-    fig, animate, init_func=init, frames=len(zwarp), interval=5, blit=True
+    fig, animate, init_func=init, frames=len(zwarp), interval=2, blit=True
 )
 plt.show()
 # Writer = animation.writers['ffmpeg'] #for saving purposes
