@@ -30,7 +30,10 @@ mm = 1e-3
 ns = 1e-9  # nanoseconds
 twopi = 2 * np.pi
 
-
+# ------------------------------------------------------------------------------
+#     Functions
+# This section creates necessary functions for the script.
+# ------------------------------------------------------------------------------
 def beta(E, mass=Ar_mass, q=1, nonrel=True):
     """Velocity of a particle with energy E."""
     if nonrel:
@@ -63,8 +66,9 @@ def rf_volt(t, freq=13.6 * MHz):
 
 # ------------------------------------------------------------------------------
 #     Simulation Parameters
-# Here the various parameters for the gaps and devices are initialized. The
-# particle number and gaps to be used are also set.
+# This section is dedicated to naming and initializing design parameters that are
+# to be used in the script. These names are maintained throughout the script and
+# thus, if varied here are varied everywhere.
 # ------------------------------------------------------------------------------
 # Simulation Parameters for design particle
 design_phase = -0
@@ -158,10 +162,14 @@ if Ng > 1:
 # Here the mesh is setup to place a flat top field centered so that the design
 # particle arrives in phase. To do this, the gap is placed an extra rf phase
 # away from beta lambda / 2 since the field originally starts out positive.
+# ! Since the field is max at t=0 the additional rf-phase distance is not
+#   optimal for compactness. This can be easily changed although, for the sake
+#   of analysis I recommend this phasing be maintained.
 # ------------------------------------------------------------------------------
 z = np.linspace(0.0, gap_centers[-1] + Fcup_dist, 1000)
 dz = z[1] - z[0]
 Ez0 = z.copy()
+# Instantiate the flat-top field values in the gap regions.
 if Ng > 1:
     for i, cent in enumerate(gap_centers):
         if i % 2 == 0:
@@ -190,6 +198,7 @@ if Ng > 1:
     for cent in gap_centers:
         ax.axvline(cent / mm, c="grey", lw=1, ls="--")
 
+# Initialize the energy arrays for the design and non-design particles.
 W_s = np.zeros(len(z))
 W = np.zeros(shape=(Np, len(z)))
 W_s[0], W[:, 0] = dsgn_initE, dsgn_initE
@@ -212,14 +221,18 @@ for i in range(1, len(z)):
     Egain = Ez0[i - 1] * rf_volt(parts_time[:, 0], freq=design_freq) * dz
     W[:, i] = W[:, i - 1] + Egain
 
-
+# Bin the final energies on its own plot for later comparison using Warp fields.
 fig, axes = plt.subplots(nrows=2, figsize=(10, 2), sharex=True)
 axes[0].hist(W[:, -1] / keV, bins=50)
 
 
 # ------------------------------------------------------------------------------
 #    Warp Fields
-# Here the Warp calculated fields and mesh are imported.
+# Here the Warp calculated fields and mesh are imported. The particles are then
+# advanced from point to point where the energy and time are calculated for each
+# advancement.
+# ! This type of integrator is very simple. A more thorough integrator would need
+#   to integrate over an oscilatting time-domain and the spatial domain.
 # ------------------------------------------------------------------------------
 zwarp = np.load("zmesh.npy")
 warpEz0 = np.load("field_arrays.npy")
@@ -259,6 +272,15 @@ axes[1].hist(warp_W[:, -1] / keV, bins=50)
 axes[1].set_xlabel("Final Kinetic Energy [keV]")
 
 
+# ------------------------------------------------------------------------------
+#    Post Analysis
+# This section sets up and creates an animation that will show how the kinetic
+# energy of a selected particle changes while traversing the oscillating Electric
+# field.
+# * At the moment, I cannot save the animations in script since there is a package
+#   missing that is pretty difficult to figure out. I instead save the animations
+#   using Quicktime and a screen recording. Very annoying.
+# ------------------------------------------------------------------------------
 fig = plt.figure()
 xlim = (1.15 * zwarp.min() / mm, 1.05 * zwarp.max() / mm)
 ylim = (-1.05 * abs(warpEz0).max() / kV * mm, abs(warpEz0).max() * mm / kV * 1.05)
