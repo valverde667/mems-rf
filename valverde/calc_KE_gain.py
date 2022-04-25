@@ -80,7 +80,7 @@ gap_width = 2 * mm
 design_gap_volt = 7 * kV
 design_freq = 13.6 * MHz
 design_omega = 2 * np.pi * design_freq
-E_DC = design_gap_volt / gap_width
+E_DC = 7 * kV / gap_width
 Ng = 2
 Fcup_dist = 30 * mm
 Emax = dsgn_initE + Ng * design_gap_volt * np.cos(design_phase)
@@ -110,9 +110,9 @@ dsgn_time[0] = 0.0
 # first gap needs to be placed a RF cycle away
 coeff = np.sqrt(2 * dsgn_initE / Ar_mass)
 
-tDC = 1.0 / design_freq
-that = 0.5 / design_freq
-ts = (np.pi - design_phase) / 2 / np.pi / design_freq
+tDC = 1.0 / 14.6 / MHz
+that = 0.5 / 14.6 / MHz
+ts = (np.pi - design_phase) / 2 / np.pi / 14.6 / MHz
 
 DC_length = coeff * SC.c * tDC
 zhat = coeff * SC.c * that
