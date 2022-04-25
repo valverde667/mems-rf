@@ -72,6 +72,8 @@ def create_gap(
     length=0.7 * mm,
     rin=0.55 * mm,
     rout=0.75 * mm,
+    xcent=0.0 * mm,
+    ycent=0.0 * mm,
 ):
     """Create an acceleration gap consisting of two wafers.
 
@@ -96,6 +98,8 @@ def create_gap(
         length=length,
         zcent=cent - width / 2 - length / 2,
         voltage=left_volt,
+        xcent=xcent,
+        ycent=ycent,
     )
 
     # Create box surrounding wafer. The extent is slightly larger than 5mm unit
@@ -107,6 +111,8 @@ def create_gap(
         zsize=length,
         voltage=left_volt,
         zcent=cent - width / 2 - length / 2,
+        xcent=xcent,
+        ycent=ycent,
     )
     l_box_in = wp.Box(
         xsize=4.90 * mm,
@@ -114,6 +120,8 @@ def create_gap(
         zsize=length,
         voltage=left_volt,
         zcent=cent - width / 2 - length / 2,
+        xcent=xcent,
+        ycent=ycent,
     )
     l_box = l_box_out - l_box_in
 
@@ -125,25 +133,49 @@ def create_gap(
         zsize=length,
         voltage=left_volt,
         zcent=cent - width / 2 - length / 2,
-        ycent=(2.5 + 0.65) * mm / 2,
+        xcent=xcent,
+        ycent=ycent + (2.5 + 0.65) * mm / 2,
     )
-    l_side_prong = wp.Box(
+    l_bot_prong = wp.Box(
+        xsize=0.1 * mm,
+        ysize=(2.5 - 0.65) * mm,
+        zsize=length,
+        voltage=left_volt,
+        zcent=cent - width / 2 - length / 2,
+        xcent=xcent,
+        ycent=ycent - (2.5 + 0.65) * mm / 2,
+    )
+    l_rside_prong = wp.Box(
         xsize=(2.5 - 0.65) * mm,
         ysize=0.1 * mm,
         zsize=length,
         voltage=left_volt,
         zcent=cent - width / 2 - length / 2,
-        xcent=(2.5 + 0.65) * mm / 2,
+        xcent=xcent + (2.5 + 0.65) * mm / 2,
+        ycent=ycent,
+    )
+    l_lside_prong = wp.Box(
+        xsize=(2.5 - 0.65) * mm,
+        ysize=0.1 * mm,
+        zsize=length,
+        voltage=left_volt,
+        zcent=cent - width / 2 - length / 2,
+        xcent=xcent - (2.5 + 0.65) * mm / 2,
+        ycent=ycent,
     )
 
     # Add together
-    left = left_wafer + l_box + l_top_prong + l_side_prong
+    left = (
+        left_wafer + l_box + l_top_prong + l_bot_prong + l_rside_prong + l_lside_prong
+    )
 
     right_wafer = wp.Annulus(
         rmin=rin,
         rmax=rout,
         length=length,
         zcent=cent + width / 2 + length / 2,
+        xcent=xcent,
+        ycent=ycent,
         voltage=right_volt,
     )
 
@@ -153,6 +185,8 @@ def create_gap(
         zsize=length,
         voltage=right_volt,
         zcent=cent + width / 2 + length / 2,
+        xcent=xcent,
+        ycent=ycent,
     )
     r_box_in = wp.Box(
         xsize=4.90 * mm,
@@ -160,6 +194,8 @@ def create_gap(
         zsize=length,
         voltage=right_volt,
         zcent=cent + width / 2 + length / 2,
+        xcent=xcent,
+        ycent=ycent,
     )
     r_box = r_box_out - r_box_in
 
@@ -169,17 +205,39 @@ def create_gap(
         zsize=length,
         voltage=right_volt,
         zcent=cent + width / 2 + length / 2,
-        ycent=(2.5 + 0.65) * mm / 2,
+        xcent=xcent,
+        ycent=ycent + (2.5 + 0.65) * mm / 2,
     )
-    r_side_prong = wp.Box(
+    r_bot_prong = wp.Box(
+        xsize=0.1 * mm,
+        ysize=(2.5 - 0.65) * mm,
+        zsize=length,
+        voltage=right_volt,
+        zcent=cent + width / 2 + length / 2,
+        xcent=xcent,
+        ycent=ycent - (2.5 + 0.65) * mm / 2,
+    )
+    r_rside_prong = wp.Box(
         xsize=(2.5 - 0.65) * mm,
         ysize=0.1 * mm,
         zsize=length,
         voltage=right_volt,
         zcent=cent + width / 2 + length / 2,
-        xcent=(2.5 + 0.65) * mm / 2,
+        xcent=xcent + (2.5 + 0.65) * mm / 2,
+        ycent=ycent,
     )
-    right = right_wafer + r_box + r_top_prong + r_side_prong
+    r_lside_prong = wp.Box(
+        xsize=(2.5 - 0.65) * mm,
+        ysize=0.1 * mm,
+        zsize=length,
+        voltage=right_volt,
+        zcent=cent + width / 2 + length / 2,
+        xcent=xcent - (2.5 + 0.65) * mm / 2,
+        ycent=ycent,
+    )
+    right = (
+        right_wafer + r_box + r_top_prong + r_bot_prong + r_rside_prong + r_lside_prong
+    )
 
     gap = left + right
     return gap
@@ -263,12 +321,23 @@ wp.registersolver(solver)
 
 # Create accleration gaps with correct coordinates and settings. Collect in
 # list and then loop through and install on the mesh.
+off_cents = None
 conductors = []
 for i, cent in enumerate(gap_centers):
     if i % 2 == 0:
         this_cond = create_gap(cent, left_volt=0, right_volt=Vg,)
+        # cycle through off center gaps
+        if off_cents != None:
+            for xc in off_cents:
+                off_cond = create_gap(cent, left_volt=0, right_volt=Vg, xcent=xc)
+                conductors.append(off_cond)
     else:
         this_cond = create_gap(cent, left_volt=Vg, right_volt=0,)
+        # cycle through off center gaps
+        if off_cents != None:
+            for xc in off_cents:
+                off_cond = create_gap(cent, left_volt=Vg, right_volt=0, xcent=xc)
+                conductors.append(off_cond)
 
     conductors.append(this_cond)
 
@@ -282,6 +351,8 @@ wp.generate()
 
 # Collect data from the mesh and initialize useful variables.
 z = wp.w3d.zmesh
+x = wp.w3d.xmesh
+y = wp.w3d.ymesh
 steps = 1
 time = np.zeros(steps)
 Ez_array = np.zeros((steps, len(z)))
@@ -293,6 +364,8 @@ np.save("potential_arrays", phi0)
 np.save("field_arrays", Ez0)
 np.save("gap_centers", gap_centers)
 np.save("zmesh", z)
+np.save("xmesh", x)
+np.save("ymesh", y)
 
 # load arrays
 # Ez0_arrays = np.load('field_arrays.npy')
