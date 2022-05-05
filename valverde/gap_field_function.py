@@ -131,7 +131,7 @@ def create_gap(
     # Create prongs. This is done using four box conductors and shifting
     # respective x/y centers to create the prong.
     l_top_prong = wp.Box(
-        xsize=0.1 * mm,
+        xsize=0.2 * mm,
         ysize=(2.5 - 0.65) * mm,
         zsize=length,
         voltage=left_volt,
@@ -140,7 +140,7 @@ def create_gap(
         ycent=ycent + (2.5 + 0.65) * mm / 2,
     )
     l_bot_prong = wp.Box(
-        xsize=0.1 * mm,
+        xsize=0.2 * mm,
         ysize=(2.5 - 0.65) * mm,
         zsize=length,
         voltage=left_volt,
@@ -150,7 +150,7 @@ def create_gap(
     )
     l_rside_prong = wp.Box(
         xsize=(2.5 - 0.65) * mm,
-        ysize=0.1 * mm,
+        ysize=0.2 * mm,
         zsize=length,
         voltage=left_volt,
         zcent=cent - width / 2 - length / 2,
@@ -159,7 +159,7 @@ def create_gap(
     )
     l_lside_prong = wp.Box(
         xsize=(2.5 - 0.65) * mm,
-        ysize=0.1 * mm,
+        ysize=0.2 * mm,
         zsize=length,
         voltage=left_volt,
         zcent=cent - width / 2 - length / 2,
@@ -203,7 +203,7 @@ def create_gap(
     r_box = r_box_out - r_box_in
 
     r_top_prong = wp.Box(
-        xsize=0.1 * mm,
+        xsize=0.2 * mm,
         ysize=(2.5 - 0.65) * mm,
         zsize=length,
         voltage=right_volt,
@@ -212,7 +212,7 @@ def create_gap(
         ycent=ycent + (2.5 + 0.65) * mm / 2,
     )
     r_bot_prong = wp.Box(
-        xsize=0.1 * mm,
+        xsize=0.2 * mm,
         ysize=(2.5 - 0.65) * mm,
         zsize=length,
         voltage=right_volt,
@@ -222,7 +222,7 @@ def create_gap(
     )
     r_rside_prong = wp.Box(
         xsize=(2.5 - 0.65) * mm,
-        ysize=0.1 * mm,
+        ysize=0.2 * mm,
         zsize=length,
         voltage=right_volt,
         zcent=cent + width / 2 + length / 2,
@@ -231,7 +231,7 @@ def create_gap(
     )
     r_lside_prong = wp.Box(
         xsize=(2.5 - 0.65) * mm,
-        ysize=0.1 * mm,
+        ysize=0.2 * mm,
         zsize=length,
         voltage=right_volt,
         zcent=cent + width / 2 + length / 2,
