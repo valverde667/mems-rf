@@ -25,6 +25,7 @@ lq = 1.278 * mm
 gap = 2 * mm
 
 # ------------------------------------------------------------------------------
+#    Equivalence Test
 # This section is a small part dedicated to verifying the equivlance of the
 # two matrix traces numerically. The matrices are created one being the
 # M1 = Defocus:Short Drift: Focus: Long Drift and the other
@@ -53,6 +54,7 @@ perturb = long_drift / focus
 print("Difference in Respective Traces: {}".format(abs(diff)))
 
 # ------------------------------------------------------------------------------
+#    Functions for script
 # This section will create the transfer matrix in x for a given voltage. This
 # setting will lead to calculating kappa values for the resulting matrix
 # elements. After computing the trace, the stability condition
@@ -324,7 +326,7 @@ def volt_root(
 
 
 # ------------------------------------------------------------------------------
-#                   Stability modeling wihout RF gap acceleration elements
+#    Stability modeling wihout RF gap acceleration elements
 # This section is devoted to analyzing the stability conditions. The breadkdown
 # voltage is calculated using the maximum E-field (magnitude). From here,
 # the voltage settings are created from some minimum value to breakdown and then
