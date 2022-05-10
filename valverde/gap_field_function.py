@@ -71,7 +71,8 @@ def create_gap(
     cent,
     left_volt,
     right_volt,
-    width=2 * mm,
+    width=2.0 * mm,
+    cell_width=3.0 * mm,
     length=0.7 * mm,
     rin=0.55 * mm,
     rout=0.75 * mm,
@@ -94,13 +95,16 @@ def create_gap(
     Note, this assumes l4 symmetry is turned on. Thus, only one set of prongs needs
     to be created for top/bottom left/right symmetry."""
 
+    prong_width = rout - rin
+    ravg = (rout + rin) / 2
+
     # Left wafer first.
     left_wafer = wp.Annulus(
         rmin=rin,
         rmax=rout,
         length=length,
-        zcent=cent - width / 2 - length / 2,
         voltage=left_volt,
+        zcent=cent - width / 2 - length / 2,
         xcent=xcent,
         ycent=ycent,
     )
@@ -109,8 +113,8 @@ def create_gap(
     # cell. The simulation cell will chop this to be correct so long as the
     # inner box separation is correct (approximately 0.2mm thickness)
     l_box_out = wp.Box(
-        xsize=5.01 * mm,
-        ysize=5.01 * mm,
+        xsize=cell_width * (1 + 0.02),
+        ysize=cell_width * (1 + 0.02),
         zsize=length,
         voltage=left_volt,
         zcent=cent - width / 2 - length / 2,
@@ -118,8 +122,8 @@ def create_gap(
         ycent=ycent,
     )
     l_box_in = wp.Box(
-        xsize=4.90 * mm,
-        ysize=4.90 * mm,
+        xsize=cell_width * (1 - 0.02),
+        ysize=cell_width * (1 - 0.02),
         zsize=length,
         voltage=left_volt,
         zcent=cent - width / 2 - length / 2,
@@ -131,39 +135,39 @@ def create_gap(
     # Create prongs. This is done using four box conductors and shifting
     # respective x/y centers to create the prong.
     l_top_prong = wp.Box(
-        xsize=0.2 * mm,
-        ysize=(2.5 - 0.65) * mm,
+        xsize=prong_width,
+        ysize=cell_width / 2 - ravg,
         zsize=length,
         voltage=left_volt,
         zcent=cent - width / 2 - length / 2,
         xcent=xcent,
-        ycent=ycent + (2.5 + 0.65) * mm / 2,
+        ycent=ycent + (cell_width / 2 + ravg) / 2,
     )
     l_bot_prong = wp.Box(
-        xsize=0.2 * mm,
-        ysize=(2.5 - 0.65) * mm,
+        xsize=prong_width,
+        ysize=cell_width / 2 - ravg,
         zsize=length,
         voltage=left_volt,
         zcent=cent - width / 2 - length / 2,
         xcent=xcent,
-        ycent=ycent - (2.5 + 0.65) * mm / 2,
+        ycent=ycent - (cell_width / 2 + ravg) / 2,
     )
     l_rside_prong = wp.Box(
-        xsize=(2.5 - 0.65) * mm,
-        ysize=0.2 * mm,
+        xsize=cell_width / 2 - ravg,
+        ysize=prong_width,
         zsize=length,
         voltage=left_volt,
         zcent=cent - width / 2 - length / 2,
-        xcent=xcent + (2.5 + 0.65) * mm / 2,
+        xcent=xcent + (cell_width / 2 + ravg) / 2,
         ycent=ycent,
     )
     l_lside_prong = wp.Box(
-        xsize=(2.5 - 0.65) * mm,
-        ysize=0.2 * mm,
+        xsize=cell_width / 2 - ravg,
+        ysize=prong_width,
         zsize=length,
         voltage=left_volt,
         zcent=cent - width / 2 - length / 2,
-        xcent=xcent - (2.5 + 0.65) * mm / 2,
+        xcent=xcent - (cell_width / 2 + ravg) / 2,
         ycent=ycent,
     )
 
@@ -176,15 +180,15 @@ def create_gap(
         rmin=rin,
         rmax=rout,
         length=length,
+        voltage=right_volt,
         zcent=cent + width / 2 + length / 2,
         xcent=xcent,
         ycent=ycent,
-        voltage=right_volt,
     )
 
     r_box_out = wp.Box(
-        xsize=5.01 * mm,
-        ysize=5.01 * mm,
+        xsize=cell_width * (1 + 0.02),
+        ysize=cell_width * (1 + 0.02),
         zsize=length,
         voltage=right_volt,
         zcent=cent + width / 2 + length / 2,
@@ -192,8 +196,8 @@ def create_gap(
         ycent=ycent,
     )
     r_box_in = wp.Box(
-        xsize=4.90 * mm,
-        ysize=4.90 * mm,
+        xsize=cell_width * (1 - 0.02),
+        ysize=cell_width * (1 - 0.02),
         zsize=length,
         voltage=right_volt,
         zcent=cent + width / 2 + length / 2,
@@ -203,39 +207,39 @@ def create_gap(
     r_box = r_box_out - r_box_in
 
     r_top_prong = wp.Box(
-        xsize=0.2 * mm,
-        ysize=(2.5 - 0.65) * mm,
+        xsize=prong_width,
+        ysize=cell_width / 2 - ravg,
         zsize=length,
         voltage=right_volt,
         zcent=cent + width / 2 + length / 2,
         xcent=xcent,
-        ycent=ycent + (2.5 + 0.65) * mm / 2,
+        ycent=ycent + (cell_width / 2 + ravg) / 2,
     )
     r_bot_prong = wp.Box(
-        xsize=0.2 * mm,
-        ysize=(2.5 - 0.65) * mm,
+        xsize=prong_width,
+        ysize=cell_width / 2 - ravg,
         zsize=length,
         voltage=right_volt,
         zcent=cent + width / 2 + length / 2,
         xcent=xcent,
-        ycent=ycent - (2.5 + 0.65) * mm / 2,
+        ycent=ycent - (cell_width / 2 + ravg) / 2,
     )
     r_rside_prong = wp.Box(
-        xsize=(2.5 - 0.65) * mm,
-        ysize=0.2 * mm,
+        xsize=cell_width / 2 - ravg,
+        ysize=prong_width,
         zsize=length,
         voltage=right_volt,
         zcent=cent + width / 2 + length / 2,
-        xcent=xcent + (2.5 + 0.65) * mm / 2,
+        xcent=xcent + (cell_width / 2 + ravg) / 2,
         ycent=ycent,
     )
     r_lside_prong = wp.Box(
-        xsize=(2.5 - 0.65) * mm,
-        ysize=0.2 * mm,
+        xsize=cell_width / 2 - ravg,
+        ysize=prong_width,
         zsize=length,
         voltage=right_volt,
         zcent=cent + width / 2 + length / 2,
-        xcent=xcent - (2.5 + 0.65) * mm / 2,
+        xcent=xcent - (cell_width / 2 + ravg) / 2,
         ycent=ycent,
     )
     right = (
@@ -266,7 +270,7 @@ dsgn_phase = -0.0 * np.pi
 gap_cent_dist = []
 Einit = 7.0 * keV
 rf_wave = beta(Einit) * SC.c / f
-fcup_dist = 20.0 * mm
+fcup_dist = 10.0 * mm
 Energy = [Einit]
 
 # Evaluate and store gap distances and design energy gains.
@@ -313,12 +317,12 @@ beam.vthz = 0.5 * beam.vbeam * beam.emit / wp.sqrt(beam.a0 * beam.b0)
 # Set up the 3D simulation
 
 # Create mesh
-wp.w3d.xmmin = -2.5 * mm
-wp.w3d.xmmax = 2.5 * mm
+wp.w3d.xmmin = -1.7 * mm
+wp.w3d.xmmax = 1.7 * mm
 wp.w3d.nx = 110
 
-wp.w3d.ymmin = -2.5 * mm
-wp.w3d.ymmax = 2.5 * mm
+wp.w3d.ymmin = -1.7 * mm
+wp.w3d.ymmax = 1.7 * mm
 wp.w3d.ny = 110
 
 # use gap positioning to find limits on zmesh. Add some spacing at end points.
@@ -331,7 +335,7 @@ wp.w3d.nz = round((wp.w3d.zmmax - wp.w3d.zmmin) / 20 / um)
 # Add boundary conditions
 wp.w3d.bound0 = wp.dirichlet
 wp.w3d.boundnz = wp.dirichlet
-wp.w3d.boundxy = wp.periodic
+wp.w3d.boundxy = wp.dirichlet
 
 
 wp.w3d.l4symtry = True
@@ -341,28 +345,31 @@ wp.registersolver(solver)
 
 # Create accleration gaps with correct coordinates and settings. Collect in
 # list and then loop through and install on the mesh.
-off_cents = None
+do_off_cents = False
+off_cents = np.array([5.0]) * mm
 conductors = []
 for i, cent in enumerate(gap_centers):
     if i % 2 == 0:
         this_cond = create_gap(cent, left_volt=0, right_volt=Vg,)
+        wp.installconductor(this_cond)
         # cycle through off center gaps
-        if off_cents != None:
+        if do_off_cents:
             for xc in off_cents:
                 off_cond = create_gap(cent, left_volt=0, right_volt=Vg, xcent=xc)
-                conductors.append(off_cond)
+                wp.installconductor(off_cond)
     else:
         this_cond = create_gap(cent, left_volt=Vg, right_volt=0,)
+        wp.installconductor(this_cond)
         # cycle through off center gaps
-        if off_cents != None:
+        if do_off_cents:
             for xc in off_cents:
                 off_cond = create_gap(cent, left_volt=Vg, right_volt=0, xcent=xc)
-                conductors.append(off_cond)
+                wp.installconductors(off_cond)
 
     conductors.append(this_cond)
 
-for cond in conductors:
-    wp.installconductor(cond)
+# for cond in conductors:
+#     wp.installconductor(cond)
 
 # Perform initial field solve for mesh.
 wp.package("w3d")
@@ -447,14 +454,25 @@ if warpplots:
     wp.setup()
     wp.pfzx(fill=1, filled=1)
     wp.fma()
+    # plot the right-side wafer
     plate_cent = gap_centers[0] + length / 2 + gap_width / 2
     dz = z[1] - z[0]
     plate_cent_ind = np.where((z >= plate_cent - dz) & (z <= plate_cent + dz))
     zind = plate_cent_ind[0][0]
     wp.pfxy(iz=zind, fill=1, filled=1)
     wp.fma()
+
+    # plot the left-side wafer
+    plate_cent = gap_centers[0] - length / 2 - gap_width / 2
+    plate_cent_ind = np.where((z >= plate_cent - dz) & (z <= plate_cent + dz))
+    zind = plate_cent_ind[0][0]
+    wp.pfxy(iz=zind, fill=1, filled=1)
+    wp.fma()
+
+    # Plot potential in xy
     wp.pfxy(iz=int(wp.w3d.nz / 2), fill=1, filled=1)
     wp.fma()
+
 stop
 for i in range(steps):
     Ez = wp.getselfe(comp="z")[0, 0, :]
