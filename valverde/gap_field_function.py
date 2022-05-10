@@ -250,6 +250,62 @@ def create_gap(
     return gap
 
 
+def create_filled_gap(
+    cent,
+    left_volt,
+    right_volt,
+    hole_radius,
+    gap_width=2 * mm,
+    xcent=0.0 * mm,
+    ycent=0.0 * mm,
+    xsize=3 * mm,
+    ysize=3 * mm,
+    zsize=0.7 * mm,
+):
+    """Create a metallic box with bore aperture hole."""
+
+    lbox = wp.Box(
+        xsize=xsize,
+        ysize=ysize,
+        zsize=zsize,
+        voltage=left_volt,
+        zcent=cent - gap_width / 2 - zsize / 2,
+        xcent=xcent,
+        ycent=ycent,
+    )
+    lcylinder = wp.ZCylinder(
+        radius=hole_radius,
+        length=zsize,
+        voltage=left_volt,
+        zcent=cent - gap_width / 2 - zsize / 2,
+        xcent=xcent,
+        ycent=ycent,
+    )
+    lconductor = lbox - lcylinder
+
+    rbox = wp.Box(
+        xsize=xsize,
+        ysize=ysize,
+        zsize=zsize,
+        voltage=right_volt,
+        zcent=cent + gap_width / 2 + zsize / 2,
+        xcent=xcent,
+        ycent=ycent,
+    )
+    rcylinder = wp.ZCylinder(
+        radius=hole_radius,
+        length=zsize,
+        voltage=right_volt,
+        zcent=cent + gap_width / 2 + zsize / 2,
+        xcent=xcent,
+        ycent=ycent,
+    )
+    rconductor = rbox - rcylinder
+
+    gap = lconductor + rconductor
+    return gap
+
+
 # ------------------------------------------------------------------------------
 #     Script parameter settings
 # This section is dedicated to naming and setting the various parameters of the
@@ -346,7 +402,7 @@ wp.registersolver(solver)
 # Create accleration gaps with correct coordinates and settings. Collect in
 # list and then loop through and install on the mesh.
 do_off_cents = False
-off_cents = np.array([5.0]) * mm
+off_cents = np.array([3.0, 6.0]) * mm
 conductors = []
 for i, cent in enumerate(gap_centers):
     if i % 2 == 0:
@@ -355,7 +411,7 @@ for i, cent in enumerate(gap_centers):
         # cycle through off center gaps
         if do_off_cents:
             for xc in off_cents:
-                off_cond = create_gap(cent, left_volt=0, right_volt=Vg, xcent=xc)
+                off_cond = create_gap(cent, left_volt=0, right_volt=Vg, xcent=xc,)
                 wp.installconductor(off_cond)
     else:
         this_cond = create_gap(cent, left_volt=Vg, right_volt=0,)
@@ -363,7 +419,7 @@ for i, cent in enumerate(gap_centers):
         # cycle through off center gaps
         if do_off_cents:
             for xc in off_cents:
-                off_cond = create_gap(cent, left_volt=Vg, right_volt=0, xcent=xc)
+                off_cond = create_gap(cent, left_volt=Vg, right_volt=0, xcent=xc,)
                 wp.installconductors(off_cond)
 
     conductors.append(this_cond)
@@ -453,6 +509,8 @@ warpplots = True
 if warpplots:
     wp.setup()
     wp.pfzx(fill=1, filled=1)
+    wp.fma()
+    wp.pfzy(fill=1, filled=1)
     wp.fma()
     # plot the right-side wafer
     plate_cent = gap_centers[0] + length / 2 + gap_width / 2
