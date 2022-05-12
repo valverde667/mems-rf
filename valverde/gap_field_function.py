@@ -401,28 +401,34 @@ wp.registersolver(solver)
 
 # Create accleration gaps with correct coordinates and settings. Collect in
 # list and then loop through and install on the mesh.
-do_off_cents = False
-off_cents = np.array([3.0, 6.0]) * mm
+do_xoff_cents = False
+xoff_cents = np.array([3.0]) * mm
+ycents = np.array([0.0]) * mm
 conductors = []
-for i, cent in enumerate(gap_centers):
-    if i % 2 == 0:
-        this_cond = create_gap(cent, left_volt=0, right_volt=Vg,)
-        wp.installconductor(this_cond)
-        # cycle through off center gaps
-        if do_off_cents:
-            for xc in off_cents:
-                off_cond = create_gap(cent, left_volt=0, right_volt=Vg, xcent=xc,)
-                wp.installconductor(off_cond)
-    else:
-        this_cond = create_gap(cent, left_volt=Vg, right_volt=0,)
-        wp.installconductor(this_cond)
-        # cycle through off center gaps
-        if do_off_cents:
-            for xc in off_cents:
-                off_cond = create_gap(cent, left_volt=Vg, right_volt=0, xcent=xc,)
-                wp.installconductors(off_cond)
+for yc in ycents:
+    for i, cent in enumerate(gap_centers):
+        if i % 2 == 0:
+            this_cond = create_gap(cent, left_volt=0, right_volt=Vg, ycent=yc)
+            wp.installconductor(this_cond)
+            # cycle through off center gaps
+            if do_xoff_cents:
+                for xc in xoff_cents:
+                    off_cond = create_gap(
+                        cent, left_volt=0, right_volt=Vg, xcent=xc, ycent=yc
+                    )
+                    wp.installconductor(off_cond)
+        else:
+            this_cond = create_gap(cent, left_volt=Vg, right_volt=0, ycent=yc)
+            wp.installconductor(this_cond)
+            # cycle through off center gaps
+            if do_xoff_cents:
+                for xc in xoff_cents:
+                    off_cond = create_gap(
+                        cent, left_volt=Vg, right_volt=0, xcent=xc, ycent=yc
+                    )
+                    wp.installconductors(off_cond)
 
-    conductors.append(this_cond)
+        conductors.append(this_cond)
 
 # for cond in conductors:
 #     wp.installconductor(cond)
