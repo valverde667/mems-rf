@@ -467,11 +467,11 @@ wallzcent = ESQ_length + 1.0 * mm + walllength / 2
 # Creat mesh using conductor geometries (above) to keep resolution consistent
 wp.w3d.xmmin = -aperture - (pole_rad * rod_fraction)
 wp.w3d.xmmax = aperture + (pole_rad * rod_fraction)
-wp.w3d.nx = 100
+wp.w3d.nx = 150
 
 wp.w3d.ymmin = -aperture - (pole_rad * rod_fraction)
 wp.w3d.ymmax = aperture + (pole_rad * rod_fraction)
-wp.w3d.ny = 100
+wp.w3d.ny = 150
 
 # Calculate nz to get about designed dz
 wp.w3d.zmmin = -(wallzcent + separation)
@@ -484,7 +484,7 @@ print(int(calc_nz))
 # Add boundary conditions
 wp.w3d.bound0 = wp.dirichlet
 wp.w3d.boundnz = wp.dirichlet
-wp.w3d.boundxy = wp.dirichlet
+wp.w3d.boundxy = wp.periodic
 wp.f3d.mgtol = 1e-8
 
 wp.w3d.l4symtry = False
@@ -600,7 +600,6 @@ if make_effective_length_plots:
     plt.show()
 
 # Plot and calculate effective length
-# Integrate over right esq. Note, this gradient is negative.
 dEdx = abs(gradex[:])
 ell = efflength(dEdx, wp.w3d.dz)
 print("Effective Length = ", ell / mm)
@@ -616,8 +615,8 @@ if make_effective_length_plots:
     ax.scatter(z / mm, dEdx / kV / 1000 / 1000, s=0.5)
     # Annotate
     ax.axhline(y=0, lw=0.5, c="k")
-    ax.axvline(x=esq1left / mm, c="r", lw=0.8, ls="--", label="ESQ Edges")
-    ax.axvline(x=esq1right / mm, c="r", lw=0.8, ls="--")
+    ax.axvline(x=-ell / 2 / mm, c="r", lw=0.8, ls="--", label=" Effective ESQ Edges")
+    ax.axvline(x=ell / 2 / mm, c="r", lw=0.8, ls="--")
     # ax.axvline(
     #     x=(wallzcent - walllength / 2) / mm, c="grey", lw=0.8, ls="--", label="Wall"
     # )
