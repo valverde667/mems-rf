@@ -20,8 +20,17 @@ import sys
 # Create argument parser for scaling. Must be done before importing Warp
 import warpoptions
 
+# Scale pole argument will set the radius of the ESQ rod in units of aperture
+# radius
 warpoptions.parser.add_argument("--scale_pole", default=False, type=float)
+
+# Scale length argument will set the length of the ESQ rod in units of aperture
+# radius
 warpoptions.parser.add_argument("--scale_length", default=False, type=float)
+
+# Rod fraction controls where to chop rods using the simulation box. A fraction
+# of 0 will place simulation box just before rod giving no rod. A fraction of 2
+# will place the chop at 2R giving the full rod.
 warpoptions.parser.add_argument("--rod_fraction", default=False, type=float)
 inputs = warpoptions.parser.parse_args()
 if inputs.scale_pole != False:
