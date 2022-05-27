@@ -467,18 +467,20 @@ wallzcent = ESQ_length + 1.0 * mm + walllength / 2
 # Creat mesh using conductor geometries (above) to keep resolution consistent
 wp.w3d.xmmin = -aperture - (pole_rad * rod_fraction)
 wp.w3d.xmmax = aperture + (pole_rad * rod_fraction)
-wp.w3d.nx = 150
+design_dx = 10 * um
+calc_nx = (wp.w3d.xmmax - wp.w3d.xmmin) / design_dx
+wp.w3d.nx = int(calc_nx)
 
 wp.w3d.ymmin = -aperture - (pole_rad * rod_fraction)
 wp.w3d.ymmax = aperture + (pole_rad * rod_fraction)
-wp.w3d.ny = 150
+wp.w3d.ny = int(calc_nx)
 
 # Calculate nz to get about designed dz
 wp.w3d.zmmin = -(wallzcent + separation)
 wp.w3d.zmmax = wallzcent + separation
-design_dz = 5 * um
+design_dz = 20 * um
 calc_nz = (wp.w3d.zmmax - wp.w3d.zmmin) / design_dz
-wp.w3d.nz = 250
+wp.w3d.nz = int(calc_nz)
 print(int(calc_nz))
 
 # Add boundary conditions
@@ -523,7 +525,7 @@ xzeroindex = getindex(x, 0.0, wp.w3d.dx)
 yzeroindex = getindex(y, 0.0, wp.w3d.dy)
 
 # Create Warp plots. Useful for quick-checking
-warpplots = False
+warpplots = True
 if warpplots:
     wp.setup()
     leftquad.drawzx(filled=True)
