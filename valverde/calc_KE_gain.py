@@ -156,6 +156,9 @@ if Ng > 1:
         gap_dist.append(this_cent)
 
     gap_centers = np.array(gap_dist).cumsum()
+else:
+    gap_centers = [init_gap]
+
 
 # ------------------------------------------------------------------------------
 #    Mesh setup
@@ -197,6 +200,8 @@ ax.plot(z / mm, Ez0 / E_DC)
 if Ng > 1:
     for cent in gap_centers:
         ax.axvline(cent / mm, c="grey", lw=1, ls="--")
+else:
+    ax.axvline(gap_centers[0] / mm, c="grey", lw=1, ls="--")
 
 # Initialize the energy arrays for the design and non-design particles.
 W_s = np.zeros(len(z))
@@ -307,7 +312,7 @@ def init():
 
 def animate(i):
 
-    this_Ez = warpEz0 * rf_volt(ts[i], freq=design_freq)
+    this_Ez = warpEz0 * rf_volt(ts[i] + ts[0], freq=design_freq)
     # this_Ez = warpEz0 * rf_volt(t[3867, i], freq=design_freq)
     line.set_data(zwarp / mm, this_Ez / kV * mm)
 
