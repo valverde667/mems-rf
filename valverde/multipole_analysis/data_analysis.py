@@ -159,6 +159,7 @@ def make_rscale_plot(df, save=False, panel=True):
 
 
 # Make rod area plot
+rod_rad = data["R_rod/R_aper"].to_numpy()
 rod_fracs = data["rod-fraction"].to_numpy()
 rod_lengths = data["L_esq/R_aper"].to_numpy() * 0.55 * mm
 a6 = data["Norm A6"].to_numpy()
@@ -176,10 +177,20 @@ plt.savefig("varylengths_a6.png", dpi=400)
 plt.show()
 
 fig, ax = plt.subplots()
+ax.set_title("n=6 Coefficient for Radius of ESQ")
+ax.set_xlabel(r"Ratio of Rod Radius to Aperture $R_{rod}/r_p$")
+ax.set_ylabel(r"Normalized Coefficient $\frac{A_6}{|A_2|}$")
+ax.scatter(rod_rad, a6)
+ax.axhline(y=0, c="k", lw=0.2)
+plt.tight_layout()
+plt.savefig("varyradius_a6.png", dpi=400)
+plt.show()
+
+fig, ax = plt.subplots()
 ax.set_title("n=6 Coefficient for Chopped Rods")
 ax.set_xlabel("Location of Chop in units of Rod Radius")
 ax.set_ylabel(r"Normalized Coefficient $\frac{A_6}{|A_2|}$")
-ax.scatter(rod_fracs[2:], a6[2:])
+ax.scatter(rod_fracs, a6)
 ax.axhline(y=0, c="k", lw=0.2)
 plt.tight_layout()
 plt.savefig("choppedA6_zoomed.png", dpi=400)
