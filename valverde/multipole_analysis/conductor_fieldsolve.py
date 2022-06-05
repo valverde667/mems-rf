@@ -60,6 +60,7 @@ mm = wp.mm
 um = 1e-6
 print(f"--Using Pole Scale Factor of {scale_pole_rad}")
 print(f"--Using ESQ Length Scale Factor of {scale_Lesq}")
+print(f"--Using Rod Fraction of {rod_fraction}")
 
 # ------------------------------------------------------------------------------
 #                     User Defined function
