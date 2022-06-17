@@ -37,7 +37,7 @@ if inputs.scale_pole != False:
     scale_pole_rad = inputs.scale_pole
 else:
     # Around optimum value found for isolated single quad.
-    scale_pole_rad = 1.151
+    scale_pole_rad = 1.146
 if inputs.scale_length != False:
     scale_Lesq = inputs.scale_length
 else:
