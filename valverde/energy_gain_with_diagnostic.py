@@ -85,7 +85,7 @@ real_omega = design_omega
 E_DC = real_gap_volt * kV / gap_width
 Ng = 1
 Fcup_dist = 30 * mm
-Emax = dsgn_initE + Ng * Vg * np.cos(design_phase)
+Emax = dsgn_initE + Ng * design_gap_volt * np.cos(design_phase)
 
 # Energy analyzer parameters
 dist_to_dipole = 25.0 * mm
@@ -119,15 +119,8 @@ dsgn_time[0] = 0.0
 # convention enters the gap when the fielding is going from neg -> pos, the
 # first gap needs to be placed a RF cycle away
 coeff = np.sqrt(2 * dsgn_initE / Ar_mass)
-
-tDC = 1.0 / 14.6 / MHz
-that = 0.5 / 14.6 / MHz
-ts = (np.pi - design_phase) / 2 / np.pi / 14.6 / MHz
-
-DC_length = coeff * SC.c * tDC
-zhat = coeff * SC.c * that
-zs = coeff * SC.c * ts
-init_gap = zhat + zs
+init_gap = coeff * SC.c / 2.0 / design_freq
+DC_length = SC.c / design_freq
 
 # Instantiate the design particle metrics to first gap
 vs_start = coeff * SC.c
@@ -153,7 +146,7 @@ parts_time[:, 0] = time
 # Advance particles to first gap
 dsgn_v = np.sqrt(2 * dsgn_E[0] / Ar_mass) * SC.c
 dt = (init_gap - dsgn_pos[0]) / dsgn_v
-Egain = Vg * np.cos(real_omega * dt)
+Egain = real_gap_volt * np.cos(real_omega * dt)
 dsgn_E[1] = dsgn_E[0] + Egain
 
 # Calculate additional gap centers if applicable. Here the design values should
@@ -190,12 +183,12 @@ if Ng > 1:
             field_loc = np.where(
                 (z >= cent - gap_width / 2) & (z <= cent + gap_width / 2)
             )
-            Ez0[field_loc] = real_gap_volt / gap_width
+            Ez0[field_loc] = -real_gap_volt / gap_width
         else:
             field_loc = np.where(
                 (z >= cent - gap_width / 2) & (z <= cent + gap_width / 2)
             )
-            Ez0[field_loc] = -real_gap_volt / gap_width
+            Ez0[field_loc] = +real_gap_volt / gap_width
 
 else:
     field_loc = np.where(
