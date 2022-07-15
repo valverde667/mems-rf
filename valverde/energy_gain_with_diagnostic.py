@@ -176,7 +176,7 @@ else:
 #   optimal for compactness. This can be easily changed although, for the sake
 #   of analysis I recommend this phasing be maintained.
 # ------------------------------------------------------------------------------
-z = np.linspace(0.0, gap_centers[-1] + Fcup_dist, 1000)
+z = np.linspace(0.0, gap_centers[-1] + dist_to_dipole, 1000)
 dz = z[1] - z[0]
 Ez0 = z.copy()
 # Instantiate the flat-top field values in the gap regions.
