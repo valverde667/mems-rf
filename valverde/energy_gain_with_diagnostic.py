@@ -84,6 +84,14 @@ Ng = 4
 Fcup_dist = 30 * mm
 Emax = dsgn_initE + Ng * design_gap_volt * np.cos(design_phase)
 
+# Energy analyzer parameters
+dist_to_dipole = 25.0 * mm
+dipole_length = 50.0 * mm
+dipole_gap_width = 11.0 * mm
+dist_to_slit = 185.0 * mm
+slit_width = 1.0 * mm
+slit_center = 37 * mm
+
 # ------------------------------------------------------------------------------
 #     Initial Setup
 # Start design particle with design phase at z=0. Place first gap so that design
