@@ -76,13 +76,16 @@ Np = 10000
 gap_width = 2 * mm
 
 # Simulation parameters for gaps and geometries
-design_gap_volt = 7 * kV
-design_freq = 13.6 * MHz
+design_gap_volt = 7.0 * kV
+real_gap_volt = design_gap_volt
+design_freq = 13.06 * MHz
+real_freq = design_freq
 design_omega = 2 * np.pi * design_freq
-E_DC = 7 * kV / gap_width
-Ng = 4
+real_omega = design_omega
+E_DC = real_gap_volt * kV / gap_width
+Ng = 1
 Fcup_dist = 30 * mm
-Emax = dsgn_initE + Ng * design_gap_volt * np.cos(design_phase)
+Emax = dsgn_initE + Ng * Vg * np.cos(design_phase)
 
 # Energy analyzer parameters
 dist_to_dipole = 25.0 * mm
@@ -150,10 +153,11 @@ parts_time[:, 0] = time
 # Advance particles to first gap
 dsgn_v = np.sqrt(2 * dsgn_E[0] / Ar_mass) * SC.c
 dt = (init_gap - dsgn_pos[0]) / dsgn_v
-Egain = design_gap_volt * np.cos(design_omega * dt)
+Egain = Vg * np.cos(real_omega * dt)
 dsgn_E[1] = dsgn_E[0] + Egain
 
-# Calculate additional gap centers if applicable
+# Calculate additional gap centers if applicable. Here the design values should
+# be used.
 if Ng > 1:
     gap_dist = [init_gap]
     for i in range(1, Ng):
@@ -186,18 +190,18 @@ if Ng > 1:
             field_loc = np.where(
                 (z >= cent - gap_width / 2) & (z <= cent + gap_width / 2)
             )
-            Ez0[field_loc] = design_gap_volt / gap_width
+            Ez0[field_loc] = real_gap_volt / gap_width
         else:
             field_loc = np.where(
                 (z >= cent - gap_width / 2) & (z <= cent + gap_width / 2)
             )
-            Ez0[field_loc] = -design_gap_volt / gap_width
+            Ez0[field_loc] = -real_gap_volt / gap_width
 
 else:
     field_loc = np.where(
         (z >= init_gap - gap_width / 2) & (z <= init_gap + gap_width / 2)
     )
-    Ez0[field_loc] = design_gap_volt / gap_width
+    Ez0[field_loc] = real_gap_volt / gap_width
 
 # Plot field
 fig, ax = plt.subplots()
@@ -215,13 +219,14 @@ W_s = np.zeros(len(z))
 W = np.zeros(shape=(Np, len(z)))
 W_s[0], W[:, 0] = dsgn_initE, dsgn_initE
 
+# Real parameter settings should be used here.
 for i in range(1, len(z)):
     # Do design particle
     this_vs = beta(W_s[i - 1]) * SC.c
     this_dt = dz / this_vs
     dsgn_time[0] += this_dt
 
-    Egain = Ez0[i - 1] * rf_volt(dsgn_time[0], freq=design_freq) * dz
+    Egain = Ez0[i - 1] * rf_volt(dsgn_time[0], freq=real_freq) * dz
 
     W_s[i] = W_s[i - 1] + Egain
 
@@ -230,9 +235,9 @@ for i in range(1, len(z)):
     this_dt = dz / this_v
     parts_time[:, 0] += this_dt
 
-    Egain = Ez0[i - 1] * rf_volt(parts_time[:, 0], freq=design_freq) * dz
+    Egain = Ez0[i - 1] * rf_volt(parts_time[:, 0], freq=real_freq) * dz
     W[:, i] = W[:, i - 1] + Egain
 
 # Bin the final energies on its own plot for later comparison using Warp fields.
 fig, axes = plt.subplots(figsize=(10, 2))
-axes[0].hist(W[:, -1] / keV, bins=50)
+axes.hist(W[:, -1] / keV, bins=50)
