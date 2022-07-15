@@ -512,15 +512,20 @@ leftquad = leftconductor.generate(
 # rightquad = rightconductor.generate(
 #     voltage=-voltage, xcent=xycent, ycent=xycent, data=False
 # )
-
-leftwall = Wall().generate(apperture=aperture, voltage=wallvoltage, zcenter=-wallzcent)
-rightwall = Wall().generate(apperture=aperture, voltage=wallvoltage, zcenter=wallzcent)
+#
+# l_leftwall = Wall().generate(apperture=aperture, voltage=7*kV, zcenter=-12.1*mm)
+# r_leftwall = Wall().generate(apperture=aperture, voltage=0*kV, zcenter=-10.1*mm)
+#
+# l_rightwall = Wall().generate(apperture=aperture, voltage=0*kV, zcenter=10.1*mm)
+# r_rightwall = Wall().generate(apperture=aperture, voltage=7*kV, zcenter=12.1*mm)
 
 # Install Conductors and generate mesh
 wp.installconductor(leftquad)
 # wp.installconductor(rightquad)
-# wp.installconductor(leftwall)
-# wp.installconductor(rightwall)
+# wp.installconductor(l_leftwall)
+# wp.installconductor(r_leftwall)
+# wp.installconductor(l_rightwall)
+# wp.installconductor(r_rightwall)
 
 wp.generate()
 
@@ -634,7 +639,7 @@ if make_effective_length_plots:
     # )
     # ax.axvline(x=(wallzcent + walllength / 2) / mm, c="grey", lw=0.8, ls="--")
     ax.legend()
-    plt.savefig(savepath + "integrand.pdf", dpi=400)
+    plt.savefig(savepath + "integrand.png", dpi=400)
     plt.show()
 
 # ------------------------------------------------------------------------------
