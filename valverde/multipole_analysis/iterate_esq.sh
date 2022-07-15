@@ -19,8 +19,8 @@
 #     python conductor_fieldsolve.py --scale_pole $x
 #   done
 
-# iterate Rod Radius
+# iterate Rod Fraction
 # for x in $(cat chop.txt);
 #   do
-#     python conductor_fieldsolve.py --rod_fraction $x --scale_pole 1.144
+#     python conductor_fieldsolve.py --rod_fraction $x --scale_pole 1.145
 #   done
