@@ -321,6 +321,7 @@ zcenter = abs(0.0 - gap_width / 2.0)
 f = 13.6 * MHz
 Ng = 2
 Vg = 7.0 * kV
+Vgset = 5.0 * kV
 E_DC = 7 * kV / gap_width
 dsgn_phase = -0.0 * np.pi
 gap_cent_dist = []
@@ -391,7 +392,7 @@ wp.w3d.nz = round((wp.w3d.zmmax - wp.w3d.zmmin) / 20 / um)
 # Add boundary conditions
 wp.w3d.bound0 = wp.dirichlet
 wp.w3d.boundnz = wp.dirichlet
-wp.w3d.boundxy = wp.dirichlet
+wp.w3d.boundxy = wp.periodic
 
 
 wp.w3d.l4symtry = True
@@ -408,23 +409,23 @@ conductors = []
 for yc in ycents:
     for i, cent in enumerate(gap_centers):
         if i % 2 == 0:
-            this_cond = create_gap(cent, left_volt=0, right_volt=Vg, ycent=yc)
+            this_cond = create_gap(cent, left_volt=0, right_volt=Vgset, ycent=yc)
             wp.installconductor(this_cond)
             # cycle through off center gaps
             if do_xoff_cents:
                 for xc in xoff_cents:
                     off_cond = create_gap(
-                        cent, left_volt=0, right_volt=Vg, xcent=xc, ycent=yc
+                        cent, left_volt=0, right_volt=Vgset, xcent=xc, ycent=yc
                     )
                     wp.installconductor(off_cond)
         else:
-            this_cond = create_gap(cent, left_volt=Vg, right_volt=0, ycent=yc)
+            this_cond = create_gap(cent, left_volt=Vgset, right_volt=0, ycent=yc)
             wp.installconductor(this_cond)
             # cycle through off center gaps
             if do_xoff_cents:
                 for xc in xoff_cents:
                     off_cond = create_gap(
-                        cent, left_volt=Vg, right_volt=0, xcent=xc, ycent=yc
+                        cent, left_volt=Vgset, right_volt=0, xcent=xc, ycent=yc
                     )
                     wp.installconductors(off_cond)
 
