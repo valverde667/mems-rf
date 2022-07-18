@@ -26,6 +26,7 @@ kV = 1000
 keV = 1000
 MHz = 1e6
 mm = 1e-3
+um = 1e-6
 ns = 1e-9  # nanoseconds
 twopi = 2 * np.pi
 
@@ -164,9 +165,13 @@ gap_centers = np.array(gap_dist).cumsum()
 #   optimal for compactness. This can be easily changed although, for the sake
 #   of analysis I recommend this phasing be maintained.
 # ------------------------------------------------------------------------------
-z = np.linspace(0.0, gap_centers[-1] + dist_to_dipole, 1000)
+# Specify a mesh resolution
+mesh_res = 10 * um
+Nz = int((gap_centers[-1] + dist_to_dipole) / mesh_res)
+z = np.linspace(0.0, gap_centers[-1] + dist_to_dipole, Nz)
 dz = z[1] - z[0]
 Ez0 = z.copy()
+
 # Instantiate the flat-top field values in the gap regions.
 for i, cent in enumerate(gap_centers):
     if i % 2 == 0:
@@ -212,6 +217,9 @@ for i in range(1, len(z)):
     Egain = Ez0[i - 1] * rf_volt(parts_time[:, 0], freq=real_freq) * dz
     W[:, i] = W[:, i - 1] + Egain
 
+# Convert nan values to 0
+final_W = np.nan_to_num(W[:, -1])
+
 # Bin the final energies on its own plot for later comparison using Warp fields.
 fig, axes = plt.subplots(figsize=(10, 2))
-axes.hist(W[:, -1] / keV, bins=50)
+axes.hist(final_W / keV, bins=50)
