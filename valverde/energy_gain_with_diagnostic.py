@@ -83,7 +83,7 @@ real_freq = design_freq
 design_omega = 2 * np.pi * design_freq
 real_omega = design_omega
 E_DC = real_gap_volt * kV / gap_width
-Ng = 1
+Ng = 2
 Fcup_dist = 30 * mm
 Emax = dsgn_initE + Ng * design_gap_volt * np.cos(design_phase)
 
@@ -118,8 +118,8 @@ dsgn_time[0] = 0.0
 # convention here is to start with a gaining gap voltage. Since the design particle
 # convention enters the gap when the fielding is going from neg -> pos, the
 # first gap needs to be placed a RF cycle away
-coeff = np.sqrt(2 * dsgn_initE / Ar_mass)
-init_gap = coeff * SC.c / 2.0 / design_freq
+coeff = np.sqrt(2 * dsgn_initE / Ar_mass) * SC.c
+init_gap = coeff / 2.0 / design_freq
 DC_length = SC.c / design_freq
 
 # Instantiate the design particle metrics to first gap
@@ -143,25 +143,16 @@ time = (parts_pos[:, 0]) / vparts
 parts_pos[:, 0] = 0
 parts_time[:, 0] = time
 
-# Advance particles to first gap
-dsgn_v = np.sqrt(2 * dsgn_E[0] / Ar_mass) * SC.c
-dt = (init_gap - dsgn_pos[0]) / dsgn_v
-Egain = real_gap_volt * np.cos(real_omega * dt)
-dsgn_E[1] = dsgn_E[0] + Egain
-
 # Calculate additional gap centers if applicable. Here the design values should
 # be used.
-if Ng > 1:
-    gap_dist = [init_gap]
-    for i in range(1, Ng):
-        dsgn_Egain = design_gap_volt * np.cos(-design_phase)
-        E = dsgn_initE + i * dsgn_Egain
-        this_cent = beta(E) * SC.c / 2 / design_freq
-        gap_dist.append(this_cent)
+gap_dist = np.zeros(Ng)
+for i in range(Ng):
+    dsgn_Egain = design_gap_volt * np.cos(-design_phase)
+    E = dsgn_initE + i * dsgn_Egain
+    this_cent = beta(E) * SC.c / 2 / design_freq
+    gap_dist[i] = this_cent
 
-    gap_centers = np.array(gap_dist).cumsum()
-else:
-    gap_centers = [init_gap]
+gap_centers = np.array(gap_dist).cumsum()
 
 
 # ------------------------------------------------------------------------------
@@ -177,24 +168,14 @@ z = np.linspace(0.0, gap_centers[-1] + dist_to_dipole, 1000)
 dz = z[1] - z[0]
 Ez0 = z.copy()
 # Instantiate the flat-top field values in the gap regions.
-if Ng > 1:
-    for i, cent in enumerate(gap_centers):
-        if i % 2 == 0:
-            field_loc = np.where(
-                (z >= cent - gap_width / 2) & (z <= cent + gap_width / 2)
-            )
-            Ez0[field_loc] = -real_gap_volt / gap_width
-        else:
-            field_loc = np.where(
-                (z >= cent - gap_width / 2) & (z <= cent + gap_width / 2)
-            )
-            Ez0[field_loc] = +real_gap_volt / gap_width
+for i, cent in enumerate(gap_centers):
+    if i % 2 == 0:
+        field_loc = np.where((z >= cent - gap_width / 2) & (z <= cent + gap_width / 2))
+        Ez0[field_loc] = -real_gap_volt / gap_width
+    else:
+        field_loc = np.where((z >= cent - gap_width / 2) & (z <= cent + gap_width / 2))
+        Ez0[field_loc] = real_gap_volt / gap_width
 
-else:
-    field_loc = np.where(
-        (z >= init_gap - gap_width / 2) & (z <= init_gap + gap_width / 2)
-    )
-    Ez0[field_loc] = real_gap_volt / gap_width
 
 # Plot field
 fig, ax = plt.subplots()
