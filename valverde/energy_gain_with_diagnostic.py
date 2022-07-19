@@ -73,7 +73,7 @@ def rf_volt(t, freq=13.6 * MHz):
 # Simulation Parameters for design particle
 design_phase = -0
 dsgn_initE = 7 * kV
-Np = 10000
+Np = 1000
 gap_width = 2 * mm
 
 # Simulation parameters for gaps and geometries
@@ -121,7 +121,7 @@ gap_centers = np.array(gap_dist).cumsum()
 # mesh_res variable to represent a spacing resolution.
 # ------------------------------------------------------------------------------
 # Specify a mesh resolution
-mesh_res = 10 * um
+mesh_res = 50 * um
 Nz = int((gap_centers[-1] + dist_to_dipole) / mesh_res)
 z = np.linspace(0.0, gap_centers[-1] + dist_to_dipole, Nz)
 dz = z[1] - z[0]
@@ -178,7 +178,7 @@ for i, cent in enumerate(gap_centers):
         Ez0[field_loc] = real_gap_volt / gap_width
 
 
-# Plot field
+# Plot field with gaps
 fig, ax = plt.subplots()
 ax.set_xlabel("z [mm]")
 ax.set_ylabel(r"On-axis E-field $E(r=0, z)/E_{DC}$ [kV/mm]")
@@ -189,33 +189,31 @@ if Ng > 1:
 else:
     ax.axvline(gap_centers[0] / mm, c="grey", lw=1, ls="--")
 
-# Initialize the energy arrays for the design and non-design particles.
-W_s = np.zeros(len(z))
-W = np.zeros(shape=(Np, len(z)))
-W_s[0], W[:, 0] = dsgn_initE, dsgn_initE
-
-# Real parameter settings should be used here.
+# Main loop to advance particles. Real parameter settings should be used here.
 for i in range(1, len(z)):
     # Do design particle
-    this_vs = beta(W_s[i - 1]) * SC.c
+    this_vs = beta(dsgn_E[i - 1]) * SC.c
     this_dt = dz / this_vs
-    dsgn_time[0] += this_dt
+    dsgn_time[i] = dsgn_time[i - 1] + this_dt
 
-    Egain = Ez0[i - 1] * rf_volt(dsgn_time[0], freq=real_freq) * dz
+    Egain = Ez0[i - 1] * rf_volt(dsgn_time[i], freq=real_freq) * dz
 
-    W_s[i] = W_s[i - 1] + Egain
+    dsgn_E[i] = dsgn_E[i - 1] + Egain
+    dsgn_pos[i] = dsgn_pos[i - 1] + dz
+    dsgn_time[i] = dsgn_time[i - 1] + this_dt
 
     # Do other particles
-    this_v = beta(W[:, i - 1]) * SC.c
+    this_v = beta(parts_E[:, i - 1]) * SC.c
     this_dt = dz / this_v
-    parts_time[:, 0] += this_dt
+    parts_time[:, i] = parts_time[:, i - 1] + this_dt
 
-    Egain = Ez0[i - 1] * rf_volt(parts_time[:, 0], freq=real_freq) * dz
-    W[:, i] = W[:, i - 1] + Egain
+    Egain = Ez0[i - 1] * rf_volt(parts_time[:, i], freq=real_freq) * dz
+    parts_E[:, i] = parts_E[:, i - 1] + Egain
+    parts_pos[:, i] = parts_pos[:, i - 1] + dz
 
 # Convert nan values to 0
-final_W = np.nan_to_num(W[:, -1])
+final_E = np.nan_to_num(parts_E[:, -1])
 
 # Bin the final energies on its own plot for later comparison using Warp fields.
 fig, axes = plt.subplots(figsize=(10, 2))
-axes.hist(final_W / keV, bins=50)
+axes.hist(final_E / keV, bins=100)
