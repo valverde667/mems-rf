@@ -97,53 +97,11 @@ slit_width = 1.0 * mm
 slit_center = 37 * mm
 
 # ------------------------------------------------------------------------------
-#     Initial Setup
-# Start design particle with design phase at z=0. Place first gap so that design
-# particle arrives at design phase. Since gaps are initialized to have peak
-# voltage at t=0, the first gap is placed such that the field oscillates one full
-# period before arrival of design particle. Other particles can be centered on
-# the design particle, or distributed from the gap center towards z=0 or z<0.
+#     Gap Centers
+# Place gaps to be in RF-resonance with a design particle that receives an energy
+# kick with some design phase on the RF acceleration gap. The first gap starts out
+# with the field being negative to ensure the most compact structure.
 # ------------------------------------------------------------------------------
-
-# Initialize simulation by setting up first gap commensurate with the design
-# particle. Gaps are initialized to have peak output at t=0
-dsgn_pos = np.zeros(Ng + 1)
-dsgn_E = np.zeros(Ng + 1)
-dsgn_time = np.zeros(Ng + 1)
-
-dsgn_pos[0] = 0.0
-dsgn_E[0] = dsgn_initE
-dsgn_time[0] = 0.0
-
-# Calculate full DC beam length and start position of design particle. The
-# convention here is to start with a gaining gap voltage. Since the design particle
-# convention enters the gap when the fielding is going from neg -> pos, the
-# first gap needs to be placed a RF cycle away
-coeff = np.sqrt(2 * dsgn_initE / Ar_mass) * SC.c
-init_gap = coeff / 2.0 / design_freq
-DC_length = SC.c / design_freq
-
-# Instantiate the design particle metrics to first gap
-vs_start = coeff * SC.c
-ts_start = init_gap / vs_start
-
-# Create simulation particles and initialize data arrays
-beta_lambda = vs_start / design_freq
-particle_dist = np.linspace(-DC_length / 2, DC_length / 2, Np)
-
-# Create particle arrays to store histories
-parts_pos = np.zeros(shape=(Np, Ng + 1))
-parts_pos[:, 0] = particle_dist
-parts_E = np.zeros(shape=(Np, Ng + 1))
-parts_time = np.zeros(shape=(Np, Ng + 1))
-parts_E[:, 0] = dsgn_initE
-
-# initialize particles to z=0 along with times
-vparts = np.sqrt(2 * parts_E[:, 0] / Ar_mass) * SC.c
-time = (parts_pos[:, 0]) / vparts
-parts_pos[:, 0] = 0
-parts_time[:, 0] = time
-
 # Calculate additional gap centers if applicable. Here the design values should
 # be used.
 gap_dist = np.zeros(Ng)
@@ -159,11 +117,8 @@ gap_centers = np.array(gap_dist).cumsum()
 # ------------------------------------------------------------------------------
 #    Mesh setup
 # Here the mesh is setup to place a flat top field centered so that the design
-# particle arrives in phase. To do this, the gap is placed an extra rf phase
-# away from beta lambda / 2 since the field originally starts out positive.
-# ! Since the field is max at t=0 the additional rf-phase distance is not
-#   optimal for compactness. This can be easily changed although, for the sake
-#   of analysis I recommend this phasing be maintained.
+# particle arrives in phase. The number of mesh points is paramterized by the
+# mesh_res variable to represent a spacing resolution.
 # ------------------------------------------------------------------------------
 # Specify a mesh resolution
 mesh_res = 10 * um
@@ -172,6 +127,47 @@ z = np.linspace(0.0, gap_centers[-1] + dist_to_dipole, Nz)
 dz = z[1] - z[0]
 Ez0 = z.copy()
 
+# ------------------------------------------------------------------------------
+#    Particle Histories
+# The particle arrays are created and the following quantities are tracked for the
+# advancement: position, time, energy. This tracking will allow for various
+# analysis such as relative differences from the design particle in time and
+# energy.
+# ------------------------------------------------------------------------------
+# Create design particle arrays. The design particle is always to begin at z=0,
+# t=0 and given the design initial energy.
+dsgn_pos = np.zeros(Nz)
+dsgn_E = np.zeros(Nz)
+dsgn_time = np.zeros(Nz)
+
+dsgn_pos[0] = 0.0
+dsgn_E[0] = dsgn_initE
+dsgn_time[0] = 0.0
+
+# Calculate full DC beam length and start position of design particle. This will
+# give a CW injection.
+DC_length = SC.c / design_freq
+particle_dist = np.linspace(-DC_length / 2, DC_length / 2, Np)
+
+# Create particle arrays to store histories
+parts_pos = np.zeros(shape=(Np, Nz))
+parts_pos[:, 0] = particle_dist
+parts_E = np.zeros(shape=(Np, Nz))
+parts_time = np.zeros(shape=(Np, Nz))
+parts_E[:, 0] = dsgn_initE
+
+# initialize particles to z=0 along with times
+vparts = np.sqrt(2 * parts_E[:, 0] / Ar_mass) * SC.c
+time = (parts_pos[:, 0]) / vparts
+parts_pos[:, 0] = 0
+parts_time[:, 0] = time
+
+# ------------------------------------------------------------------------------
+#    Field Load and Advancement
+# The locations of the gaps are found in the z-mesh and using the gap thickness
+# the flat-top field is loaded onto th emesh. The first gap  is maximally negative
+# and the following gaps are 180º out of phase from the previous.
+# ------------------------------------------------------------------------------
 # Instantiate the flat-top field values in the gap regions.
 for i, cent in enumerate(gap_centers):
     if i % 2 == 0:
