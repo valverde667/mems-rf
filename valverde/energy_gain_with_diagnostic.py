@@ -13,6 +13,7 @@ from matplotlib.patches import Ellipse
 import scipy.constants as SC
 import scipy.integrate as integrate
 import os
+import pdb
 
 
 # different particle masses in eV
@@ -64,6 +65,15 @@ def rf_volt(t, freq=13.6 * MHz):
     return np.cos(2 * np.pi * freq * t)
 
 
+def calc_dipole_deflection(voltage, energy, length=50 * mm, g=11 * mm, drift=185 * mm):
+    """Calculate an ion's deflection from a dipole field"""
+
+    coeff = voltage * length / g / energy
+    deflection = coeff * (length / 2 + drift)
+
+    return deflection
+
+
 # ------------------------------------------------------------------------------
 #     Simulation Parameters
 # This section is dedicated to naming and initializing design parameters that are
@@ -73,7 +83,7 @@ def rf_volt(t, freq=13.6 * MHz):
 # Simulation Parameters for design particle
 design_phase = -0
 dsgn_initE = 7 * kV
-Np = 1000
+Np = 5000
 gap_width = 2 * mm
 
 # Simulation parameters for gaps and geometries
@@ -84,7 +94,7 @@ real_freq = design_freq
 design_omega = 2 * np.pi * design_freq
 real_omega = design_omega
 E_DC = real_gap_volt * kV / gap_width
-Ng = 2
+Ng = 16
 Fcup_dist = 30 * mm
 Emax = dsgn_initE + Ng * design_gap_volt * np.cos(design_phase)
 
@@ -217,3 +227,39 @@ final_E = np.nan_to_num(parts_E[:, -1])
 # Bin the final energies on its own plot for later comparison using Warp fields.
 fig, axes = plt.subplots(figsize=(10, 2))
 axes.hist(final_E / keV, bins=100)
+
+# ------------------------------------------------------------------------------
+#    Dipole Selector
+# In experiment, an energy analyzer is used to measure the final energy of the
+# ions. A dipole consisting of two parallel plates is used to deflect the ions.
+# The dipole voltage bias is varied and readings in a faraday cup are recorded
+# for ions passing through a slit acting as a selector.
+# This portion is meant to simulate this by first using a simple deflection
+# equation. An array of voltage values is sampled and ions are selected based on
+# their final deflected position using the slit width as a filter.
+# ------------------------------------------------------------------------------
+dipole_bias = np.linspace(0.0, 4 * kV, 100)
+
+# Create an array to record the selected particles for each bias used
+parts_selected = np.zeros(len(dipole_bias))
+
+# Loop through biases and evaluate the deflection. Count how many particles
+# land within the slit and store value.
+filtered_E = final_E[np.where(final_E > 0.0)[0]]
+slit_select_min = slit_center - slit_width / 2
+slit_select_max = slit_center + slit_width / 2
+# pdb.set_trace()
+for i, bias in enumerate(dipole_bias):
+    deflect = calc_dipole_deflection(bias, filtered_E)
+
+    slit_selection = (deflect > slit_select_min) & (deflect < slit_select_max)
+    selected = np.sum(deflect[slit_selection[0]])
+    parts_selected[i] = selected
+
+fig, ax = plt.subplots()
+selected_inds = np.where(parts_selected > 0)[0]
+ax.scatter(dipole_bias, parts_selected / Np)
+ax.plot(dipole_bias, parts_selected / Np)
+ax.set_xlabel("Dipole Bias [V]")
+ax.set_ylabel("Fraction of Particles Selected")
+plt.show()
