@@ -83,7 +83,7 @@ def calc_dipole_deflection(voltage, energy, length=50 * mm, g=11 * mm, drift=185
 # Simulation Parameters for design particle
 design_phase = -0
 dsgn_initE = 7 * kV
-Np = 5000
+Np = 10000
 gap_width = 2 * mm
 
 # Simulation parameters for gaps and geometries
@@ -238,7 +238,7 @@ axes.hist(final_E / keV, bins=100)
 # equation. An array of voltage values is sampled and ions are selected based on
 # their final deflected position using the slit width as a filter.
 # ------------------------------------------------------------------------------
-dipole_bias = np.linspace(0.0, 4 * kV, 100)
+dipole_bias = np.linspace(0 * kV, 5 * kV, 100)
 
 # Create an array to record the selected particles for each bias used
 parts_selected = np.zeros(len(dipole_bias))
@@ -258,7 +258,7 @@ for i, bias in enumerate(dipole_bias):
 
 fig, ax = plt.subplots()
 selected_inds = np.where(parts_selected > 0)[0]
-ax.scatter(dipole_bias, parts_selected / Np)
+ax.scatter(dipole_bias, parts_selected / Np, s=3)
 ax.plot(dipole_bias, parts_selected / Np)
 ax.set_xlabel("Dipole Bias [V]")
 ax.set_ylabel("Fraction of Particles Selected")
