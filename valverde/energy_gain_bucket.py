@@ -28,6 +28,7 @@ keV = 1000
 MHz = 1e6
 mm = 1e-3
 um = 1e-6
+us = 1e-6
 ns = 1e-9  # nanoseconds
 twopi = 2 * np.pi
 
@@ -96,7 +97,7 @@ real_omega = design_omega
 E_DC = real_gap_volt * kV / gap_width
 Ng = 16
 Fcup_dist = 30 * mm
-Emax = dsgn_initE + Ng * design_gap_volt * np.cos(design_phase)
+dsgn_finE = dsgn_initE + Ng * design_gap_volt * np.cos(design_phase)
 
 # Energy analyzer parameters
 dist_to_dipole = 25.0 * mm
@@ -223,44 +224,55 @@ for i in range(1, len(z)):
 
 # Convert nan values to 0
 final_E = np.nan_to_num(parts_E[:, -1])
+final_t = np.nan_to_num(parts_time[:, -1])
 
-# Bin the final energies on its own plot for later comparison using Warp fields.
-fig, axes = plt.subplots(figsize=(10, 2))
-axes.hist(final_E / keV, bins=100)
-plt.show()
+# Plot the final energy and time but ignore the 0-bin since this will be overly
+# large and drown out the distribution. This isn't done for time since doing so
+# is more trouble then its worth. Do be sure to zoom in on the plot and make sure
+# the distribution on either side of zero is relatively uniform since this is what
+# it should be for a CW beam.
+Ecounts, Eedges = np.histogram(final_E, bins=100)
+tcounts, tedges = np.histogram(final_t, bins=100)
 
-# ------------------------------------------------------------------------------
-#    Dipole Selector
-# In experiment, an energy analyzer is used to measure the final energy of the
-# ions. A dipole consisting of two parallel plates is used to deflect the ions.
-# The dipole voltage bias is varied and readings in a faraday cup are recorded
-# for ions passing through a slit acting as a selector.
-# This portion is meant to simulate this by first using a simple deflection
-# equation. An array of voltage values is sampled and ions are selected based on
-# their final deflected position using the slit width as a filter.
-# ------------------------------------------------------------------------------
-dipole_bias = np.linspace(0 * kV, 5 * kV, 100)
-
-# Create an array to record the selected particles for each bias used
-parts_selected = np.zeros(len(dipole_bias))
-
-# Loop through biases and evaluate the deflection. Count how many particles
-# land within the slit and store value.
-filtered_E = final_E[np.where(final_E > 0.0)[0]]
-slit_select_min = slit_center - slit_width / 2
-slit_select_max = slit_center + slit_width / 2
-# pdb.set_trace()
-for i, bias in enumerate(dipole_bias):
-    deflect = calc_dipole_deflection(bias, filtered_E)
-
-    slit_selection = (deflect > slit_select_min) & (deflect < slit_select_max)
-    selected = np.sum(deflect[slit_selection[0]])
-    parts_selected[i] = selected
+# Calculate percent of particles that in plot
+percent_parts = np.sum(Ecounts[1:]) / Np * 100
+fig, ax = plt.subplots()
+ax.bar(
+    Eedges[1:-1] / keV,
+    Ecounts[1:] / Np,
+    width=np.diff(Eedges[1:] / keV),
+    edgecolor="black",
+    lw="1",
+    label=f"Percent Parts: {percent_parts:.2f}%",
+)
+ax.set_xlabel(r"Energy [keV]")
+ax.set_ylabel(r"Fraction of Total Particles")
+ax.legend()
 
 fig, ax = plt.subplots()
-selected_inds = np.where(parts_selected > 0)[0]
-ax.scatter(dipole_bias, parts_selected / Np, s=3)
-ax.plot(dipole_bias, parts_selected / Np)
-ax.set_xlabel("Dipole Bias [V]")
-ax.set_ylabel("Fraction of Particles Selected")
+ax.bar(
+    tedges[:-1] / us,
+    tcounts / Np,
+    width=np.diff(tedges / us),
+    edgecolor="black",
+    lw="1",
+)
+ax.set_xlabel(r"Time [$\mu$s]")
+ax.set_ylabel(r"Fraction of Total Particles")
 plt.show()
+
+# ------------------------------------------------------------------------------
+#    Bucket Analysis
+# The percent_Edev variable finds the particles that are +/- the deviation in
+# energy from the design particle. This can then be stored by the user and used
+# to see how this bucket of particles evolves for gaps. The output plots will
+# show the distribution of the energy relative to the design particle and
+# distribution of phase relative to the design particle.
+# ------------------------------------------------------------------------------
+# Create mask using the desired percent deviation in energy
+percent_Edev = 0.15
+mask = (final_E >= dsgn_finE * (1 - percent_Edev)) and (
+    (final_E <= dsgn_finE * (1 + percent_Edev))
+)
+bucket_E = final_E[mask]
+bucket_time = parts_time[mask]
