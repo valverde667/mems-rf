@@ -271,8 +271,45 @@ plt.show()
 # ------------------------------------------------------------------------------
 # Create mask using the desired percent deviation in energy
 percent_Edev = 0.15
-mask = (final_E >= dsgn_finE * (1 - percent_Edev)) and (
+mask = (final_E >= dsgn_finE * (1 - percent_Edev)) & (
     (final_E <= dsgn_finE * (1 + percent_Edev))
 )
 bucket_E = final_E[mask]
-bucket_time = parts_time[mask]
+bucket_time = final_t[mask]
+
+# Plot distribution of bucket relative to design
+d_bucket_E = bucket_E - dsgn_finE
+d_bucket_phase = design_omega * (bucket_time - dsgn_time[-1])
+
+# Plot distributions
+d_bucket_Ecounts, d_bucket_Eedges = np.histogram(d_bucket_E, bins=100)
+d_bucket_phasecounts, d_bucket_phaseedges = np.histogram(d_bucket_phase, bins=100)
+
+# Calculate percent of particles that in plot
+percent_parts = np.sum(d_bucket_Ecounts) / Np * 100
+fig, ax = plt.subplots()
+ax.bar(
+    d_bucket_Eedges[:-1] / keV,
+    d_bucket_Ecounts / Np,
+    width=np.diff(d_bucket_Eedges / keV),
+    edgecolor="black",
+    lw="1",
+    label=f"Percent Parts: {percent_parts:.2f}%",
+)
+ax.set_xlabel(r"$\Delta E$ [keV]")
+ax.set_ylabel(r"Fraction of Total Particles")
+ax.legend()
+
+fig, ax = plt.subplots()
+dsgn_final_phase = design_omega * dsgn_time[-1]
+ax.bar(
+    d_bucket_phaseedges[:-1] / dsgn_final_phase,
+    d_bucket_phasecounts / Np,
+    width=np.diff(d_bucket_phaseedges / dsgn_final_phase),
+    edgecolor="black",
+    lw="1",
+)
+ax.set_xlabel(r"$\Delta \phi$ in units of $\phi_{s,f}$")
+ax.set_ylabel(r"Fraction of Total Particles")
+ax.legend()
+plt.show()
