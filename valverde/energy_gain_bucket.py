@@ -95,12 +95,12 @@ real_freq = design_freq
 design_omega = 2 * np.pi * design_freq
 real_omega = design_omega
 E_DC = real_gap_volt * kV / gap_width
-Ng = 16
-Fcup_dist = 30 * mm
+Ng = 2
+Fcup_dist = 10 * mm
 dsgn_finE = dsgn_initE + Ng * design_gap_volt * np.cos(design_phase)
 
 # Energy analyzer parameters
-dist_to_dipole = 25.0 * mm
+dist_to_dipole = 25.0 * mm * 0
 dipole_length = 50.0 * mm
 dipole_gap_width = 11.0 * mm
 dist_to_slit = 185.0 * mm
@@ -133,8 +133,10 @@ gap_centers = np.array(gap_dist).cumsum()
 # ------------------------------------------------------------------------------
 # Specify a mesh resolution
 mesh_res = 50 * um
-Nz = int((gap_centers[-1] + dist_to_dipole) / mesh_res)
-z = np.linspace(0.0, gap_centers[-1] + dist_to_dipole, Nz)
+zmin = 0.0
+zmax = gap_centers[-1] + gap_width / 2 + Fcup_dist
+Nz = int((zmax - zmin) / mesh_res)
+z = np.linspace(zmin, zmax, Nz)
 dz = z[1] - z[0]
 Ez0 = z.copy()
 
@@ -199,6 +201,7 @@ if Ng > 1:
         ax.axvline(cent / mm, c="grey", lw=1, ls="--")
 else:
     ax.axvline(gap_centers[0] / mm, c="grey", lw=1, ls="--")
+plt.tight_layout()
 
 # Main loop to advance particles. Real parameter settings should be used here.
 for i in range(1, len(z)):
@@ -259,6 +262,7 @@ ax.bar(
 )
 ax.set_xlabel(r"Time [$\mu$s]")
 ax.set_ylabel(r"Fraction of Total Particles")
+plt.tight_layout()
 plt.show()
 
 # ------------------------------------------------------------------------------
