@@ -94,7 +94,7 @@ design_freq = 13.06 * MHz
 real_freq = design_freq
 design_omega = 2 * np.pi * design_freq
 real_omega = design_omega
-E_DC = real_gap_volt * kV / gap_width
+E_DC = real_gap_volt / gap_width
 Ng = 2
 Fcup_dist = 10 * mm
 dsgn_finE = dsgn_initE + Ng * design_gap_volt * np.cos(design_phase)
@@ -206,37 +206,49 @@ if use_real_field:
 
     # Find extent of field
     Ez_extent = z_iso[-1] - z_iso[0]
-    fringe_length = (Ez_extent - gap_width) / 2.0
 
     # Patch already created zmesh with the isolated zmesh corresponding to the
     # isolated field
-    cent = gap_centers[0]
-    z_patch = z_iso.copy() + cent
-    field_loc = np.where((z > cent - Ez_extent / 2) & (z < cent + Ez_extent / 2))
-    patch_start = field_loc[0][0]
-    patch_end = field_loc[0][-1]
+    z_patch_arrays = []
+    Ez_patch_arrays = []
+    for i, cent in enumerate(gap_centers):
+        if i % 2 == 0:
+            this_Ez = -1.0 * Ez_iso.copy()
+        else:
+            this_Ez = 1.0 * Ez_iso.copy()
 
-    z_left = z[: patch_start + 1]
-    z_right = z[patch_end:]
-    Ez0_left = Ez0[: patch_start + 1]
-    Ez0_right = Ez0[patch_end:]
+        z_patch = z_iso.copy() + cent
+        field_loc = np.where((z > cent - Ez_extent / 2) & (z < cent + Ez_extent / 2))
+        patch_start = field_loc[0][0]
+        patch_end = field_loc[0][-1]
 
-    # Check for overlap between patched area and zmesh. If there is, remove
-    # overlap and stitch together the patch.
-    left_overlap = np.where((z_patch[0] - z_left) < 0)[0]
-    if len(left_overlap) != 0:
-        z_left = np.delete(z_left, left_overlap)
-        Ez0_left = np.delete(Ez0_left, left_overlap)
+        z_left = z[: patch_start + 1]
+        z_right = z[patch_end:]
+        Ez0_left = Ez0[: patch_start + 1]
+        Ez0_right = Ez0[patch_end:]
 
-    right_overlap = np.where(z_right - (z_patch[-1] + cent) < 0)[0]
-    if len(right_overlap) != 0:
-        z_right = np.delete(z_right, right_overlap)
-        Ez0_right = np.delete(Ez0_right, right_overlap)
+        # Check for overlap between patched area and zmesh. If there is, remove
+        # overlap and stitch together the patch.
+        left_overlap = np.where((z_patch[0] - z_left) < 0)[0]
+        if len(left_overlap) != 0:
+            z_left = np.delete(z_left, left_overlap)
+            Ez0_left = np.delete(Ez0_left, left_overlap)
 
-    z_patched = np.concatenate((z_left, z_patch, z_right))
-    Ez0_patched = np.concatenate((Ez0_left, Ez_iso, Ez0_right))
+        right_overlap = np.where(z_right - (z_patch[-1] + cent) < 0)[0]
+        if len(right_overlap) != 0:
+            z_right = np.delete(z_right, right_overlap)
+            Ez0_right = np.delete(Ez0_right, right_overlap)
 
-    stop
+        # Stitch fields together and flip sign of the electric field
+        z_patched = np.concatenate((z_left, z_patch, z_right))
+        if i % 2 == 0:
+            Ez0_patched = np.concatenate((Ez0_left, -Ez_iso, Ez0_right))
+        else:
+            Ez0_patched = np.concatenate((Ez0_left, Ez_iso, Ez0_right))
+
+        # Rename previously defined meshs for continuity
+        z = z_patched
+        Ez0 = Ez0_patched
 
 # Plot field with gaps
 fig, ax = plt.subplots()
@@ -275,7 +287,7 @@ for i in range(1, len(z)):
 # Convert nan values to 0
 final_E = np.nan_to_num(parts_E[:, -1])
 final_t = np.nan_to_num(parts_time[:, -1])
-
+stop
 # Plot the final energy and time but ignore the 0-bin since this will be overly
 # large and drown out the distribution. This isn't done for time since doing so
 # is more trouble then its worth. Do be sure to zoom in on the plot and make sure
