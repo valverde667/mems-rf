@@ -180,16 +180,63 @@ parts_time[:, 0] = time
 # The locations of the gaps are found in the z-mesh and using the gap thickness
 # the flat-top field is loaded onto th emesh. The first gap  is maximally negative
 # and the following gaps are 180º out of phase from the previous.
+# The fields can either be loaded using a flat top or the real field which must
+# extracted from the script 'fit_function_to_gap_field.py'
 # ------------------------------------------------------------------------------
 # Instantiate the flat-top field values in the gap regions.
-for i, cent in enumerate(gap_centers):
-    if i % 2 == 0:
-        field_loc = np.where((z >= cent - gap_width / 2) & (z <= cent + gap_width / 2))
-        Ez0[field_loc] = -real_gap_volt / gap_width
-    else:
-        field_loc = np.where((z >= cent - gap_width / 2) & (z <= cent + gap_width / 2))
-        Ez0[field_loc] = real_gap_volt / gap_width
+use_flattop = False
+use_real_field = True
+if use_flattop:
+    for i, cent in enumerate(gap_centers):
+        if i % 2 == 0:
+            field_loc = np.where(
+                (z >= cent - gap_width / 2) & (z <= cent + gap_width / 2)
+            )
+            Ez0[field_loc] = -real_gap_volt / gap_width
+        else:
+            field_loc = np.where(
+                (z >= cent - gap_width / 2) & (z <= cent + gap_width / 2)
+            )
+            Ez0[field_loc] = real_gap_volt / gap_width
 
+if use_real_field:
+    # load isolated field
+    z_iso = np.load("z_isolated_7kV_2mm_20um.npy")
+    Ez_iso = np.load("Ez_isolated_7kV_2mm_20um.npy")
+
+    # Find extent of field
+    Ez_extent = z_iso[-1] - z_iso[0]
+    fringe_length = (Ez_extent - gap_width) / 2.0
+
+    # Patch already created zmesh with the isolated zmesh corresponding to the
+    # isolated field
+    cent = gap_centers[0]
+    z_patch = z_iso.copy() + cent
+    field_loc = np.where((z > cent - Ez_extent / 2) & (z < cent + Ez_extent / 2))
+    patch_start = field_loc[0][0]
+    patch_end = field_loc[0][-1]
+
+    z_left = z[: patch_start + 1]
+    z_right = z[patch_end:]
+    Ez0_left = Ez0[: patch_start + 1]
+    Ez0_right = Ez0[patch_end:]
+
+    # Check for overlap between patched area and zmesh. If there is, remove
+    # overlap and stitch together the patch.
+    left_overlap = np.where((z_patch[0] - z_left) < 0)[0]
+    if len(left_overlap) != 0:
+        z_left = np.delete(z_left, left_overlap)
+        Ez0_left = np.delete(Ez0_left, left_overlap)
+
+    right_overlap = np.where(z_right - (z_patch[-1] + cent) < 0)[0]
+    if len(right_overlap) != 0:
+        z_right = np.delete(z_right, right_overlap)
+        Ez0_right = np.delete(Ez0_right, right_overlap)
+
+    z_patched = np.concatenate((z_left, z_patch, z_right))
+    Ez0_patched = np.concatenate((Ez0_left, Ez_iso, Ez0_right))
+
+    stop
 
 # Plot field with gaps
 fig, ax = plt.subplots()
