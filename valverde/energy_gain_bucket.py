@@ -132,7 +132,7 @@ gap_centers = np.array(gap_dist).cumsum()
 # mesh_res variable to represent a spacing resolution.
 # ------------------------------------------------------------------------------
 # Specify a mesh resolution
-mesh_res = 50 * um
+mesh_res = 5 * um
 zmin = 0.0
 zmax = gap_centers[-1] + gap_width / 2 + Fcup_dist
 Nz = int((zmax - zmin) / mesh_res)
@@ -176,7 +176,7 @@ parts_pos[:, 0] = 0
 parts_time[:, 0] = time
 
 # ------------------------------------------------------------------------------
-#    Field Load and Advancement
+#    Field Load
 # The locations of the gaps are found in the z-mesh and using the gap thickness
 # the flat-top field is loaded onto th emesh. The first gap  is maximally negative
 # and the following gaps are 180º out of phase from the previous.
@@ -212,10 +212,6 @@ if use_real_field:
     z_patch_arrays = []
     Ez_patch_arrays = []
     for i, cent in enumerate(gap_centers):
-        if i % 2 == 0:
-            this_Ez = -1.0 * Ez_iso.copy()
-        else:
-            this_Ez = 1.0 * Ez_iso.copy()
 
         z_patch = z_iso.copy() + cent
         field_loc = np.where((z > cent - Ez_extent / 2) & (z < cent + Ez_extent / 2))
@@ -234,7 +230,7 @@ if use_real_field:
             z_left = np.delete(z_left, left_overlap)
             Ez0_left = np.delete(Ez0_left, left_overlap)
 
-        right_overlap = np.where(z_right - (z_patch[-1] + cent) < 0)[0]
+        right_overlap = np.where((z_right - z_patch[-1]) < 0)[0]
         if len(right_overlap) != 0:
             z_right = np.delete(z_right, right_overlap)
             Ez0_right = np.delete(Ez0_right, right_overlap)
@@ -262,6 +258,44 @@ else:
     ax.axvline(gap_centers[0] / mm, c="grey", lw=1, ls="--")
 plt.tight_layout()
 
+# ------------------------------------------------------------------------------
+#    Particle Histories
+# The particle arrays are created and the following quantities are tracked for the
+# advancement: position, time, energy. This tracking will allow for various
+# analysis such as relative differences from the design particle in time and
+# energy.
+# ------------------------------------------------------------------------------
+# The mesh sizing will have changed after adding patches so the arrays need to
+# redone before advancing.
+if use_real_field:
+    Nz = len(z)
+    dsgn_pos = np.zeros(Nz)
+    dsgn_E = np.zeros(Nz)
+    dsgn_time = np.zeros(Nz)
+
+    dsgn_pos[0] = 0.0
+    dsgn_E[0] = dsgn_initE
+    dsgn_time[0] = 0.0
+
+    # Create particle arrays to store histories
+    parts_pos = np.zeros(shape=(Np, Nz))
+    parts_pos[:, 0] = particle_dist
+    parts_E = np.zeros(shape=(Np, Nz))
+    parts_time = np.zeros(shape=(Np, Nz))
+    parts_E[:, 0] = dsgn_initE
+
+    # initialize particles to z=0 along with times
+    vparts = np.sqrt(2 * parts_E[:, 0] / Ar_mass) * SC.c
+    time = (parts_pos[:, 0]) / vparts
+    parts_pos[:, 0] = 0
+    parts_time[:, 0] = time
+
+
+# ------------------------------------------------------------------------------
+#    Particle Advancement
+# Particles are initialized to times corresponding to z=0. The advancement is
+# then done evaluated the energy gain using the field value and mesh spacing dz.
+# ------------------------------------------------------------------------------
 # Main loop to advance particles. Real parameter settings should be used here.
 for i in range(1, len(z)):
     # Do design particle
@@ -287,7 +321,7 @@ for i in range(1, len(z)):
 # Convert nan values to 0
 final_E = np.nan_to_num(parts_E[:, -1])
 final_t = np.nan_to_num(parts_time[:, -1])
-stop
+
 # Plot the final energy and time but ignore the 0-bin since this will be overly
 # large and drown out the distribution. This isn't done for time since doing so
 # is more trouble then its worth. Do be sure to zoom in on the plot and make sure
