@@ -306,6 +306,23 @@ def create_filled_gap(
     return gap
 
 
+def uniform_particle_load(E, Np, f=13.6 * MHz, zcent=0.0 * mm, mass=Ar_mass):
+    """Uniform load particles around zcent with uniform energy"""
+
+    # Calculate RF-wavelength
+    lambda_rf = beta(E, mass=mass) * SC.c / 2 / f
+
+    # Calculate z-velocities
+    vz = np.sqrt(2 * E / mass) * SC.c
+
+    # Create position array
+    zmin = zcent - lambda_rf / 2
+    zmax = zcent + lambda_rf / 2
+    z = np.linspace(zmin, zmax, Np)
+
+    return z, vz
+
+
 # ------------------------------------------------------------------------------
 #     Script parameter settings
 # This section is dedicated to naming and setting the various parameters of the
