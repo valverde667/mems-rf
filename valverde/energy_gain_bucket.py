@@ -201,8 +201,8 @@ if use_flattop:
 
 if use_real_field:
     # load isolated field
-    z_iso = np.load("z_isolated_7kV_2mm_20um.npy")
-    Ez_iso = np.load("Ez_isolated_7kV_2mm_20um.npy")
+    z_iso = np.load("z_isolated_7kV_2mm_5um.npy")
+    Ez_iso = np.load("Ez_isolated_7kV_2mm_5um.npy")
 
     # Find extent of field
     Ez_extent = z_iso[-1] - z_iso[0]
