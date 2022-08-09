@@ -42,7 +42,7 @@ plt.show()
 #     Isolate gap field
 # Here the field for a single gap is isolated. The arrays up to the midpoint
 # between to two gaps are first extracted since at this point the field is sure
-# to be zero. Then, the field locations for where the field is greater than 1%
+# to be zero. Then, the field locations for where the field is greater than .001%
 # of Emax is selected. These indices then give the location for where the field
 # exists.
 # ------------------------------------------------------------------------------
@@ -52,7 +52,7 @@ Ez_reduced = Ez0[:midpoint]
 z_reduced = zmesh[:midpoint]
 
 # Find where field strength is greater than 1% of Emax
-exists = np.where(abs(Ez_reduced) >= 0.01 * (abs(Ez_reduced)).max())[0]
+exists = np.where(abs(Ez_reduced) >= 1.0e-3 * (abs(Ez_reduced)).max())[0]
 
 
 # Isolate fields and shift z so that it is centered at z=0
