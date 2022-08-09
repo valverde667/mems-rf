@@ -12,6 +12,8 @@ import pdb
 
 import warp as wp
 from warp.utils.timedependentvoltage import TimeVoltage
+from warp.particles.singleparticle import TraceParticle
+
 
 # different particle masses in eV
 # amu in eV
@@ -378,8 +380,6 @@ beam.beam = 0.0
 beam.ekin = 7.0 * keV
 wp.derivqty()
 
-beam.vthz = 0.5 * beam.vbeam * beam.emit / wp.sqrt(beam.a0 * beam.b0)
-
 # ------------------------------------------------------------------------------
 #     Simulation Paramter settings.
 # This section is dedicated to initializing the parameters necessary to run a
@@ -404,7 +404,11 @@ wp.w3d.ny = 110
 wp.w3d.zmmin = -rf_wave / 2
 wp.w3d.zmmax = gap_centers[-1] + fcup_dist
 # Set resolution to be 20um giving 35 points to resolve plates and 100 pts in gap
-wp.w3d.nz = round((wp.w3d.zmmax - wp.w3d.zmmin) / 20 / um)
+wp.w3d.nz = round((wp.w3d.zmmax - wp.w3d.zmmin) / 50 / um)
+dz = (wp.w3d.zmmax - wp.w3d.zmmin) / wp.w3d.nz
+
+# Set timing step with cf condition.
+wp.top.dt = 0.7 * dz / beam.vbeam
 
 # Add boundary conditions
 wp.w3d.bound0 = wp.dirichlet
@@ -450,11 +454,56 @@ for yc in ycents:
 
 # for cond in conductors:
 #     wp.installconductor(cond)
-
+diagnostic = wp.Box(
+    xsize=wp.top.largepos,
+    ysize=wp.top.largepos,
+    zsize=3.0 * dz,
+    voltage=0,
+    zcent=wp.w3d.zmmax - 4 * dz,
+    xcent=0.0,
+    ycent=0.0,
+)
+scraper = wp.ParticleScraper(diagnostic, lcollectlpdata=True)
+wp.top.lsavelostpart = True
 # Perform initial field solve for mesh.
 wp.package("w3d")
 wp.generate()
 
+# Load particles
+zload, vzload = uniform_particle_load(Einit, 10000)
+beam.addparticles(
+    x=np.zeros(len(zload)),
+    y=np.zeros(len(zload)),
+    z=zload,
+    vx=np.zeros(len(zload)),
+    vy=np.zeros(len(zload)),
+    vz=vzload,
+)
+# Create trace particle
+tracked_ions = wp.Species(type=wp.Argon, charge_state=+1, name="Tracer")
+tracker = TraceParticle(
+    js=tracked_ions.js, x=0.0, y=0.0, z=0.0, vx=0.0, vy=0.0, vz=beam.vbeam,
+)
+
+# # Potential particle plots. Cannot get window to stay fixed when plotting
+# # potential contours the contours move off the plot even though limts are
+# # held fixed.
+# wp.setup()
+# wp.winon()
+# def beamplots():
+#     wp.window(0)
+#     wp.ppzx(titles=False, color='red', msize=3)
+#     wp.pfzx(titles=False)
+#     wp.limits(wp.w3d.zmminglobal, wp.w3d.zmmaxglobal, 0., 0.55*mm)
+#     wp.ptitles('Particles and Potential Contour', 'z [m]', 'x [m]')
+#     wp.refresh()
+#     wp.fma()
+#
+#
+# while tracker.getz()[-1] < wp.w3d.zmmax - 8 * dz:
+#     if wp.top.it % 10 == 0:
+#         beamplots()
+#     wp.step()
 
 # Collect data from the mesh and initialize useful variables.
 z = wp.w3d.zmesh
@@ -529,7 +578,7 @@ plt.show()
 
 
 # Warp plotting for verification that mesh and conductors were created properly.
-warpplots = True
+warpplots = False
 if warpplots:
     wp.setup()
     wp.pfzx(fill=1, filled=1)
