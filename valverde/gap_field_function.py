@@ -451,7 +451,6 @@ for yc in ycents:
                     wp.installconductors(off_cond)
 
         conductors.append(this_cond)
-
 # for cond in conductors:
 #     wp.installconductor(cond)
 diagnostic = wp.Box(
@@ -485,25 +484,22 @@ tracker = TraceParticle(
     js=tracked_ions.js, x=0.0, y=0.0, z=0.0, vx=0.0, vy=0.0, vz=beam.vbeam,
 )
 
-# # Potential particle plots. Cannot get window to stay fixed when plotting
-# # potential contours the contours move off the plot even though limts are
-# # held fixed.
-# wp.setup()
-# wp.winon()
-# def beamplots():
-#     wp.window(0)
-#     wp.ppzx(titles=False, color='red', msize=3)
-#     wp.pfzx(titles=False)
-#     wp.limits(wp.w3d.zmminglobal, wp.w3d.zmmaxglobal, 0., 0.55*mm)
-#     wp.ptitles('Particles and Potential Contour', 'z [m]', 'x [m]')
-#     wp.refresh()
-#     wp.fma()
-#
-#
-# while tracker.getz()[-1] < wp.w3d.zmmax - 8 * dz:
-#     if wp.top.it % 10 == 0:
-#         beamplots()
-#     wp.step()
+# Potential particle plots. Cannot get window to stay fixed when plotting
+# potential contours the contours move off the plot even though limts are
+# held fixed.
+wp.setup()
+wp.winon()
+
+
+def beamplots():
+    wp.window(0)
+    wp.ppzx(titles=False, color="red", msize=3)
+    wp.pfzx(titles=False)
+    wp.limits(wp.w3d.zmminglobal, wp.w3d.zmmaxglobal, 0.0, 0.55 * mm)
+    wp.ptitles("Particles and Potential Contour", "z [m]", "x [m]")
+    wp.refresh()
+    wp.fma()
+
 
 # Collect data from the mesh and initialize useful variables.
 z = wp.w3d.zmesh
