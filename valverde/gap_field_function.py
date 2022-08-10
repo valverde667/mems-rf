@@ -69,6 +69,106 @@ def neg_gap_voltage(t):
     return v
 
 
+def create_wafer(
+    cent,
+    voltage,
+    width=2.0 * mm,
+    cell_width=3.0 * mm,
+    length=0.7 * mm,
+    rin=0.55 * mm,
+    rout=0.75 * mm,
+    xcent=0.0 * mm,
+    ycent=0.0 * mm,
+):
+    """"Create a single wafer
+
+    An acceleration gap will be comprised of two wafers, one grounded and one
+    with an RF varying voltage. Creating a single wafer without combining them
+    (create_gap function) will allow to place a time variation using Warp that
+    one mess up the potential fields."""
+
+    prong_width = rout - rin
+    ravg = (rout + rin) / 2
+
+    # Left wafer first.
+    wafer = wp.Annulus(
+        rmin=rin,
+        rmax=rout,
+        length=length,
+        voltage=voltage,
+        zcent=cent,
+        xcent=xcent,
+        ycent=ycent,
+    )
+
+    # Create box surrounding wafer. The extent is slightly larger than 5mm unit
+    # cell. The simulation cell will chop this to be correct so long as the
+    # inner box separation is correct (approximately 0.2mm thickness)
+    box_out = wp.Box(
+        xsize=cell_width * (1 + 0.02),
+        ysize=cell_width * (1 + 0.02),
+        zsize=length,
+        voltage=voltage,
+        zcent=cent,
+        xcent=xcent,
+        ycent=ycent,
+    )
+    box_in = wp.Box(
+        xsize=cell_width * (1 - 0.02),
+        ysize=cell_width * (1 - 0.02),
+        zsize=length,
+        voltage=voltage,
+        zcent=cent,
+        xcent=xcent,
+        ycent=ycent,
+    )
+    box = box_out - box_in
+
+    # Create prongs. This is done using four box conductors and shifting
+    # respective x/y centers to create the prong.
+    top_prong = wp.Box(
+        xsize=prong_width,
+        ysize=cell_width / 2 - ravg,
+        zsize=length,
+        voltage=voltage,
+        zcent=cent,
+        xcent=xcent,
+        ycent=ycent + (cell_width / 2 + ravg) / 2,
+    )
+    bot_prong = wp.Box(
+        xsize=prong_width,
+        ysize=cell_width / 2 - ravg,
+        zsize=length,
+        voltage=voltage,
+        zcent=cent,
+        xcent=xcent,
+        ycent=ycent - (cell_width / 2 + ravg) / 2,
+    )
+    rside_prong = wp.Box(
+        xsize=cell_width / 2 - ravg,
+        ysize=prong_width,
+        zsize=length,
+        voltage=voltage,
+        zcent=cent,
+        xcent=xcent + (cell_width / 2 + ravg) / 2,
+        ycent=ycent,
+    )
+    lside_prong = wp.Box(
+        xsize=cell_width / 2 - ravg,
+        ysize=prong_width,
+        zsize=length,
+        voltage=voltage,
+        zcent=cent,
+        xcent=xcent - (cell_width / 2 + ravg) / 2,
+        ycent=ycent,
+    )
+
+    # Add together
+    cond = wafer + box + top_prong + bot_prong + rside_prong + lside_prong
+
+    return cond
+
+
 def create_gap(
     cent,
     left_volt,
@@ -325,6 +425,11 @@ def uniform_particle_load(E, Np, f=13.6 * MHz, zcent=0.0 * mm, mass=Ar_mass):
     return z, vz
 
 
+def voltfunc(time, f=13.6 * MHz, V=7 * kV):
+    """Voltage function to feed warp for time variation"""
+    return V * np.cos(2.0 * np.pi * f * time)
+
+
 # ------------------------------------------------------------------------------
 #     Script parameter settings
 # This section is dedicated to naming and setting the various parameters of the
@@ -429,30 +534,59 @@ ycents = np.array([0.0]) * mm
 conductors = []
 for yc in ycents:
     for i, cent in enumerate(gap_centers):
+        lzc = cent - gap_width / 2 - length / 2
+        rzc = cent + gap_width / 2 + length / 2
         if i % 2 == 0:
-            this_cond = create_gap(cent, left_volt=0, right_volt=Vgset, ycent=yc)
-            wp.installconductor(this_cond)
-            # cycle through off center gaps
-            if do_xoff_cents:
-                for xc in xoff_cents:
-                    off_cond = create_gap(
-                        cent, left_volt=0, right_volt=Vgset, xcent=xc, ycent=yc
-                    )
-                    wp.installconductor(off_cond)
-        else:
-            this_cond = create_gap(cent, left_volt=Vgset, right_volt=0, ycent=yc)
-            wp.installconductor(this_cond)
-            # cycle through off center gaps
-            if do_xoff_cents:
-                for xc in xoff_cents:
-                    off_cond = create_gap(
-                        cent, left_volt=Vgset, right_volt=0, xcent=xc, ycent=yc
-                    )
-                    wp.installconductors(off_cond)
+            l_wafer = create_wafer(lzc, voltage=0.0, ycent=yc)
+            r_wafer = create_wafer(rzc, voltage=Vgset, ycent=yc)
+            TimeVoltage(r_wafer, voltfunc=voltfunc)
 
-        conductors.append(this_cond)
-# for cond in conductors:
-#     wp.installconductor(cond)
+            wp.installconductor(l_wafer)
+            wp.installconductor(r_wafer)
+            # this_cond = create_gap(cent, left_volt=0, right_volt=Vgset, ycent=yc)
+            # wp.installconductor(this_cond)
+
+            # cycle through off center gaps
+            if do_xoff_cents:
+                for xc in xoff_cents:
+                    l_off_cond = create_wafer(lzc, voltage=0.0, xcent=xc, ycent=yc)
+                    r_off_cond = create_wafer(rzc, voltage=Vgset, xcent=xc, ycent=ync)
+                    TimeVoltage(r_off_cond, voltfunc=voltfunc)
+
+                    wp.installconductor(l_off_cond)
+                    wp.installconductor(r_off_cond)
+
+                    # off_cond = create_gap(
+                    #     cent, left_volt=0, right_volt=Vgset, xcent=xc, ycent=yc
+                    # )
+                    # wp.installconductor(off_cond)
+        else:
+            l_wafer = create_wafer(lzc, voltage=Vgset, ycent=yc)
+            r_wafer = create_wafer(rzc, voltage=0.0, ycent=yc)
+            TimeVoltage(l_wafer, voltfunc=voltfunc)
+
+            wp.installconductor(l_wafer)
+            wp.installconductor(r_wafer)
+
+            # this_cond = create_gap(cent, left_volt=Vgset, right_volt=0, ycent=yc)
+            # wp.installconductor(this_cond)
+
+            # cycle through off center gaps
+            if do_xoff_cents:
+                for xc in xoff_cents:
+                    l_off_cond = create_wafer(lzc, voltage=Vgset, xcent=xc, ycent=yc)
+                    r_off_cond = create_wafer(rzc, voltage=0.0, xcent=xc, ycent=yc)
+                    TimeVoltage(l_off_cond, voltfunc=voltfunc)
+
+                    wp.installconductor(l_off_cond)
+                    wp.installconductor(r_off_cond)
+                    # off_cond = create_gap(
+                    #     cent, left_volt=Vgset, right_volt=0, xcent=xc, ycent=yc
+                    # )
+                    # wp.installconductors(off_cond)
+
+
+# Create diagnostic for absorbing particles and recording final characteristics.
 diagnostic = wp.Box(
     xsize=wp.top.largepos,
     ysize=wp.top.largepos,
@@ -574,7 +708,7 @@ plt.show()
 
 
 # Warp plotting for verification that mesh and conductors were created properly.
-warpplots = False
+warpplots = True
 if warpplots:
     wp.setup()
     wp.pfzx(fill=1, filled=1)
