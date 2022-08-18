@@ -85,7 +85,7 @@ def calc_dipole_deflection(voltage, energy, length=50 * mm, g=11 * mm, drift=185
 design_phase = -0
 dsgn_initE = 7 * kV
 Np = 10000
-gap_width = 2 * mm
+gap_width = 2.0 * mm
 
 # Simulation parameters for gaps and geometries
 design_gap_volt = 7.0 * kV
@@ -95,10 +95,10 @@ real_freq = design_freq
 design_omega = 2 * np.pi * design_freq
 real_omega = design_omega
 E_DC = real_gap_volt / gap_width
-Ng = 2
+Ng = 16
 Fcup_dist = 10 * mm
 dsgn_finE = dsgn_initE + Ng * design_gap_volt * np.cos(design_phase)
-
+print(f"Predicted Final Design Energy: {dsgn_finE/keV:.2f} keV")
 # Energy analyzer parameters
 dist_to_dipole = 25.0 * mm * 0
 dipole_length = 50.0 * mm
@@ -132,7 +132,7 @@ gap_centers = np.array(gap_dist).cumsum()
 # mesh_res variable to represent a spacing resolution.
 # ------------------------------------------------------------------------------
 # Specify a mesh resolution
-mesh_res = 5 * um
+mesh_res = 30 * um
 zmin = 0.0
 zmax = gap_centers[-1] + gap_width / 2 + Fcup_dist
 Nz = int((zmax - zmin) / mesh_res)
@@ -184,8 +184,8 @@ parts_time[:, 0] = time
 # extracted from the script 'fit_function_to_gap_field.py'
 # ------------------------------------------------------------------------------
 # Instantiate the flat-top field values in the gap regions.
-use_flattop = False
-use_real_field = True
+use_flattop = True
+use_real_field = False
 if use_flattop:
     for i, cent in enumerate(gap_centers):
         if i % 2 == 0:
@@ -376,7 +376,7 @@ bucket_time = final_t[mask]
 
 # Plot distribution of bucket relative to design
 d_bucket_E = bucket_E - dsgn_finE
-d_bucket_phase = design_omega * (bucket_time - dsgn_time[-1])
+d_bucket_phase = design_omega * (bucket_time - dsgn_time[-1]) % (2 * np.pi)
 
 # Plot distributions
 d_bucket_Ecounts, d_bucket_Eedges = np.histogram(d_bucket_E, bins=100)
@@ -393,7 +393,7 @@ ax.bar(
     lw="1",
     label=f"Percent Parts: {percent_parts:.2f}%",
 )
-ax.set_xlabel(r"$\Delta E$ [keV]")
+ax.set_xlabel(fr"$\Delta E$ [keV], Predicted Final E: {dsgn_finE/keV:.2f} [keV]")
 ax.set_ylabel(r"Fraction of Total Particles")
 ax.legend()
 
