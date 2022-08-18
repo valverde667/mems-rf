@@ -603,7 +603,7 @@ wp.package("w3d")
 wp.generate()
 
 # Load particles
-zload, vzload = uniform_particle_load(Einit, 10000)
+zload, vzload = uniform_particle_load(Einit, int(1e5))
 beam.addparticles(
     x=np.zeros(len(zload)),
     y=np.zeros(len(zload)),
@@ -618,21 +618,27 @@ tracker = TraceParticle(
     js=tracked_ions.js, x=0.0, y=0.0, z=0.0, vx=0.0, vy=0.0, vz=beam.vbeam,
 )
 
+# while tracker.getz()[-1] < gap_centers[-1] + gap_width / 2 + length / 2:
+#     print(f"Tracker Particle at z = {tracker.getz()[-1]/mm:.3f} [mm]")
+#     this_E = Ar_mass * pow(tracker.getvz()[-1]/SC.c, 2) / 2.
+#     print(f"Tracker E = {this_E /keV:.3f} [keV]")
+#     wp.step()
+
 # Potential particle plots. Cannot get window to stay fixed when plotting
 # potential contours the contours move off the plot even though limts are
 # held fixed.
-wp.setup()
-wp.winon()
-
-
-def beamplots():
-    wp.window(0)
-    wp.ppzx(titles=False, color="red", msize=3)
-    wp.pfzx(titles=False)
-    wp.limits(wp.w3d.zmminglobal, wp.w3d.zmmaxglobal, 0.0, 0.55 * mm)
-    wp.ptitles("Particles and Potential Contour", "z [m]", "x [m]")
-    wp.refresh()
-    wp.fma()
+# wp.setup()
+# wp.winon()
+#
+#
+# def beamplots():
+#     wp.window(0)
+#     wp.ppzx(titles=False, color="red", msize=3)
+#     wp.pfzx(titles=False)
+#     wp.limits(wp.w3d.zmminglobal, wp.w3d.zmmaxglobal, 0.0, 0.55 * mm)
+#     wp.ptitles("Particles and Potential Contour", "z [m]", "x [m]")
+#     wp.refresh()
+#     wp.fma()
 
 
 # Collect data from the mesh and initialize useful variables.
@@ -678,9 +684,9 @@ np.save("ymesh", y)
 # ------------------------------------------------------------------------------
 # Plot potential and electric field (z-direction) on-axis.
 fig, ax = plt.subplots()
-ax.plot(z / mm, phi0 / kV)
+ax.plot(z / mm, phi0 / Vgset)
 ax.set_xlabel("z [mm]")
-ax.set_ylabel("Potential [kV]")
+ax.set_ylabel(r"Potential Normalized by Applied Gap Voltage $V_g$")
 ymin, ymax = ax.get_ylim()
 for i, cent in enumerate(gap_centers):
     left = cent - gap_width / 2 - length / 2
@@ -689,12 +695,13 @@ for i, cent in enumerate(gap_centers):
     ax.axvline(x=right / mm, c="gray", lw=0.7)
     ax.axvspan(left / mm, right / mm, color="grey", alpha=0.5)
 ax.axhline(y=0, c="k", lw=1)
-plt.savefig("potential", dpi=400)
+ax.axhline(y=1, c="k", ls="--", lw=0.7)
+plt.savefig("potential.png", dpi=400)
 
 fig, ax = plt.subplots()
 ax.plot(z / mm, Ez0 / E_DC)
 ax.set_xlabel("z [mm]")
-ax.set_ylabel(r"Normed On-axis E-field $E(x=0, y=0, z)/E_{DC}$ [V/m]")
+ax.set_ylabel(r"Normed On-axis E-field $E(x=0, y=0, z)/E_{DC}$")
 ymin, ymax = ax.get_ylim()
 for i, cent in enumerate(gap_centers):
     left = cent - gap_width / 2 - length / 2
@@ -703,7 +710,9 @@ for i, cent in enumerate(gap_centers):
     ax.axvline(x=right / mm, c="gray", lw=0.7)
     ax.axvspan(left / mm, right / mm, color="grey", alpha=0.5)
 ax.axhline(y=0, c="k", lw=1)
-plt.savefig("Efield", dpi=400)
+ax.axhline(y=1, c="k", ls="--", lw=0.7)
+ax.axhline(y=-1, c="k", ls="--", lw=0.7)
+plt.savefig("Efield.png", dpi=400)
 plt.show()
 
 
@@ -733,6 +742,14 @@ if warpplots:
     # Plot potential in xy
     wp.pfxy(iz=int(wp.w3d.nz / 2), fill=1, filled=1)
     wp.fma()
+
+stop
+potential = [wp.getphi()[0, 0, :]]
+Ez_array = [wp.getselfe(comp="z")[0, 0, :]]
+while wp.top.it < 20:
+    potential.append(wp.getphi()[0, 0, :])
+    Ez_array.append(wp.getselfe(comp="z")[0, 0, :])
+    wp.step()
 
 stop
 for i in range(steps):
