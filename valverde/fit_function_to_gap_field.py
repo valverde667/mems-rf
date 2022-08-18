@@ -4,6 +4,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.constants as SC
+import scipy.integrate as integrate
 
 
 # Useful constants
@@ -61,7 +62,18 @@ Ez_end = exists[-1]
 Ez_iso = abs(Ez0[Ez_start : Ez_end + 1])
 z_iso = zmesh[Ez_start : Ez_end + 1] - gap_centers[0]
 
-
+# ------------------------------------------------------------------------------
+#     Calculate Effective Length
+# This block will calculate the effective length of the gap. The integral will
+# be taken over the decided extents of the field currently at 1e-3Emax. E* will
+# be taken as the magnitude of the electric field in the gap.
+# ------------------------------------------------------------------------------
+Estar = max(abs(Ez_iso))
+dz_iso = z_iso[1] - z_iso[0]
+integral = integrate.simps(abs(Ez_iso), dx=dz_iso)
+ell = integral / Estar
+print(f"Effective Gap Length: {ell/mm:.4f} mm")
+stop
 # ------------------------------------------------------------------------------
 #     Fit polynomial function to field
 # The field is isolated and centered about zero. A function will now be fit to
