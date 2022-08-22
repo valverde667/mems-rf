@@ -132,7 +132,7 @@ gap_centers = np.array(gap_dist).cumsum()
 # mesh_res variable to represent a spacing resolution.
 # ------------------------------------------------------------------------------
 # Specify a mesh resolution
-mesh_res = 30 * um
+mesh_res = 100 * um
 zmin = 0.0
 zmax = gap_centers[-1] + gap_width / 2 + Fcup_dist
 Nz = int((zmax - zmin) / mesh_res)
@@ -159,7 +159,7 @@ dsgn_time[0] = 0.0
 
 # Calculate full DC beam length and start position of design particle. This will
 # give a CW injection.
-DC_length = SC.c / design_freq
+DC_length = beta(dsgn_initE) * SC.c / design_freq
 particle_dist = np.linspace(-DC_length / 2, DC_length / 2, Np)
 
 # Create particle arrays to store histories
@@ -299,24 +299,25 @@ if use_real_field:
 # Main loop to advance particles. Real parameter settings should be used here.
 for i in range(1, len(z)):
     # Do design particle
+    this_dz = z[i] - z[i - 1]
     this_vs = beta(dsgn_E[i - 1]) * SC.c
-    this_dt = dz / this_vs
+    this_dt = this_dz / this_vs
     dsgn_time[i] = dsgn_time[i - 1] + this_dt
 
-    Egain = Ez0[i - 1] * rf_volt(dsgn_time[i], freq=real_freq) * dz
+    Egain = Ez0[i - 1] * rf_volt(dsgn_time[i], freq=real_freq) * this_dz
 
     dsgn_E[i] = dsgn_E[i - 1] + Egain
-    dsgn_pos[i] = dsgn_pos[i - 1] + dz
+    dsgn_pos[i] = dsgn_pos[i - 1] + this_dz
     dsgn_time[i] = dsgn_time[i - 1] + this_dt
 
     # Do other particles
     this_v = beta(parts_E[:, i - 1]) * SC.c
-    this_dt = dz / this_v
+    this_dt = this_dz / this_v
     parts_time[:, i] = parts_time[:, i - 1] + this_dt
 
-    Egain = Ez0[i - 1] * rf_volt(parts_time[:, i], freq=real_freq) * dz
+    Egain = Ez0[i - 1] * rf_volt(parts_time[:, i], freq=real_freq) * this_dz
     parts_E[:, i] = parts_E[:, i - 1] + Egain
-    parts_pos[:, i] = parts_pos[:, i - 1] + dz
+    parts_pos[:, i] = parts_pos[:, i - 1] + this_dz
 
 # Convert nan values to 0
 final_E = np.nan_to_num(parts_E[:, -1])
