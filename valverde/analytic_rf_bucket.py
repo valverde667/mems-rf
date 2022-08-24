@@ -5,8 +5,15 @@
 # The results will most likely not be identical but present similar phase-space
 # plots. In particular, the eye, fish, and golf-club structures should be
 # reproduced in both methods.
+# The bucket can first be identified by setting the identify_bucket switch to
+# True. Enough gaps should be used so that particles within the bucket have enough
+# gaps to traverse phase-space and cross the x-axis at two points. The separatrix
+# is then found using the particle with the maximum crossing. With the separatrix
+# for these parameters found, the parameters can be varied and the bucket statistics
+# are then plotted.
 
 import numpy as np
+import seaborn as sns
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.animation as animation
 import datetime
@@ -413,17 +420,18 @@ def output_sim_params(
 #     Simulation Parameters/Settings
 # This section sets various simulation parameters. In this case, initial kinetic
 # energies, gap geometries, design settings such as frequency or phase, etc.
+# The setup is such that maximum of the electric field corresponds to phi=0.
 # ------------------------------------------------------------------------------
 init_dsgn_E = 7 * keV
 init_E = 7 * keV
-init_dsgn_phi = -np.pi / 2
+init_dsgn_phi = -np.pi / 3
 phi_dev = np.pi / 20
 W_dev = 0.1 * keV * 0.0
 q = 1
-Np = 10000
+Np = int(1e6)
 
-Ng = 25
-dsgn_freq = 13.6 * MHz
+Ng = 32
+dsgn_freq = 13.06 * MHz
 dsgn_gap_volt = 7 * kV
 dsgn_gap_width = 2 * mm
 dsgn_DC_Efield = dsgn_gap_volt / dsgn_gap_width
@@ -640,6 +648,7 @@ if identify_bucket:
         f"Bucket Particle Initial Relative Phase: {phi[max_particle_ind,0]/np.pi:.4f} [pi-units]"
     )
     print(f"Relative Energy Width: {(max_dW - min_dW)/keV:.4f} [keV]")
+    stop
 
 # H0 = B * (np.sin(init_dsgn_phi - init_dsgn_phi * np.cos(init_dsgn_phi)))
 # Hsep = Hamiltonian_array[max_particle_ind,:]
@@ -796,9 +805,9 @@ if do_dynamic_plot:
         input("Press [enter] to continue.")
 
 # Create mask for selecting particles within bucket.
-min_cross = -0.6464 * np.pi
-max_cross = 0.3197 * np.pi
-bucket_init_phase = -0.7959 + init_dsgn_phi
+min_cross = -0.6491 * np.pi
+max_cross = 0.3313 * np.pi
+bucket_init_phase = 0.3313 + init_dsgn_phi
 bucket_mask = (phi[:, 0] >= min_cross) & (phi[:, 0] <= max_cross)
 parts_survived = np.sum(bucket_mask)
 
@@ -975,7 +984,46 @@ ax.set_ylabel(f"Fraction of {Np:.1E}-Particles ")
 ax.legend()
 plt.savefig("dphi_bucket_dist", dpi=400)
 plt.show()
-# ------------------------------------------------------------------------------
+
+# Make Heat map of relative phase and energy
+x = phi[bucket_mask, -1]
+y = dW[bucket_mask, -1]
+xbins = np.linspace(x.min() / twopi, x.max() / twopi, 200)
+ybins = np.linspace(y.min() / keV, y.max() / keV, 200)
+
+fig, ax = plt.subplots(figsize=(10, 7))
+ax.hist2d(x % (twopi), y / keV, bins=[100, 100])
+ax.set_xlabel(fr"Energy [keV]")
+ax.set_ylabel(fr"$\phi / (2\pi)$")
+plt.show()
+with PdfPages(f"phase-space-plots.pdf") as pdf:
+    plt.figure()
+    plt.axis("off")
+    plt.text(0.25, 1.0, "Simulation Characteristics")
+    plt.text(0.25, 0.9, f"Injection Energy: {init_dsgn_E/kV} [keV]")
+    plt.text(0.25, 0.8, fr"Predicted Final Energy: {final_dsgn_E/keV:.2f} [keV]")
+    plt.text(0.25, 0.7, fr"Synchronous Phase: {init_dsgn_phi/np.pi:.2f}\pi")
+    plt.text(0.25, 0.6, f"Gap Voltage: {dsgn_gap_volt/kV:.2f} [kV]")
+    plt.text(0.25, 0.5, f"RF Frequency: {dsgn_freq/MHz:.2f} [MHz]")
+    plt.tight_layout()
+    pdf.savefig()
+    plt.close()
+
+    for i in range(Ng):
+        x = (phi[:, i] % twopi) - np.pi
+        y = dW[:, i]
+        fig, ax = plt.subplots(figsize=(10, 7))
+        hist = ax.hist2d(x / np.pi, y / keV, bins=[150, 150])
+        fig.colorbar(hist[3], ax=ax)
+        ax.set_title(f"Phase Space for Gap $N_g$={i:d}")
+        ax.set_xlabel(fr"$\phi / \pi$, \phi_s = {init_dsgn_phi/np.pi:.2f}$\pi$")
+        ax.set_ylabel(r"Kinetic Energy $W$ [keV]")
+        plt.tight_layout()
+        pdf.savefig()
+        plt.close()
+
+stop
+# -----------------------------------------------------------------------------
 #    Archived Scripting
 # This portion below was a previous routine for finding the bucket using a
 # combination of Scipy and theory to try and predict the bucket beforehand.
