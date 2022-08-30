@@ -416,6 +416,45 @@ def output_sim_params(
     print(f"- Particles in Outer Buckets: {other_parts_survived:.0f}%")
 
 
+def elliptical_load(Np, xmax, ymax, xc=0, yc=0, seed=42):
+    """Create Np particles within ellipse with axes xmax and ymax
+
+
+    Parameters:
+    -----------
+    Np : Int
+        Number of sample points
+
+    xmax : float
+        Half-width of x-axis
+
+    ymax : float
+        Half-width of y-axis
+
+    xc: float
+        Center of ellipse in x
+
+    yc: float
+        Center of ellipse in y
+
+    """
+
+    keep_x = np.zeros(Np)
+    keep_y = np.zeros(Np)
+    kept = 0
+    np.random.seed(seed)
+    while kept < Np:
+        x = np.random.uniform(xc - xmax, xc + xmax)
+        y = np.random.uniform(yc - ymax, yc + ymax)
+        coord = np.sqrt(pow((x - xc) / xmax, 2) + pow((y - yc) / ymax, 2))
+        if coord <= 1:
+            keep_x[kept] = x
+            keep_y[kept] = y
+            kept += 1
+
+    return (keep_x, keep_y)
+
+
 # ------------------------------------------------------------------------------
 #     Simulation Parameters/Settings
 # This section sets various simulation parameters. In this case, initial kinetic
@@ -424,13 +463,13 @@ def output_sim_params(
 # ------------------------------------------------------------------------------
 init_dsgn_E = 7 * keV
 init_E = 7 * keV
-init_dsgn_phi = -np.pi / 3
+init_dsgn_phi = -np.pi / 2
 phi_dev = np.pi / 20
-W_dev = 0.1 * keV * 0.0
+W_dev = 0.005 * keV
 q = 1
 Np = int(1e6)
 
-Ng = 32
+Ng = 40
 dsgn_freq = 13.06 * MHz
 dsgn_gap_volt = 7 * kV
 dsgn_gap_width = 2 * mm
@@ -444,14 +483,24 @@ final_dsgn_E = init_dsgn_E + (Ng - 1) * dsgn_gap_volt * np.cos(-init_dsgn_phi)
 Hamiltonian_array = np.zeros(shape=(Np, Ng))
 beta_s = np.zeros(Ng)
 # init_phi = np.linspace(init_dsgn_phi - phi_dev, init_dsgn_phi + phi_dev, Np)
-init_phi = np.linspace(-np.pi, np.pi, Np)
-init_dW = np.linspace(-W_dev, W_dev, Np)
+init_phi, init_dW = elliptical_load(Np, 0.001 * np.pi, W_dev, xc=init_dsgn_phi)
+# init_phi = np.linspace(-np.pi, np.pi, Np)
+# init_dW = np.linspace(-W_dev, W_dev, Np)
 loadin_data = False
 if loadin_data:
     init_dW = np.load("delta_E.npy")
     init_phi = np.load("delta_phi.npy")
     init_dsgn_E = np.load("design_E.npy")[-1]
     Np = len(init_dW)
+
+fig, ax = plt.subplots()
+hist = ax.hist2d(init_phi / np.pi, init_dW / keV, bins=[150, 150])
+fig.colorbar(hist[3], ax=ax)
+ax.set_xlabel(fr"$\phi / \pi$, $\phi_s$ = {init_dsgn_phi/np.pi:.2f}$\pi$")
+ax.set_ylabel(
+    fr"Relative Kinetic Energy $\Delta W$ [keV], $W_s$ = {init_dsgn_E/keV:.2f} [keV]"
+)
+plt.show()
 
 Hamiltonian_array = np.zeros(shape=(Np, Ng))
 phi = np.zeros(shape=(Np, Ng))
@@ -469,7 +518,7 @@ Hamiltonian_array[:, 0], _, _ = calc_Hamiltonian(
 # Switch to control whether or not the synchronous beta should be updated.
 # Setting True will evaluate beta_s at each gap and the phase-space can no
 # longer be considered conserved
-update_beta_s = True
+update_beta_s = False
 
 # ------------------------------------------------------------------------------
 #     Simulation and particle advancement of differences
@@ -805,9 +854,9 @@ if do_dynamic_plot:
         input("Press [enter] to continue.")
 
 # Create mask for selecting particles within bucket.
-min_cross = -0.6491 * np.pi
-max_cross = 0.3313 * np.pi
-bucket_init_phase = 0.3313 + init_dsgn_phi
+min_cross = -1.4773 * np.pi
+max_cross = 0.4773 * np.pi
+bucket_init_phase = -0.4100 + init_dsgn_phi
 bucket_mask = (phi[:, 0] >= min_cross) & (phi[:, 0] <= max_cross)
 parts_survived = np.sum(bucket_mask)
 
@@ -824,7 +873,7 @@ for i in range(1, 10):
     outer_parts_survived += this_bucket
 
 # Locate bucket particle in array
-dtheta = phi[1, 0] - phi[0, 0]
+dtheta = twopi / Np
 mask1 = phi[:, 0] >= bucket_init_phase - dtheta
 mask2 = phi[:, 0] <= bucket_init_phase + dtheta
 mask = mask1 & mask2
@@ -985,17 +1034,7 @@ ax.legend()
 plt.savefig("dphi_bucket_dist", dpi=400)
 plt.show()
 
-# Make Heat map of relative phase and energy
-x = phi[bucket_mask, -1]
-y = dW[bucket_mask, -1]
-xbins = np.linspace(x.min() / twopi, x.max() / twopi, 200)
-ybins = np.linspace(y.min() / keV, y.max() / keV, 200)
-
-fig, ax = plt.subplots(figsize=(10, 7))
-ax.hist2d(x % (twopi), y / keV, bins=[100, 100])
-ax.set_xlabel(fr"Energy [keV]")
-ax.set_ylabel(fr"$\phi / (2\pi)$")
-plt.show()
+# Make Heat map of relative phase and energy per gap. Output plots to pdf
 with PdfPages(f"phase-space-plots.pdf") as pdf:
     plt.figure()
     plt.axis("off")
@@ -1009,15 +1048,64 @@ with PdfPages(f"phase-space-plots.pdf") as pdf:
     pdf.savefig()
     plt.close()
 
+    # Plot initial distribution with bucket selected. Overlay ellipse of initial
+    # distribution
+    fig, ax = plt.subplots()
+    # Convert phase to degrees since this works better with the modulo function
+    x = phi[:, 0]
+    inds = np.where(np.sign(x) < 0)[0]
+    x %= np.pi
+    x[inds] -= np.pi
+    y = dW[:, 0]
+    hist = ax.hist2d((x - init_dsgn_phi * 0) / np.pi, y / keV, bins=[150, 150])
+    fig.colorbar(hist[3], ax=ax)
+    ax.set_title(f"Initial Distribution")
+    ax.set_xlabel(fr"$\phi / \pi$, \phi_s = {init_dsgn_phi/np.pi:.2f}$\pi$")
+    ax.set_ylabel(
+        fr"Reltive Kinetic Energy $\Delta W$ [keV], $W_s = ${init_dsgn_E / keV:.2f} [keV]"
+    )
+    ax.axvline(
+        x=init_dsgn_phi / np.pi,
+        c="r",
+        lw=2,
+        label=f"$\phi_s$ = {init_dsgn_phi/np.pi:.3f}$\pi$",
+    )
+    ax.legend()
+    plt.tight_layout()
+    pdf.savefig()
+    plt.close()
+
+    # Set ylim to be +-xx% the final design energy
+    # ylwr = -0.20 * final_dsgn_E / keV
+    # yupper = 0.20 * final_dsgn_E / keV
+    #
+    # xmin = -1.6
+    # xmax = 0.6
+
     for i in range(Ng):
-        x = (phi[:, i] % twopi) - np.pi
+        x = phi[:, 0]
+        inds = np.where(np.sign(x) < 0)[0]
+        x %= np.pi
+        x[inds] -= np.pi
         y = dW[:, i]
         fig, ax = plt.subplots(figsize=(10, 7))
         hist = ax.hist2d(x / np.pi, y / keV, bins=[150, 150])
-        fig.colorbar(hist[3], ax=ax)
+
+        # fig.colorbar(hist[3], ax=ax)
         ax.set_title(f"Phase Space for Gap $N_g$={i:d}")
-        ax.set_xlabel(fr"$\phi / \pi$, \phi_s = {init_dsgn_phi/np.pi:.2f}$\pi$")
+        ax.set_xlabel(
+            fr"Relative Phase $\Delta \phi / \pi$, \phi_s = {init_dsgn_phi/np.pi:.2f}$\pi$"
+        )
         ax.set_ylabel(r"Kinetic Energy $W$ [keV]")
+        ax.axvline(
+            x=0.0 / np.pi,
+            c="r",
+            lw=2,
+            label=f"$\phi_s$ = {init_dsgn_phi/np.pi:.3f}$\pi$",
+        )
+        # ax.set_xlim(xmin, xmax)
+        # ax.set_ylim(-0.6, 0.6)
+        ax.legend()
         plt.tight_layout()
         pdf.savefig()
         plt.close()
