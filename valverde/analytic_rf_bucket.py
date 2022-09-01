@@ -1116,43 +1116,62 @@ with PdfPages(f"phase-space-plots.pdf") as pdf:
     pdf.savefig()
     plt.close()
 
-    stop
     # Set ylim to be +-xx% the final design energy
-    # ylwr = -0.20 * final_dsgn_E / keV
-    # yupper = 0.20 * final_dsgn_E / keV
-    #
-    # xmin = -1.6
-    # xmax = 0.6
+    yupper = (1 + 0.05) * max_dW
+    ylwr = (1 + 0.05) * min_dW
+    xupper = (1 + 0.05) * max_cross
+    xlwr = (1 + 0.05) * min_cross
 
     # Loop through gaps and plot a 2d histogram (heat-map) of the phase space.
     # There will be two plots for each gap: the top plot will show the full
     # distribution of particles. The second plot will limit the distribution to
     # the selected bucket range created in the data pre-process section.
 
-    for i in range(Ng):
-        x = phi[:, 0]
+    for i in range(1, Ng):
+        box_patch = Rectangle(
+            (min_cross / np.pi, min_dW / keV),
+            (max_cross - min_cross) / np.pi,
+            (max_dW - min_dW) / keV,
+            fc="none",
+            ec="r",
+            linewidth=3.0,
+            label="Selected Particles for Bucket",
+        )
+        fig, axes = plt.subplots(nrows=2, figsize=(10, 8))
+        ax, axx = axes
+        # Plot to row (whole distribution first)
+        ax.add_patch(box_patch)
+        x = phi[:, i]
         inds = np.where(np.sign(x) < 0)[0]
         x %= np.pi
         x[inds] -= np.pi
         y = dW[:, i]
-        fig, ax = plt.subplots(figsize=(10, 7))
-        hist = ax.hist2d(x / np.pi, y / keV, bins=[350, 350])
-
-        # fig.colorbar(hist[3], ax=ax)
-        ax.set_title(f"Phase Space for Gap $N_g$={i:d}")
-        ax.set_xlabel(
-            rf"Relative Phase $\Delta \phi / \pi$, \phi_s = {init_dsgn_phi/np.pi:.2f}$\pi$"
-        )
-        ax.set_ylabel(rf"Relative Kinetic Energy $\Delta W$ [keV]")
+        hist = ax.hist2d(x / np.pi, y / keV, bins=[150, 150])
+        ax.set_title(f"Full Distribution")
+        ax.set_xlabel(rf"$\phi / \pi$, $\phi_s$ = {init_dsgn_phi/np.pi:.2f}$\pi$")
+        ax.set_ylabel(rf"$\Delta W$ [keV], $W_s = ${init_dsgn_E / keV:.2f} [keV]")
         ax.axvline(
-            x=0.0 / np.pi,
-            c="r",
+            x=init_dsgn_phi / np.pi,
+            c="k",
+            ls="--",
             lw=2,
             label=f"$\phi_s$ = {init_dsgn_phi/np.pi:.3f}$\pi$",
         )
-        # ax.set_xlim(xmin, xmax)
-        # ax.set_ylim(-0.6, 0.6)
         ax.legend()
+
+        # Plot bottom row which is selected distribution
+        xx = phi[bucket_mask, i]
+        inds = np.where(np.sign(xx) < 0)[0]
+        xx %= np.pi
+        xx[inds] -= np.pi
+        yy = dW[bucket_mask, i]
+        hist = axx.hist2d(xx / np.pi, yy / keV, bins=[200, 200])
+        axx.set_xlim((xlwr / np.pi, xupper / np.pi))
+        axx.set_ylim((ylwr / keV, yupper / keV))
+        axx.set_title(f"Selected Distribution")
+        axx.set_xlabel(rf"$\Delta \phi / \pi$")
+        axx.set_ylabel(rf"$\Delta W$ [keV], $W_s = ${init_dsgn_E / keV:.2f} [keV]")
+
         plt.tight_layout()
         pdf.savefig()
         plt.close()
