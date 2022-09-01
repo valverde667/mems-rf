@@ -465,11 +465,11 @@ init_dsgn_E = 7 * keV
 init_E = 7 * keV
 init_dsgn_phi = -np.pi / 2
 phi_dev = np.pi / 20
-W_dev = 0.005 * keV
+W_dev = 0.001 * keV
 q = 1
 Np = int(1e6)
 
-Ng = 40
+Ng = 4 + 1  # Gap 0 is initial condition
 dsgn_freq = 13.06 * MHz
 dsgn_gap_volt = 7 * kV
 dsgn_gap_width = 2 * mm
@@ -482,10 +482,7 @@ final_dsgn_E = init_dsgn_E + (Ng - 1) * dsgn_gap_volt * np.cos(-init_dsgn_phi)
 # Advance particles using initial conditions
 Hamiltonian_array = np.zeros(shape=(Np, Ng))
 beta_s = np.zeros(Ng)
-# init_phi = np.linspace(init_dsgn_phi - phi_dev, init_dsgn_phi + phi_dev, Np)
-init_phi, init_dW = elliptical_load(Np, 0.001 * np.pi, W_dev, xc=init_dsgn_phi)
-# init_phi = np.linspace(-np.pi, np.pi, Np)
-# init_dW = np.linspace(-W_dev, W_dev, Np)
+init_phi, init_dW = elliptical_load(Np, np.pi, W_dev, xc=0.0, yc=0.0)
 loadin_data = False
 if loadin_data:
     init_dW = np.load("delta_E.npy")
@@ -518,7 +515,7 @@ Hamiltonian_array[:, 0], _, _ = calc_Hamiltonian(
 # Switch to control whether or not the synchronous beta should be updated.
 # Setting True will evaluate beta_s at each gap and the phase-space can no
 # longer be considered conserved
-update_beta_s = False
+update_beta_s = True
 
 # ------------------------------------------------------------------------------
 #     Simulation and particle advancement of differences
@@ -725,7 +722,82 @@ if identify_bucket:
 # ax.set_xlabel(fr"$\Delta \phi$, $\phi_s$ = {init_dsgn_phi/np.pi:.4f}$\pi$")
 # ax.set_ylabel(fr"$\Delta W$ [keV], $W_{{s,i}}$ = {init_dsgn_E/keV:.3f} [keV]")
 # plt.show()
-# garbage
+
+# ------------------------------------------------------------------------------
+#    Data Preprocessing
+# This section is used to create masks for analysing the particle distribution.
+# The original intent was to use the parameters that the bucket finding routine
+# above spat out in order to mask the bucket particles and find the index for
+# where the separatrix is. However, this section can also be used for selecting
+# particles within a certain phase distance from the design particle. In any
+# case, the selection criteria useed in this section is what is dictates the
+# statistics and distribution plots that are made in the next section.
+# ------------------------------------------------------------------------------
+# Create mask for selecting particles within a specified range.
+min_cross = init_dsgn_phi - 0.25 * np.pi
+max_cross = init_dsgn_phi + 0.25 * np.pi
+bucket_init_phase = init_dsgn_phi + 0.25 * np.pi
+bucket_mask = (phi[:, 0] >= min_cross) & (phi[:, 0] <= max_cross)
+parts_survived = np.sum(bucket_mask)
+
+# Calculate particles in other buckets by shifting separatrix by 2pi
+outer_parts_survived = 0
+for i in range(1, 10):
+    pos_mask = (phi[:, -1] >= min_cross + i * twopi) & (
+        phi[:, -1] <= max_cross + i * twopi
+    )
+    neg_mask = (phi[:, -1] >= min_cross - i * twopi) & (
+        phi[:, -1] <= max_cross - i * twopi
+    )
+    this_bucket = np.sum(neg_mask) + np.sum(pos_mask)
+    outer_parts_survived += this_bucket
+
+# Locate the farthest particle (in phase) from the design particle.
+dtheta = twopi / Np
+mask1 = phi[:, 0] >= bucket_init_phase - dtheta
+mask2 = phi[:, 0] <= bucket_init_phase + dtheta
+mask = mask1 & mask2
+separatrix_ind = np.where(mask)[0][0]
+
+# Use separatrix to find bucket widths
+phase_width = phi[separatrix_ind, :].max() - phi[separatrix_ind, :].min()
+dW_width = dW[separatrix_ind, :].max() - dW[separatrix_ind, :].min()
+
+# Calculate Hamiltonian values and plot relative change with H_s over gaps
+Harr = np.zeros(Ng)
+for i in range(Ng):
+    this_H = calc_Hamiltonian(
+        init_dsgn_phi,
+        W_s[i],
+        dW[separatrix_ind, i],
+        phi[separatrix_ind, i],
+        dsgn_freq,
+        dsgn_gap_volt,
+    )[0]
+    Harr[i] = this_H
+
+H_s = calc_Hamiltonian(
+    init_dsgn_phi, W_s[i], 0, init_dsgn_phi, dsgn_freq, dsgn_gap_volt
+)[0]
+
+# Outpute simulation characterisitcs
+output_sim_params(
+    phi,
+    dW,
+    Einj=init_dsgn_E,
+    Efin=final_dsgn_E,
+    f=dsgn_freq,
+    Vg=dsgn_gap_volt,
+    gap=dsgn_gap_width,
+    phi_s=init_dsgn_phi,
+    Np=Np,
+    Ng=Ng,
+    bucket_phase_width=phase_width,
+    bucket_dW_width=dW_width,
+    parts_survived=parts_survived / Np * 100,
+    other_parts_survived=outer_parts_survived / Np * 100,
+)
+
 # ------------------------------------------------------------------------------
 #    Plotting/Visualization
 # The routine above identifies the bucket and plots the phase-space contours.
@@ -853,52 +925,6 @@ if do_dynamic_plot:
         plt.pause(0.001)
         input("Press [enter] to continue.")
 
-# Create mask for selecting particles within bucket.
-min_cross = -1.4773 * np.pi
-max_cross = 0.4773 * np.pi
-bucket_init_phase = -0.4100 + init_dsgn_phi
-bucket_mask = (phi[:, 0] >= min_cross) & (phi[:, 0] <= max_cross)
-parts_survived = np.sum(bucket_mask)
-
-# Calculate particles in other buckets by shifting separatrix by 2pi
-outer_parts_survived = 0
-for i in range(1, 10):
-    pos_mask = (phi[:, -1] >= min_cross + i * twopi) & (
-        phi[:, -1] <= max_cross + i * twopi
-    )
-    neg_mask = (phi[:, -1] >= min_cross - i * twopi) & (
-        phi[:, -1] <= max_cross - i * twopi
-    )
-    this_bucket = np.sum(neg_mask) + np.sum(pos_mask)
-    outer_parts_survived += this_bucket
-
-# Locate bucket particle in array
-dtheta = twopi / Np
-mask1 = phi[:, 0] >= bucket_init_phase - dtheta
-mask2 = phi[:, 0] <= bucket_init_phase + dtheta
-mask = mask1 & mask2
-separatrix_ind = np.where(mask)[0][0]
-
-# Use separatrix to find bucket widths
-phase_width = phi[separatrix_ind, :].max() - phi[separatrix_ind, :].min()
-dW_width = dW[separatrix_ind, :].max() - dW[separatrix_ind, :].min()
-
-# Calculate Hamiltonian values and plot relative change with H_s over gaps
-Harr = np.zeros(Ng)
-for i in range(Ng):
-    this_H = calc_Hamiltonian(
-        init_dsgn_phi,
-        W_s[i],
-        dW[separatrix_ind, i],
-        phi[separatrix_ind, i],
-        dsgn_freq,
-        dsgn_gap_volt,
-    )[0]
-    Harr[i] = this_H
-
-H_s = calc_Hamiltonian(
-    init_dsgn_phi, W_s[i], 0, init_dsgn_phi, dsgn_freq, dsgn_gap_volt
-)[0]
 
 fig, ax = plt.subplots()
 ax.set_title("Evolution of Separatrix Hamiltonian")
@@ -907,23 +933,6 @@ ax.set_xlabel("Gap Index")
 ax.plot([i + 1 for i in range(Ng)], (Harr - H_s) / abs(H_s))
 plt.show()
 
-# Outpute simulation characterisitcs
-output_sim_params(
-    phi,
-    dW,
-    Einj=init_dsgn_E,
-    Efin=final_dsgn_E,
-    f=dsgn_freq,
-    Vg=dsgn_gap_volt,
-    gap=dsgn_gap_width,
-    phi_s=init_dsgn_phi,
-    Np=Np,
-    Ng=Ng,
-    bucket_phase_width=phase_width,
-    bucket_dW_width=dW_width,
-    parts_survived=parts_survived / Np * 100,
-    other_parts_survived=outer_parts_survived / Np * 100,
-)
 # Create histogram of energy spread.
 fig, ax = plt.subplots(figsize=(10, 8))
 # Create histogram for all particles
@@ -984,10 +993,13 @@ ax.set_ylabel(f"Fraction of {Np:.1E}-Particles ")
 ax.legend()
 plt.savefig("energy_diff_dist", dpi=400)
 
-# Create Histogram showing the distribution of the phasing
+# Create Histogram showing the distribution of the final phase
 fig, ax = plt.subplots()
 ax.set_title("Distribution of Final Arrival Phase Relative to Design")
-counts, edges = np.histogram(phi[:, -1] - init_dsgn_phi, bins=50)
+
+# Preprocess the phase using the moduluo operation
+x = phi[:, -1]
+counts, edges = np.histogram((x - init_dsgn_phi) / np.pi, bins=50)
 left_edges = edges[:-1]
 width = 0.85 * (left_edges[1] - left_edges[0])
 ax.bar(
@@ -1089,14 +1101,14 @@ with PdfPages(f"phase-space-plots.pdf") as pdf:
         x[inds] -= np.pi
         y = dW[:, i]
         fig, ax = plt.subplots(figsize=(10, 7))
-        hist = ax.hist2d(x / np.pi, y / keV, bins=[150, 150])
+        hist = ax.hist2d(x / np.pi, y / keV, bins=[350, 350])
 
         # fig.colorbar(hist[3], ax=ax)
         ax.set_title(f"Phase Space for Gap $N_g$={i:d}")
         ax.set_xlabel(
             fr"Relative Phase $\Delta \phi / \pi$, \phi_s = {init_dsgn_phi/np.pi:.2f}$\pi$"
         )
-        ax.set_ylabel(r"Kinetic Energy $W$ [keV]")
+        ax.set_ylabel(fr"Relative Kinetic Energy $\Delta W$ [keV]")
         ax.axvline(
             x=0.0 / np.pi,
             c="r",
