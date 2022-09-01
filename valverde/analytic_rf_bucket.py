@@ -18,7 +18,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.animation as animation
 import datetime
 import matplotlib.pyplot as plt
-from matplotlib.patches import Ellipse
+from matplotlib.patches import Ellipse, Rectangle
 from scipy import integrate
 import scipy.constants as SC
 import scipy.optimize as optimize
@@ -335,7 +335,7 @@ def plot_initial_bucket(phases, phi_s, plot_ax, format=multiple_formatter()):
     plot_ax.plot(x, np.cos(x))
     plot_ax.scatter(phases, np.cos(phases), c="k")
     plot_ax.scatter(
-        phi_s, np.cos(phi_s), c="g", label=fr"$\phi_s$ = {phi_s/np.pi:.4f}$\pi$"
+        phi_s, np.cos(phi_s), c="g", label=rf"$\phi_s$ = {phi_s/np.pi:.4f}$\pi$"
     )
     plot_ax.grid(alpha=0.5, ls="--")
     plot_ax.xaxis.set_major_locator(plt.MultipleLocator(np.pi / 4))
@@ -465,7 +465,7 @@ init_dsgn_E = 7 * keV
 init_E = 7 * keV
 init_dsgn_phi = -np.pi / 2
 phi_dev = np.pi / 20
-W_dev = 0.001 * keV
+W_dev = 0.5 * keV
 q = 1
 Np = int(1e6)
 
@@ -491,11 +491,12 @@ if loadin_data:
     Np = len(init_dW)
 
 fig, ax = plt.subplots()
+ax.add_patch(box_patch)
 hist = ax.hist2d(init_phi / np.pi, init_dW / keV, bins=[150, 150])
 fig.colorbar(hist[3], ax=ax)
-ax.set_xlabel(fr"$\phi / \pi$, $\phi_s$ = {init_dsgn_phi/np.pi:.2f}$\pi$")
+ax.set_xlabel(rf"$\phi / \pi$, $\phi_s$ = {init_dsgn_phi/np.pi:.2f}$\pi$")
 ax.set_ylabel(
-    fr"Relative Kinetic Energy $\Delta W$ [keV], $W_s$ = {init_dsgn_E/keV:.2f} [keV]"
+    rf"Relative Kinetic Energy $\Delta W$ [keV], $W_s$ = {init_dsgn_E/keV:.2f} [keV]"
 )
 plt.show()
 
@@ -654,14 +655,14 @@ if identify_bucket:
         [0, 0],
         c="r",
         lw=3,
-        label=fr"Width ={(max_cross - min_cross)/np.pi:.4f}$\pi$",
+        label=rf"Width ={(max_cross - min_cross)/np.pi:.4f}$\pi$",
     )
     ax.plot(
         [max_dW_dphi, min_dW_dphi],
         [max_dW / keV, min_dW / keV],
         c="g",
         lw=3,
-        label=fr"Width ={(max_dW - min_dW)/keV:.4f}[keV]",
+        label=rf"Width ={(max_dW - min_dW)/keV:.4f}[keV]",
     )
 
     # Calculate max metric and use to calculate particles lost. The metric here
@@ -681,8 +682,8 @@ if identify_bucket:
     ax.axvline(x=0, c="k", lw=1)
 
     ax.set_title(f"Bucket Search: {parts_survived/Np * 100:.0f}% Particles Survived")
-    ax.set_xlabel(fr"$\Delta \phi$, $\phi_s$ = {init_dsgn_phi/np.pi:.4f}$\pi$")
-    ax.set_ylabel(fr"$\Delta W$ [keV], $W_{{s,i}}$ = {init_dsgn_E/keV:.3f} [keV]")
+    ax.set_xlabel(rf"$\Delta \phi$, $\phi_s$ = {init_dsgn_phi/np.pi:.4f}$\pi$")
+    ax.set_ylabel(rf"$\Delta W$ [keV], $W_{{s,i}}$ = {init_dsgn_E/keV:.3f} [keV]")
     ax.legend()
     plt.show()
 
@@ -733,11 +734,19 @@ if identify_bucket:
 # case, the selection criteria useed in this section is what is dictates the
 # statistics and distribution plots that are made in the next section.
 # ------------------------------------------------------------------------------
-# Create mask for selecting particles within a specified range.
+# Create mask for selecting particles within a specified phase range.
 min_cross = init_dsgn_phi - 0.25 * np.pi
 max_cross = init_dsgn_phi + 0.25 * np.pi
 bucket_init_phase = init_dsgn_phi + 0.25 * np.pi
-bucket_mask = (phi[:, 0] >= min_cross) & (phi[:, 0] <= max_cross)
+bucket_phase_mask = (phi[:, 0] >= min_cross) & (phi[:, 0] <= max_cross)
+
+# Create mask for selecting particles within a specfied energy range
+max_dW = 0.5 * W_dev
+min_dW = -max_dW
+bucket_dW_mask = (dW[:, 0] >= min_dW) & (dW[:, 0] <= max_dW)
+
+# Combine masks
+bucket_mask = bucket_phase_mask & bucket_dW_mask
 parts_survived = np.sum(bucket_mask)
 
 # Calculate particles in other buckets by shifting separatrix by 2pi
@@ -817,7 +826,7 @@ if make_pdfs:
         plt.axis("off")
         plt.text(0.5, 1.0, "Simulation Characteristics")
         plt.text(0.5, 0.9, f"Injection Energy: {init_dsgn_E/kV} [keV]")
-        plt.text(0.5, 0.8, fr"Synchronous Phase: varied")
+        plt.text(0.5, 0.8, rf"Synchronous Phase: varied")
         plt.text(0.5, 0.7, f"Gap Voltage: {dsgn_gap_volt/kV:.2f} [kV]")
         plt.text(0.5, 0.6, f"RF Frequency: {dsgn_freq/MHz:.2f} [MHz]")
         plt.text(0.5, 0.5, r"Vary $\phi_s$ with approx const acceleration.")
@@ -862,13 +871,13 @@ if make_pdfs:
             ax[1].set_title("Initial Conditions for All Particles")
             ax[1].set_ylabel(r"$\Delta W$ [keV]")
             ax[1].set_xlabel(
-                fr"$\Delta \phi$ [rad], $\phi_s =$ {init_dsgn_phi/np.pi:.3f} $\pi$"
+                rf"$\Delta \phi$ [rad], $\phi_s =$ {init_dsgn_phi/np.pi:.3f} $\pi$"
             )
             for i in range(Np):
                 ax[2].scatter(phi[i, :] - init_dsgn_phi, dW[i, :] / kV)
             ax[2].set_ylabel(r"$\Delta W$ [keV]")
             ax[2].set_xlabel(
-                fr"$\Delta \phi$ [rad], $\phi_s =$ {init_dsgn_phi/np.pi:.3f} $\pi$"
+                rf"$\Delta \phi$ [rad], $\phi_s =$ {init_dsgn_phi/np.pi:.3f} $\pi$"
             )
             ax[2].axhline(y=0, c="k", ls="--", lw=1)
             ax[2].axvline(x=0, c="k", ls="--", lw=1)
@@ -949,7 +958,7 @@ ax.bar(
     alpha=0.5,
     edgecolor="black",
     linewidth=1,
-    label=fr"Full Distribution",
+    label=rf"Full Distribution",
 )
 
 # Add histogram for particles within bucket
@@ -965,9 +974,9 @@ ax.bar(
     color="red",
     edgecolor="black",
     linewidth=1,
-    label=fr"Bucket Dist. {np.sum(np.sum(bucket_counts)/total)*100:.1f}% of Total",
+    label=rf"Bucket Dist. {np.sum(np.sum(bucket_counts)/total)*100:.1f}% of Total",
 )
-ax.set_xlabel(fr"$W$ [keV], $W_{{s,f}}$ = {final_dsgn_E/keV:.3f} [keV]")
+ax.set_xlabel(rf"$W$ [keV], $W_{{s,f}}$ = {final_dsgn_E/keV:.3f} [keV]")
 ax.set_ylabel(f"Fraction of {Np:.1E}-Particles ")
 ax.legend()
 plt.savefig("energy_dist", dpi=400)
@@ -986,9 +995,9 @@ ax.bar(
     color="red",
     edgecolor="black",
     linewidth=1,
-    label=fr"Bucket Dist. {np.sum(np.sum(bucket_counts)/total)*100:.1f}% of Total",
+    label=rf"Bucket Dist. {np.sum(np.sum(bucket_counts)/total)*100:.1f}% of Total",
 )
-ax.set_xlabel(fr"$\Delta W$ [keV], $W_{{s,f}}$ = {final_dsgn_E/keV:.3f} [keV]")
+ax.set_xlabel(rf"$\Delta W$ [keV], $W_{{s,f}}$ = {final_dsgn_E/keV:.3f} [keV]")
 ax.set_ylabel(f"Fraction of {Np:.1E}-Particles ")
 ax.legend()
 plt.savefig("energy_diff_dist", dpi=400)
@@ -1010,10 +1019,10 @@ ax.bar(
     alpha=0.5,
     edgecolor="black",
     linewidth=1,
-    label=fr"Full Distribution",
+    label=rf"Full Distribution",
 )
 ax.set_xlabel(
-    fr"Relative Phase Difference $\Delta \phi / \pi$, $\phi_s$ = {init_dsgn_phi/np.pi:.4f}$\pi$"
+    rf"Relative Phase Difference $\Delta \phi / \pi$, $\phi_s$ = {init_dsgn_phi/np.pi:.4f}$\pi$"
 )
 ax.set_ylabel(f"Fraction of {Np:.1E}-Particles ")
 ax.legend()
@@ -1036,10 +1045,10 @@ ax.bar(
     color="red",
     edgecolor="black",
     linewidth=1,
-    label=fr"Bucket Dist. {np.sum(np.sum(bucket_counts)/total)*100:.1f}% of Total",
+    label=rf"Bucket Dist. {np.sum(np.sum(bucket_counts)/total)*100:.1f}% of Total",
 )
 ax.set_xlabel(
-    fr"Relative Phase Difference $\Delta \phi / \pi$, $\phi_s$ = {init_dsgn_phi/np.pi:.4f}$\pi$"
+    rf"Relative Phase Difference $\Delta \phi / \pi$, $\phi_s$ = {init_dsgn_phi/np.pi:.4f}$\pi$"
 )
 ax.set_ylabel(f"Fraction of {Np:.1E}-Particles ")
 ax.legend()
@@ -1052,15 +1061,23 @@ with PdfPages(f"phase-space-plots.pdf") as pdf:
     plt.axis("off")
     plt.text(0.25, 1.0, "Simulation Characteristics")
     plt.text(0.25, 0.9, f"Injection Energy: {init_dsgn_E/kV} [keV]")
-    plt.text(0.25, 0.8, fr"Predicted Final Energy: {final_dsgn_E/keV:.2f} [keV]")
-    plt.text(0.25, 0.7, fr"Synchronous Phase: {init_dsgn_phi/np.pi:.2f}\pi")
+    plt.text(0.25, 0.8, rf"Predicted Final Energy: {final_dsgn_E/keV:.2f} [keV]")
+    plt.text(0.25, 0.7, rf"Synchronous Phase: {init_dsgn_phi/np.pi:.2f}\pi")
     plt.text(0.25, 0.6, f"Gap Voltage: {dsgn_gap_volt/kV:.2f} [kV]")
     plt.text(0.25, 0.5, f"RF Frequency: {dsgn_freq/MHz:.2f} [MHz]")
     plt.tight_layout()
     pdf.savefig()
     plt.close()
 
-    # Plot the initial distribution
+    # Plot the initial distribution and add rectrangular patch
+    box_patch = Rectangle(
+        (min_cross / np.pi, -W_dev / keV),
+        (max_cross - min_cross) / np.pi,
+        2 * W_dev / keV,
+        facecolor=None,
+        color="red",
+        linewidth=2.0,
+    )
     fig, ax = plt.subplots(nrows=2, figsize=(10, 8))
     x = phi[:, 0]
     inds = np.where(np.sign(x) < 0)[0]
@@ -1070,9 +1087,9 @@ with PdfPages(f"phase-space-plots.pdf") as pdf:
     hist = ax.hist2d((x - init_dsgn_phi * 0) / np.pi, y / keV, bins=[150, 150])
     fig.colorbar(hist[3], ax=ax)
     ax.set_title(f"Initial Distribution")
-    ax.set_xlabel(fr"$\phi / \pi$, \phi_s = {init_dsgn_phi/np.pi:.2f}$\pi$")
+    ax.set_xlabel(rf"$\phi / \pi$, \phi_s = {init_dsgn_phi/np.pi:.2f}$\pi$")
     ax.set_ylabel(
-        fr"Reltive Kinetic Energy $\Delta W$ [keV], $W_s = ${init_dsgn_E / keV:.2f} [keV]"
+        rf"Reltive Kinetic Energy $\Delta W$ [keV], $W_s = ${init_dsgn_E / keV:.2f} [keV]"
     )
     ax.axvline(
         x=init_dsgn_phi / np.pi,
@@ -1084,7 +1101,7 @@ with PdfPages(f"phase-space-plots.pdf") as pdf:
     plt.tight_layout()
     pdf.savefig()
     plt.close()
-
+    stop
     # Set ylim to be +-xx% the final design energy
     # ylwr = -0.20 * final_dsgn_E / keV
     # yupper = 0.20 * final_dsgn_E / keV
@@ -1109,9 +1126,9 @@ with PdfPages(f"phase-space-plots.pdf") as pdf:
         # fig.colorbar(hist[3], ax=ax)
         ax.set_title(f"Phase Space for Gap $N_g$={i:d}")
         ax.set_xlabel(
-            fr"Relative Phase $\Delta \phi / \pi$, \phi_s = {init_dsgn_phi/np.pi:.2f}$\pi$"
+            rf"Relative Phase $\Delta \phi / \pi$, \phi_s = {init_dsgn_phi/np.pi:.2f}$\pi$"
         )
-        ax.set_ylabel(fr"Relative Kinetic Energy $\Delta W$ [keV]")
+        ax.set_ylabel(rf"Relative Kinetic Energy $\Delta W$ [keV]")
         ax.axvline(
             x=0.0 / np.pi,
             c="r",
