@@ -696,32 +696,6 @@ if identify_bucket:
     print(f"Relative Energy Width: {(max_dW - min_dW)/keV:.4f} [keV]")
     stop
 
-# H0 = B * (np.sin(init_dsgn_phi - init_dsgn_phi * np.cos(init_dsgn_phi)))
-# Hsep = Hamiltonian_array[max_particle_ind,:]
-# fig,ax = plt.subplots()
-# ax.set_title(fr"Hamiltonian of Separatrix at Gap for $\phi_s = -\pi/3$")
-# ax.set_xlabel("Gap Index")
-# ax.set_ylabel(r"$H_{sep} / |H_0| + 1$")
-# ax.scatter([i+1 for i in range(Ng)], Hsep / abs(H0) + 1, c='k')
-# ax.plot([i+1 for i in range(Ng)], Hsep / abs(H0) + 1, c='k', lw=2)
-# ax.axhline(y=0, c='k', lw=1)
-# plt.show()
-#
-#
-# fig,ax = plt.subplots()
-# from matplotlib.patches import Ellipse
-# ax.scatter(phi[max_particle_ind, :] - init_dsgn_phi, dW[max_particle_ind, :]/keV, c='k')
-# ax.plot(phi[max_particle_ind, :] - init_dsgn_phi, dW[max_particle_ind, :]/keV, c='k', lw=2)
-# w = np.max(abs(phi[max_particle_ind, :])) - init_dsgn_phi
-# h = np.max(abs(dW[max_particle_ind, :])) / keV
-# patch = Ellipse((0,0), width=w, height=2*h, angle=0)
-# patch.set_fill(False)
-# patch.set_edgecolor('b')
-# patch.set_linewidth(2)
-# ax.add_patch(patch)
-# ax.set_xlabel(fr"$\Delta \phi$, $\phi_s$ = {init_dsgn_phi/np.pi:.4f}$\pi$")
-# ax.set_ylabel(fr"$\Delta W$ [keV], $W_{{s,i}}$ = {init_dsgn_E/keV:.3f} [keV]")
-# plt.show()
 
 # ------------------------------------------------------------------------------
 #    Data Preprocessing
