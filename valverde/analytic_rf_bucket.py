@@ -66,7 +66,7 @@ def calc_beta(E, mass=Ar_mass, q=1, nonrel=True):
 
 def calc_pires(energy, freq, mass=Ar_mass, q=1):
     """RF resonance condition in pi-mode"""
-    beta_lambda = beta(energy, mass=mass, q=q) * SC.c / freq
+    beta_lambda = calc_beta(energy, mass=mass, q=q) * SC.c / freq
     return beta_lambda / 2
 
 
@@ -1060,10 +1060,8 @@ with PdfPages(f"phase-space-plots.pdf") as pdf:
     pdf.savefig()
     plt.close()
 
-    # Plot initial distribution with bucket selected. Overlay ellipse of initial
-    # distribution
-    fig, ax = plt.subplots()
-    # Convert phase to degrees since this works better with the modulo function
+    # Plot the initial distribution
+    fig, ax = plt.subplots(nrows=2, figsize=(10, 8))
     x = phi[:, 0]
     inds = np.where(np.sign(x) < 0)[0]
     x %= np.pi
@@ -1093,6 +1091,11 @@ with PdfPages(f"phase-space-plots.pdf") as pdf:
     #
     # xmin = -1.6
     # xmax = 0.6
+
+    # Loop through gaps and plot a 2d histogram (heat-map) of the phase space.
+    # There will be two plots for each gap: the top plot will show the full
+    # distribution of particles. The second plot will limit the distribution to
+    # the selected bucket range created in the data pre-process section.
 
     for i in range(Ng):
         x = phi[:, 0]
