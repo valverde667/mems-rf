@@ -416,7 +416,7 @@ def output_sim_params(
     print(f"- Particles in Outer Buckets: {other_parts_survived:.0f}%")
 
 
-def elliptical_load(Np, xmax, ymax, xc=0, yc=0, seed=42):
+def uni_elliptical_load(Np, xmax, ymax, xc=0, yc=0, seed=42):
     """Create Np particles within ellipse with axes xmax and ymax
 
 
