@@ -465,7 +465,7 @@ init_dsgn_E = 7 * keV
 init_E = 7 * keV
 init_dsgn_phi = -np.pi / 2
 phi_dev = np.pi / 20
-W_dev = 0.5 * keV
+W_dev = 0.1 * keV
 q = 1
 Np = int(1e6)
 
@@ -861,52 +861,6 @@ if make_pdfs:
 # Create dynamic plotting to visualize individual particle trajectories. Should
 # select a few particles and a few gaps to plot since plotting will start to
 # run long.
-do_dynamic_plot = False
-if do_dynamic_plot:
-    # fig, ax = plt.subplots()
-    # ax.set_xlabel(fr"$\phi$ [rad], $\phi_s =$ {init_dsgn_phi/np.pi:.3f} $\pi$")
-    # ax.set_ylabel(r"$\Delta {{\cal E}}$ [keV]")
-    #
-    # plt.ion()
-    # plt.show()
-    #
-    # # Loop through the particles. For each particle loop through the gaps and plot
-    # # the particle's position in phase space.
-    # for i in range(0, Np - 3, 3):
-    #     for j in range(Ng):
-    #         ax.scatter(phi[i : i + 3, j], dW[i : i + 3, j] / kV, c="k", s=3)
-    #         plt.draw()
-    #         plt.pause(0.0001)
-    # fig.savefig(f"phase-space_{Np}Np{Ng}Ng", dpi=400)
-
-    fig, axes = plt.subplots(nrows=2, figsize=(10, 8))
-    axes[0].set_ylim(min_dW / keV * 1.01, max_dW / keV * 1.01)
-    axes[0].set_xlim(-np.pi * 1.01, 1.01 * np.pi)
-    axes[1].set_xlim(0, Ng + 1)
-    axes[1].set_ylim(-np.max(abs(Hsep / H0)) + 1, np.max(abs(Hsep / H0)) + 1)
-    axes[0].plot(
-        phi[max_particle_ind, :] - init_dsgn_phi,
-        dW[max_particle_ind, :] / keV,
-        c="k",
-        lw=1,
-    )
-    axes[1].plot([i + 1 for i in range(Ng)], Hsep / abs(H0) + 1, c="k", lw=1)
-    axes[0].axhline(y=0, lw=1, c="k")
-    axes[1].axhline(y=0, lw=1, c="k")
-
-    plt.ion()
-    plt.show()
-    for i in range(0, Ng):
-        axes[0].scatter(
-            phi[max_particle_ind, i] - init_dsgn_phi,
-            dW[max_particle_ind, i] / keV,
-            c="k",
-        )
-        axes[1].scatter([i + 1], Hsep[i] / abs(H0) + 1, c="k")
-        plt.draw()
-        plt.pause(0.001)
-        input("Press [enter] to continue.")
-
 
 fig, ax = plt.subplots()
 ax.set_title("Evolution of Separatrix Hamiltonian")
@@ -1131,6 +1085,7 @@ with PdfPages(f"phase-space-plots.pdf") as pdf:
             lw=2,
             label=f"$\phi_s$ = {init_dsgn_phi/np.pi:.3f}$\pi$",
         )
+        ax.set_ylim(-0.13, 0.13)
         ax.legend()
 
         # Plot bottom row which is selected distribution
