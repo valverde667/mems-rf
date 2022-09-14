@@ -455,6 +455,43 @@ def uni_elliptical_load(Np, xmax, ymax, xc=0, yc=0, seed=42):
     return (keep_x, keep_y)
 
 
+def uni_box_load(Np, xlims, ylims, xc=0, yc=0, seed=42):
+    """Create Np particles within ellipse with axes xmax and ymax
+
+
+    Parameters:
+    -----------
+    Np : Int
+        Number of sample points
+
+    xlims : tuple
+        Tuple containing (xmin, xmax)
+
+    ylims : tuple
+        Tuple containing (ymin, ymax)
+
+    xc: float
+        Center of box in x
+
+    yc: float
+        Center of box in y
+
+    """
+    xmin, xmax = xlims
+    ymin, ymax = ylims
+
+    x_coords = np.zeros(Np)
+    y_coords = np.zeros(Np)
+    np.random.seed(seed)
+    for i in range(Np):
+        x = np.random.uniform(xmin, xmax)
+        y = np.random.uniform(ymin, ymax)
+        x_coords[i] = x
+        y_coords[i] = y
+
+    return (x_coords, y_coords)
+
+
 # ------------------------------------------------------------------------------
 #     Simulation Parameters/Settings
 # This section sets various simulation parameters. In this case, initial kinetic
@@ -471,7 +508,7 @@ Np = int(1e6)
 
 Ng = 4 + 1  # Gap 0 is initial condition
 dsgn_freq = 13.06 * MHz
-dsgn_gap_volt = 7 * kV
+dsgn_gap_volt = 7 * kV * 0.001
 dsgn_gap_width = 2 * mm
 dsgn_DC_Efield = dsgn_gap_volt / dsgn_gap_width
 transit_tfactor = calc_transit_factor(
@@ -479,10 +516,11 @@ transit_tfactor = calc_transit_factor(
 )
 final_dsgn_E = init_dsgn_E + (Ng - 1) * dsgn_gap_volt * np.cos(-init_dsgn_phi)
 
-# Advance particles using initial conditions
+# Create particle initializations with given parameter settings and plot initial
+# distribution
 Hamiltonian_array = np.zeros(shape=(Np, Ng))
 beta_s = np.zeros(Ng)
-init_phi, init_dW = elliptical_load(Np, np.pi, W_dev, xc=0.0, yc=0.0)
+init_phi, init_dW = uni_box_load(Np, (-np.pi, np.pi), (-W_dev, W_dev))
 loadin_data = False
 if loadin_data:
     init_dW = np.load("delta_E.npy")
@@ -498,6 +536,7 @@ ax.set_ylabel(
     rf"Relative Kinetic Energy $\Delta W$ [keV], $W_s$ = {init_dsgn_E/keV:.2f} [keV]"
 )
 plt.show()
+
 
 Hamiltonian_array = np.zeros(shape=(Np, Ng))
 phi = np.zeros(shape=(Np, Ng))
@@ -707,6 +746,42 @@ if identify_bucket:
 # case, the selection criteria useed in this section is what is dictates the
 # statistics and distribution plots that are made in the next section.
 # ------------------------------------------------------------------------------
+# Use numpy's modulo to normalize phases within [-pi, pi]
+mod_phi = np.modf(phi / np.pi)[0]
+
+# Find a selected percent of particles from the whole beam starting from the
+# design phase. That is, %select is centered on phi_s.
+select_percent = 0.2
+sorted_phi = np.argsort(abs(init_phi - init_dsgn_phi))
+selected_inds = sorted_phi[: int(select_percent * Np)]
+selected_phi = init_phi[selected_inds]
+selected_dW = init_dW[selected_inds]
+
+# Plot the percent of particles in each gap for the same bins
+start_counts, bins = np.histogram(selected_phi / np.pi, bins=20)
+fig, ax = plt.subplots()
+ax.scatter(bins[:-1], start_counts / Np, c="k", label="Initial")
+gap_counts = [start_counts]
+for i in range(1, Ng):
+    counts, _ = np.histogram(mod_phi[selected_inds, i], bins=bins)
+    ax.scatter(bins[:-1], counts / Np, label=f"Gap{i:d}")
+    gap_counts.append(counts)
+
+ax.legend()
+ax.set_title("Fraction of Particles in Bin Range For Each Gap")
+ax.set_xlabel(rf"\phi/\pi")
+ax.axvline(x=init_dsgn_phi / np.pi, c="k", ls="--")
+ax.set_ylabel("Percent Particles")
+plt.show()
+
+fig, ax = plt.subplots()
+ax.plot([i + 1 for i in range(Ng)], [np.sum(gap) / Np for gap in gap_counts])
+ax.axhline(y=select_percent, c="k", ls="--", label="Selected Percent")
+ax.set_xlabel("Gap")
+ax.set_ylabel("Fraction of Particles")
+plt.show()
+
+
 # Create mask for selecting particles within a specified phase range.
 min_cross = init_dsgn_phi - 0.25 * np.pi
 max_cross = init_dsgn_phi + 0.25 * np.pi
