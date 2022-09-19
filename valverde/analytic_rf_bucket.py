@@ -26,8 +26,13 @@ import time
 import pdb
 import os
 
+import warpoptions
+
 plt.style.use("seaborn-deep")
 
+# Command line section.
+# warpoptions.parser.add_argument("--Vset", default=False, type=float)
+# inputs = warpoptions.parser.parse_args()
 
 # ------------------------------------------------------------------------------
 #     Constants and definitions section
@@ -47,6 +52,7 @@ p_mass = amu
 kV = 1e3
 keV = 1e3
 MHz = 1e6
+cm = 1e-2
 mm = 1e-3
 ns = 1e-9  # nanoseconds
 twopi = 2 * np.pi
@@ -502,17 +508,21 @@ init_dsgn_E = 7 * keV
 init_E = 7 * keV
 init_dsgn_phi = -np.pi / 2
 phi_dev = np.pi / 20
-W_dev = 0.1 * keV
+W_dev = 0.0001 * keV
 q = 1
 Np = int(1e6)
 
 Ng = 4 + 1  # Gap 0 is initial condition
 dsgn_freq = 13.06 * MHz
-dsgn_gap_volt = 7 * kV * 0.001
+# if inputs.Vset != False:
+#     dsgn_gap_volt = inputs.Vset
+# else:
+#     dsgn_gap_volt = 7 * kV * .1
+dsgn_gap_volt = 1 * kV
 dsgn_gap_width = 2 * mm
 dsgn_DC_Efield = dsgn_gap_volt / dsgn_gap_width
 transit_tfactor = calc_transit_factor(
-    init_dsgn_E, dsgn_freq, g=2 * mm, q=1, mass=Ar_mass
+    init_dsgn_E, dsgn_freq, g=dsgn_gap_width, q=1, mass=Ar_mass
 )
 final_dsgn_E = init_dsgn_E + (Ng - 1) * dsgn_gap_volt * np.cos(-init_dsgn_phi)
 
@@ -530,7 +540,6 @@ if loadin_data:
 
 fig, ax = plt.subplots()
 hist = ax.hist2d(init_phi / np.pi, init_dW / keV, bins=[150, 150])
-fig.colorbar(hist[3], ax=ax)
 ax.set_xlabel(rf"$\phi / \pi$, $\phi_s$ = {init_dsgn_phi/np.pi:.2f}$\pi$")
 ax.set_ylabel(
     rf"Relative Kinetic Energy $\Delta W$ [keV], $W_s$ = {init_dsgn_E/keV:.2f} [keV]"
@@ -565,24 +574,39 @@ update_beta_s = True
 # ------------------------------------------------------------------------------
 
 # Loop through each gap and calculate energy difference and phase difference.
+Vsets = np.ones(Ng) * dsgn_gap_volt
+Vsets[2:] = 0 * kV
 for i in range(1, Ng):
     if update_beta_s:
         this_beta_s = calc_beta(W_s[i - 1])
     else:
         this_beta_s = calc_beta(W_s[0])
 
-    phi[:, i] = phi[:, i - 1] - np.pi * dW[:, i - 1] / Ar_mass / pow(this_beta_s, 2)
+    Acoeff = -np.pi / Ar_mass / pow(this_beta_s, 2)
+    phi[:, i] = phi[:, i - 1] + Acoeff * dW[:, i - 1]
 
-    coeff = q * dsgn_gap_volt * transit_tfactor
-    dW[:, i] = dW[:, i - 1] + coeff * (np.cos(phi[:, i]) - np.cos(init_dsgn_phi))
+    Bcoeff = q * transit_tfactor
+    dW[:, i] = dW[:, i - 1] + Bcoeff * (np.cos(phi[:, i]) - np.cos(init_dsgn_phi))
 
-    W_s[i] = W_s[i - 1] + coeff * np.cos(init_dsgn_phi)
+    W_s[i] = W_s[i - 1] + Bcoeff * np.cos(init_dsgn_phi)
     beta_s[i] = this_beta_s
 
     this_H, _, _, = calc_Hamiltonian(
         init_dsgn_phi, W_s[i], dW[:, i], phi[:, i], dsgn_freq, dsgn_gap_volt
     )
     Hamiltonian_array[:, i] = this_H
+
+
+for i in range(Ng):
+    fig, ax = plt.subplots()
+    ax.set_title(f"Phase Space After Free Drift, Ng = {i}mm")
+    ax.set_xlabel(rf"$\phi / \pi$, $\phi_s$ = {init_dsgn_phi/np.pi:.2f}$\pi$")
+    ax.set_ylabel(
+        rf"Relative Kinetic Energy $\Delta W$ [keV], $W_s$ = {init_dsgn_E/keV:.2f} [keV]"
+    )
+    ax.hist2d(np.modf(phi[:, i] / np.pi)[0], dW[:, i] / keV, bins=[150, 150])
+    plt.show()
+stop
 
 hrf = SC.c / dsgn_freq
 B = q * dsgn_DC_Efield / Ar_mass
@@ -746,41 +770,123 @@ if identify_bucket:
 # case, the selection criteria useed in this section is what is dictates the
 # statistics and distribution plots that are made in the next section.
 # ------------------------------------------------------------------------------
-# Use numpy's modulo to normalize phases within [-pi, pi]
-mod_phi = np.modf(phi / np.pi)[0]
-
-# Find a selected percent of particles from the whole beam starting from the
-# design phase. That is, %select is centered on phi_s.
-select_percent = 0.2
-sorted_phi = np.argsort(abs(init_phi - init_dsgn_phi))
-selected_inds = sorted_phi[: int(select_percent * Np)]
-selected_phi = init_phi[selected_inds]
-selected_dW = init_dW[selected_inds]
-
-# Plot the percent of particles in each gap for the same bins
-start_counts, bins = np.histogram(selected_phi / np.pi, bins=20)
-fig, ax = plt.subplots()
-ax.scatter(bins[:-1], start_counts / Np, c="k", label="Initial")
-gap_counts = [start_counts]
-for i in range(1, Ng):
-    counts, _ = np.histogram(mod_phi[selected_inds, i], bins=bins)
-    ax.scatter(bins[:-1], counts / Np, label=f"Gap{i:d}")
-    gap_counts.append(counts)
-
-ax.legend()
-ax.set_title("Fraction of Particles in Bin Range For Each Gap")
-ax.set_xlabel(rf"\phi/\pi")
-ax.axvline(x=init_dsgn_phi / np.pi, c="k", ls="--")
-ax.set_ylabel("Percent Particles")
-plt.show()
-
-fig, ax = plt.subplots()
-ax.plot([i + 1 for i in range(Ng)], [np.sum(gap) / Np for gap in gap_counts])
-ax.axhline(y=select_percent, c="k", ls="--", label="Selected Percent")
-ax.set_xlabel("Gap")
-ax.set_ylabel("Fraction of Particles")
-plt.show()
-
+# =============================================================================
+# Temporary block that was used to do some analytics. This will remain commented
+# out until the advancement procedure is checked.
+# # Use numpy's modulo to normalize phases within [-pi, pi]
+# mod_phi = np.modf(phi / np.pi)[0]
+#
+# # Find a selected percent of particles from the whole beam starting from the
+# # design phase. That is, %select is centered on phi_s.
+# select_percent = 0.2
+# sorted_phi = np.argsort(abs(init_phi - init_dsgn_phi))
+# selected_inds = sorted_phi[: int(select_percent * Np)]
+# selected_phi = init_phi[selected_inds]
+# selected_dW = init_dW[selected_inds]
+#
+# # Plot the percent of particles in each gap for the same bins
+# start_counts, bins = np.histogram(selected_phi / np.pi, bins=20)
+#
+# fig, ax = plt.subplots()
+# ax.scatter(bins[:-1], start_counts / Np, c="k", label="Initial")
+# gap_counts = [start_counts]
+# for i in range(1, Ng):
+#     counts, _ = np.histogram(mod_phi[selected_inds, i], bins=bins)
+#     ax.scatter(bins[:-1], counts / Np, label=f"Gap{i:d}")
+#     gap_counts.append(counts)
+#
+# ax.legend()
+# ax.set_title("Fraction of Particles in Bin Range For Each Gap")
+# ax.set_xlabel(rf"$\phi/\pi$")
+# ax.axvline(x=init_dsgn_phi / np.pi, c="k", ls="--")
+# ax.set_ylabel("Percent Particles")
+# plt.show()
+#
+# fig, ax = plt.subplots()
+# ax.plot([i + 1 for i in range(Ng)], [np.sum(gap) / Np for gap in gap_counts])
+# ax.axhline(y=select_percent, c="k", ls="--", label="Selected Percent")
+# ax.set_xlabel("Gap")
+# ax.set_ylabel("Fraction of Particles")
+# plt.show()
+#
+# fig, ax = plt.subplots()
+# ax.set_title(f"Full Distribution, Vg = {dsgn_gap_volt/kV:.4f}kV")
+# ax.set_xlabel(rf"$\phi / \pi$")
+# ax.set_ylabel("Number of Particles")
+# ax.hist(phi[:,0]/np.pi, bins=30, edgecolor='k', lw=1)
+# ax.hist(np.modf(phi[:,-1]/np.pi)[0], bins=30, edgecolor='k', lw=1, alpha=0.6)
+# plt.show()
+#
+# fig, ax = plt.subplots()
+# ax.set_title(f"Full Distribution, Vg = {dsgn_gap_volt/kV:.4f}kV")
+# ax.set_xlabel(rf"$\Delta W $ [keV]")
+# ax.set_ylabel("Number of Particles")
+# ax.hist(dW[:,-1]/keV, bins=30, edgecolor='k', lw=1, alpha=0.6)
+# plt.show()
+#
+# fig, ax = plt.subplots()
+# ax.set_title("Phase Space After Bunching")
+# ax.set_xlabel(r"$\phi / \pi$")
+# ax.set_ylabel(r"$\Delta W$ [keV]")
+# ax.hist2d(mod_phi[:,-1], dW[:,-1]/keV, bins=[150,150])
+# plt.show()
+#
+#
+# # Select final phi within some range and collect counts
+# mask = (mod_phi[:,-1] >= -0.75) & (mod_phi[:,-1] <= -0.25)
+#
+#
+# # np.save('final_phases.npy', mod_phi[:,-1])
+# # np.save('counts.npy', np.array(np.sum(mask)/Np))
+# # np.save('dW.npy', dW[:,-1])
+# # stop
+# phases = np.load('final_phases.npy')
+# fin_counts = np.load('counts.npy')
+# Vsets = np.loadtxt('Vsets.txt')
+# fin_dW = np.load('dW.npy')
+#
+# max_ind = np.argmax(fin_counts)
+#
+# fig, ax = plt.subplots()
+# ax.set_title(f"Full Distribution, Vg = {Vsets[max_ind]/kV:.3f} kV")
+# ax.set_xlabel(rf"$\phi / \pi$")
+# ax.set_ylabel("Number of Particles")
+# ax.hist(phi[:,0]/np.pi, bins=30, edgecolor='k', lw=1)
+# ax.hist(phases[max_ind, :], bins=30, edgecolor='k', lw=1, alpha=0.6)
+# ax.axvline(x=-0.75, c='k', ls='--', lw=1)
+# ax.axvline(x=-0.25, c='k', ls='--', lw=1, label = f'Contains {fin_counts[max_ind][0]*100:.0f}% parts.')
+# ax.legend()
+# plt.tight_layout()
+# plt.savefig('dist_maxbunch.png', dpi=400)
+# plt.show()
+#
+# fig, ax = plt.subplots()
+# ax.scatter(Vsets/kV, fin_counts[1:], s=2)
+# ax.axvline(x=Vsets[max_ind]/kV, ls='--', c='k', label=f"V = {Vsets[max_ind]/kV:.3f} kV")
+# ax.set_xlabel("Plate Voltage Settings for Bunching [keV]")
+# ax.set_ylabel(r"Fraction of Particles in Range $[-0.75, -0.25]\pi$")
+# ax.legend()
+# plt.tight_layout()
+# plt.savefig('voltage_scan.png', dpi=400)
+# plt.show()
+#
+# do_iterate = False
+# if do_iterate:
+#     # open previous file and add new array
+#     saved_phase = np.load('final_phases.npy')
+#     saved_counts = np.load('counts.npy')
+#     saved_dW = np.load('dW.npy')
+#
+#     new_save_phi = np.vstack((saved_phase, mod_phi[:,-1]))
+#     new_save_counts = np.vstack((saved_counts, np.array(np.sum(mask)/Np)))
+#     new_save_dW = np.vstack((saved_dW, dW[:,-1]))
+#
+#     np.save('final_phases.npy', new_save_phi)
+#     np.save('counts.npy', new_save_counts)
+#     np.save('dW.npy', new_save_dW)
+#
+# =============================================================================
+stop
 
 # Create mask for selecting particles within a specified phase range.
 min_cross = init_dsgn_phi - 0.25 * np.pi
