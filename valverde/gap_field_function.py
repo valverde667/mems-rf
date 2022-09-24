@@ -475,17 +475,17 @@ gap_centers += zs
 print("--Gap Centers")
 print(gap_centers / mm)
 
-# Create beam and initialize beam parameters
-beam = wp.Species(type=wp.Argon, charge_state=+1, name="Argon Beam")
-beam.a0 = 0.25 * mm
-beam.b0 = 0.25 * mm
-beam.emit = 1.344e-6
-beam.ap0 = 0.0
-beam.bp0 = 0.0
-beam.ibeam = 10 * uA
-beam.beam = 0.0
-beam.ekin = 7.0 * keV
-wp.derivqty()
+# # Create beam and initialize beam parameters
+# beam = wp.Species(type=wp.Argon, charge_state=+1, name="Argon Beam")
+# beam.a0 = 0.25 * mm
+# beam.b0 = 0.25 * mm
+# beam.emit = 1.344e-6
+# beam.ap0 = 0.0
+# beam.bp0 = 0.0
+# beam.ibeam = 10 * uA
+# beam.beam = 0.0
+# beam.ekin = 7.0 * keV
+# wp.derivqty()
 
 # ------------------------------------------------------------------------------
 #     Simulation Paramter settings.
@@ -606,36 +606,36 @@ wp.installconductor(r_right)
 #
 
 # Create diagnostic for absorbing particles and recording final characteristics.
-diagnostic = wp.Box(
-    xsize=wp.top.largepos,
-    ysize=wp.top.largepos,
-    zsize=3.0 * dz,
-    voltage=0,
-    zcent=wp.w3d.zmmax - 4 * dz,
-    xcent=0.0,
-    ycent=0.0,
-)
-scraper = wp.ParticleScraper(diagnostic, lcollectlpdata=True)
-wp.top.lsavelostpart = True
+# diagnostic = wp.Box(
+#     xsize=wp.top.largepos,
+#     ysize=wp.top.largepos,
+#     zsize=3.0 * dz,
+#     voltage=0,
+#     zcent=wp.w3d.zmmax - 4 * dz,
+#     xcent=0.0,
+#     ycent=0.0,
+# )
+# scraper = wp.ParticleScraper(diagnostic, lcollectlpdata=True)
+# wp.top.lsavelostpart = True
 # Perform initial field solve for mesh.
 wp.package("w3d")
 wp.generate()
 
 # Load particles
-zload, vzload = uniform_particle_load(Einit, int(1e5))
-beam.addparticles(
-    x=np.zeros(len(zload)),
-    y=np.zeros(len(zload)),
-    z=zload,
-    vx=np.zeros(len(zload)),
-    vy=np.zeros(len(zload)),
-    vz=vzload,
-)
-# Create trace particle
-tracked_ions = wp.Species(type=wp.Argon, charge_state=+1, name="Tracer")
-tracker = TraceParticle(
-    js=tracked_ions.js, x=0.0, y=0.0, z=0.0, vx=0.0, vy=0.0, vz=beam.vbeam,
-)
+# zload, vzload = uniform_particle_load(Einit, int(1e5))
+# beam.addparticles(
+#     x=np.zeros(len(zload)),
+#     y=np.zeros(len(zload)),
+#     z=zload,
+#     vx=np.zeros(len(zload)),
+#     vy=np.zeros(len(zload)),
+#     vz=vzload,
+# )
+# # Create trace particle
+# tracked_ions = wp.Species(type=wp.Argon, charge_state=+1, name="Tracer")
+# tracker = TraceParticle(
+#     js=tracked_ions.js, x=0.0, y=0.0, z=0.0, vx=0.0, vy=0.0, vz=beam.vbeam,
+# )
 
 # while tracker.getz()[-1] < gap_centers[-1] + gap_width / 2 + length / 2:
 #     print(f"Tracker Particle at z = {tracker.getz()[-1]/mm:.3f} [mm]")
