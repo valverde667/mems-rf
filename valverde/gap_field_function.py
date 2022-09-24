@@ -560,7 +560,7 @@ dz = (wp.w3d.zmmax - wp.w3d.zmmin) / wp.w3d.nz
 
 # Set timing step with cf condition.
 # wp.top.dt = 0.7 * dz / beam.vbeam
-steps = 15
+steps = 5
 wp.top.dt = 1.0 / f / 25
 
 # Add boundary conditions
