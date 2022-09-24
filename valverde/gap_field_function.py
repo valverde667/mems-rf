@@ -560,6 +560,7 @@ dz = (wp.w3d.zmmax - wp.w3d.zmmin) / wp.w3d.nz
 
 # Set timing step with cf condition.
 # wp.top.dt = 0.7 * dz / beam.vbeam
+steps = 15
 wp.top.dt = 1.0 / f / 25
 
 # Add boundary conditions
@@ -713,7 +714,6 @@ y = wp.w3d.ymesh
 xc_ind = getindex(x, 0.0, wp.w3d.dx)
 yc_ind = xc_ind
 
-steps = 1
 time = np.zeros(steps)
 Ez_array = np.zeros((steps, len(z)))
 Ez0 = wp.getselfe(comp="z")[0, 0, :]
