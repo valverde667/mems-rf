@@ -762,14 +762,24 @@ if warpplots:
     wp.pfxy(iz=int(wp.w3d.nz / 2), fill=1, filled=1)
     wp.fma()
 
-stop
-potential = [wp.getphi()[0, 0, :]]
-Ez_array = [wp.getselfe(comp="z")[0, 0, :]]
-while wp.top.it < 20:
-    potential.append(wp.getphi()[0, 0, :])
-    Ez_array.append(wp.getselfe(comp="z")[0, 0, :])
+potential = [wp.getphi()[xc_ind, yc_ind, :].copy()]
+Ez_array = [wp.getselfe(comp="z")[xc_ind, yc_ind, :].copy()]
+while wp.top.it < steps:
+    potential.append(wp.getphi()[xc_ind, yc_ind, :].copy())
+    print(np.max(abs(wp.getphi()[xc_ind, yc_ind, :].copy())))
+    Ez_array.append(wp.getselfe(comp="z")[xc_ind, yc_ind, :].copy())
     wp.step()
+    wp.pfzx(fill=1, filled=1)
+    wp.fma()
+    wp.pfzy(fill=1, filled=1)
+    wp.fma()
 
+fig, ax = plt.subplots()
+for i, phi in enumerate(potential):
+    ax.plot(z / mm, phi / Vgset, label=f"Time: {i*wp.top.dt/1e-9:.4f}ns")
+
+ax.legend()
+plt.show()
 stop
 for i in range(steps):
     Ez = wp.getselfe(comp="z")[0, 0, :]
