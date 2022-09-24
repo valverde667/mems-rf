@@ -69,9 +69,8 @@ def neg_gap_voltage(t):
     return v
 
 
-def create_wafer(
+def test_create_wafer(
     cent,
-    voltage,
     width=2.0 * mm,
     cell_width=3.0 * mm,
     length=0.7 * mm,
@@ -79,6 +78,7 @@ def create_wafer(
     rout=0.75 * mm,
     xcent=0.0 * mm,
     ycent=0.0 * mm,
+    voltage=0.0,
 ):
     """"Create a single wafer
 
@@ -91,38 +91,38 @@ def create_wafer(
     ravg = (rout + rin) / 2
 
     # Left wafer first.
-    wafer = wp.Annulus(
-        rmin=rin,
-        rmax=rout,
-        length=length,
-        voltage=voltage,
-        zcent=cent,
-        xcent=xcent,
-        ycent=ycent,
-    )
 
     # Create box surrounding wafer. The extent is slightly larger than 5mm unit
     # cell. The simulation cell will chop this to be correct so long as the
     # inner box separation is correct (approximately 0.2mm thickness)
     box_out = wp.Box(
-        xsize=cell_width * (1 + 0.02),
-        ysize=cell_width * (1 + 0.02),
+        xsize=cell_width,
+        ysize=cell_width,
         zsize=length,
-        voltage=voltage,
         zcent=cent,
         xcent=xcent,
         ycent=ycent,
     )
     box_in = wp.Box(
-        xsize=cell_width * (1 - 0.02),
-        ysize=cell_width * (1 - 0.02),
+        xsize=cell_width - 0.0002,
+        ysize=cell_width - 0.0002,
         zsize=length,
-        voltage=voltage,
         zcent=cent,
         xcent=xcent,
         ycent=ycent,
+        condid=box_out.condid,
     )
     box = box_out - box_in
+
+    annulus = wp.Annulus(
+        rmin=rin,
+        rmax=rout,
+        length=length,
+        zcent=cent,
+        xcent=xcent,
+        ycent=ycent,
+        condid=box.condid,
+    )
 
     # Create prongs. This is done using four box conductors and shifting
     # respective x/y centers to create the prong.
@@ -130,41 +130,41 @@ def create_wafer(
         xsize=prong_width,
         ysize=cell_width / 2 - ravg,
         zsize=length,
-        voltage=voltage,
         zcent=cent,
         xcent=xcent,
         ycent=ycent + (cell_width / 2 + ravg) / 2,
+        condid=box.condid,
     )
     bot_prong = wp.Box(
         xsize=prong_width,
         ysize=cell_width / 2 - ravg,
         zsize=length,
-        voltage=voltage,
         zcent=cent,
         xcent=xcent,
         ycent=ycent - (cell_width / 2 + ravg) / 2,
+        condid=box.condid,
     )
     rside_prong = wp.Box(
         xsize=cell_width / 2 - ravg,
         ysize=prong_width,
         zsize=length,
-        voltage=voltage,
         zcent=cent,
         xcent=xcent + (cell_width / 2 + ravg) / 2,
         ycent=ycent,
+        condid=box.condid,
     )
     lside_prong = wp.Box(
         xsize=cell_width / 2 - ravg,
         ysize=prong_width,
         zsize=length,
-        voltage=voltage,
         zcent=cent,
         xcent=xcent - (cell_width / 2 + ravg) / 2,
         ycent=ycent,
+        condid=box.condid,
     )
 
     # Add together
-    cond = wafer + box + top_prong + bot_prong + rside_prong + lside_prong
+    cond = annulus + box + top_prong + bot_prong + rside_prong + lside_prong
 
     return cond
 
@@ -425,9 +425,11 @@ def uniform_particle_load(E, Np, f=13.6 * MHz, zcent=0.0 * mm, mass=Ar_mass):
     return z, vz
 
 
-def voltfunc(time, f=13.6 * MHz, V=7 * kV):
+def voltfunc(time):
     """Voltage function to feed warp for time variation"""
-    return V * np.cos(2.0 * np.pi * f * time)
+    global Vgset
+
+    return Vgset * np.cos(2.0 * np.pi * 13.06 * MHz * time)
 
 
 # ------------------------------------------------------------------------------
@@ -498,11 +500,11 @@ wp.derivqty()
 # Create mesh
 wp.w3d.xmmin = -1.7 * mm
 wp.w3d.xmmax = 1.7 * mm
-wp.w3d.nx = 110
+wp.w3d.nx = 200
 
 wp.w3d.ymmin = -1.7 * mm
 wp.w3d.ymmax = 1.7 * mm
-wp.w3d.ny = 110
+wp.w3d.ny = 200
 
 # use gap positioning to find limits on zmesh. Add some spacing at end points.
 # Use enough zpoint to resolve the wafers. In this case, resolve with 2 points.
