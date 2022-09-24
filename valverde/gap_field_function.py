@@ -36,6 +36,50 @@ twopi = 2 * np.pi
 #     Functions
 # This section is dedicated to creating useful functions for the script.
 # ------------------------------------------------------------------------------
+def getindex(mesh, value, spacing):
+    """Find index in mesh for or mesh-value closest to specified value
+
+    Function finds index corresponding closest to 'value' in 'mesh'. The spacing
+    parameter should be enough for the range [value-spacing, value+spacing] to
+    encompass nearby mesh-entries .
+
+    Parameters
+    ----------
+    mesh : ndarray
+        1D array that will be used to find entry closest to value
+    value : float
+        This is the number that is searched for in mesh.
+    spacing : float
+        Dictates the range of values that will fall into the region holding the
+        desired value in mesh. Best to overshoot with this parameter and make
+        a broad range.
+
+    Returns
+    -------
+    index : int
+        Index for the mesh-value closest to the desired value.
+    """
+
+    # Check if value is already in mesh
+    if value in mesh:
+        return np.where(mesh == value)[0][0]
+
+    # Create array of possible indices
+    indices = np.where((mesh > (value - spacing)) & (mesh < (value + spacing)))[0]
+
+    # Compute differences of the indexed mesh-value with desired value
+    difference = []
+    for index in indices:
+        diff = np.sqrt((mesh[index] ** 2 - value ** 2) ** 2)
+        difference.append(diff)
+
+    # Smallest element will be the index closest to value in indices
+    i = np.argmin(difference)
+    index = indices[i]
+
+    return index
+
+
 def beta(E, mass=Ar_mass, q=1, nonrel=True):
     """Velocity of a particle with energy E."""
     if nonrel:
@@ -511,11 +555,12 @@ wp.w3d.ny = 200
 wp.w3d.zmmin = -rf_wave / 2
 wp.w3d.zmmax = gap_centers[-1] + fcup_dist
 # Set resolution to be 20um giving 35 points to resolve plates and 100 pts in gap
-wp.w3d.nz = round((wp.w3d.zmmax - wp.w3d.zmmin) / 50 / um)
+wp.w3d.nz = round((wp.w3d.zmmax - wp.w3d.zmmin) / 75 / um)
 dz = (wp.w3d.zmmax - wp.w3d.zmmin) / wp.w3d.nz
 
 # Set timing step with cf condition.
-wp.top.dt = 0.7 * dz / beam.vbeam
+# wp.top.dt = 0.7 * dz / beam.vbeam
+wp.top.dt = 1.0 / f / 25
 
 # Add boundary conditions
 wp.w3d.bound0 = wp.dirichlet
@@ -664,6 +709,10 @@ wp.generate()
 z = wp.w3d.zmesh
 x = wp.w3d.xmesh
 y = wp.w3d.ymesh
+
+xc_ind = getindex(x, 0.0, wp.w3d.dx)
+yc_ind = xc_ind
+
 steps = 1
 time = np.zeros(steps)
 Ez_array = np.zeros((steps, len(z)))
