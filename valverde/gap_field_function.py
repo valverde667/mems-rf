@@ -523,10 +523,27 @@ wp.w3d.boundnz = wp.dirichlet
 wp.w3d.boundxy = wp.periodic
 
 
-wp.w3d.l4symtry = True
+l_lzc = gap_centers[0] - gap_width / 2 - length / 2
+l_rzc = gap_centers[0] + gap_width / 2 + length / 2
+l_left = test_create_wafer(l_lzc)
+l_right = test_create_wafer(l_rzc)
+
+r_lzc = gap_centers[1] - gap_width / 2 - length / 2
+r_rzc = gap_centers[1] + gap_width / 2 + length / 2
+r_left = test_create_wafer(r_lzc)
+r_right = test_create_wafer(r_rzc)
+
+TimeVoltage(l_right, voltfunc=voltfunc)
+TimeVoltage(r_left, voltfunc=voltfunc)
+
+wp.w3d.l4symtry = False
 solver = wp.MRBlock3D()
 wp.registersolver(solver)
 
+wp.installconductor(l_left)
+wp.installconductor(l_right)
+wp.installconductor(r_left)
+wp.installconductor(r_right)
 
 # Create accleration gaps with correct coordinates and settings. Collect in
 # list and then loop through and install on the mesh.
