@@ -113,7 +113,7 @@ def neg_gap_voltage(t):
     return v
 
 
-def test_create_wafer(
+def create_wafer(
     cent,
     width=2.0 * mm,
     cell_width=3.0 * mm,
@@ -124,7 +124,7 @@ def test_create_wafer(
     ycent=0.0 * mm,
     voltage=0.0,
 ):
-    """"Create a single wafer
+    """ "Create a single wafer
 
     An acceleration gap will be comprised of two wafers, one grounded and one
     with an RF varying voltage. Creating a single wafer without combining them
@@ -146,6 +146,7 @@ def test_create_wafer(
         zcent=cent,
         xcent=xcent,
         ycent=ycent,
+        voltage=voltage,
     )
     box_in = wp.Box(
         xsize=cell_width - 0.0002,
@@ -154,6 +155,7 @@ def test_create_wafer(
         zcent=cent,
         xcent=xcent,
         ycent=ycent,
+        voltage=voltage,
         condid=box_out.condid,
     )
     box = box_out - box_in
@@ -165,6 +167,7 @@ def test_create_wafer(
         zcent=cent,
         xcent=xcent,
         ycent=ycent,
+        voltage=voltage,
         condid=box.condid,
     )
 
@@ -177,6 +180,7 @@ def test_create_wafer(
         zcent=cent,
         xcent=xcent,
         ycent=ycent + (cell_width / 2 + ravg) / 2,
+        voltage=voltage,
         condid=box.condid,
     )
     bot_prong = wp.Box(
@@ -186,6 +190,7 @@ def test_create_wafer(
         zcent=cent,
         xcent=xcent,
         ycent=ycent - (cell_width / 2 + ravg) / 2,
+        voltage=voltage,
         condid=box.condid,
     )
     rside_prong = wp.Box(
@@ -195,6 +200,7 @@ def test_create_wafer(
         zcent=cent,
         xcent=xcent + (cell_width / 2 + ravg) / 2,
         ycent=ycent,
+        voltage=voltage,
         condid=box.condid,
     )
     lside_prong = wp.Box(
@@ -204,6 +210,7 @@ def test_create_wafer(
         zcent=cent,
         xcent=xcent - (cell_width / 2 + ravg) / 2,
         ycent=ycent,
+        voltage=voltage,
         condid=box.condid,
     )
 
@@ -471,9 +478,8 @@ def uniform_particle_load(E, Np, f=13.6 * MHz, zcent=0.0 * mm, mass=Ar_mass):
 
 def voltfunc(time):
     """Voltage function to feed warp for time variation"""
-    global Vgset
 
-    return Vgset * np.cos(2.0 * np.pi * 13.06 * MHz * time)
+    return np.cos(2.0 * np.pi * 13.06 * MHz * time)
 
 
 # ------------------------------------------------------------------------------
@@ -488,11 +494,12 @@ def voltfunc(time):
 length = 0.7 * mm
 gap_width = 2.0 * mm
 zcenter = abs(0.0 - gap_width / 2.0)
-f = 13.6 * MHz
+f = 13.06 * MHz
 Ng = 2
-Vg = 7.0 * kV
-Vgset = 7.0 * kV
-E_DC = 7 * kV / gap_width
+Np = int(1e6)
+Vg = 5.0 * kV
+Vgset = Vg
+E_DC = Vg / gap_width
 dsgn_phase = -0.0 * np.pi
 gap_cent_dist = []
 Einit = 7.0 * keV
@@ -513,23 +520,10 @@ Energy = np.array(Energy)
 gap_cent_dist = np.array(gap_cent_dist)
 gap_centers = gap_cent_dist.cumsum()
 # Shift gaps by drift space to allow for the field to start from minimum and climb.
-zs = beta(Einit) * SC.c / 2.0 / np.pi / f * (dsgn_phase + np.pi)
-gap_centers += zs
+
 
 print("--Gap Centers")
 print(gap_centers / mm)
-
-# # Create beam and initialize beam parameters
-# beam = wp.Species(type=wp.Argon, charge_state=+1, name="Argon Beam")
-# beam.a0 = 0.25 * mm
-# beam.b0 = 0.25 * mm
-# beam.emit = 1.344e-6
-# beam.ap0 = 0.0
-# beam.bp0 = 0.0
-# beam.ibeam = 10 * uA
-# beam.beam = 0.0
-# beam.ekin = 7.0 * keV
-# wp.derivqty()
 
 # ------------------------------------------------------------------------------
 #     Simulation Paramter settings.
@@ -544,24 +538,30 @@ print(gap_centers / mm)
 # Create mesh
 wp.w3d.xmmin = -1.7 * mm
 wp.w3d.xmmax = 1.7 * mm
-wp.w3d.nx = 200
+wp.w3d.nx = 100
 
 wp.w3d.ymmin = -1.7 * mm
 wp.w3d.ymmax = 1.7 * mm
-wp.w3d.ny = 200
+wp.w3d.ny = 100
 
 # use gap positioning to find limits on zmesh. Add some spacing at end points.
 # Use enough zpoint to resolve the wafers. In this case, resolve with 2 points.
 wp.w3d.zmmin = -rf_wave / 2
 wp.w3d.zmmax = gap_centers[-1] + fcup_dist
+
 # Set resolution to be 20um giving 35 points to resolve plates and 100 pts in gap
-wp.w3d.nz = round((wp.w3d.zmmax - wp.w3d.zmmin) / 75 / um)
+wp.w3d.nz = round((wp.w3d.zmmax - wp.w3d.zmmin) / 50 / um)
 dz = (wp.w3d.zmmax - wp.w3d.zmmin) / wp.w3d.nz
 
+# Create particle characteristics. Particles need to be loaded later if using
+# addparticles attribute
+zload, vzload = uniform_particle_load(Einit, int(1e6))
+beam = wp.Species(type=wp.Argon, charge_state=+1, name="Argon Beam")
+beam.ekin = 7.0 * keV
+wp.derivqty()
+
 # Set timing step with cf condition.
-# wp.top.dt = 0.7 * dz / beam.vbeam
-steps = 5
-wp.top.dt = 1.0 / f / 25
+wp.top.dt = 0.7 * dz / beam.vbeam
 
 # Add boundary conditions
 wp.w3d.bound0 = wp.dirichlet
@@ -571,18 +571,16 @@ wp.w3d.boundxy = wp.periodic
 
 l_lzc = gap_centers[0] - gap_width / 2 - length / 2
 l_rzc = gap_centers[0] + gap_width / 2 + length / 2
-l_left = test_create_wafer(l_lzc)
-l_right = test_create_wafer(l_rzc)
+l_left = create_wafer(l_lzc)
+l_right = create_wafer(l_rzc, voltage=Vgset)
 
 r_lzc = gap_centers[1] - gap_width / 2 - length / 2
 r_rzc = gap_centers[1] + gap_width / 2 + length / 2
-r_left = test_create_wafer(r_lzc)
-r_right = test_create_wafer(r_rzc)
+r_left = create_wafer(r_lzc, voltage=Vgset)
+r_right = create_wafer(r_rzc)
 
-TimeVoltage(l_right, voltfunc=voltfunc)
-TimeVoltage(r_left, voltfunc=voltfunc)
-
-wp.w3d.l4symtry = False
+wp.w3d.l4symtry = True
+wp.f3d.mgtol = 1.0e-6
 solver = wp.MRBlock3D()
 wp.registersolver(solver)
 
@@ -652,59 +650,58 @@ wp.installconductor(r_right)
 #
 
 # Create diagnostic for absorbing particles and recording final characteristics.
-# diagnostic = wp.Box(
-#     xsize=wp.top.largepos,
-#     ysize=wp.top.largepos,
-#     zsize=3.0 * dz,
-#     voltage=0,
-#     zcent=wp.w3d.zmmax - 4 * dz,
-#     xcent=0.0,
-#     ycent=0.0,
-# )
-# scraper = wp.ParticleScraper(diagnostic, lcollectlpdata=True)
-# wp.top.lsavelostpart = True
+diagnostic = wp.Box(
+    xsize=wp.top.largepos,
+    ysize=wp.top.largepos,
+    zsize=3.0 * dz,
+    voltage=0,
+    zcent=20 * mm,
+    xcent=0.0,
+    ycent=0.0,
+)
+scraper = wp.ParticleScraper(diagnostic, lcollectlpdata=True)
+wp.top.lsavelostpart = True
+
 # Perform initial field solve for mesh.
 wp.package("w3d")
 wp.generate()
 
-# Load particles
-# zload, vzload = uniform_particle_load(Einit, int(1e5))
-# beam.addparticles(
-#     x=np.zeros(len(zload)),
-#     y=np.zeros(len(zload)),
-#     z=zload,
-#     vx=np.zeros(len(zload)),
-#     vy=np.zeros(len(zload)),
-#     vz=vzload,
-# )
-# # Create trace particle
-# tracked_ions = wp.Species(type=wp.Argon, charge_state=+1, name="Tracer")
-# tracker = TraceParticle(
-#     js=tracked_ions.js, x=0.0, y=0.0, z=0.0, vx=0.0, vy=0.0, vz=beam.vbeam,
-# )
+# Create gridded electric field data
+wp.addnewegrd(
+    zs=wp.w3d.zmmin,
+    ze=wp.w3d.zmmax,
+    xs=wp.w3d.xmmin,
+    dx=wp.w3d.dx,
+    ys=wp.w3d.ymmin,
+    dy=wp.w3d.dy,
+    nx=wp.w3d.nx,
+    ny=wp.w3d.ny,
+    nz=wp.w3d.nz,
+    ex=wp.getselfe(comp="x"),
+    ey=wp.getselfe(comp="y"),
+    ez=wp.getselfe(comp="z"),
+    func=voltfunc,
+)
+# Particles need to be added directly this way after the generate()
+beam.addparticles(
+    x=np.zeros(Np),
+    y=np.zeros(Np),
+    z=zload,
+    vx=np.zeros(Np),
+    vy=np.zeros(Np),
+    vz=beam.vbeam,
+)
 
-# while tracker.getz()[-1] < gap_centers[-1] + gap_width / 2 + length / 2:
-#     print(f"Tracker Particle at z = {tracker.getz()[-1]/mm:.3f} [mm]")
-#     this_E = Ar_mass * pow(tracker.getvz()[-1]/SC.c, 2) / 2.
-#     print(f"Tracker E = {this_E /keV:.3f} [keV]")
-#     wp.step()
-
-# Potential particle plots. Cannot get window to stay fixed when plotting
-# potential contours the contours move off the plot even though limts are
-# held fixed.
-# wp.setup()
-# wp.winon()
-#
-#
-# def beamplots():
-#     wp.window(0)
-#     wp.ppzx(titles=False, color="red", msize=3)
-#     wp.pfzx(titles=False)
-#     wp.limits(wp.w3d.zmminglobal, wp.w3d.zmmaxglobal, 0.0, 0.55 * mm)
-#     wp.ptitles("Particles and Potential Contour", "z [m]", "x [m]")
-#     wp.refresh()
-#     wp.fma()
-
+# Create trace particle
+tracked_ions = wp.Species(type=wp.Argon, charge_state=+1, name="Tracer")
+tracker = TraceParticle(
+    js=tracked_ions.js, x=0.0, y=0.0, z=0.0, vx=0.0, vy=0.0, vz=beam.vbeam,
+)
+# Recalculate fields. This call gets the particles to be advanced with the applied
+# fields.
+wp.step(600)
+E = Ar_mass * 0.5 * pow(tracker.getvz() / SC.c, 2)
+Ebeam = Ar_mass * 0.5 * pow(beam.getvz(lost=1) / SC.c, 2)
 
 # Collect data from the mesh and initialize useful variables.
 z = wp.w3d.zmesh
@@ -714,10 +711,25 @@ y = wp.w3d.ymesh
 xc_ind = getindex(x, 0.0, wp.w3d.dx)
 yc_ind = xc_ind
 
-time = np.zeros(steps)
-Ez_array = np.zeros((steps, len(z)))
 Ez0 = wp.getselfe(comp="z")[0, 0, :]
 phi0 = wp.getphi()[0, 0, :]
+
+# Print out Beam energy and plot tracker particles energy along mesh.
+print(f"Final Energies for particles [keV]:", Ebeam / keV)
+fig, ax = plt.subplots()
+ax.plot(tracker.getz() / mm, E / keV)
+ax.set_ylim(0, 20)
+ax.set_xlim(wp.w3d.zmmin / mm, wp.w3d.zmmax / mm)
+ax.axhline(y=17, c="r", ls="--", lw=1, label="Theoretical Max")
+for i, cent in enumerate(gap_centers):
+    ax.axvline(x=cent / mm, c="k", ls="--", lw=0.7)
+ax2 = ax.twinx()
+ax2.plot(wp.w3d.zmesh / mm, Ez0 / E_DC)
+ax.set_xlabel("Postition z [mm]")
+ax.set_ylabel("Kinetic Energy [keV]")
+ax.legend()
+plt.show()
+stop
 
 # Save arrays
 np.save("potential_arrays", phi0)
@@ -846,7 +858,7 @@ ax.plot(
     z / mm, Ez_array[0, :] / E_DC, c="k", label=f"Time: {time_array[0]/ns:.2f} [ns]"
 )
 ax.set_xlabel("z [mm]")
-ax.set_ylabel(fr"On-axis Electric field $E_z(r=0, z,t)/E_{{dc}}$ [kV/mm]")
+ax.set_ylabel(rf"On-axis Electric field $E_z(r=0, z,t)/E_{{dc}}$ [kV/mm]")
 ax.axvline(x=-zcenter / mm, c="gray", lw=1)
 ax.axvline(x=zcenter / mm, c="gray", lw=1)
 ax.legend()
