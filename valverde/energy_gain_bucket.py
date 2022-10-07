@@ -167,8 +167,8 @@ if use_flattop:
 
 if use_real_field:
     # load isolated field
-    z_iso = np.load("z_isolated_5kV_2mm_50um.npy")
-    Ez_iso = np.load("Ez_isolated_5kV_2mm_50um.npy")
+    z_iso = np.load("z_isolated_5kV_2mm_40um.npy")
+    Ez_iso = np.load("Ez_isolated_5kV_2mm_40um.npy")
 
     # Find extent of field
     Ez_extent = z_iso[-1] - z_iso[0]
@@ -179,7 +179,7 @@ if use_real_field:
     Ez_patch_arrays = []
     for i, cent in enumerate(gap_centers):
 
-        z_patch = z_iso.copy() + cent
+        z_patch = z_iso + cent
         field_loc = np.where((z > cent - Ez_extent / 2) & (z < cent + Ez_extent / 2))
         patch_start = field_loc[0][0]
         patch_end = field_loc[0][-1]
@@ -209,9 +209,9 @@ if use_real_field:
             Ez0_patched = np.concatenate((Ez0_left, Ez_iso, Ez0_right))
 
         # Rename previously defined meshs for continuity
-        z = z_patched.copy()
+        z = z_patched
         Nz = len(z)
-        Ez0 = Ez0_patched.copy()
+        Ez0 = Ez0_patched
 
 # Plot field with gaps
 fig, ax = plt.subplots()
@@ -232,15 +232,16 @@ plt.tight_layout()
 # analysis such as relative differences from the design particle in time and
 # energy.
 # ------------------------------------------------------------------------------
-# Create design particle arrays. The design particle is always to begin at z=0,
-# t=0 and given the design initial energy.
+# Create design particle arrays. The design particle is always to begin at z=zmin,
+# t=0 and given the design initial energy. The design particle is assume to be
+# at z=0 at t=0 and is then moved backward in time to zmin
 dsgn_pos = np.zeros(Nz)
 dsgn_E = np.zeros(Nz)
 dsgn_time = np.zeros(Nz)
 
-dsgn_pos[0] = 0.0
+dsgn_pos[0] = z.min()
 dsgn_E[0] = dsgn_initE
-dsgn_time[0] = 0.0
+dsgn_time[0] = (0 - z.min()) / beta(dsgn_initE) / SC.c
 
 # Initalize particles to be CW
 particle_dist = np.linspace(-h_rf / 2, h_rf / 2, Np)
@@ -255,9 +256,9 @@ parts_E[:, 0] = dsgn_initE
 parts_time = np.zeros(shape=(Np, Nz))
 
 
-# initialize particles to z=0 along with times
+# initialize particles to zmin along with times
 vparts = np.sqrt(2 * parts_E[:, 0] / Ar_mass) * SC.c
-time = (parts_pos[:, 0]) / vparts
+time = (parts_pos[:, 0] - z.min()) / vparts
 parts_pos[:, 0] = 0.0
 parts_time[:, 0] = time
 
@@ -267,6 +268,9 @@ parts_time[:, 0] = time
 # then done evaluated the energy gain using the field value and mesh spacing dz.
 # ------------------------------------------------------------------------------
 # Main loop to advance particles. Real parameter settings should be used here.
+field_values = np.zeros((Np, Nz))
+dsgn_field_values = np.zeros(Nz)
+
 for i in range(1, len(z)):
     # Do design particle
     this_dz = z[i] - z[i - 1]
@@ -275,6 +279,7 @@ for i in range(1, len(z)):
     dsgn_time[i] = dsgn_time[i - 1] + this_dt
 
     Egain = Ez0[i - 1] * rf_volt(dsgn_time[i], freq=real_freq) * this_dz
+    dsgn_field_values[i] = Ez0[i - 1] * rf_volt(dsgn_time[i], freq=real_freq)
 
     dsgn_E[i] = dsgn_E[i - 1] + Egain
     dsgn_pos[i] = dsgn_pos[i - 1] + this_dz
@@ -288,6 +293,8 @@ for i in range(1, len(z)):
     Egain = Ez0[i - 1] * rf_volt(parts_time[:, i], freq=real_freq) * this_dz
     parts_E[:, i] = parts_E[:, i - 1] + Egain
     parts_pos[:, i] = parts_pos[:, i - 1] + this_dz
+
+    field_values[:, i] = Ez0[i - 1] * rf_volt(parts_time[:, i], freq=real_freq)
 
 # Convert nan values to 0
 final_E = np.nan_to_num(parts_E[:, -1])
