@@ -268,9 +268,6 @@ parts_time[:, 0] = time
 # then done evaluated the energy gain using the field value and mesh spacing dz.
 # ------------------------------------------------------------------------------
 # Main loop to advance particles. Real parameter settings should be used here.
-field_values = np.zeros((Np, Nz))
-dsgn_field_values = np.zeros(Nz)
-
 for i in range(1, len(z)):
     # Do design particle
     this_dz = z[i] - z[i - 1]
@@ -279,7 +276,6 @@ for i in range(1, len(z)):
     dsgn_time[i] = dsgn_time[i - 1] + this_dt
 
     Egain = Ez0[i - 1] * rf_volt(dsgn_time[i], freq=real_freq) * this_dz
-    dsgn_field_values[i] = Ez0[i - 1] * rf_volt(dsgn_time[i], freq=real_freq)
 
     dsgn_E[i] = dsgn_E[i - 1] + Egain
     dsgn_pos[i] = dsgn_pos[i - 1] + this_dz
@@ -293,8 +289,6 @@ for i in range(1, len(z)):
     Egain = Ez0[i - 1] * rf_volt(parts_time[:, i], freq=real_freq) * this_dz
     parts_E[:, i] = parts_E[:, i - 1] + Egain
     parts_pos[:, i] = parts_pos[:, i - 1] + this_dz
-
-    field_values[:, i] = Ez0[i - 1] * rf_volt(parts_time[:, i], freq=real_freq)
 
 # Convert nan values to 0
 final_E = np.nan_to_num(parts_E[:, -1])
