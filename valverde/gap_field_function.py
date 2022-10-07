@@ -32,6 +32,7 @@ ns = 1e-9  # nanoseconds
 uA = 1e-6
 twopi = 2 * np.pi
 
+wp.setup()
 # ------------------------------------------------------------------------------
 #     Functions
 # This section is dedicated to creating useful functions for the script.
@@ -550,7 +551,7 @@ wp.w3d.zmmin = -rf_wave / 2
 wp.w3d.zmmax = gap_centers[-1] + fcup_dist
 
 # Set resolution to be 20um giving 35 points to resolve plates and 100 pts in gap
-wp.w3d.nz = round((wp.w3d.zmmax - wp.w3d.zmmin) / 50 / um)
+wp.w3d.nz = round((wp.w3d.zmmax - wp.w3d.zmmin) / 100 / um)
 dz = (wp.w3d.zmmax - wp.w3d.zmmin) / wp.w3d.nz
 
 # Create particle characteristics. Particles need to be loaded later if using
@@ -583,6 +584,16 @@ wp.w3d.l4symtry = True
 wp.f3d.mgtol = 1.0e-6
 solver = wp.MRBlock3D()
 wp.registersolver(solver)
+
+# # Refine mesh in z
+# childs = []
+# for i,zc in enumerate(gap_centers):
+#     this_child = solver.addchild(
+#     mins=[wp.w3d.xmmin, wp.w3d.ymmin, zc - gap_width / 2],
+#     maxs=[0.01*mm, 0.01*mm, zc + gap_width / 2],
+#     refinement=[2, 2, 2],
+#     )
+#     childs.append(this_child)
 
 wp.installconductor(l_left)
 wp.installconductor(l_right)
@@ -729,7 +740,6 @@ ax.set_xlabel("Postition z [mm]")
 ax.set_ylabel("Kinetic Energy [keV]")
 ax.legend()
 plt.show()
-stop
 
 # Save arrays
 np.save("potential_arrays", phi0)
@@ -799,7 +809,6 @@ plt.show()
 # Warp plotting for verification that mesh and conductors were created properly.
 warpplots = True
 if warpplots:
-    wp.setup()
     wp.pfzx(fill=1, filled=1)
     wp.fma()
     wp.pfzy(fill=1, filled=1)
