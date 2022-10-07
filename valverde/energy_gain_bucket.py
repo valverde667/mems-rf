@@ -84,18 +84,18 @@ def calc_dipole_deflection(voltage, energy, length=50 * mm, g=11 * mm, drift=185
 # Simulation Parameters for design particle
 design_phase = -0
 dsgn_initE = 7 * kV
-Np = 10000
+Np = int(1e5)
 gap_width = 2.0 * mm
 
 # Simulation parameters for gaps and geometries
-design_gap_volt = 7.0 * kV
+design_gap_volt = 5.0 * kV
 real_gap_volt = design_gap_volt
 design_freq = 13.06 * MHz
 real_freq = design_freq
 design_omega = 2 * np.pi * design_freq
 real_omega = design_omega
 E_DC = real_gap_volt / gap_width
-Ng = 16
+Ng = 2
 Fcup_dist = 10 * mm
 dsgn_finE = dsgn_initE + Ng * design_gap_volt * np.cos(design_phase)
 print(f"Predicted Final Design Energy: {dsgn_finE/keV:.2f} keV")
@@ -106,6 +106,7 @@ dipole_gap_width = 11.0 * mm
 dist_to_slit = 185.0 * mm
 slit_width = 1.0 * mm
 slit_center = 37 * mm
+h_rf = beta(dsgn_initE) * SC.c / design_freq
 
 # ------------------------------------------------------------------------------
 #     Gap Centers
@@ -133,47 +134,12 @@ gap_centers = np.array(gap_dist).cumsum()
 # ------------------------------------------------------------------------------
 # Specify a mesh resolution
 mesh_res = 100 * um
-zmin = 0.0
+zmin = -h_rf / 2
 zmax = gap_centers[-1] + gap_width / 2 + Fcup_dist
 Nz = int((zmax - zmin) / mesh_res)
 z = np.linspace(zmin, zmax, Nz)
 dz = z[1] - z[0]
 Ez0 = z.copy()
-
-# ------------------------------------------------------------------------------
-#    Particle Histories
-# The particle arrays are created and the following quantities are tracked for the
-# advancement: position, time, energy. This tracking will allow for various
-# analysis such as relative differences from the design particle in time and
-# energy.
-# ------------------------------------------------------------------------------
-# Create design particle arrays. The design particle is always to begin at z=0,
-# t=0 and given the design initial energy.
-dsgn_pos = np.zeros(Nz)
-dsgn_E = np.zeros(Nz)
-dsgn_time = np.zeros(Nz)
-
-dsgn_pos[0] = 0.0
-dsgn_E[0] = dsgn_initE
-dsgn_time[0] = 0.0
-
-# Calculate full DC beam length and start position of design particle. This will
-# give a CW injection.
-DC_length = beta(dsgn_initE) * SC.c / design_freq
-particle_dist = np.linspace(-DC_length / 2, DC_length / 2, Np)
-
-# Create particle arrays to store histories
-parts_pos = np.zeros(shape=(Np, Nz))
-parts_pos[:, 0] = particle_dist
-parts_E = np.zeros(shape=(Np, Nz))
-parts_time = np.zeros(shape=(Np, Nz))
-parts_E[:, 0] = dsgn_initE
-
-# initialize particles to z=0 along with times
-vparts = np.sqrt(2 * parts_E[:, 0] / Ar_mass) * SC.c
-time = (parts_pos[:, 0]) / vparts
-parts_pos[:, 0] = 0
-parts_time[:, 0] = time
 
 # ------------------------------------------------------------------------------
 #    Field Load
@@ -184,8 +150,8 @@ parts_time[:, 0] = time
 # extracted from the script 'fit_function_to_gap_field.py'
 # ------------------------------------------------------------------------------
 # Instantiate the flat-top field values in the gap regions.
-use_flattop = True
-use_real_field = False
+use_flattop = False
+use_real_field = True
 if use_flattop:
     for i, cent in enumerate(gap_centers):
         if i % 2 == 0:
@@ -201,8 +167,8 @@ if use_flattop:
 
 if use_real_field:
     # load isolated field
-    z_iso = np.load("z_isolated_7kV_2mm_5um.npy")
-    Ez_iso = np.load("Ez_isolated_7kV_2mm_5um.npy")
+    z_iso = np.load("z_isolated_5kV_2mm_50um.npy")
+    Ez_iso = np.load("Ez_isolated_5kV_2mm_50um.npy")
 
     # Find extent of field
     Ez_extent = z_iso[-1] - z_iso[0]
@@ -243,8 +209,9 @@ if use_real_field:
             Ez0_patched = np.concatenate((Ez0_left, Ez_iso, Ez0_right))
 
         # Rename previously defined meshs for continuity
-        z = z_patched
-        Ez0 = Ez0_patched
+        z = z_patched.copy()
+        Nz = len(z)
+        Ez0 = Ez0_patched.copy()
 
 # Plot field with gaps
 fig, ax = plt.subplots()
@@ -265,31 +232,34 @@ plt.tight_layout()
 # analysis such as relative differences from the design particle in time and
 # energy.
 # ------------------------------------------------------------------------------
-# The mesh sizing will have changed after adding patches so the arrays need to
-# redone before advancing.
-if use_real_field:
-    Nz = len(z)
-    dsgn_pos = np.zeros(Nz)
-    dsgn_E = np.zeros(Nz)
-    dsgn_time = np.zeros(Nz)
+# Create design particle arrays. The design particle is always to begin at z=0,
+# t=0 and given the design initial energy.
+dsgn_pos = np.zeros(Nz)
+dsgn_E = np.zeros(Nz)
+dsgn_time = np.zeros(Nz)
 
-    dsgn_pos[0] = 0.0
-    dsgn_E[0] = dsgn_initE
-    dsgn_time[0] = 0.0
+dsgn_pos[0] = 0.0
+dsgn_E[0] = dsgn_initE
+dsgn_time[0] = 0.0
 
-    # Create particle arrays to store histories
-    parts_pos = np.zeros(shape=(Np, Nz))
-    parts_pos[:, 0] = particle_dist
-    parts_E = np.zeros(shape=(Np, Nz))
-    parts_time = np.zeros(shape=(Np, Nz))
-    parts_E[:, 0] = dsgn_initE
+# Initalize particles to be CW
+particle_dist = np.linspace(-h_rf / 2, h_rf / 2, Np)
 
-    # initialize particles to z=0 along with times
-    vparts = np.sqrt(2 * parts_E[:, 0] / Ar_mass) * SC.c
-    time = (parts_pos[:, 0]) / vparts
-    parts_pos[:, 0] = 0
-    parts_time[:, 0] = time
+# Create particle arrays to store histories
+parts_pos = np.zeros(shape=(Np, Nz))
+parts_pos[:, 0] = particle_dist
 
+parts_E = np.zeros(shape=(Np, Nz))
+parts_E[:, 0] = dsgn_initE
+
+parts_time = np.zeros(shape=(Np, Nz))
+
+
+# initialize particles to z=0 along with times
+vparts = np.sqrt(2 * parts_E[:, 0] / Ar_mass) * SC.c
+time = (parts_pos[:, 0]) / vparts
+parts_pos[:, 0] = 0.0
+parts_time[:, 0] = time
 
 # ------------------------------------------------------------------------------
 #    Particle Advancement
@@ -394,7 +364,7 @@ ax.bar(
     lw="1",
     label=f"Percent Parts: {percent_parts:.2f}%",
 )
-ax.set_xlabel(fr"$\Delta E$ [keV], Predicted Final E: {dsgn_finE/keV:.2f} [keV]")
+ax.set_xlabel(rf"$\Delta E$ [keV], Predicted Final E: {dsgn_finE/keV:.2f} [keV]")
 ax.set_ylabel(r"Fraction of Total Particles")
 ax.legend()
 
