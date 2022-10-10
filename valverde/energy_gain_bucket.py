@@ -36,6 +36,50 @@ twopi = 2 * np.pi
 #     Functions
 # This section creates necessary functions for the script.
 # ------------------------------------------------------------------------------
+def getindex(mesh, value, spacing):
+    """Find index in mesh for or mesh-value closest to specified value
+
+    Function finds index corresponding closest to 'value' in 'mesh'. The spacing
+    parameter should be enough for the range [value-spacing, value+spacing] to
+    encompass nearby mesh-entries .
+
+    Parameters
+    ----------
+    mesh : ndarray
+        1D array that will be used to find entry closest to value
+    value : float
+        This is the number that is searched for in mesh.
+    spacing : float
+        Dictates the range of values that will fall into the region holding the
+        desired value in mesh. Best to overshoot with this parameter and make
+        a broad range.
+
+    Returns
+    -------
+    index : int
+        Index for the mesh-value closest to the desired value.
+    """
+
+    # Check if value is already in mesh
+    if value in mesh:
+        return np.where(mesh == value)[0][0]
+
+    # Create array of possible indices
+    indices = np.where((mesh > (value - spacing)) & (mesh < (value + spacing)))[0]
+
+    # Compute differences of the indexed mesh-value with desired value
+    difference = []
+    for index in indices:
+        diff = np.sqrt((mesh[index] ** 2 - value ** 2) ** 2)
+        difference.append(diff)
+
+    # Smallest element will be the index closest to value in indices
+    i = np.argmin(difference)
+    index = indices[i]
+
+    return index
+
+
 def beta(E, mass=Ar_mass, q=1, nonrel=True):
     """Velocity of a particle with energy E."""
     if nonrel:
@@ -82,7 +126,7 @@ def calc_dipole_deflection(voltage, energy, length=50 * mm, g=11 * mm, drift=185
 # thus, if varied here are varied everywhere.
 # ------------------------------------------------------------------------------
 # Simulation Parameters for design particle
-design_phase = -0
+design_phase = -np.pi / 2
 dsgn_initE = 7 * kV
 Np = int(1e5)
 gap_width = 2.0 * mm
@@ -150,8 +194,8 @@ Ez0 = z.copy()
 # extracted from the script 'fit_function_to_gap_field.py'
 # ------------------------------------------------------------------------------
 # Instantiate the flat-top field values in the gap regions.
-use_flattop = False
-use_real_field = True
+use_flattop = True
+use_real_field = False
 if use_flattop:
     for i, cent in enumerate(gap_centers):
         if i % 2 == 0:
@@ -167,8 +211,8 @@ if use_flattop:
 
 if use_real_field:
     # load isolated field
-    z_iso = np.load("z_isolated_5kV_2mm_40um.npy")
-    Ez_iso = np.load("Ez_isolated_5kV_2mm_40um.npy")
+    z_iso = np.load("z_isolated_5kV_2mm_10um.npy")
+    Ez_iso = np.load("Ez_isolated_5kV_2mm_10um.npy")
 
     # Find extent of field
     Ez_extent = z_iso[-1] - z_iso[0]
@@ -241,26 +285,25 @@ dsgn_time = np.zeros(Nz)
 
 dsgn_pos[0] = z.min()
 dsgn_E[0] = dsgn_initE
-dsgn_time[0] = (0 - z.min()) / beta(dsgn_initE) / SC.c
-
-# Initalize particles to be CW
-particle_dist = np.linspace(-h_rf / 2, h_rf / 2, Np)
+dsgn_time[0] = 0.0
 
 # Create particle arrays to store histories
 parts_pos = np.zeros(shape=(Np, Nz))
-parts_pos[:, 0] = particle_dist
+parts_pos[:, 0] = z.min()
 
 parts_E = np.zeros(shape=(Np, Nz))
 parts_E[:, 0] = dsgn_initE
 
 parts_time = np.zeros(shape=(Np, Nz))
 
+# Initialize particles be distributed around the synchronous particle's phase
+phi_dev_plus = np.pi
+phi_dev_minus = np.pi
+init_time = np.linspace(design_phase - phi_dev_minus, design_phase + phi_dev_plus, Np)
+init_time = init_time / twopi / design_freq
 
-# initialize particles to zmin along with times
-vparts = np.sqrt(2 * parts_E[:, 0] / Ar_mass) * SC.c
-time = (parts_pos[:, 0] - z.min()) / vparts
-parts_pos[:, 0] = 0.0
-parts_time[:, 0] = time
+parts_pos[:, 0] = z.min()
+parts_time[:, 0] = init_time
 
 # ------------------------------------------------------------------------------
 #    Particle Advancement
@@ -294,6 +337,41 @@ for i in range(1, len(z)):
 final_E = np.nan_to_num(parts_E[:, -1])
 final_t = np.nan_to_num(parts_time[:, -1])
 
+# Create diagnostic locations and grab data from z-locations
+zdiagnostics = np.array([gap_centers[0], gap_centers[1], z.max()])
+Ediagnostic = np.zeros(shape=(Np, len(zdiagnostics)))
+tdiagnostic = np.zeros(shape=(Np, len(zdiagnostics)))
+dz = np.diff(z).min()
+
+for i, zloc in enumerate(zdiagnostics):
+    ind = np.argmin(abs(z - zloc))
+
+    Ediagnostic[:, i] = parts_E[:, ind]
+    tdiagnostic[:, i] = parts_time[:, ind] - dsgn_time[ind]
+
+phase_diagnostic = twopi * design_freq * tdiagnostic
+
+fig, ax = plt.subplots()
+ax.set_title("Initial Phase-Space")
+ax.set_xlabel(r"$\Delta \phi / \pi$")
+ax.set_ylabel(rf"\Delta W,$  $W_{{s,f}}$ = {dsgn_E[-1]/keV:.3f}[keV]")
+ax.hist2d(
+    twopi * design_freq * parts_time[:, 0] / np.pi,
+    parts_E[:, 0] / keV,
+    bins=[100, 100],
+)
+
+for i in range(len(zdiagnostics)):
+    fig, ax = plt.subplots()
+    ax.set_title("Phase-Space")
+    ax.set_xlabel(r"$\Delta \phi / \pi$")
+    ax.set_ylabel(rf"\Delta W,$  $W_{{s,f}}$ = {dsgn_E[-1]/keV:.3f}[keV]")
+    ax.hist2d(
+        np.modf(phase_diagnostic[:, i] / np.pi)[0],
+        Ediagnostic[:, i] / keV,
+        bins=[100, 100],
+    )
+plt.show()
 # Plot the final energy and time but ignore the 0-bin since this will be overly
 # large and drown out the distribution. This isn't done for time since doing so
 # is more trouble then its worth. Do be sure to zoom in on the plot and make sure
