@@ -409,7 +409,7 @@ def output_sim_params(
     print(f"- Number of Particles Np: {Np:.0E}")
     print(f"- Number of Gaps Ng: {Ng:.0f}")
     print(f"- Gap Voltage [kV]: {Vg/kV:.4f}")
-    print(f"- Synchrotron Wavenumber [1/m]: {ks:.4f}")
+    print(f"- Synchrotron Wavenumber [rad/m]: {ks:.4f}")
     print(f"- Synchronous Beta: {beta_s:.4E}")
     print(f"- Injection Type: {inj_type}")
     print(f"- Initial Phase Width: {inj_phase_width/np.pi:.4f} pi")
@@ -507,18 +507,20 @@ def uni_box_load(Np, xlims, ylims, xc=0, yc=0, seed=42):
 init_dsgn_E = 7 * keV
 init_E = 7 * keV
 init_dsgn_phi = -np.pi / 2
-phi_dev = np.pi / 20
-W_dev = 0.0001 * keV
+phi_dev = np.pi * 0.7
+phi_dev_minus = np.pi * 0.35
+phi_dev_plus = np.pi * 0.85
+W_dev = 0.01 * keV
 q = 1
-Np = int(1e6)
+Np = int(6)
 
-Ng = 4 + 1  # Gap 0 is initial condition
+Ng = 8 + 1  # Gap 0 is initial condition
 dsgn_freq = 13.06 * MHz
 # if inputs.Vset != False:
 #     dsgn_gap_volt = inputs.Vset
 # else:
 #     dsgn_gap_volt = 7 * kV * .1
-dsgn_gap_volt = 1 * kV
+dsgn_gap_volt = 5 * kV
 dsgn_gap_width = 2 * mm
 dsgn_DC_Efield = dsgn_gap_volt / dsgn_gap_width
 transit_tfactor = calc_transit_factor(
@@ -528,9 +530,13 @@ final_dsgn_E = init_dsgn_E + (Ng - 1) * dsgn_gap_volt * np.cos(-init_dsgn_phi)
 
 # Create particle initializations with given parameter settings and plot initial
 # distribution
-Hamiltonian_array = np.zeros(shape=(Np, Ng))
+
 beta_s = np.zeros(Ng)
-init_phi, init_dW = uni_box_load(Np, (-np.pi, np.pi), (-W_dev, W_dev))
+# init_phi, init_dW = uni_box_load(Np, (-np.pi, np.pi), (-W_dev, W_dev))
+init_phi = np.linspace(init_dsgn_phi - phi_dev_minus, init_dsgn_phi + phi_dev_plus, Np)
+# init_phi = np.linspace(init_dsgn_phi - np.pi, init_dsgn_phi + np.pi, Np)
+
+init_dW = np.zeros(Np)
 loadin_data = False
 if loadin_data:
     init_dW = np.load("delta_E.npy")
@@ -540,6 +546,7 @@ if loadin_data:
 
 fig, ax = plt.subplots()
 hist = ax.hist2d(init_phi / np.pi, init_dW / keV, bins=[150, 150])
+ax.set_title("Initial Distribution in Phase-Space")
 ax.set_xlabel(rf"$\phi / \pi$, $\phi_s$ = {init_dsgn_phi/np.pi:.2f}$\pi$")
 ax.set_ylabel(
     rf"Relative Kinetic Energy $\Delta W$ [keV], $W_s$ = {init_dsgn_E/keV:.2f} [keV]"
@@ -547,7 +554,6 @@ ax.set_ylabel(
 plt.show()
 
 
-Hamiltonian_array = np.zeros(shape=(Np, Ng))
 phi = np.zeros(shape=(Np, Ng))
 dW = np.zeros(shape=(Np, Ng))
 W_s = np.zeros(Ng)
@@ -556,9 +562,6 @@ phi[:, 0] = init_phi
 dW[:, 0] = init_dW
 W_s[0] = init_dsgn_E
 beta_s[0] = calc_beta(init_dsgn_E)
-Hamiltonian_array[:, 0], _, _ = calc_Hamiltonian(
-    init_dsgn_phi, W_s[0], dW[:, 0], phi[:, 0], dsgn_freq, dsgn_gap_volt
-)
 
 # Switch to control whether or not the synchronous beta should be updated.
 # Setting True will evaluate beta_s at each gap and the phase-space can no
@@ -575,58 +578,106 @@ update_beta_s = True
 
 # Loop through each gap and calculate energy difference and phase difference.
 Vsets = np.ones(Ng) * dsgn_gap_volt
-Vsets[2:] = 0 * kV
+zgaps = np.zeros(Ng)
+phi_s = np.ones(Ng) * init_dsgn_phi
+
+phi_s[1:3] = -np.pi / 2
+phi_s[3:] = -np.pi * 50 / 180
+Vsets[-1] = 0
 for i in range(1, Ng):
     if update_beta_s:
         this_beta_s = calc_beta(W_s[i - 1])
     else:
         this_beta_s = calc_beta(W_s[0])
 
+    # Calculate new gap center. The resonance condition will ensure the pi
+    # phasing. But if a gap is at a new phi_s, then the particle should travel
+    # bh/2 + the offset.
+    this_zs = this_beta_s * SC.c / 2 / dsgn_freq
+    zs_offset = (phi_s[i] - phi_s[i - 1]) * this_beta_s * SC.c / dsgn_freq / twopi
+    zgaps[i] = this_zs + zs_offset
+
+    zgaps[i] = calc_beta(W_s[i - 1]) * SC.c / 2 / dsgn_freq + zgaps[i - 1]
+
     Acoeff = -np.pi / Ar_mass / pow(this_beta_s, 2)
     phi[:, i] = phi[:, i - 1] + Acoeff * dW[:, i - 1]
 
-    Bcoeff = q * transit_tfactor
-    dW[:, i] = dW[:, i - 1] + Bcoeff * (np.cos(phi[:, i]) - np.cos(init_dsgn_phi))
+    Bcoeff = q * Vsets[i] * transit_tfactor
+    dW[:, i] = dW[:, i - 1] + Bcoeff * (np.cos(phi[:, i]) - np.cos(phi_s[i]))
 
-    W_s[i] = W_s[i - 1] + Bcoeff * np.cos(init_dsgn_phi)
+    W_s[i] = W_s[i - 1] + Bcoeff * np.cos(phi_s[i])
     beta_s[i] = this_beta_s
 
-    this_H, _, _, = calc_Hamiltonian(
-        init_dsgn_phi, W_s[i], dW[:, i], phi[:, i], dsgn_freq, dsgn_gap_volt
-    )
-    Hamiltonian_array[:, i] = this_H
 
+phi_means = np.zeros(Ng)
+dW_means = np.zeros(Ng)
 
 for i in range(Ng):
-    fig, ax = plt.subplots()
-    ax.set_title(f"Phase Space After Free Drift, Ng = {i}mm")
-    ax.set_xlabel(rf"$\phi / \pi$, $\phi_s$ = {init_dsgn_phi/np.pi:.2f}$\pi$")
-    ax.set_ylabel(
-        rf"Relative Kinetic Energy $\Delta W$ [keV], $W_s$ = {init_dsgn_E/keV:.2f} [keV]"
-    )
-    ax.hist2d(np.modf(phi[:, i] / np.pi)[0], dW[:, i] / keV, bins=[150, 150])
-    plt.show()
+    this_phi = np.modf(phi[:, i] / np.pi)
+    this_dW = dW[:, i]
+
+    phi_means[i] = np.mean(np.sqrt(np.square(this_phi)))
+    dW_means[i] = np.mean(np.sqrt(np.square(this_dW)))
+
+
+# for i in range(Ng):
+#     fig, ax = plt.subplots()
+#     ax.set_title(f"Phase Space, Ng = {i}, Vg = {Vsets[i]/kV:.2f} [kv]")
+#     ax.set_xlabel(rf"$\phi / \pi$, $\phi_s$ = {phi_s[i]/np.pi:.2f}$\pi$")
+#     ax.set_ylabel(
+#         rf"Relative Kinetic Energy $\Delta W$ [keV], $W_s$ = {init_dsgn_E/keV:.2f} [keV]"
+#     )
+#     ax.hist2d(np.modf(phi[:,i]/np.pi)[0], dW[:, i] / keV, bins=[150, 150])
+#     plt.show()
+
+output_sim_params(
+    phi,
+    dW,
+    Einj=init_dsgn_E,
+    Efin=final_dsgn_E,
+    f=dsgn_freq,
+    Vg=dsgn_gap_volt,
+    gap=dsgn_gap_width,
+    phi_s=init_dsgn_phi,
+    Np=Np,
+    Ng=Ng,
+)
+
+fig, ax = plt.subplots()
+ax.scatter([i for i in range(Np)], (init_phi - init_dsgn_phi) / np.pi)
+ax.set_title(rf"Initial Relative Phase, $\phi_s$ = {init_dsgn_phi/np.pi:.3f}$\pi$")
+ax.set_ylabel(r"$\Delta \phi / \pi$")
+ax.set_xlabel("Arbitrary")
+plt.show()
+
+fig, ax = plt.subplots()
+ax.scatter([i for i in range(Ng)], phi_means - phi_means[0])
+ax.set_ylabel(r"$\phi_{RMS}$-$\pi$ Per Gap")
+ax.set_xlabel("Gap")
+plt.show()
+
+fig, ax = plt.subplots()
+ax.scatter([i for i in range(Ng)], dW_means / keV - dW_means[0] / keV)
+ax.set_ylabel(r"$dW_{RMS}$[keV] Per Gap")
+ax.set_xlabel("Gap")
+plt.show()
+
+fig, ax = plt.subplots()
+for i in range(Np):
+    this_phi = np.modf(phi[i, :] / np.pi)[0]
+    ax.plot(this_phi - init_dsgn_phi / np.pi, dW[i, :] / keV)
+ax.set_xlabel(r"$\Delta \phi /\pi$")
+ax.set_ylabel(r"$\Delta W$ [keV]")
+plt.show()
 stop
+# buck_areas = np.zeros(W_s.shape)
+# lin_areas = buck_areas.copy()
+# for i in range(len(W_s)):
+#     this_area = calc_bucket_area(-0.6116 * np.pi, 0.1110 * np.pi, init_dsgn_phi, W_s[i])
+#     this_lin = calc_linear_bucket_area(0.111 * np.pi, init_dsgn_phi, W_s[i])
 
-hrf = SC.c / dsgn_freq
-B = q * dsgn_DC_Efield / Ar_mass
-beta_i = calc_beta(init_dsgn_E)
-A = twopi / hrf / pow(beta_i, 3)
-hs = np.sqrt(A * B * np.sin(-init_dsgn_phi))
-
-# Use relative phase and energy differences to find the longitudinal positions
-# of the particles when the design particle hits the gap centers.
-gaps = np.array([b * SC.c / 2 / dsgn_freq for b in beta_s]).cumsum()
-pos = convert_to_spatial(dW, W_s, phi, init_dsgn_phi, dsgn_freq, gaps)
-
-buck_areas = np.zeros(W_s.shape)
-lin_areas = buck_areas.copy()
-for i in range(len(W_s)):
-    this_area = calc_bucket_area(-0.6116 * np.pi, 0.1110 * np.pi, init_dsgn_phi, W_s[i])
-    this_lin = calc_linear_bucket_area(0.111 * np.pi, init_dsgn_phi, W_s[i])
-
-    buck_areas[i] = this_area
-    lin_areas[i] = this_lin
+#     buck_areas[i] = this_area
+#     lin_areas[i] = this_lin
 
 # ------------------------------------------------------------------------------
 #    Identify Max Contour
@@ -926,23 +977,6 @@ separatrix_ind = np.where(mask)[0][0]
 phase_width = phi[separatrix_ind, :].max() - phi[separatrix_ind, :].min()
 dW_width = dW[separatrix_ind, :].max() - dW[separatrix_ind, :].min()
 
-# Calculate Hamiltonian values and plot relative change with H_s over gaps
-Harr = np.zeros(Ng)
-for i in range(Ng):
-    this_H = calc_Hamiltonian(
-        init_dsgn_phi,
-        W_s[i],
-        dW[separatrix_ind, i],
-        phi[separatrix_ind, i],
-        dsgn_freq,
-        dsgn_gap_volt,
-    )[0]
-    Harr[i] = this_H
-
-H_s = calc_Hamiltonian(
-    init_dsgn_phi, W_s[i], 0, init_dsgn_phi, dsgn_freq, dsgn_gap_volt
-)[0]
-
 # Outpute simulation characterisitcs
 output_sim_params(
     phi,
@@ -1043,12 +1077,6 @@ if make_pdfs:
 # select a few particles and a few gaps to plot since plotting will start to
 # run long.
 
-fig, ax = plt.subplots()
-ax.set_title("Evolution of Separatrix Hamiltonian")
-ax.set_ylabel(r"Relative Change in Hamilitonian $(H_{sep} - H_s)/|H_s|$")
-ax.set_xlabel("Gap Index")
-ax.plot([i + 1 for i in range(Ng)], (Harr - H_s) / abs(H_s))
-plt.show()
 
 # Create histogram of energy spread.
 fig, ax = plt.subplots(figsize=(10, 8))
