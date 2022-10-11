@@ -30,6 +30,8 @@ mm = 1e-3
 um = 1e-6
 us = 1e-6
 ns = 1e-9  # nanoseconds
+mA = 1e-3
+uA = 1e-6
 twopi = 2 * np.pi
 
 # ------------------------------------------------------------------------------
@@ -340,7 +342,7 @@ E_sdiagnostic[0] = dsgn_E[0]
 t_sdiagnostic[0] = dsgn_time[0]
 Ediagnostic[:, 0] = parts_E
 tdiagnostic[:, 0] = parts_time
-
+Iavg = SC.e * Np / (parts_time[-1] - parts_time[0])
 # ------------------------------------------------------------------------------
 #    Particle Advancement
 # Particles are initialized to times corresponding to z=0. The advancement is
@@ -397,10 +399,12 @@ phase_diagnostic = twopi * design_freq * tdiagnostic
 # of relative difference from the synchronous particle W-W_s and phi-phi_s at
 # each location.
 # ------------------------------------------------------------------------------
-
 for i, zloc in enumerate(zdiagnostics):
     fig, ax = plt.subplots()
-    ax.set_title(f"Phase-Space, z={zloc/mm:.2f}[mm]")
+    if i < len(zdiagnostics) - 1:
+        ax.set_title(f"Phase-Space, z={zloc/mm:.2f}[mm] ($N_g$ = {i})")
+    else:
+        ax.set_title(f"Phase-Space, z={zloc/mm:.2f}[mm]")
     ax.set_xlabel(r"$\phi / \pi$")
     ax.set_ylabel(rf"$\Delta W$, $W_s$ = {E_sdiagnostic[i]/keV:.2f}[keV] ")
     ax.hist2d(
@@ -428,9 +432,9 @@ ax.bar(
     edgecolor="black",
     lw="1",
 )
+ax.set_title("Total Final Energy Distribution")
 ax.set_xlabel(r"Energy [keV]")
 ax.set_ylabel(r"Fraction of Total Particles")
-ax.legend()
 
 fig, ax = plt.subplots()
 ax.bar(
@@ -440,9 +444,31 @@ ax.bar(
     edgecolor="black",
     lw="1",
 )
-ax.set_xlabel(r"Time [$\mu$s]")
+ax.set_title("Total Final Time Distribution")
+ax.set_xlabel(r"$\Delta t$ [$\mu$s]")
 ax.set_ylabel(r"Fraction of Total Particles")
 plt.tight_layout()
+plt.show()
+
+# Plot design particle energy gain
+fig, ax = plt.subplots()
+ax.set_title("Design Particle Energy Gain")
+ax.set_xlabel("z[mm]")
+ax.set_ylabel(r"$W_s$[keV]")
+ax.plot(dsgn_pos / mm, dsgn_E / keV)
+if Ng > 1:
+    for cent in gap_centers:
+        ax.axvline(cent / mm, c="grey", lw=1, ls="--")
+else:
+    ax.axvline(gap_centers[0] / mm, c="grey", lw=1, ls="--")
+ax.axhline(
+    dsgn_E[-1] / keV,
+    c="r",
+    ls="--",
+    lw=1,
+    label=fr"Final $W_s$ = {dsgn_E[-1]/keV:.2f}[keV]",
+)
+ax.legend()
 plt.show()
 
 # ------------------------------------------------------------------------------
@@ -456,7 +482,7 @@ print(f"Fcup Distance: {Fcup_dist/mm:.2f}[mm]")
 print(f"Sync Phi:{np.array2string(phi_s*180/np.pi,precision=2)}[deg]")
 print(f"Injection Energy: {dsgn_E[0]/keV:.2f}[keV]")
 print(f"Final Design Energy: {dsgn_E[-1]/keV:.2f}[keV]")
-print("#-----")
+print(f"Average Current: {Iavg/mA:.4e}[mA]")
 
 # ------------------------------------------------------------------------------
 #    Bucket Analysis
@@ -467,9 +493,9 @@ print("#-----")
 # distribution of phase relative to the design particle.
 # ------------------------------------------------------------------------------
 # Create mask using the desired percent deviation in energy
-percent_Edev = 0.15
-mask = (final_E >= dsgn_E[-1] * (1 - percent_Edev)) & (
-    (final_E <= dsgn_E[-1] * (1 + percent_Edev))
+fraction_Edev = 0.30
+mask = (final_E >= dsgn_E[-1] * (1 - fraction_Edev)) & (
+    (final_E <= dsgn_E[-1] * (1 + fraction_Edev))
 )
 bucket_E = final_E[mask]
 bucket_time = final_t[mask]
@@ -491,22 +517,35 @@ ax.bar(
     width=np.diff(d_bucket_Eedges / keV),
     edgecolor="black",
     lw="1",
-    label=f"Percent Parts: {percent_parts:.2f}%",
+    label=f"Percent Transmission: {percent_parts:.2f}%",
 )
-ax.set_xlabel(rf"$\Delta E$ [keV], Predicted Final E: {dsgn_E[-1]/keV:.2f} [keV]")
+ax.set_title(rf"Final Energy Distribution Within {fraction_Edev*100}% $\Delta W$")
+ax.set_xlabel(rf"$\Delta W$ [keV], Predicted Final W: {dsgn_E[-1]/keV:.2f} [keV]")
 ax.set_ylabel(r"Fraction of Total Particles")
 ax.legend()
 
 fig, ax = plt.subplots()
 ax.bar(
-    d_bucket_tedges[:-1],
+    d_bucket_tedges[:-1] / us,
     d_bucket_tcounts / Np,
-    width=np.diff(d_bucket_tedges),
+    width=np.diff(d_bucket_tedges) / us,
     edgecolor="black",
     lw="1",
-    label=f"Percent Parts: {percent_parts:.2f}%",
+    label=f"Percent Transmission: {percent_parts:.2f}%",
 )
-ax.set_xlabel(r"$\Delta t$[s]")
+ax.set_title(rf"Final Time Distribution Within {fraction_Edev*100}% $\Delta W$")
+ax.set_xlabel(r"$\Delta t$[$\mu$s]")
 ax.set_ylabel(r"Fraction of Total Particles")
 ax.legend()
 plt.show()
+
+# ------------------------------------------------------------------------------
+#    System Outputs for Bucket
+# Print some of the system parameters being used.
+# ------------------------------------------------------------------------------
+print("#----- Bucket Characteristics ")
+print(f"Percent Energy Deviation: {fraction_Edev*100:.0f}%")
+print(f"Particles in Bucket: {percent_parts:.0f}%")
+print(
+    f"Average Current: {np.sum(d_bucket_Ecounts)*SC.e/(d_bucket_tedges[-1] - d_bucket_tedges[0])/mA:.4e}[mA] "
+)
