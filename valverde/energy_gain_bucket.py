@@ -83,7 +83,9 @@ def getindex(mesh, value, spacing):
 def beta(E, mass=Ar_mass, q=1, nonrel=True):
     """Velocity of a particle with energy E."""
     if nonrel:
-        beta = np.sqrt(2 * E / mass)
+        sign = np.sign(E)
+        beta = np.sqrt(2 * abs(E) / mass)
+        beta *= sign
     else:
         gamma = (E + mass) / mass
         beta = np.sqrt(1 - 1 / gamma / gamma)
@@ -139,10 +141,10 @@ real_freq = design_freq
 design_omega = 2 * np.pi * design_freq
 real_omega = design_omega
 E_DC = real_gap_volt / gap_width
-Ng = 2
+Ng = 4
 Fcup_dist = 10 * mm
-dsgn_finE = dsgn_initE + Ng * design_gap_volt * np.cos(design_phase)
-print(f"Predicted Final Design Energy: {dsgn_finE/keV:.2f} keV")
+
+
 # Energy analyzer parameters
 dist_to_dipole = 25.0 * mm * 0
 dipole_length = 50.0 * mm
@@ -159,16 +161,25 @@ h_rf = beta(dsgn_initE) * SC.c / design_freq
 # with the field being negative to ensure the most compact structure.
 # ------------------------------------------------------------------------------
 # Calculate additional gap centers if applicable. Here the design values should
-# be used.
+# be used. The first gap is always placed such that the design particle will
+# arrive at the desired phase when starting at z=0 with energy W.
+phi_s = np.ones(Ng) * design_phase
+phi_s[1:] = np.linspace(-np.pi / 3, -np.pi / 100, Ng - 1)
 gap_dist = np.zeros(Ng)
+E_s = dsgn_initE
 for i in range(Ng):
-    dsgn_Egain = design_gap_volt * np.cos(-design_phase)
-    E = dsgn_initE + i * dsgn_Egain
-    this_cent = beta(E) * SC.c / 2 / design_freq
-    gap_dist[i] = this_cent
+    this_beta = beta(E_s, mass=Ar_mass)
+    this_cent = beta(E_s) * SC.c / 2 / design_freq
+    cent_offset = (phi_s[i] - phi_s[i - 1]) * this_beta * SC.c / design_freq / twopi
+    if i < 1:
+        gap_dist[i] = (phi_s[i] + np.pi) * this_beta * SC.c / twopi / design_freq
+    else:
+        gap_dist[i] = this_cent + cent_offset
+
+    dsgn_Egain = design_gap_volt * np.cos(phi_s[i])
+    E_s += dsgn_Egain
 
 gap_centers = np.array(gap_dist).cumsum()
-
 
 # ------------------------------------------------------------------------------
 #    Mesh setup
@@ -177,8 +188,8 @@ gap_centers = np.array(gap_dist).cumsum()
 # mesh_res variable to represent a spacing resolution.
 # ------------------------------------------------------------------------------
 # Specify a mesh resolution
-mesh_res = 100 * um
-zmin = -h_rf / 2
+mesh_res = 50 * um
+zmin = 0
 zmax = gap_centers[-1] + gap_width / 2 + Fcup_dist
 Nz = int((zmax - zmin) / mesh_res)
 z = np.linspace(zmin, zmax, Nz)
@@ -285,25 +296,50 @@ dsgn_time = np.zeros(Nz)
 
 dsgn_pos[0] = z.min()
 dsgn_E[0] = dsgn_initE
-dsgn_time[0] = 0.0
+dsgn_time[0] = z.min() / beta(dsgn_E[0]) / SC.c
 
 # Create particle arrays to store histories
-parts_pos = np.zeros(shape=(Np, Nz))
-parts_pos[:, 0] = z.min()
+parts_pos = np.zeros(Np)
+parts_pos[:] = z.min()
 
-parts_E = np.zeros(shape=(Np, Nz))
-parts_E[:, 0] = dsgn_initE
+parts_E = np.zeros(Np)
+parts_E[:] = dsgn_initE
 
-parts_time = np.zeros(shape=(Np, Nz))
+parts_time = np.zeros(Np)
 
 # Initialize particles be distributed around the synchronous particle's phase
-phi_dev_plus = np.pi
-phi_dev_minus = np.pi
+phi_dev_plus = np.pi - design_phase
+phi_dev_minus = abs(-np.pi - design_phase)
 init_time = np.linspace(design_phase - phi_dev_minus, design_phase + phi_dev_plus, Np)
 init_time = init_time / twopi / design_freq
 
-parts_pos[:, 0] = z.min()
-parts_time[:, 0] = init_time
+parts_pos[:] = z.min()
+parts_time[:] = init_time
+
+# Create diagnostic locations.
+zdiagnostics = [z.min()]
+for loc in gap_centers:
+    zdiagnostics.append(loc)
+zdiagnostics.append(z.max())
+zdiagnostics = np.array(zdiagnostics)
+
+idiagnostic = np.zeros(len(zdiagnostics), dtype=int)
+for i, zloc in enumerate(zdiagnostics):
+    ind = np.argmin(abs(z - zloc))
+    idiagnostic[i] = ind
+
+# Initialize diagnostic arrays. Find locations on mesh and use indexes to
+# data from histories.
+E_sdiagnostic = np.zeros(len(zdiagnostics))
+t_sdiagnostic = np.zeros(len(zdiagnostics))
+Ediagnostic = np.zeros(shape=(Np, len(zdiagnostics)))
+tdiagnostic = np.zeros(shape=(Np, len(zdiagnostics)))
+
+# Append initial diagnostics
+E_sdiagnostic[0] = dsgn_E[0]
+t_sdiagnostic[0] = dsgn_time[0]
+Ediagnostic[:, 0] = parts_E
+tdiagnostic[:, 0] = parts_time
 
 # ------------------------------------------------------------------------------
 #    Particle Advancement
@@ -311,7 +347,9 @@ parts_time[:, 0] = init_time
 # then done evaluated the energy gain using the field value and mesh spacing dz.
 # ------------------------------------------------------------------------------
 # Main loop to advance particles. Real parameter settings should be used here.
+idiagn_count = 1
 for i in range(1, len(z)):
+
     # Do design particle
     this_dz = z[i] - z[i - 1]
     this_vs = beta(dsgn_E[i - 1]) * SC.c
@@ -325,53 +363,53 @@ for i in range(1, len(z)):
     dsgn_time[i] = dsgn_time[i - 1] + this_dt
 
     # Do other particles
-    this_v = beta(parts_E[:, i - 1]) * SC.c
+    this_v = beta(parts_E[:]) * SC.c
     this_dt = this_dz / this_v
-    parts_time[:, i] = parts_time[:, i - 1] + this_dt
+    parts_time[:] += this_dt
 
-    Egain = Ez0[i - 1] * rf_volt(parts_time[:, i], freq=real_freq) * this_dz
-    parts_E[:, i] = parts_E[:, i - 1] + Egain
-    parts_pos[:, i] = parts_pos[:, i - 1] + this_dz
+    Egain = Ez0[i - 1] * rf_volt(parts_time[:], freq=real_freq) * this_dz
+    parts_E[:] += Egain
+    parts_pos[:] += this_dz
+
+    # Check diagnostic point
+    if i == idiagnostic[idiagn_count]:
+        E_sdiagnostic[idiagn_count] = dsgn_E[i]
+        t_sdiagnostic[idiagn_count] = dsgn_time[i]
+        Ediagnostic[:, idiagn_count] = parts_E[:]
+        tdiagnostic[:, idiagn_count] = parts_time[:]
+
+        idiagn_count += 1
+
 
 # Convert nan values to 0
-final_E = np.nan_to_num(parts_E[:, -1])
-final_t = np.nan_to_num(parts_time[:, -1])
+final_E = np.nan_to_num(parts_E[:])
+final_t = np.nan_to_num(parts_time[:])
 
-# Create diagnostic locations and grab data from z-locations
-zdiagnostics = np.array([gap_centers[0], gap_centers[1], z.max()])
-Ediagnostic = np.zeros(shape=(Np, len(zdiagnostics)))
-tdiagnostic = np.zeros(shape=(Np, len(zdiagnostics)))
-dz = np.diff(z).min()
+Ediagnostic = np.nan_to_num(Ediagnostic)
+tdiagnostic = np.nan_to_num(tdiagnostic)
 
-for i, zloc in enumerate(zdiagnostics):
-    ind = np.argmin(abs(z - zloc))
-
-    Ediagnostic[:, i] = parts_E[:, ind]
-    tdiagnostic[:, i] = parts_time[:, ind] - dsgn_time[ind]
-
+phase_sdiagnostic = twopi * design_freq * t_sdiagnostic
 phase_diagnostic = twopi * design_freq * tdiagnostic
 
-fig, ax = plt.subplots()
-ax.set_title("Initial Phase-Space")
-ax.set_xlabel(r"$\Delta \phi / \pi$")
-ax.set_ylabel(rf"\Delta W,$  $W_{{s,f}}$ = {dsgn_E[-1]/keV:.3f}[keV]")
-ax.hist2d(
-    twopi * design_freq * parts_time[:, 0] / np.pi,
-    parts_E[:, 0] / keV,
-    bins=[100, 100],
-)
+# ------------------------------------------------------------------------------
+#    Diagnostic Plots
+# Plot phase space for each diagnostic location. The phase-space will be in terms
+# of relative difference from the synchronous particle W-W_s and phi-phi_s at
+# each location.
+# ------------------------------------------------------------------------------
 
-for i in range(len(zdiagnostics)):
+for i, zloc in enumerate(zdiagnostics):
     fig, ax = plt.subplots()
-    ax.set_title("Phase-Space")
-    ax.set_xlabel(r"$\Delta \phi / \pi$")
-    ax.set_ylabel(rf"\Delta W,$  $W_{{s,f}}$ = {dsgn_E[-1]/keV:.3f}[keV]")
+    ax.set_title(f"Phase-Space, z={zloc/mm:.2f}[mm]")
+    ax.set_xlabel(r"$\phi / \pi$")
+    ax.set_ylabel(rf"$\Delta W$, $W_s$ = {E_sdiagnostic[i]/keV:.2f}[keV] ")
     ax.hist2d(
-        np.modf(phase_diagnostic[:, i] / np.pi)[0],
-        Ediagnostic[:, i] / keV,
+        np.modf((phase_diagnostic[:, i] - phase_sdiagnostic[i]) / np.pi)[0],
+        (Ediagnostic[:, i] - E_sdiagnostic[i]) / keV,
         bins=[100, 100],
     )
 plt.show()
+
 # Plot the final energy and time but ignore the 0-bin since this will be overly
 # large and drown out the distribution. This isn't done for time since doing so
 # is more trouble then its worth. Do be sure to zoom in on the plot and make sure
@@ -381,15 +419,14 @@ Ecounts, Eedges = np.histogram(final_E, bins=100)
 tcounts, tedges = np.histogram(final_t, bins=100)
 
 # Calculate percent of particles that in plot
-percent_parts = np.sum(Ecounts[1:]) / Np * 100
+percent_parts = np.sum(Ecounts[:]) / Np * 100
 fig, ax = plt.subplots()
 ax.bar(
-    Eedges[1:-1] / keV,
-    Ecounts[1:] / Np,
-    width=np.diff(Eedges[1:] / keV),
+    Eedges[:-1] / keV,
+    Ecounts[:] / Np,
+    width=np.diff(Eedges[:] / keV),
     edgecolor="black",
     lw="1",
-    label=f"Percent Parts: {percent_parts:.2f}%",
 )
 ax.set_xlabel(r"Energy [keV]")
 ax.set_ylabel(r"Fraction of Total Particles")
@@ -409,6 +446,19 @@ plt.tight_layout()
 plt.show()
 
 # ------------------------------------------------------------------------------
+#    System Outputs
+# Print some of the system parameters being used.
+# ------------------------------------------------------------------------------
+print("#----- Simulation Parameters")
+print(f"Gap Centers: {np.array2string(gap_centers/mm, precision=2)}[mm]")
+print(f"Gap Voltage: {design_gap_volt/kV:.2f}[kV]")
+print(f"Fcup Distance: {Fcup_dist/mm:.2f}[mm]")
+print(f"Sync Phi:{np.array2string(phi_s*180/np.pi,precision=2)}[deg]")
+print(f"Injection Energy: {dsgn_E[0]/keV:.2f}[keV]")
+print(f"Final Design Energy: {dsgn_E[-1]/keV:.2f}[keV]")
+print("#-----")
+
+# ------------------------------------------------------------------------------
 #    Bucket Analysis
 # The percent_Edev variable finds the particles that are +/- the deviation in
 # energy from the design particle. This can then be stored by the user and used
@@ -418,19 +468,19 @@ plt.show()
 # ------------------------------------------------------------------------------
 # Create mask using the desired percent deviation in energy
 percent_Edev = 0.15
-mask = (final_E >= dsgn_finE * (1 - percent_Edev)) & (
-    (final_E <= dsgn_finE * (1 + percent_Edev))
+mask = (final_E >= dsgn_E[-1] * (1 - percent_Edev)) & (
+    (final_E <= dsgn_E[-1] * (1 + percent_Edev))
 )
 bucket_E = final_E[mask]
 bucket_time = final_t[mask]
 
 # Plot distribution of bucket relative to design
-d_bucket_E = bucket_E - dsgn_finE
-d_bucket_phase = design_omega * (bucket_time - dsgn_time[-1]) % (2 * np.pi)
+d_bucket_E = bucket_E - dsgn_E[-1]
+d_bucket_t = bucket_time - dsgn_time[-1]
 
 # Plot distributions
 d_bucket_Ecounts, d_bucket_Eedges = np.histogram(d_bucket_E, bins=100)
-d_bucket_phasecounts, d_bucket_phaseedges = np.histogram(d_bucket_phase, bins=100)
+d_bucket_tcounts, d_bucket_tedges = np.histogram(d_bucket_t, bins=100)
 
 # Calculate percent of particles that in plot
 percent_parts = np.sum(d_bucket_Ecounts) / Np * 100
@@ -443,20 +493,20 @@ ax.bar(
     lw="1",
     label=f"Percent Parts: {percent_parts:.2f}%",
 )
-ax.set_xlabel(rf"$\Delta E$ [keV], Predicted Final E: {dsgn_finE/keV:.2f} [keV]")
+ax.set_xlabel(rf"$\Delta E$ [keV], Predicted Final E: {dsgn_E[-1]/keV:.2f} [keV]")
 ax.set_ylabel(r"Fraction of Total Particles")
 ax.legend()
 
 fig, ax = plt.subplots()
-dsgn_final_phase = design_omega * dsgn_time[-1]
 ax.bar(
-    d_bucket_phaseedges[:-1] / dsgn_final_phase,
-    d_bucket_phasecounts / Np,
-    width=np.diff(d_bucket_phaseedges / dsgn_final_phase),
+    d_bucket_tedges[:-1],
+    d_bucket_tcounts / Np,
+    width=np.diff(d_bucket_tedges),
     edgecolor="black",
     lw="1",
+    label=f"Percent Parts: {percent_parts:.2f}%",
 )
-ax.set_xlabel(r"$\Delta \phi$ in units of $\phi_{s,f}$")
+ax.set_xlabel(r"$\Delta t$[s]")
 ax.set_ylabel(r"Fraction of Total Particles")
 ax.legend()
 plt.show()
