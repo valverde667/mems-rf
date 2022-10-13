@@ -271,18 +271,6 @@ if l_use_Warp_field:
         Nz = len(z)
         Ez0 = Ez0_patched
 
-# Plot field with gaps
-fig, ax = plt.subplots()
-ax.set_xlabel("z [mm]")
-ax.set_ylabel(r"On-axis E-field $E(r=0, z)/E_{DC}$ [kV/mm]")
-ax.plot(z / mm, Ez0 / E_DC)
-if Ng > 1:
-    for cent in gap_centers:
-        ax.axvline(cent / mm, c="grey", lw=1, ls="--")
-else:
-    ax.axvline(gap_centers[0] / mm, c="grey", lw=1, ls="--")
-plt.tight_layout()
-
 # ------------------------------------------------------------------------------
 #    Particle Histories
 # The particle arrays are created here for the particle advancement. The design
