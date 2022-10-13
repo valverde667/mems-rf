@@ -98,15 +98,6 @@ def beta(E, mass=Ar_mass, q=1, nonrel=True):
     return beta
 
 
-def plot_phase(phi, E):
-    fig, ax = plt.subplots()
-    ax.scatter(phi, E, s=2)
-    ax.set_xlabel(r"$\Delta \phi$ [rad]")
-    ax.set_ylabel(r"$\Delta {\cal E}$ [kV]")
-    plt.tight_layout()
-    plt.show()
-
-
 def rf_volt(t, freq=13.6 * MHz):
     return np.cos(2 * np.pi * freq * t)
 
