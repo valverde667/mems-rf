@@ -133,31 +133,33 @@ def calc_dipole_deflection(voltage, energy, length=50 * mm, g=11 * mm, drift=185
 # thus, if varied here are varied everywhere.
 # ------------------------------------------------------------------------------
 # Simulation Parameters for design particle
-design_phase = -np.pi / 2
+dsgn_phase = -np.pi / 2
 dsgn_initE = 7 * kV
 Np = int(1e5)
-gap_width = 2.0 * mm
 
 # Simulation parameters for gaps and geometries
-design_gap_volt = 5.0 * kV
-real_gap_volt = design_gap_volt
-design_freq = 13.06 * MHz
-real_freq = design_freq
-design_omega = 2 * np.pi * design_freq
-real_omega = design_omega
-E_DC = real_gap_volt / gap_width
 Ng = 4
-Fcup_dist = 10 * mm
-
+gap_width = 2.0 * mm
+dsgn_gap_volt = 5.0 * kV
+real_gap_volt = dsgn_gap_volt
+dsgn_freq = 13.06 * MHz
+real_freq = dsgn_freq
+E_DC = real_gap_volt / gap_width
+h_rf = beta(dsgn_initE, mass=Ar_mass) * SC.c / dsgn_freq
 
 # Energy analyzer parameters
+Fcup_dist = 10 * mm
 dist_to_dipole = 25.0 * mm * 0
 dipole_length = 50.0 * mm
 dipole_gap_width = 11.0 * mm
 dist_to_slit = 185.0 * mm
 slit_width = 1.0 * mm
 slit_center = 37 * mm
-h_rf = beta(dsgn_initE) * SC.c / design_freq
+
+# Compute useful values
+E_DC = real_gap_volt / gap_width
+h_rf = beta(dsgn_initE, mass=Ar_mass) * SC.c / dsgn_freq
+dsgn_omega = twopi * dsgn_freq
 
 # ------------------------------------------------------------------------------
 #     Gap Centers
@@ -168,21 +170,21 @@ h_rf = beta(dsgn_initE) * SC.c / design_freq
 # Calculate additional gap centers if applicable. Here the design values should
 # be used. The first gap is always placed such that the design particle will
 # arrive at the desired phase when starting at z=0 with energy W.
-phi_s = np.ones(Ng) * design_phase
+phi_s = np.ones(Ng) * dsgn_phase
 phi_s[1:] = np.linspace(-np.pi / 3, np.pi / 8, Ng - 1)
 
 gap_dist = np.zeros(Ng)
 E_s = dsgn_initE
 for i in range(Ng):
     this_beta = beta(E_s, mass=Ar_mass)
-    this_cent = beta(E_s) * SC.c / 2 / design_freq
-    cent_offset = (phi_s[i] - phi_s[i - 1]) * this_beta * SC.c / design_freq / twopi
+    this_cent = beta(E_s) * SC.c / 2 / dsgn_freq
+    cent_offset = (phi_s[i] - phi_s[i - 1]) * this_beta * SC.c / dsgn_freq / twopi
     if i < 1:
-        gap_dist[i] = (phi_s[i] + np.pi) * this_beta * SC.c / twopi / design_freq
+        gap_dist[i] = (phi_s[i] + np.pi) * this_beta * SC.c / twopi / dsgn_freq
     else:
         gap_dist[i] = this_cent + cent_offset
 
-    dsgn_Egain = design_gap_volt * np.cos(phi_s[i])
+    dsgn_Egain = dsgn_gap_volt * np.cos(phi_s[i])
     E_s += dsgn_Egain
 
 gap_centers = np.array(gap_dist).cumsum()
@@ -314,10 +316,10 @@ parts_E[:] = dsgn_initE
 parts_time = np.zeros(Np)
 
 # Initialize particles be distributed around the synchronous particle's phase
-phi_dev_plus = np.pi - design_phase
-phi_dev_minus = abs(-np.pi - design_phase)
-init_time = np.linspace(design_phase - phi_dev_minus, design_phase + phi_dev_plus, Np)
-init_time = init_time / twopi / design_freq
+phi_dev_plus = np.pi - dsgn_phase
+phi_dev_minus = abs(-np.pi - dsgn_phase)
+init_time = np.linspace(dsgn_phase - phi_dev_minus, dsgn_phase + phi_dev_plus, Np)
+init_time = init_time / twopi / dsgn_freq
 
 parts_pos[:] = z.min()
 parts_time[:] = init_time
@@ -394,8 +396,8 @@ final_t = np.nan_to_num(parts_time[:])
 Ediagnostic = np.nan_to_num(Ediagnostic)
 tdiagnostic = np.nan_to_num(tdiagnostic)
 
-phase_sdiagnostic = twopi * design_freq * t_sdiagnostic
-phase_diagnostic = twopi * design_freq * tdiagnostic
+phase_sdiagnostic = twopi * dsgn_freq * t_sdiagnostic
+phase_diagnostic = twopi * dsgn_freq * tdiagnostic
 
 # ------------------------------------------------------------------------------
 #    Diagnostic Plots
@@ -509,8 +511,8 @@ print("")
 print("#----- Simulation Parameters")
 print(f"Number of Gaps: {int(Ng)}")
 print(f"Gap Centers: {np.array2string(gap_centers/cm, precision=2)}[cm]")
-print(f"Gap Voltage: {design_gap_volt/kV:.2f}[kV]")
-print(f"RF Frequency: {design_freq/MHz:.2f}[MHz]")
+print(f"Gap Voltage: {dsgn_gap_volt/kV:.2f}[kV]")
+print(f"RF Frequency: {dsgn_freq/MHz:.2f}[MHz]")
 print(f"Fcup Distance: {Fcup_dist/mm:.2f}[mm]")
 print(f"Sync Phi:{np.array2string(phi_s*180/np.pi,precision=2)}[deg]")
 print(f"Injection Energy: {dsgn_E[0]/keV:.2f}[keV]")
