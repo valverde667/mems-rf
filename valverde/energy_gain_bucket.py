@@ -148,6 +148,7 @@ l_plot_diagnostics = True
 l_plot_bucket_diagnostics = True
 l_save_all_plots_pdf = True
 l_plot_lattice = True
+l_plot_RMS = True
 plots_filename = "all-diagnostics.pdf"
 
 # ------------------------------------------------------------------------------
@@ -341,7 +342,6 @@ Iavg = SC.e * Np / (parts_time[-1] - parts_time[0])
 # Main loop to advance particles. Real parameter settings should be used here.
 idiagn_count = 1
 for i in range(1, len(z)):
-
     # Do design particle
     this_dz = z[i] - z[i - 1]
     this_vs = beta(dsgn_E[i - 1]) * SC.c
@@ -416,7 +416,7 @@ if l_plot_diagnostics:
         gs = gridspec.GridSpec(2, 2)
         ax1 = fig.add_subplot(gs[0, :])
         ax2 = fig.add_subplot(gs[1, 0])
-        ax3 = fig.add_subplot(gs[1, 1])
+        ax3 = fig.add_subplot(gs[1, 1], sharey=ax2)
 
         if i < len(zdiagnostics) - 1:
             ax1.set_title(
@@ -618,25 +618,46 @@ ax.axhline(
 )
 ax.legend()
 
-
 # Plot RMS values for each diagnostic
-rms_E = np.mean(Ediagnostic[mask, :], axis=0)
-rms_t = np.mean(tdiagnostic[mask, :], axis=0)
+rms_E = np.mean(Ediagnostic, axis=0)
+rms_t = np.mean(tdiagnostic, axis=0)
+rms_bucket_E = np.mean(Ediagnostic[mask, :], axis=0)
+rms_bucket_t = np.mean(tdiagnostic[mask, :], axis=0)
+if l_plot_RMS:
+    fig = plt.figure(tight_layout=True, figsize=(8, 10))
+    gs = gridspec.GridSpec(2, 1)
+    ax1 = fig.add_subplot(gs[0, 0])
+    ax2 = fig.add_subplot(gs[1, 0], sharex=ax1)
 
-fig, ax = plt.subplots()
-ax.set_title("RMS Energy and Time at Diagnostic")
-ax2 = ax.twinx()
-ax.set_xlabel("z[mm]")
-ax.set_ylabel("RMS Energy [keV]")
-ax2.set_ylabel(r"RMS Time [$\mu$s]")
-ax2.yaxis.label.set_color("blue")
+    ax1.set_title("RMS Energy and Time at Diagnostic")
+    axx1 = ax1.twinx()
+    ax1.set_xlabel("z[mm]")
+    ax1.set_ylabel("RMS Energy [keV]")
+    axx1.set_ylabel(r"RMS Time [$\mu$s]")
+    axx1.yaxis.label.set_color("blue")
 
-# Plot gap centers
-for cent in gap_centers:
-    ax.axvline(cent / mm, c="grey", lw=1, ls="--")
+    # Plot gap centers
+    for cent in gap_centers:
+        ax1.axvline(cent / mm, c="grey", lw=1, ls="--")
 
-ax.plot(zdiagnostics / mm, rms_E / keV, c="k", label="RMS Energy")
-ax2.plot(zdiagnostics / mm, rms_t / us, c="b", ls="--", label="RMS Time")
+    ax1.plot(zdiagnostics / mm, rms_E / keV, c="k", label="RMS Energy")
+    axx1.plot(zdiagnostics / mm, rms_t / us, c="b", ls="--", label="RMS Time")
+
+    ax2.set_title("Bucket RMS Energy and Time at Diagnostic")
+    axx2 = ax2.twinx()
+    ax2.set_xlabel("z[mm]")
+    ax2.set_ylabel("RMS Energy [keV]")
+    axx2.set_ylabel(r"RMS Time [$\mu$s]")
+    axx2.yaxis.label.set_color("blue")
+
+    # Plot gap centers
+    for cent in gap_centers:
+        ax2.axvline(cent / mm, c="grey", lw=1, ls="--")
+
+    ax2.plot(zdiagnostics / mm, rms_bucket_E / keV, c="k", label="RMS Energy")
+    axx2.plot(zdiagnostics / mm, rms_bucket_t / us, c="b", ls="--", label="RMS Time")
+    plt.tight_layout()
+
 
 if l_save_all_plots_pdf:
     pp = PdfPages(plots_filename)
