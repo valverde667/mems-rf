@@ -98,12 +98,6 @@ def beta(E, mass=Ar_mass, q=1, nonrel=True):
     return beta
 
 
-def calc_pires(energy, freq, mass=Ar_mass, q=1):
-    """RF resonance condition in pi-mode"""
-    beta_lambda = beta(energy, mass=mass, q=q) * SC.c / freq
-    return beta_lambda / 2
-
-
 def plot_phase(phi, E):
     fig, ax = plt.subplots()
     ax.scatter(phi, E, s=2)
