@@ -54,10 +54,6 @@ def getindex(mesh, value, spacing):
         1D array that will be used to find entry closest to value
     value : float
         This is the number that is searched for in mesh.
-    spacing : float
-        Dictates the range of values that will fall into the region holding the
-        desired value in mesh. Best to overshoot with this parameter and make
-        a broad range.
 
     Returns
     -------
@@ -67,20 +63,10 @@ def getindex(mesh, value, spacing):
 
     # Check if value is already in mesh
     if value in mesh:
-        return np.where(mesh == value)[0][0]
+        index = np.where(mesh == value)[0][0]
 
-    # Create array of possible indices
-    indices = np.where((mesh > (value - spacing)) & (mesh < (value + spacing)))[0]
-
-    # Compute differences of the indexed mesh-value with desired value
-    difference = []
-    for index in indices:
-        diff = np.sqrt((mesh[index] ** 2 - value ** 2) ** 2)
-        difference.append(diff)
-
-    # Smallest element will be the index closest to value in indices
-    i = np.argmin(difference)
-    index = indices[i]
+    else:
+        index = np.argmin(abs(mesh - value))
 
     return index
 
