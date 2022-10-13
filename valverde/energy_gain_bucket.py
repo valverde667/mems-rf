@@ -26,6 +26,7 @@ p_mass = amu
 kV = 1000
 keV = 1000
 MHz = 1e6
+cm = 1e-2
 mm = 1e-3
 um = 1e-6
 us = 1e-6
@@ -38,6 +39,8 @@ twopi = 2 * np.pi
 #     Functions
 # This section creates necessary functions for the script.
 # ------------------------------------------------------------------------------
+
+
 def getindex(mesh, value, spacing):
     """Find index in mesh for or mesh-value closest to specified value
 
@@ -166,7 +169,8 @@ h_rf = beta(dsgn_initE) * SC.c / design_freq
 # be used. The first gap is always placed such that the design particle will
 # arrive at the desired phase when starting at z=0 with energy W.
 phi_s = np.ones(Ng) * design_phase
-phi_s[1:] = np.linspace(-np.pi / 3, -np.pi / 100, Ng - 1)
+phi_s[1:] = np.linspace(-np.pi / 3, np.pi / 8, Ng - 1)
+
 gap_dist = np.zeros(Ng)
 E_s = dsgn_initE
 for i in range(Ng):
@@ -399,56 +403,61 @@ phase_diagnostic = twopi * design_freq * tdiagnostic
 # of relative difference from the synchronous particle W-W_s and phi-phi_s at
 # each location.
 # ------------------------------------------------------------------------------
-for i, zloc in enumerate(zdiagnostics):
-    fig, ax = plt.subplots()
-    if i < len(zdiagnostics) - 1:
-        ax.set_title(f"Phase-Space, z={zloc/mm:.2f}[mm] ($N_g$ = {i})")
-    else:
-        ax.set_title(f"Phase-Space, z={zloc/mm:.2f}[mm]")
-    ax.set_xlabel(r"$\phi / \pi$")
-    ax.set_ylabel(rf"$\Delta W$, $W_s$ = {E_sdiagnostic[i]/keV:.2f}[keV] ")
-    ax.hist2d(
-        np.modf((phase_diagnostic[:, i] - phase_sdiagnostic[i]) / np.pi)[0],
-        (Ediagnostic[:, i] - E_sdiagnostic[i]) / keV,
-        bins=[100, 100],
-    )
-plt.show()
+lplot_diagnostics = False
+if lplot_diagnostics:
+    for i, zloc in enumerate(zdiagnostics):
+        # Plot phase space
+        fig, ax = plt.subplots()
+        if i < len(zdiagnostics) - 1:
+            ax.set_title(f"Phase-Space, z={zloc/mm:.2f}[mm] ($N_g$ = {i})")
+        else:
+            ax.set_title(f"Phase-Space, z={zloc/mm:.2f}[mm]")
+        ax.set_xlabel(r"$\phi / \pi$")
+        ax.set_ylabel(rf"$\Delta W$, $W_s$ = {E_sdiagnostic[i]/keV:.2f}[keV] ")
+        ax.hist2d(
+            np.modf((phase_diagnostic[:, i] - phase_sdiagnostic[i]) / np.pi)[0],
+            (Ediagnostic[:, i] - E_sdiagnostic[i]) / keV,
+            bins=[100, 100],
+        )
+        plt.tight_layout()
 
-# Plot the final energy and time but ignore the 0-bin since this will be overly
-# large and drown out the distribution. This isn't done for time since doing so
-# is more trouble then its worth. Do be sure to zoom in on the plot and make sure
-# the distribution on either side of zero is relatively uniform since this is what
-# it should be for a CW beam.
-Ecounts, Eedges = np.histogram(final_E, bins=100)
-tcounts, tedges = np.histogram(final_t, bins=100)
+        # Plot the energy distribution at diagnostic
+        Ecounts, Eedges = np.histogram(Ediagnostic[:, i], bins=100)
+        fig, ax = plt.subplots()
+        if i < len(zdiagnostics) - 1:
+            ax.set_title(f"Energy Distribution, z={zloc/mm:.2f}[mm] ($N_g$ = {i})")
+        else:
+            ax.set_title(f"Energy Distibution, z={zloc/mm:.2f}[mm]")
+        ax.bar(
+            Eedges[:-1] / keV,
+            Ecounts[:] / Np,
+            width=np.diff(Eedges[:] / keV),
+            edgecolor="black",
+            lw="1",
+        )
+        ax.set_xlabel(r"Energy [keV]")
+        ax.set_ylabel(r"Fraction of Total Particles")
+        plt.tight_layout()
 
-# Calculate percent of particles that in plot
-percent_parts = np.sum(Ecounts[:]) / Np * 100
-fig, ax = plt.subplots()
-ax.bar(
-    Eedges[:-1] / keV,
-    Ecounts[:] / Np,
-    width=np.diff(Eedges[:] / keV),
-    edgecolor="black",
-    lw="1",
-)
-ax.set_title("Total Final Energy Distribution")
-ax.set_xlabel(r"Energy [keV]")
-ax.set_ylabel(r"Fraction of Total Particles")
+        # Plot the time distribution at diagnostic
+        tcounts, tedges = np.histogram(tdiagnostic[:, i], bins=100)
+        fig, ax = plt.subplots()
+        ax.bar(
+            tedges[:-1] / us,
+            tcounts / Np,
+            width=np.diff(tedges / us),
+            edgecolor="black",
+            lw="1",
+        )
+        if i < len(zdiagnostics) - 1:
+            ax.set_title(f"Time Distribution, z={zloc/mm:.2f}[mm] ($N_g$ = {i})")
+        else:
+            ax.set_title(f"Time Distibution, z={zloc/mm:.2f}[mm]")
+        ax.set_xlabel(r"$\Delta t$ [$\mu$s]")
+        ax.set_ylabel(r"Fraction of Total Particles")
+        plt.tight_layout()
 
-fig, ax = plt.subplots()
-ax.bar(
-    tedges[:-1] / us,
-    tcounts / Np,
-    width=np.diff(tedges / us),
-    edgecolor="black",
-    lw="1",
-)
-ax.set_title("Total Final Time Distribution")
-ax.set_xlabel(r"$\Delta t$ [$\mu$s]")
-ax.set_ylabel(r"Fraction of Total Particles")
-plt.tight_layout()
-plt.show()
+    plt.show()
 
 # Plot design particle energy gain
 fig, ax = plt.subplots()
@@ -466,22 +475,47 @@ ax.axhline(
     c="r",
     ls="--",
     lw=1,
-    label=fr"Final $W_s$ = {dsgn_E[-1]/keV:.2f}[keV]",
+    label=rf"Final $W_s$ = {dsgn_E[-1]/keV:.2f}[keV]",
 )
 ax.legend()
+plt.show()
+
+# Plot RMS values for each diagnostic
+rms_E = np.mean(Ediagnostic, axis=0)
+rms_t = np.mean(tdiagnostic, axis=0)
+
+fig, ax = plt.subplots()
+ax.set_title("RMS Energy and Time at Diagnostic")
+ax2 = ax.twinx()
+ax.set_xlabel("z[mm]")
+ax.set_ylabel("RMS Energy [keV]")
+ax2.set_ylabel(r"RMS Time [$\mu$s]")
+ax2.yaxis.label.set_color("blue")
+
+# Plot gap centers
+for cent in gap_centers:
+    ax.axvline(cent / mm, c="grey", lw=1, ls="--")
+
+ax.plot(zdiagnostics / mm, rms_E / keV, c="k", label="RMS Energy")
+ax2.plot(zdiagnostics / mm, rms_t / us, c="b", ls="--", label="RMS Time")
+
 plt.show()
 
 # ------------------------------------------------------------------------------
 #    System Outputs
 # Print some of the system parameters being used.
 # ------------------------------------------------------------------------------
+print("")
 print("#----- Simulation Parameters")
-print(f"Gap Centers: {np.array2string(gap_centers/mm, precision=2)}[mm]")
+print(f"Number of Gaps: {int(Ng)}")
+print(f"Gap Centers: {np.array2string(gap_centers/cm, precision=2)}[cm]")
 print(f"Gap Voltage: {design_gap_volt/kV:.2f}[kV]")
+print(f"RF Frequency: {design_freq/MHz:.2f}[MHz]")
 print(f"Fcup Distance: {Fcup_dist/mm:.2f}[mm]")
 print(f"Sync Phi:{np.array2string(phi_s*180/np.pi,precision=2)}[deg]")
 print(f"Injection Energy: {dsgn_E[0]/keV:.2f}[keV]")
 print(f"Final Design Energy: {dsgn_E[-1]/keV:.2f}[keV]")
+print(f"Gain per Gap: {(dsgn_E[-1]-dsgn_initE)/keV/Ng:.2f}[keV]")
 print(f"Average Current: {Iavg/mA:.4e}[mA]")
 
 # ------------------------------------------------------------------------------
@@ -493,7 +527,7 @@ print(f"Average Current: {Iavg/mA:.4e}[mA]")
 # distribution of phase relative to the design particle.
 # ------------------------------------------------------------------------------
 # Create mask using the desired percent deviation in energy
-fraction_Edev = 0.30
+fraction_Edev = 0.15
 mask = (final_E >= dsgn_E[-1] * (1 - fraction_Edev)) & (
     (final_E <= dsgn_E[-1] * (1 + fraction_Edev))
 )
@@ -539,12 +573,113 @@ ax.set_ylabel(r"Fraction of Total Particles")
 ax.legend()
 plt.show()
 
+# Repeat previous plots for the selected particles
+lplot_bucket_diagnostics = True
+if lplot_bucket_diagnostics:
+    for i, zloc in enumerate(zdiagnostics):
+        # Plot phase space
+        fig, ax = plt.subplots()
+        if i < len(zdiagnostics) - 1:
+            ax.set_title(f"Bucket Phase-Space, z={zloc/mm:.2f}[mm] ($N_g$ = {i})")
+        else:
+            ax.set_title(f"Bucket Phase-Space, z={zloc/mm:.2f}[mm]")
+        ax.set_xlabel(r"$\phi / \pi$")
+        ax.set_ylabel(rf"$\Delta W$, $W_s$ = {E_sdiagnostic[i]/keV:.2f}[keV] ")
+        ax.hist2d(
+            np.modf((phase_diagnostic[mask, i] - phase_sdiagnostic[i]) / np.pi)[0],
+            (Ediagnostic[mask, i] - E_sdiagnostic[i]) / keV,
+            bins=[100, 100],
+        )
+        plt.tight_layout()
+
+        # Plot the energy distribution at diagnostic
+        Ecounts, Eedges = np.histogram(Ediagnostic[mask, i], bins=100)
+        fig, ax = plt.subplots()
+        if i < len(zdiagnostics) - 1:
+            ax.set_title(
+                f"Bucket Energy Distribution, z={zloc/mm:.2f}[mm] ($N_g$ = {i})"
+            )
+        else:
+            ax.set_title(f"Bucket Energy Distibution, z={zloc/mm:.2f}[mm]")
+        ax.bar(
+            Eedges[:-1] / keV,
+            Ecounts[:] / Np,
+            width=np.diff(Eedges[:] / keV),
+            edgecolor="black",
+            lw="1",
+        )
+        ax.set_xlabel(r"Energy [keV]")
+        ax.set_ylabel(r"Fraction of Total Particles")
+        plt.tight_layout()
+
+        # Plot the time distribution at diagnostic
+        tcounts, tedges = np.histogram(tdiagnostic[mask, i], bins=100)
+        fig, ax = plt.subplots()
+        ax.bar(
+            tedges[:-1] / us,
+            tcounts / Np,
+            width=np.diff(tedges / us),
+            edgecolor="black",
+            lw="1",
+        )
+        if i < len(zdiagnostics) - 1:
+            ax.set_title(f"Bucket Time Distribution, z={zloc/mm:.2f}[mm] ($N_g$ = {i})")
+        else:
+            ax.set_title(f"Bucket Time Distibution, z={zloc/mm:.2f}[mm]")
+        ax.set_xlabel(r"$\Delta t$ [$\mu$s]")
+        ax.set_ylabel(r"Fraction of Total Particles")
+        plt.tight_layout()
+
+    plt.show()
+
+# Plot design particle energy gain
+fig, ax = plt.subplots()
+ax.set_title("Design Particle Energy Gain")
+ax.set_xlabel("z[mm]")
+ax.set_ylabel(r"$W_s$[keV]")
+ax.plot(dsgn_pos / mm, dsgn_E / keV)
+if Ng > 1:
+    for cent in gap_centers:
+        ax.axvline(cent / mm, c="grey", lw=1, ls="--")
+else:
+    ax.axvline(gap_centers[0] / mm, c="grey", lw=1, ls="--")
+ax.axhline(
+    dsgn_E[-1] / keV,
+    c="r",
+    ls="--",
+    lw=1,
+    label=rf"Final $W_s$ = {dsgn_E[-1]/keV:.2f}[keV]",
+)
+ax.legend()
+plt.show()
+
+# Plot RMS values for each diagnostic
+rms_E = np.mean(Ediagnostic[mask, :], axis=0)
+rms_t = np.mean(tdiagnostic[mask, :], axis=0)
+
+fig, ax = plt.subplots()
+ax.set_title("RMS Energy and Time at Diagnostic")
+ax2 = ax.twinx()
+ax.set_xlabel("z[mm]")
+ax.set_ylabel("RMS Energy [keV]")
+ax2.set_ylabel(r"RMS Time [$\mu$s]")
+ax2.yaxis.label.set_color("blue")
+
+# Plot gap centers
+for cent in gap_centers:
+    ax.axvline(cent / mm, c="grey", lw=1, ls="--")
+
+ax.plot(zdiagnostics / mm, rms_E / keV, c="k", label="RMS Energy")
+ax2.plot(zdiagnostics / mm, rms_t / us, c="b", ls="--", label="RMS Time")
+
+plt.show()
 # ------------------------------------------------------------------------------
 #    System Outputs for Bucket
 # Print some of the system parameters being used.
 # ------------------------------------------------------------------------------
+print("")
 print("#----- Bucket Characteristics ")
-print(f"Percent Energy Deviation: {fraction_Edev*100:.0f}%")
+print(f"Percent Energy Deviation Selection: {fraction_Edev*100:.0f}%")
 print(f"Particles in Bucket: {percent_parts:.0f}%")
 print(
     f"Average Current: {np.sum(d_bucket_Ecounts)*SC.e/(d_bucket_tedges[-1] - d_bucket_tedges[0])/mA:.4e}[mA] "
