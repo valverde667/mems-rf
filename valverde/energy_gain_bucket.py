@@ -8,6 +8,7 @@
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.animation as animation
 from matplotlib.animation import FuncAnimation
 import scipy.constants as SC
@@ -142,8 +143,10 @@ fraction_Edev = 0.15
 # ------------------------------------------------------------------------------
 l_use_flattop_field = True
 l_use_Warp_field = False
-l_plot_diagnostics = False
+l_plot_diagnostics = True
 l_plot_bucket_diagnostics = True
+l_save_all_plots_pdf = True
+plots_filename = "all-diagnostics.pdf"
 
 # ------------------------------------------------------------------------------
 #     Gap Centers
@@ -454,7 +457,6 @@ if l_plot_diagnostics:
         ax.set_ylabel(r"Fraction of Total Particles")
         plt.tight_layout()
 
-    plt.show()
 
 # ------------------------------------------------------------------------------
 #    System Outputs
@@ -498,34 +500,6 @@ d_bucket_tcounts, d_bucket_tedges = np.histogram(d_bucket_t, bins=100)
 
 # Calculate percent of particles that in plot
 percent_parts = np.sum(d_bucket_Ecounts) / Np * 100
-fig, ax = plt.subplots()
-ax.bar(
-    d_bucket_Eedges[:-1] / keV,
-    d_bucket_Ecounts / Np,
-    width=np.diff(d_bucket_Eedges / keV),
-    edgecolor="black",
-    lw="1",
-    label=f"Percent Transmission: {percent_parts:.2f}%",
-)
-ax.set_title(rf"Final Energy Distribution Within {fraction_Edev*100}% $\Delta W$")
-ax.set_xlabel(rf"$\Delta W$ [keV], Predicted Final W: {dsgn_E[-1]/keV:.2f} [keV]")
-ax.set_ylabel(r"Fraction of Total Particles")
-ax.legend()
-
-fig, ax = plt.subplots()
-ax.bar(
-    d_bucket_tedges[:-1] / us,
-    d_bucket_tcounts / Np,
-    width=np.diff(d_bucket_tedges) / us,
-    edgecolor="black",
-    lw="1",
-    label=f"Percent Transmission: {percent_parts:.2f}%",
-)
-ax.set_title(rf"Final Time Distribution Within {fraction_Edev*100}% $\Delta W$")
-ax.set_xlabel(r"$\Delta t$[$\mu$s]")
-ax.set_ylabel(r"Fraction of Total Particles")
-ax.legend()
-plt.show()
 
 # Repeat previous plots for the selected particles
 if l_plot_bucket_diagnostics:
@@ -583,7 +557,6 @@ if l_plot_bucket_diagnostics:
         ax.set_ylabel(r"Fraction of Total Particles")
         plt.tight_layout()
 
-    plt.show()
 
 # Plot design particle energy gain
 fig, ax = plt.subplots()
@@ -604,7 +577,7 @@ ax.axhline(
     label=rf"Final $W_s$ = {dsgn_E[-1]/keV:.2f}[keV]",
 )
 ax.legend()
-plt.show()
+
 
 # Plot RMS values for each diagnostic
 rms_E = np.mean(Ediagnostic[mask, :], axis=0)
@@ -625,6 +598,13 @@ for cent in gap_centers:
 ax.plot(zdiagnostics / mm, rms_E / keV, c="k", label="RMS Energy")
 ax2.plot(zdiagnostics / mm, rms_t / us, c="b", ls="--", label="RMS Time")
 
+if l_save_all_plots_pdf:
+    pp = PdfPages(plots_filename)
+    fig_nums = plt.get_fignums()
+    figs = [plt.figure(n) for n in fig_nums]
+    for fig in figs:
+        fig.savefig(pp, format="pdf")
+    pp.close()
 plt.show()
 # ------------------------------------------------------------------------------
 #    System Outputs for Bucket
