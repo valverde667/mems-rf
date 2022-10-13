@@ -1,15 +1,15 @@
-# Script to simulate the advancement of ions using a field (either flat-top
-# or something simple) contained within the acceleration gap. Once ions are
-# advanced through the acceleration gaps they are then advanced through a drift,
-# a dipole field, and then analyzed to simulate the deflector plate diagnostic
-# used in the lab.
+# Script to simulate the advancement of ions advancing through acceleration gaps.
+# The user can choose to load a flat-top field or a real field that was simulated
+# in Warp and then exported to a numpy type file. There are a host of settings
+# that can be modified early in the script. These variables are usually prefixed
+# with 'dsgn_' to represent the design values used to construct the simulation
+# lattice. Particle diagnostics are avaialble by setting the z-locations.
 
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib.animation import FuncAnimation
-from matplotlib.patches import Ellipse
 import scipy.constants as SC
 import scipy.integrate as integrate
 import os
@@ -130,7 +130,8 @@ def calc_dipole_deflection(voltage, energy, length=50 * mm, g=11 * mm, drift=185
 #     Simulation Parameters
 # This section is dedicated to naming and initializing design parameters that are
 # to be used in the script. These names are maintained throughout the script and
-# thus, if varied here are varied everywhere.
+# thus, if varied here are varied everywhere. In addition, some useful values
+# such as the average DC electric field and initial RF wavelength are computed.
 # ------------------------------------------------------------------------------
 # Simulation Parameters for design particle
 dsgn_phase = -np.pi / 2
@@ -163,9 +164,10 @@ dsgn_omega = twopi * dsgn_freq
 
 # ------------------------------------------------------------------------------
 #     Gap Centers
-# Place gaps to be in RF-resonance with a design particle that receives an energy
-# kick with some design phase on the RF acceleration gap. The first gap starts out
-# with the field being negative to ensure the most compact structure.
+# Here, the gaps are initialized using the design values listed. The first gap
+# is started fully negative to ensure the most compact structure. The design
+# particle is initialized at z=0 t=0 so that it arrives at the first gap at the
+# synchronous phase while the field is rising.
 # ------------------------------------------------------------------------------
 # Calculate additional gap centers if applicable. Here the design values should
 # be used. The first gap is always placed such that the design particle will
@@ -191,9 +193,10 @@ gap_centers = np.array(gap_dist).cumsum()
 
 # ------------------------------------------------------------------------------
 #    Mesh setup
-# Here the mesh is setup to place a flat top field centered so that the design
-# particle arrives in phase. The number of mesh points is paramterized by the
-# mesh_res variable to represent a spacing resolution.
+# Here the mesh is created with some mesh design values.
+# TODO:
+#    - Create mesh refinement switch and procedure.
+#    - Create logic switch for mesh refinement.
 # ------------------------------------------------------------------------------
 # Specify a mesh resolution
 mesh_res = 50 * um
@@ -210,7 +213,12 @@ Ez0 = z.copy()
 # the flat-top field is loaded onto th emesh. The first gap  is maximally negative
 # and the following gaps are 180º out of phase from the previous.
 # The fields can either be loaded using a flat top or the real field which must
-# extracted from the script 'fit_function_to_gap_field.py'
+# extracted from the script 'fit_function_to_gap_field.py' This script reads in
+# a field array that is generated in the "gap_field_function" script.
+# TODO:
+#    - Add mesh refinement.
+#    - Move logic switches to different section so that they dont need to be
+# hunted.
 # ------------------------------------------------------------------------------
 # Instantiate the flat-top field values in the gap regions.
 use_flattop = True
@@ -290,10 +298,11 @@ plt.tight_layout()
 
 # ------------------------------------------------------------------------------
 #    Particle Histories
-# The particle arrays are created and the following quantities are tracked for the
-# advancement: position, time, energy. This tracking will allow for various
-# analysis such as relative differences from the design particle in time and
-# energy.
+# The particle arrays are created here for the particle advancement. The design
+# particle is the only particle with the history saved. The rest of the particle
+# arrays are created and updated at each step.
+# TODO:
+#    - Add option to select particles to track and record history.
 # ------------------------------------------------------------------------------
 # Create design particle arrays. The design particle is always to begin at z=zmin,
 # t=0 and given the design initial energy. The design particle is assume to be
@@ -403,7 +412,12 @@ phase_diagnostic = twopi * dsgn_freq * tdiagnostic
 #    Diagnostic Plots
 # Plot phase space for each diagnostic location. The phase-space will be in terms
 # of relative difference from the synchronous particle W-W_s and phi-phi_s at
-# each location.
+# each location. Also plot the energy and time distribution at each diagnostic.
+# TODO:
+#    - Move logic switches to easy to find place.
+#    - Save all plots to single output file for viewing.
+#    - Titling assumes that only diagnostics are placed at gap centers. Labeling
+# will be wrong if a diagnostic plot is added ot the drift regions between gaps.
 # ------------------------------------------------------------------------------
 lplot_diagnostics = False
 if lplot_diagnostics:
