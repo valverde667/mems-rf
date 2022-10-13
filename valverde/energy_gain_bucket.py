@@ -133,6 +133,18 @@ E_DC = real_gap_volt / gap_width
 h_rf = beta(dsgn_initE, mass=Ar_mass) * SC.c / dsgn_freq
 dsgn_omega = twopi * dsgn_freq
 
+# Fractions to mask particles in order to create a bucket for analysis.
+fraction_Edev = 0.15
+
+# ------------------------------------------------------------------------------
+#     Logical Flags
+# Flags for different routines in the script.
+# ------------------------------------------------------------------------------
+l_use_flattop_field = True
+l_use_Warp_field = False
+l_plot_diagnostics = False
+l_plot_bucket_diagnostics = True
+
 # ------------------------------------------------------------------------------
 #     Gap Centers
 # Here, the gaps are initialized using the design values listed. The first gap
@@ -192,9 +204,7 @@ Ez0 = z.copy()
 # hunted.
 # ------------------------------------------------------------------------------
 # Instantiate the flat-top field values in the gap regions.
-use_flattop = True
-use_real_field = False
-if use_flattop:
+if l_use_flattop_field:
     for i, cent in enumerate(gap_centers):
         if i % 2 == 0:
             field_loc = np.where(
@@ -207,7 +217,8 @@ if use_flattop:
             )
             Ez0[field_loc] = real_gap_volt / gap_width
 
-if use_real_field:
+#
+if l_use_Warp_field:
     # load isolated field
     z_iso = np.load("z_isolated_5kV_2mm_10um.npy")
     Ez_iso = np.load("Ez_isolated_5kV_2mm_10um.npy")
@@ -390,8 +401,7 @@ phase_diagnostic = twopi * dsgn_freq * tdiagnostic
 #    - Titling assumes that only diagnostics are placed at gap centers. Labeling
 # will be wrong if a diagnostic plot is added ot the drift regions between gaps.
 # ------------------------------------------------------------------------------
-lplot_diagnostics = False
-if lplot_diagnostics:
+if l_plot_diagnostics:
     for i, zloc in enumerate(zdiagnostics):
         # Plot phase space
         fig, ax = plt.subplots()
@@ -446,48 +456,6 @@ if lplot_diagnostics:
 
     plt.show()
 
-# Plot design particle energy gain
-fig, ax = plt.subplots()
-ax.set_title("Design Particle Energy Gain")
-ax.set_xlabel("z[mm]")
-ax.set_ylabel(r"$W_s$[keV]")
-ax.plot(dsgn_pos / mm, dsgn_E / keV)
-if Ng > 1:
-    for cent in gap_centers:
-        ax.axvline(cent / mm, c="grey", lw=1, ls="--")
-else:
-    ax.axvline(gap_centers[0] / mm, c="grey", lw=1, ls="--")
-ax.axhline(
-    dsgn_E[-1] / keV,
-    c="r",
-    ls="--",
-    lw=1,
-    label=rf"Final $W_s$ = {dsgn_E[-1]/keV:.2f}[keV]",
-)
-ax.legend()
-plt.show()
-
-# Plot RMS values for each diagnostic
-rms_E = np.mean(Ediagnostic, axis=0)
-rms_t = np.mean(tdiagnostic, axis=0)
-
-fig, ax = plt.subplots()
-ax.set_title("RMS Energy and Time at Diagnostic")
-ax2 = ax.twinx()
-ax.set_xlabel("z[mm]")
-ax.set_ylabel("RMS Energy [keV]")
-ax2.set_ylabel(r"RMS Time [$\mu$s]")
-ax2.yaxis.label.set_color("blue")
-
-# Plot gap centers
-for cent in gap_centers:
-    ax.axvline(cent / mm, c="grey", lw=1, ls="--")
-
-ax.plot(zdiagnostics / mm, rms_E / keV, c="k", label="RMS Energy")
-ax2.plot(zdiagnostics / mm, rms_t / us, c="b", ls="--", label="RMS Time")
-
-plt.show()
-
 # ------------------------------------------------------------------------------
 #    System Outputs
 # Print some of the system parameters being used.
@@ -514,7 +482,6 @@ print(f"Average Current: {Iavg/mA:.4e}[mA]")
 # distribution of phase relative to the design particle.
 # ------------------------------------------------------------------------------
 # Create mask using the desired percent deviation in energy
-fraction_Edev = 0.15
 mask = (final_E >= dsgn_E[-1] * (1 - fraction_Edev)) & (
     (final_E <= dsgn_E[-1] * (1 + fraction_Edev))
 )
@@ -561,8 +528,7 @@ ax.legend()
 plt.show()
 
 # Repeat previous plots for the selected particles
-lplot_bucket_diagnostics = True
-if lplot_bucket_diagnostics:
+if l_plot_bucket_diagnostics:
     for i, zloc in enumerate(zdiagnostics):
         # Plot phase space
         fig, ax = plt.subplots()
