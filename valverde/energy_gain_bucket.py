@@ -162,7 +162,7 @@ plots_filename = "all-diagnostics.pdf"
 # be used. The first gap is always placed such that the design particle will
 # arrive at the desired phase when starting at z=0 with energy W.
 phi_s = np.ones(Ng) * dsgn_phase
-phi_s[1:] = np.linspace(-np.pi / 3, np.pi / 8, Ng - 1)
+phi_s[1:] = np.linspace(-np.pi / 3, -np.pi / 8, Ng - 1)
 
 gap_dist = np.zeros(Ng)
 E_s = dsgn_initE
@@ -429,7 +429,7 @@ if l_plot_diagnostics:
             rf"$\Delta W$, $W_s$ = {E_sdiagnostic[i]/keV:.2f}[keV]", fontsize="x-large",
         )
         ax1.hist2d(
-            np.modf((phase_diagnostic[:, i] - phase_sdiagnostic[i]) / np.pi)[0],
+            np.modf(phase_diagnostic[:, i] / np.pi)[0],
             (Ediagnostic[:, i] - E_sdiagnostic[i]) / keV,
             bins=[100, 100],
         )
@@ -458,7 +458,7 @@ if l_plot_diagnostics:
         plt.tight_layout()
 
         # Plot the time distribution at diagnostic
-        tcounts, tedges = np.histogram(tdiagnostic[:, i], bins=100)
+        tcounts, tedges = np.histogram(tdiagnostic[:, i] - t_sdiagnostic[i], bins=100)
         ax3.bar(
             tedges[:-1] / us,
             tcounts / Np,
@@ -547,7 +547,7 @@ if l_plot_bucket_diagnostics:
             rf"$\Delta W$, $W_s$ = {E_sdiagnostic[i]/keV:.2f}[keV]", fontsize="x-large",
         )
         ax1.hist2d(
-            np.modf((phase_diagnostic[mask, i] - phase_sdiagnostic[i]) / np.pi)[0],
+            np.modf(phase_diagnostic[mask, i] / np.pi)[0],
             (Ediagnostic[mask, i] - E_sdiagnostic[i]) / keV,
             bins=[100, 100],
         )
@@ -576,7 +576,9 @@ if l_plot_bucket_diagnostics:
         plt.tight_layout()
 
         # Plot the time distribution at diagnostic
-        tcounts, tedges = np.histogram(tdiagnostic[mask, i], bins=100)
+        tcounts, tedges = np.histogram(
+            tdiagnostic[mask, i] - t_sdiagnostic[i], bins=100
+        )
         ax3.bar(
             tedges[:-1] / us,
             tcounts / Np,
