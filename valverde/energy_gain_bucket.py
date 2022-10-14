@@ -145,7 +145,7 @@ fraction_Edev = 0.15
 l_use_flattop_field = True
 l_use_Warp_field = False
 l_plot_diagnostics = True
-l_plot_bucket_diagnostics = True
+l_plot_bucket_diagnostics = False
 l_save_all_plots_pdf = True
 l_plot_lattice = True
 l_plot_RMS = True
@@ -423,15 +423,18 @@ if l_plot_diagnostics:
                 f"Phase-Space \n z={zloc/mm:.2f}[mm] ($N_g$ = {i})", fontsize="x-large",
             )
         else:
-            ax1.set_title(f"Phase-Space \n z={zloc/mm:.2f}[mm]", fontsize="x-large")
-        ax1.set_xlabel(r"$\phi / \pi$", fontsize="x-large")
+            ax1.set_title(
+                f"Longitudinal Phase-Space \n z={zloc/mm:.2f}[mm]", fontsize="x-large"
+            )
+        ax1.set_xlabel(r"Phase Deviation $\Delta \phi / \pi$", fontsize="x-large")
         ax1.set_ylabel(
-            rf"$\Delta W$, $W_s$ = {E_sdiagnostic[i]/keV:.2f}[keV]", fontsize="x-large",
+            rf"Energy Deviation $\Delta W$[keV]", fontsize="x-large",
         )
         ax1.hist2d(
-            np.modf(phase_diagnostic[:, i] / np.pi)[0],
+            np.modf((phase_diagnostic[:, i] - phase_sdiagnostic[i]) / np.pi)[0],
             (Ediagnostic[:, i] - E_sdiagnostic[i]) / keV,
             bins=[100, 100],
+            cmin=0.01,
         )
         plt.tight_layout()
 
@@ -439,12 +442,13 @@ if l_plot_diagnostics:
         Ecounts, Eedges = np.histogram(Ediagnostic[:, i], bins=100)
         if i < len(zdiagnostics) - 1:
             ax2.set_title(
-                f"Energy Distribution \n z={zloc/mm:.2f}[mm] ($N_g$ = {i})",
+                f"Longitudinal Energy Distribution \n z={zloc/mm:.2f}[mm] ($N_g$ = {i})",
                 fontsize="x-large",
             )
         else:
             ax2.set_title(
-                f"Energy Distibution \n z={zloc/mm:.2f}[mm]", fontsize="x-large",
+                f"Longitudinal Energy Distibution \n z={zloc/mm:.2f}[mm]",
+                fontsize="x-large",
             )
         ax2.bar(
             Eedges[:-1] / keV,
@@ -454,7 +458,7 @@ if l_plot_diagnostics:
             lw="1",
         )
         ax2.set_xlabel(r"Energy [keV]", fontsize="x-large")
-        ax2.set_ylabel(r"Fraction of Np", fontsize="x-large")
+        ax2.set_ylabel(r"Fraction of Particles", fontsize="x-large")
         plt.tight_layout()
 
         # Plot the time distribution at diagnostic
@@ -468,15 +472,16 @@ if l_plot_diagnostics:
         )
         if i < len(zdiagnostics) - 1:
             ax3.set_title(
-                f"Time Distribution \n z={zloc/mm:.2f}[mm] ($N_g$ = {i})",
+                f"Longitudinal Time Distribution \n z={zloc/mm:.2f}[mm] ($N_g$ = {i})",
                 fontsize="x-large",
             )
         else:
             ax3.set_title(
-                f"Time Distibution \n z={zloc/mm:.2f}[mm]", fontsize="x-large"
+                f"Longitudinal Time Distibution \n z={zloc/mm:.2f}[mm]",
+                fontsize="x-large",
             )
         ax3.set_xlabel(r"$\Delta t$ [$\mu$s]", fontsize="x-large")
-        ax3.set_ylabel(r"Fraction of Np", fontsize="x-large")
+        ax3.set_ylabel(r"Fraction of Particles", fontsize="x-large")
         plt.tight_layout()
 
 
@@ -535,21 +540,23 @@ if l_plot_bucket_diagnostics:
 
         if i < len(zdiagnostics) - 1:
             ax1.set_title(
-                f"Bucket Phase-Space \n z={zloc/mm:.2f}[mm] ($N_g$ = {i})",
+                f"Longitudinal Bucket Phase-Space \n z={zloc/mm:.2f}[mm] ($N_g$ = {i})",
                 fontsize="x-large",
             )
         else:
             ax1.set_title(
-                f"Bucket Phase-Space \n z={zloc/mm:.2f}[mm]", fontsize="x-large",
+                f"Longitudinal Bucket Phase-Space \n z={zloc/mm:.2f}[mm]",
+                fontsize="x-large",
             )
-        ax1.set_xlabel(r"$\phi / \pi$")
+        ax1.set_xlabel(r"Phase Deviation $\Delta \phi / \pi$")
         ax1.set_ylabel(
-            rf"$\Delta W$, $W_s$ = {E_sdiagnostic[i]/keV:.2f}[keV]", fontsize="x-large",
+            rf"Energy Deviation $\Delta W$[keV]", fontsize="x-large",
         )
         ax1.hist2d(
-            np.modf(phase_diagnostic[mask, i] / np.pi)[0],
+            np.modf((phase_diagnostic[mask, i] - phase_sdiagnostic[i]) / np.pi)[0],
             (Ediagnostic[mask, i] - E_sdiagnostic[i]) / keV,
             bins=[100, 100],
+            cmin=0.01,
         )
         plt.tight_layout()
 
@@ -557,12 +564,13 @@ if l_plot_bucket_diagnostics:
         Ecounts, Eedges = np.histogram(Ediagnostic[mask, i], bins=100)
         if i < len(zdiagnostics) - 1:
             ax2.set_title(
-                f"Bucket Energy Distribution \n z={zloc/mm:.2f}[mm] ($N_g$ = {i})",
+                f"Longitudinal Bucket Energy Distribution \n z={zloc/mm:.2f}[mm] ($N_g$ = {i})",
                 fontsize="x-large",
             )
         else:
             ax2.set_title(
-                f"Bucket Energy Distibution \n z={zloc/mm:.2f}[mm]", fontsize="x-large",
+                f"Longitudinal Bucket Energy Distibution \n z={zloc/mm:.2f}[mm]",
+                fontsize="x-large",
             )
         ax2.bar(
             Eedges[:-1] / keV,
@@ -572,7 +580,7 @@ if l_plot_bucket_diagnostics:
             lw="1",
         )
         ax2.set_xlabel(r"Energy [keV]", fontsize="x-large")
-        ax2.set_ylabel(r"Fraction of Np", fontsize="x-large")
+        ax2.set_ylabel(r"Fraction of Particles", fontsize="x-large")
         plt.tight_layout()
 
         # Plot the time distribution at diagnostic
@@ -588,15 +596,16 @@ if l_plot_bucket_diagnostics:
         )
         if i < len(zdiagnostics) - 1:
             ax3.set_title(
-                f"Bucket Time Distribution \n z={zloc/mm:.2f}[mm] ($N_g$ = {i})",
+                f"Longitudinal Bucket Time Distribution \n z={zloc/mm:.2f}[mm] ($N_g$ = {i})",
                 fontsize="x-large",
             )
         else:
             ax3.set_title(
-                f"Bucket Time Distibution \n z={zloc/mm:.2f}[mm]", fontsize="x-large",
+                f"Longitudinal Bucket Time Distibution \n z={zloc/mm:.2f}[mm]",
+                fontsize="x-large",
             )
         ax3.set_xlabel(r"$\Delta t$ [$\mu$s]", fontsize="x-large")
-        ax3.set_ylabel(r"Fraction of Np", fontsize="x-large")
+        ax3.set_ylabel(r"Fraction of Particles ", fontsize="x-large")
         plt.tight_layout()
 
 
