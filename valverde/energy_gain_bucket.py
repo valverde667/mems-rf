@@ -17,6 +17,10 @@ import scipy.integrate as integrate
 import os
 import pdb
 
+mpl.rcParams["xtick.direction"] = "in"
+mpl.rcParams["xtick.minor.visible"] = True
+mpl.rcParams["ytick.direction"] = "in"
+mpl.rcParams["ytick.minor.visible"] = True
 
 # different particle masses in eV
 # amu in eV
@@ -420,7 +424,8 @@ if l_plot_diagnostics:
 
         if i < len(zdiagnostics) - 1:
             ax1.set_title(
-                f"Phase-Space \n z={zloc/mm:.2f}[mm] ($N_g$ = {i})", fontsize="x-large",
+                f"Longitudinal Phase-Space \n z={zloc/mm:.2f}[mm] ($N_g$ = {i})",
+                fontsize="x-large",
             )
         else:
             ax1.set_title(
