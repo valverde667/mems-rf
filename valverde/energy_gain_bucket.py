@@ -113,7 +113,7 @@ def calc_dipole_deflection(voltage, energy, length=50 * mm, g=11 * mm, drift=185
 # Simulation Parameters for design particle
 dsgn_phase = -np.pi / 2
 dsgn_initE = 7 * kV
-Np = int(1e5)
+Np = int(1e4)
 
 # Simulation parameters for gaps and geometries
 Ng = 4
@@ -147,7 +147,7 @@ fraction_Edev = 0.15
 # Flags for different routines in the script.
 # ------------------------------------------------------------------------------
 l_use_flattop_field = True
-l_use_Warp_field = False
+l_use_Warp_field = True
 l_plot_diagnostics = True
 l_plot_bucket_diagnostics = False
 l_save_all_plots_pdf = True
@@ -198,7 +198,7 @@ zmax = gap_centers[-1] + gap_width / 2 + Fcup_dist
 Nz = int((zmax - zmin) / mesh_res)
 z = np.linspace(zmin, zmax, Nz)
 dz = z[1] - z[0]
-Ez0 = z.copy()
+Ez0 = np.zeros(shape=z.shape)
 
 # ------------------------------------------------------------------------------
 #    Field Load
@@ -227,7 +227,6 @@ if l_use_flattop_field:
             )
             Ez0[field_loc] = real_gap_volt / gap_width
 
-#
 if l_use_Warp_field:
     # load isolated field
     z_iso = np.load("z_isolated_5kV_2mm_10um.npy")
@@ -275,7 +274,6 @@ if l_use_Warp_field:
         z = z_patched
         Nz = len(z)
         Ez0 = Ez0_patched
-
 # ------------------------------------------------------------------------------
 #    Particle Histories
 # The particle arrays are created here for the particle advancement. The design
@@ -316,7 +314,9 @@ parts_time[:] = init_time
 # Create diagnostic locations.
 zdiagnostics = [z.min()]
 for loc in gap_centers:
+    zdiagnostics.append(loc - gap_width / 2.0)
     zdiagnostics.append(loc)
+    zdiagnostics.append(loc + gap_width / 2.0)
 zdiagnostics.append(z.max())
 zdiagnostics = np.array(zdiagnostics)
 
@@ -346,6 +346,7 @@ Iavg = SC.e * Np / (parts_time[-1] - parts_time[0])
 # Main loop to advance particles. Real parameter settings should be used here.
 idiagn_count = 1
 for i in range(1, len(z)):
+
     # Do design particle
     this_dz = z[i] - z[i - 1]
     this_vs = beta(dsgn_E[i - 1]) * SC.c
@@ -420,7 +421,7 @@ if l_plot_diagnostics:
         gs = gridspec.GridSpec(2, 2)
         ax1 = fig.add_subplot(gs[0, :])
         ax2 = fig.add_subplot(gs[1, 0])
-        ax3 = fig.add_subplot(gs[1, 1], sharey=ax2)
+        ax3 = fig.add_subplot(gs[1, 1])
 
         if i < len(zdiagnostics) - 1:
             ax1.set_title(
