@@ -116,7 +116,7 @@ dsgn_initE = 7 * kV
 Np = int(1e4)
 
 # Simulation parameters for gaps and geometries
-Ng = 4
+Ng = 2
 gap_width = 2.0 * mm
 dsgn_gap_volt = 5.0 * kV
 real_gap_volt = dsgn_gap_volt
@@ -210,8 +210,6 @@ Ez0 = np.zeros(shape=z.shape)
 # a field array that is generated in the "gap_field_function" script.
 # TODO:
 #    - Add mesh refinement.
-#    - Move logic switches to different section so that they dont need to be
-# hunted.
 # ------------------------------------------------------------------------------
 # Instantiate the flat-top field values in the gap regions.
 if l_use_flattop_field:
@@ -393,11 +391,6 @@ phase_diagnostic = twopi * dsgn_freq * tdiagnostic
 # Plot phase space for each diagnostic location. The phase-space will be in terms
 # of relative difference from the synchronous particle W-W_s and phi-phi_s at
 # each location. Also plot the energy and time distribution at each diagnostic.
-# TODO:
-#    - Move logic switches to easy to find place.
-#    - Save all plots to single output file for viewing.
-#    - Titling assumes that only diagnostics are placed at gap centers. Labeling
-# will be wrong if a diagnostic plot is added ot the drift regions between gaps.
 # ------------------------------------------------------------------------------
 # Plot field with gaps
 if l_plot_lattice:
@@ -423,15 +416,9 @@ if l_plot_diagnostics:
         ax2 = fig.add_subplot(gs[1, 0])
         ax3 = fig.add_subplot(gs[1, 1])
 
-        if i < len(zdiagnostics) - 1:
-            ax1.set_title(
-                f"Longitudinal Phase-Space \n z={zloc/mm:.2f}[mm] ($N_g$ = {i})",
-                fontsize="x-large",
-            )
-        else:
-            ax1.set_title(
-                f"Longitudinal Phase-Space \n z={zloc/mm:.2f}[mm]", fontsize="x-large"
-            )
+        ax1.set_title(
+            f"Longitudinal Phase-Space \n z={zloc/mm:.2f}[mm]", fontsize="x-large"
+        )
         ax1.set_xlabel(r"Phase Deviation $\Delta \phi / \pi$", fontsize="x-large")
         ax1.set_ylabel(
             rf"Energy Deviation $\Delta W$[keV]", fontsize="x-large",
@@ -446,16 +433,10 @@ if l_plot_diagnostics:
 
         # Plot the energy distribution at diagnostic
         Ecounts, Eedges = np.histogram(Ediagnostic[:, i], bins=100)
-        if i < len(zdiagnostics) - 1:
-            ax2.set_title(
-                f"Longitudinal Energy Distribution \n z={zloc/mm:.2f}[mm] ($N_g$ = {i})",
-                fontsize="x-large",
-            )
-        else:
-            ax2.set_title(
-                f"Longitudinal Energy Distibution \n z={zloc/mm:.2f}[mm]",
-                fontsize="x-large",
-            )
+        ax2.set_title(
+            f"Longitudinal Energy Distibution \n z={zloc/mm:.2f}[mm]",
+            fontsize="x-large",
+        )
         ax2.bar(
             Eedges[:-1] / keV,
             Ecounts[:] / Np,
@@ -476,16 +457,9 @@ if l_plot_diagnostics:
             edgecolor="black",
             lw="1",
         )
-        if i < len(zdiagnostics) - 1:
-            ax3.set_title(
-                f"Longitudinal Time Distribution \n z={zloc/mm:.2f}[mm] ($N_g$ = {i})",
-                fontsize="x-large",
-            )
-        else:
-            ax3.set_title(
-                f"Longitudinal Time Distibution \n z={zloc/mm:.2f}[mm]",
-                fontsize="x-large",
-            )
+        ax3.set_title(
+            f"Longitudinal Time Distibution \n z={zloc/mm:.2f}[mm]", fontsize="x-large",
+        )
         ax3.set_xlabel(r"$\Delta t$ [$\mu$s]", fontsize="x-large")
         ax3.set_ylabel(r"Fraction of Particles", fontsize="x-large")
         plt.tight_layout()
@@ -498,11 +472,12 @@ if l_plot_diagnostics:
 print("")
 print("#----- Simulation Parameters")
 print(f"Number of Gaps: {int(Ng)}")
-print(f"Gap Centers: {np.array2string(gap_centers/cm, precision=2)}[cm]")
+print(f"Gap Centers: {np.array2string(gap_centers/cm, precision=4)}[cm]")
+print(f"Gap Distances:{np.array2string(np.diff(gap_centers/cm), precision=4)}[cm]")
 print(f"Gap Voltage: {dsgn_gap_volt/kV:.2f}[kV]")
 print(f"RF Frequency: {dsgn_freq/MHz:.2f}[MHz]")
 print(f"Fcup Distance: {Fcup_dist/mm:.2f}[mm]")
-print(f"Sync Phi:{np.array2string(phi_s*180/np.pi,precision=2)}[deg]")
+print(f"Sync Phi:{np.array2string(phi_s*180/np.pi,precision=3)}[deg]")
 print(f"Injection Energy: {dsgn_E[0]/keV:.2f}[keV]")
 print(f"Final Design Energy: {dsgn_E[-1]/keV:.2f}[keV]")
 print(f"Gain per Gap: {(dsgn_E[-1]-dsgn_initE)/keV/Ng:.2f}[keV]")
@@ -544,16 +519,10 @@ if l_plot_bucket_diagnostics:
         ax2 = fig.add_subplot(gs[1, 0])
         ax3 = fig.add_subplot(gs[1, 1])
 
-        if i < len(zdiagnostics) - 1:
-            ax1.set_title(
-                f"Longitudinal Bucket Phase-Space \n z={zloc/mm:.2f}[mm] ($N_g$ = {i})",
-                fontsize="x-large",
-            )
-        else:
-            ax1.set_title(
-                f"Longitudinal Bucket Phase-Space \n z={zloc/mm:.2f}[mm]",
-                fontsize="x-large",
-            )
+        ax1.set_title(
+            f"Longitudinal Bucket Phase-Space \n z={zloc/mm:.2f}[mm]",
+            fontsize="x-large",
+        )
         ax1.set_xlabel(r"Phase Deviation $\Delta \phi / \pi$")
         ax1.set_ylabel(
             rf"Energy Deviation $\Delta W$[keV]", fontsize="x-large",
@@ -568,16 +537,10 @@ if l_plot_bucket_diagnostics:
 
         # Plot the energy distribution at diagnostic
         Ecounts, Eedges = np.histogram(Ediagnostic[mask, i], bins=100)
-        if i < len(zdiagnostics) - 1:
-            ax2.set_title(
-                f"Longitudinal Bucket Energy Distribution \n z={zloc/mm:.2f}[mm] ($N_g$ = {i})",
-                fontsize="x-large",
-            )
-        else:
-            ax2.set_title(
-                f"Longitudinal Bucket Energy Distibution \n z={zloc/mm:.2f}[mm]",
-                fontsize="x-large",
-            )
+        ax2.set_title(
+            f"Longitudinal Bucket Energy Distribution \n z={zloc/mm:.2f}[mm] ",
+            fontsize="x-large",
+        )
         ax2.bar(
             Eedges[:-1] / keV,
             Ecounts[:] / Np,
@@ -600,16 +563,10 @@ if l_plot_bucket_diagnostics:
             edgecolor="black",
             lw="1",
         )
-        if i < len(zdiagnostics) - 1:
-            ax3.set_title(
-                f"Longitudinal Bucket Time Distribution \n z={zloc/mm:.2f}[mm] ($N_g$ = {i})",
-                fontsize="x-large",
-            )
-        else:
-            ax3.set_title(
-                f"Longitudinal Bucket Time Distibution \n z={zloc/mm:.2f}[mm]",
-                fontsize="x-large",
-            )
+        ax3.set_title(
+            f"Longitudinal Bucket Time Distribution \n z={zloc/mm:.2f}[mm]",
+            fontsize="x-large",
+        )
         ax3.set_xlabel(r"$\Delta t$ [$\mu$s]", fontsize="x-large")
         ax3.set_ylabel(r"Fraction of Particles ", fontsize="x-large")
         plt.tight_layout()
