@@ -414,7 +414,6 @@ if l_plot_lattice:
     ax.legend()
     plt.tight_layout()
 
-stop
 # Plot the phase-space, energy and time distributions
 if l_plot_diagnostics:
     for i, zloc in enumerate(zdiagnostics):
@@ -481,16 +480,20 @@ if l_plot_diagnostics:
 print("")
 print("#----- Simulation Parameters")
 print(f"Number of Gaps: {int(Ng)}")
-print(f"Gap Centers: {np.array2string(gap_centers/cm, precision=4)}[cm]")
-print(f"Gap Distances:{np.array2string(np.diff(gap_centers/cm), precision=4)}[cm]")
-print(f"Gap Voltage: {dsgn_gap_volt/kV:.2f}[kV]")
-print(f"RF Frequency: {dsgn_freq/MHz:.2f}[MHz]")
-print(f"Fcup Distance: {Fcup_dist/mm:.2f}[mm]")
-print(f"Sync Phi:{np.array2string(phi_s*180/np.pi,precision=3)}[deg]")
-print(f"Injection Energy: {dsgn_E[0]/keV:.2f}[keV]")
-print(f"Final Design Energy: {dsgn_E[-1]/keV:.2f}[keV]")
-print(f"Gain per Gap: {(dsgn_E[-1]-dsgn_initE)/keV/Ng:.2f}[keV]")
-print(f"Average Current: {Iavg/mA:.4e}[mA]")
+print(f"Number of grid points: {len(z)}")
+print(f"Grid spacing: {dz:.4e} [m]")
+print(f"Grid spcing in gap: {z_iso[1] - z_iso[0]:.4e} [m]")
+print(f"Fcup Distance (from final plate): {Fcup_dist/mm:.2f} [mm]")
+print(f"Steps in Gap: {int(np.floor(gap_width/(z_iso[1]-z_iso[0])))}")
+print(f"Gap Centers: {np.array2string(gap_centers/cm, precision=4)} [cm]")
+print(f"Gap Distances:{np.array2string(np.diff(gap_centers/cm), precision=4)} [cm]")
+print(f"Gap Voltage: {dsgn_gap_volt/kV:.2f} [kV]")
+print(f"RF Frequency: {dsgn_freq/MHz:.2f} [MHz]")
+print(f"Sync Phi:{np.array2string(phi_s*180/np.pi,precision=3)} [deg]")
+print(f"Injection Energy: {dsgn_E[0]/keV:.2f} [keV]")
+print(f"Final Design Energy: {dsgn_E[-1]/keV:.2f} [keV]")
+print(f"Gain per Gap: {(dsgn_E[-1]-dsgn_initE)/keV/Ng:.2f} [keV]")
+print(f"Average Current: {Iavg/mA:.4e} [mA]")
 
 # ------------------------------------------------------------------------------
 #    Bucket Analysis
