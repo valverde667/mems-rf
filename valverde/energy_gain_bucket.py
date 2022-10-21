@@ -399,13 +399,22 @@ if l_plot_lattice:
     ax.set_xlabel("z [mm]", fontsize="large")
     ax.set_ylabel(r"On-axis E-field $E(r=0, z)/E_{DC}$ [kV/mm]", fontsize="large")
     ax.plot(z / mm, Ez0 / E_DC)
+    ax.axvline(gap_centers[0] / mm, c="grey", lw=1, ls="--", label="Gap Center")
     if Ng > 1:
-        for cent in gap_centers:
+        for i, cent in enumerate(gap_centers[1:]):
             ax.axvline(cent / mm, c="grey", lw=1, ls="--")
-    else:
-        ax.axvline(gap_centers[0] / mm, c="grey", lw=1, ls="--")
+
+    ax.axvline(
+        (gap_centers[-1] + gap_width / 2 + Fcup_dist) / mm,
+        c="r",
+        lw=1,
+        ls="dashdot",
+        label="Fcup",
+    )
+    ax.legend()
     plt.tight_layout()
 
+stop
 # Plot the phase-space, energy and time distributions
 if l_plot_diagnostics:
     for i, zloc in enumerate(zdiagnostics):
