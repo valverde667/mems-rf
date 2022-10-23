@@ -116,7 +116,7 @@ dsgn_initE = 7 * kV
 Np = int(1e4)
 
 # Simulation parameters for gaps and geometries
-Ng = 2
+Ng = 4
 gap_width = 2.0 * mm
 dsgn_gap_volt = 5.0 * kV
 real_gap_volt = dsgn_gap_volt
@@ -140,13 +140,14 @@ h_rf = beta(dsgn_initE, mass=Ar_mass) * SC.c / dsgn_freq
 dsgn_omega = twopi * dsgn_freq
 
 # Fractions to mask particles in order to create a bucket for analysis.
-fraction_Edev = 0.15
+fraction_Edev = 0.20
+fraction_tdev = 0.20
 
 # ------------------------------------------------------------------------------
 #     Logical Flags
 # Flags for different routines in the script.
 # ------------------------------------------------------------------------------
-l_use_flattop_field = True
+l_use_flattop_field = False
 l_use_Warp_field = True
 l_plot_diagnostics = True
 l_plot_bucket_diagnostics = False
@@ -192,7 +193,7 @@ gap_centers = np.array(gap_dist).cumsum()
 #    - Create logic switch for mesh refinement.
 # ------------------------------------------------------------------------------
 # Specify a mesh resolution
-mesh_res = 50 * um
+mesh_res = 100 * um
 zmin = 0
 zmax = gap_centers[-1] + gap_width / 2 + Fcup_dist
 Nz = int((zmax - zmin) / mesh_res)
@@ -329,6 +330,7 @@ E_sdiagnostic = np.zeros(len(zdiagnostics))
 t_sdiagnostic = np.zeros(len(zdiagnostics))
 Ediagnostic = np.zeros(shape=(Np, len(zdiagnostics)))
 tdiagnostic = np.zeros(shape=(Np, len(zdiagnostics)))
+transmission_diagnostic = np.ones(len(zdiagnostics)) * Np
 
 # Append initial diagnostics
 E_sdiagnostic[0] = dsgn_E[0]
@@ -358,13 +360,14 @@ for i in range(1, len(z)):
     dsgn_time[i] = dsgn_time[i - 1] + this_dt
 
     # Do other particles
-    this_v = beta(parts_E[:]) * SC.c
+    mask = parts_E > 0
+    this_v = beta(parts_E[mask]) * SC.c
     this_dt = this_dz / this_v
-    parts_time[:] += this_dt
+    parts_time[mask] += this_dt
 
-    Egain = Ez0[i - 1] * rf_volt(parts_time[:], freq=real_freq) * this_dz
-    parts_E[:] += Egain
-    parts_pos[:] += this_dz
+    Egain = Ez0[i - 1] * rf_volt(parts_time[mask], freq=real_freq) * this_dz
+    parts_E[mask] += Egain
+    parts_pos[mask] += this_dz
 
     # Check diagnostic point
     if i == idiagnostic[idiagn_count]:
@@ -372,6 +375,7 @@ for i in range(1, len(z)):
         t_sdiagnostic[idiagn_count] = dsgn_time[i]
         Ediagnostic[:, idiagn_count] = parts_E[:]
         tdiagnostic[:, idiagn_count] = parts_time[:]
+        transmission_diagnostic[idiagn_count] = np.sum(mask)
 
         idiagn_count += 1
 
@@ -454,6 +458,16 @@ if l_plot_diagnostics:
         )
         ax2.set_xlabel(r"Energy [keV]", fontsize="x-large")
         ax2.set_ylabel(r"Fraction of Particles", fontsize="x-large")
+        ax2.text(
+            0.5,
+            0.99,
+            f"Transmission %: {transmission_diagnostic[i]/Np*100:.2f}%",
+            horizontalalignment="center",
+            verticalalignment="top",
+            transform=ax2.transAxes,
+            bbox=dict(boxstyle="round", fc="lightgrey", ec="k", lw=1),
+        )
+
         plt.tight_layout()
 
         # Plot the time distribution at diagnostic
@@ -482,7 +496,7 @@ print("#----- Simulation Parameters")
 print(f"Number of Gaps: {int(Ng)}")
 print(f"Number of grid points: {len(z)}")
 print(f"Grid spacing: {dz:.4e} [m]")
-print(f"Grid spcing in gap: {z_iso[1] - z_iso[0]:.4e} [m]")
+print(f"Grid spacing in gap: {z_iso[1] - z_iso[0]:.4e} [m]")
 print(f"Fcup Distance (from final plate): {Fcup_dist/mm:.2f} [mm]")
 print(f"Steps in Gap: {int(np.floor(gap_width/(z_iso[1]-z_iso[0])))}")
 print(f"Gap Centers: {np.array2string(gap_centers/cm, precision=4)} [cm]")
@@ -504,9 +518,13 @@ print(f"Average Current: {Iavg/mA:.4e} [mA]")
 # distribution of phase relative to the design particle.
 # ------------------------------------------------------------------------------
 # Create mask using the desired percent deviation in energy
-mask = (final_E >= dsgn_E[-1] * (1 - fraction_Edev)) & (
-    (final_E <= dsgn_E[-1] * (1 + fraction_Edev))
+mask_E = (dsgn_initE >= dsgn_E[0] * (1 - fraction_Edev)) & (
+    (final_E <= dsgn_initE * (1 + fraction_Edev))
 )
+mask_t = (init_time >= dsgn_time[0] * (1 - fraction_tdev)) & (
+    (final_t <= dsgn_time[-1] * (1 + fraction_tdev))
+)
+mask = mask_E
 bucket_E = final_E[mask]
 bucket_time = final_t[mask]
 
@@ -659,6 +677,8 @@ plt.show()
 # ------------------------------------------------------------------------------
 print("")
 print("#----- Bucket Characteristics ")
+print("Fractional energy selection: {fraction_Edev/keV:.2f} [keV]")
+print("Fractional time selection: {fraction_tdev:.2e} [s]")
 print(f"Percent Energy Deviation Selection: {fraction_Edev*100:.0f}%")
 print(f"Particles in Bucket: {percent_parts:.0f}%")
 print(
