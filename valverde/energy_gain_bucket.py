@@ -184,7 +184,6 @@ for i in range(Ng):
     E_s += dsgn_Egain
 
 gap_centers = np.array(gap_dist).cumsum()
-
 # ------------------------------------------------------------------------------
 #    Mesh setup
 # Here the mesh is created with some mesh design values.
@@ -274,10 +273,14 @@ if l_use_Warp_field:
         Nz = len(z)
         Ez0 = Ez0_patched
 # ------------------------------------------------------------------------------
-#    Particle Histories
+#    Particle Histories and Diagnostics
 # The particle arrays are created here for the particle advancement. The design
 # particle is the only particle with the history saved. The rest of the particle
 # arrays are created and updated at each step.
+# Diagnostics are placed at each gap, three diagnostics for gap: the entrance,
+# gap center, and exit are all locations where the particle energy and time is
+# recorded. Lastly, there are separate diagnostics placed at the midpoint between
+# successive gaps where the Hamiltonian is computed.
 # TODO:
 #    - Add option to select particles to track and record history.
 # ------------------------------------------------------------------------------
@@ -338,13 +341,28 @@ t_sdiagnostic[0] = dsgn_time[0]
 Ediagnostic[:, 0] = parts_E
 tdiagnostic[:, 0] = parts_time
 Iavg = SC.e * Np / (parts_time[-1] - parts_time[0])
+
+# Create Hamiltonianian diagnostics
+z_Hdiagnostic = np.zeros(Ng)
+for i in range(1, Ng):
+    z_Hdiagnostic[i - 1] = (gap_centers[i - 1] + gap_centers[i]) / 2
+z_Hdiagnostic[-1] = (gap_centers[-1] + z.max()) / 2
+
+i_Hdiagnostic = np.zeros(len(z_Hdiagnostic), dtype=int)
+for i, zloc in enumerate(z_Hdiagnostic):
+    ind = np.argmin(abs(z - z_Hdiagnostic[i]))
+    i_Hdiagnostic[i] = ind
+
 # ------------------------------------------------------------------------------
 #    Particle Advancement
 # Particles are initialized to times corresponding to z=0. The advancement is
 # then done evaluated the energy gain using the field value and mesh spacing dz.
+# TODO:
+#    Calculate Hamiltonian and tag particles in bucket.
 # ------------------------------------------------------------------------------
 # Main loop to advance particles. Real parameter settings should be used here.
 idiagn_count = 1
+H_idiagn_count = 0
 for i in range(1, len(z)):
 
     # Do design particle
@@ -378,6 +396,10 @@ for i in range(1, len(z)):
         transmission_diagnostic[idiagn_count] = np.sum(mask)
 
         idiagn_count += 1
+
+    # Check Hamiltonian diagnostic point
+    if i == i_Hdiagnostic[H_idiagn_count]:
+        pass
 
 
 # Convert nan values to 0
