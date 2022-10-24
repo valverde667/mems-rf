@@ -37,6 +37,8 @@ wp.setup()
 #     Functions
 # This section is dedicated to creating useful functions for the script.
 # ------------------------------------------------------------------------------
+
+
 def getindex(mesh, value, spacing):
     """Find index in mesh for or mesh-value closest to specified value
 
@@ -460,19 +462,17 @@ def create_filled_gap(
     return gap
 
 
-def uniform_particle_load(E, Np, f=13.6 * MHz, zcent=0.0 * mm, mass=Ar_mass):
-    """Uniform load particles around zcent with uniform energy"""
+def uniform_particle_load(E, Np, zcent=0.0 * mm, zl=0.0, zr=0.0, mass=Ar_mass):
+    """Uniform load particles around zcent with uniform energy
 
-    # Calculate RF-wavelength
-    lambda_rf = beta(E, mass=mass) * SC.c / 2 / f
+    A uniform particle load centered around zcent that extents to zcent - zl and
+    zcent + zr."""
 
     # Calculate z-velocities
     vz = np.sqrt(2 * E / mass) * SC.c
 
     # Create position array
-    zmin = zcent - lambda_rf / 2
-    zmax = zcent + lambda_rf / 2
-    z = np.linspace(zmin, zmax, Np)
+    z = np.linspace(zcent - zl, zcent + zr, Np)
 
     return z, vz
 
@@ -497,7 +497,8 @@ gap_width = 2.0 * mm
 zcenter = abs(0.0 - gap_width / 2.0)
 f = 13.06 * MHz
 Ng = 2
-Np = int(1e6)
+Np = int(1e4)
+Ntrack = int(1e1)
 Vg = 5.0 * kV
 Vgset = Vg
 E_DC = Vg / gap_width
@@ -547,16 +548,16 @@ wp.w3d.ny = 100
 
 # use gap positioning to find limits on zmesh. Add some spacing at end points.
 # Use enough zpoint to resolve the wafers. In this case, resolve with 2 points.
-wp.w3d.zmmin = -rf_wave / 2
+wp.w3d.zmmin = -16 * mm
 wp.w3d.zmmax = gap_centers[-1] + fcup_dist
 
 # Set resolution to be 20um giving 35 points to resolve plates and 100 pts in gap
-wp.w3d.nz = round((wp.w3d.zmmax - wp.w3d.zmmin) / 100 / um)
+wp.w3d.nz = round((wp.w3d.zmmax - wp.w3d.zmmin) / 50 / um)
 dz = (wp.w3d.zmmax - wp.w3d.zmmin) / wp.w3d.nz
 
 # Create particle characteristics. Particles need to be loaded later if using
 # addparticles attribute
-zload, vzload = uniform_particle_load(Einit, int(1e6))
+zload, vzload = uniform_particle_load(Einit, Np, zcent=0.0, zl=rf_wave, zr=0.0)
 beam = wp.Species(type=wp.Argon, charge_state=+1, name="Argon Beam")
 beam.ekin = 7.0 * keV
 wp.derivqty()
@@ -568,6 +569,10 @@ wp.top.dt = 0.7 * dz / beam.vbeam
 wp.w3d.bound0 = wp.dirichlet
 wp.w3d.boundnz = wp.dirichlet
 wp.w3d.boundxy = wp.periodic
+
+# Add particle boundary conditions
+wp.top.pbound0 = wp.absorb
+wp.top.pboundnz = wp.absorb
 
 
 l_lzc = gap_centers[0] - gap_width / 2 - length / 2
@@ -587,11 +592,11 @@ wp.registersolver(solver)
 
 # # Refine mesh in z
 # childs = []
-# for i,zc in enumerate(gap_centers):
+# for i, zc in enumerate(gap_centers):
 #     this_child = solver.addchild(
-#     mins=[wp.w3d.xmmin, wp.w3d.ymmin, zc - gap_width / 2],
-#     maxs=[0.01*mm, 0.01*mm, zc + gap_width / 2],
-#     refinement=[2, 2, 2],
+#         mins=[wp.w3d.xmmin, wp.w3d.ymmin, zc - gap_width / 2],
+#         maxs=[0.01*mm, 0.01*mm, zc + gap_width / 2],
+#         refinement=[1, 1, 2],
 #     )
 #     childs.append(this_child)
 
@@ -666,7 +671,7 @@ diagnostic = wp.Box(
     ysize=wp.top.largepos,
     zsize=3.0 * dz,
     voltage=0,
-    zcent=20 * mm,
+    zcent=18 * mm,
     xcent=0.0,
     ycent=0.0,
 )
@@ -708,9 +713,9 @@ tracked_ions = wp.Species(type=wp.Argon, charge_state=+1, name="Tracer")
 tracker = TraceParticle(
     js=tracked_ions.js, x=0.0, y=0.0, z=0.0, vx=0.0, vy=0.0, vz=beam.vbeam,
 )
-# Recalculate fields. This call gets the particles to be advanced with the applied
-# fields.
-wp.step(600)
+
+wp.step(1000)
+
 E = Ar_mass * 0.5 * pow(tracker.getvz() / SC.c, 2)
 Ebeam = Ar_mass * 0.5 * pow(beam.getvz(lost=1) / SC.c, 2)
 
@@ -724,9 +729,9 @@ yc_ind = xc_ind
 
 Ez0 = wp.getselfe(comp="z")[0, 0, :]
 phi0 = wp.getphi()[0, 0, :]
+final_dsgn_E = Ar_mass * 0.5 * pow(tracker.getvz()[-1] / SC.c, 2)
 
 # Print out Beam energy and plot tracker particles energy along mesh.
-print(f"Final Energies for particles [keV]:", Ebeam / keV)
 fig, ax = plt.subplots()
 ax.plot(tracker.getz() / mm, E / keV)
 ax.set_ylim(0, 20)
@@ -734,10 +739,10 @@ ax.set_xlim(wp.w3d.zmmin / mm, wp.w3d.zmmax / mm)
 ax.axhline(y=17, c="r", ls="--", lw=1, label="Theoretical Max")
 for i, cent in enumerate(gap_centers):
     ax.axvline(x=cent / mm, c="k", ls="--", lw=0.7)
-ax2 = ax.twinx()
-ax2.plot(wp.w3d.zmesh / mm, Ez0 / E_DC)
+
 ax.set_xlabel("Postition z [mm]")
 ax.set_ylabel("Kinetic Energy [keV]")
+ax.set_title(f"Energy Evolution of Design Particle {final_dsgn_E/keV:.2f}[keV]:")
 ax.legend()
 plt.show()
 
@@ -749,6 +754,23 @@ np.save("zmesh", z)
 np.save("xmesh", x)
 np.save("ymesh", y)
 
+# Plot final energy distribution of particles that made it to diagnostic
+final_E = Ar_mass * 0.5 * pow(beam.getvz(lost=1) / SC.c, 2)
+Ecounts, Eedges = np.histogram(final_E, bins=100)
+
+fig, ax = plt.subplots()
+ax.bar(
+    Eedges[:-1] / keV,
+    Ecounts[:] / Np,
+    width=np.diff(Eedges[:] / keV),
+    edgecolor="black",
+    lw="1",
+)
+ax.set_title("Final Energy Distribution")
+ax.set_xlabel(r"Energy [keV]")
+ax.set_ylabel(r"Fraction of Total Particles")
+plt.show()
+stop
 # load arrays
 # Ez0_arrays = np.load('field_arrays.npy')
 # phi0_arrays = np.load('potential_arrays.npy')
@@ -831,44 +853,3 @@ if warpplots:
     # Plot potential in xy
     wp.pfxy(iz=int(wp.w3d.nz / 2), fill=1, filled=1)
     wp.fma()
-
-potential = [wp.getphi()[xc_ind, yc_ind, :].copy()]
-Ez_array = [wp.getselfe(comp="z")[xc_ind, yc_ind, :].copy()]
-while wp.top.it < steps:
-    potential.append(wp.getphi()[xc_ind, yc_ind, :].copy())
-    print(np.max(abs(wp.getphi()[xc_ind, yc_ind, :].copy())))
-    Ez_array.append(wp.getselfe(comp="z")[xc_ind, yc_ind, :].copy())
-    wp.step()
-    wp.pfzx(fill=1, filled=1)
-    wp.fma()
-    wp.pfzy(fill=1, filled=1)
-    wp.fma()
-
-fig, ax = plt.subplots()
-for i, phi in enumerate(potential):
-    ax.plot(z / mm, phi / Vgset, label=f"Time: {i*wp.top.dt/1e-9:.4f}ns")
-
-ax.legend()
-plt.show()
-stop
-for i in range(steps):
-    Ez = wp.getselfe(comp="z")[0, 0, :]
-    Ez_array[i, :] = Ez
-    time[i] = wp.top.time
-    wp.step()
-
-np.save("Ez_gap_field_151", Ez_array)
-np.save("zmesh", z)
-np.save(f"time_{steps}", time)
-
-fig, ax = plt.subplots()
-ax.axhline(y=1, c="r", lw=1, label="Average DC Field")
-ax.plot(
-    z / mm, Ez_array[0, :] / E_DC, c="k", label=f"Time: {time_array[0]/ns:.2f} [ns]"
-)
-ax.set_xlabel("z [mm]")
-ax.set_ylabel(rf"On-axis Electric field $E_z(r=0, z,t)/E_{{dc}}$ [kV/mm]")
-ax.axvline(x=-zcenter / mm, c="gray", lw=1)
-ax.axvline(x=zcenter / mm, c="gray", lw=1)
-ax.legend()
-plt.show()
