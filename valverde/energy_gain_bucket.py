@@ -103,6 +103,52 @@ def calc_dipole_deflection(voltage, energy, length=50 * mm, g=11 * mm, drift=185
     return deflection
 
 
+def calc_Hamiltonian(W_s, phi_s, W, phi, f, V, g=2 * mm, m=Ar_mass, T=1):
+    """Calculate the Hamiltonian.
+
+    The non-linear Hamiltonian is dependent on the energy E, RF-frequency f,
+    gap voltage V, gap width g, ion mass m and transit time factor T.
+
+    Parameters
+    ----------
+    W_s : float
+        Synchronous kinetic energy
+    phi_s : float
+        Synchronous phase
+    W : float or array
+        Kinetic energy for particles.
+    phi : float or array
+        phase of particles
+    f : float
+        Frequency of RF gaps.
+    V : float
+        Voltage applied on RF gaps.
+    g : float
+        Width of acceleration gap.
+    m : float
+        Ion mass.
+    T : float
+        Transit time factor.
+
+    Returns
+    -------
+    H : float or array
+        Hamiltonian values.
+
+    """
+
+    bs = beta(W_s, mass=m)
+    hrf = SC.c / f
+    A = twopi / hrf / pow(bs, 3)
+    B = V * T / g / m
+
+    term1 = 0.5 * A * pow((W - W_s) / m, 2)
+    term2 = B * (np.sin(phi) - phi * np.cos(phi_s))
+    H = term1 + term2
+
+    return H
+
+
 # ------------------------------------------------------------------------------
 #     Simulation Parameters
 # This section is dedicated to naming and initializing design parameters that are
