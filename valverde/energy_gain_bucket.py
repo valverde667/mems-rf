@@ -398,7 +398,8 @@ i_Hdiagnostic = np.zeros(len(z_Hdiagnostic), dtype=int)
 for i, zloc in enumerate(z_Hdiagnostic):
     ind = np.argmin(abs(z - z_Hdiagnostic[i]))
     i_Hdiagnostic[i] = ind
-
+Hdiagnostic = np.zeros(shape=(Np, Ng))
+H_sdiagnostic = np.zeros(Ng)
 # ------------------------------------------------------------------------------
 #    Particle Advancement
 # Particles are initialized to times corresponding to z=0. The advancement is
@@ -408,7 +409,7 @@ for i, zloc in enumerate(z_Hdiagnostic):
 # ------------------------------------------------------------------------------
 # Main loop to advance particles. Real parameter settings should be used here.
 idiagn_count = 1
-H_idiagn_count = 0
+i_Hdiagn_count = 0
 for i in range(1, len(z)):
 
     # Do design particle
@@ -444,8 +445,26 @@ for i in range(1, len(z)):
         idiagn_count += 1
 
     # Check Hamiltonian diagnostic point
-    if i == i_Hdiagnostic[H_idiagn_count]:
-        pass
+    if i <= i_Hdiagnostic[-1]:
+        if i == i_Hdiagnostic[i_Hdiagn_count]:
+            Hdiagnostic[:, i_Hdiagn_count] = calc_Hamiltonian(
+                dsgn_E[i],
+                twopi * dsgn_freq * dsgn_time[i],
+                parts_E,
+                twopi * dsgn_freq * parts_time[i],
+                dsgn_freq,
+                dsgn_gap_volt,
+            )
+            H_sdiagnostic[i_Hdiagn_count] = calc_Hamiltonian(
+                dsgn_E[i],
+                twopi * dsgn_freq * dsgn_time[i],
+                dsgn_E[i],
+                twopi * dsgn_freq * dsgn_time[i],
+                dsgn_freq,
+                dsgn_gap_volt,
+            )
+
+            i_Hdiagn_count += 1
 
 
 # Convert nan values to 0
