@@ -14,6 +14,7 @@ import matplotlib.animation as animation
 from matplotlib.animation import FuncAnimation
 import scipy.constants as SC
 import scipy.integrate as integrate
+import scipy.optimize as opt
 import os
 import pdb
 
@@ -147,6 +148,18 @@ def calc_Hamiltonian(W_s, phi_s, W, phi, f, V, g=2 * mm, m=Ar_mass, T=1):
     H = term1 + term2
 
     return H
+
+
+def calc_root_H(phi, phi_s=-np.pi / 2):
+    """"Function for finding the 0-root for the Hamiltonian.
+
+    The non-linear Hamiltonian has roots at phi=phi_s and phi_2.
+
+    """
+    term1 = np.sin(phi) + np.sin(phi_s)
+    term2 = -np.cos(phi_s) * (phi - phi_s)
+
+    return term1 + term2
 
 
 # ------------------------------------------------------------------------------
@@ -400,6 +413,7 @@ for i, zloc in enumerate(z_Hdiagnostic):
     i_Hdiagnostic[i] = ind
 Hdiagnostic = np.zeros(shape=(Np, Ng))
 H_sdiagnostic = np.zeros(Ng)
+
 # ------------------------------------------------------------------------------
 #    Particle Advancement
 # Particles are initialized to times corresponding to z=0. The advancement is
