@@ -172,7 +172,7 @@ def calc_root_H(phi, phi_s=-np.pi / 2):
 # Simulation Parameters for design particle
 dsgn_phase = -np.pi / 2
 dsgn_initE = 7 * kV
-Np = int(1e4)
+Np = int(1e5)
 
 # Simulation parameters for gaps and geometries
 Ng = 4
@@ -199,8 +199,8 @@ h_rf = beta(dsgn_initE, mass=Ar_mass) * SC.c / dsgn_freq
 dsgn_omega = twopi * dsgn_freq
 
 # Fractions to mask particles in order to create a bucket for analysis.
-fraction_Edev = 0.20
-fraction_tdev = 0.20
+fraction_Edev = 0.05
+fraction_tdev = 0.05
 
 # ------------------------------------------------------------------------------
 #     Logical Flags
@@ -209,7 +209,7 @@ fraction_tdev = 0.20
 l_use_flattop_field = False
 l_use_Warp_field = True
 l_plot_diagnostics = True
-l_plot_bucket_diagnostics = False
+l_plot_bucket_diagnostics = True
 l_save_all_plots_pdf = True
 l_plot_lattice = True
 l_plot_RMS = True
@@ -226,7 +226,7 @@ plots_filename = "all-diagnostics.pdf"
 # be used. The first gap is always placed such that the design particle will
 # arrive at the desired phase when starting at z=0 with energy W.
 phi_s = np.ones(Ng) * dsgn_phase
-phi_s[1:] = np.linspace(-np.pi / 3, -np.pi / 8, Ng - 1)
+phi_s[1:] = np.array([-np.pi / 3, -np.pi / 4, -np.pi / 6])
 
 gap_dist = np.zeros(Ng)
 E_s = dsgn_initE
@@ -366,8 +366,8 @@ parts_time = np.zeros(Np)
 # Initialize particles be distributed around the synchronous particle's phase
 phi_dev_plus = np.pi - dsgn_phase
 phi_dev_minus = abs(-np.pi - dsgn_phase)
-init_time = np.linspace(dsgn_phase - phi_dev_minus, dsgn_phase + phi_dev_plus, Np)
-init_time = init_time / twopi / dsgn_freq
+init_phase = np.linspace(dsgn_phase - phi_dev_minus, dsgn_phase + phi_dev_plus, Np)
+init_time = init_phase / twopi / dsgn_freq
 
 parts_pos[:] = z.min()
 parts_time[:] = init_time
@@ -375,9 +375,7 @@ parts_time[:] = init_time
 # Create diagnostic locations.
 zdiagnostics = [z.min()]
 for loc in gap_centers:
-    zdiagnostics.append(loc - gap_width / 2.0)
     zdiagnostics.append(loc)
-    zdiagnostics.append(loc + gap_width / 2.0)
 zdiagnostics.append(z.max())
 zdiagnostics = np.array(zdiagnostics)
 
@@ -539,10 +537,9 @@ if l_plot_diagnostics:
         ax1.hist2d(
             np.modf((phase_diagnostic[:, i] - phase_sdiagnostic[i]) / np.pi)[0],
             (Ediagnostic[:, i] - E_sdiagnostic[i]) / keV,
-            bins=[100, 100],
+            bins=[50, 50],
             cmin=0.01,
         )
-        plt.tight_layout()
 
         # Plot the energy distribution at diagnostic
         Ecounts, Eedges = np.histogram(Ediagnostic[:, i], bins=100)
@@ -598,8 +595,8 @@ print(f"Number of Gaps: {int(Ng)}")
 print(f"Number of grid points: {len(z)}")
 print(f"Grid spacing: {dz:.4e} [m]")
 print(f"Grid spacing in gap: {z_iso[1] - z_iso[0]:.4e} [m]")
-print(f"Fcup Distance (from final plate): {Fcup_dist/mm:.2f} [mm]")
 print(f"Steps in Gap: {int(np.floor(gap_width/(z_iso[1]-z_iso[0])))}")
+print(f"Fcup Distance (from final plate): {Fcup_dist/mm:.2f} [mm]")
 print(f"Gap Centers: {np.array2string(gap_centers/cm, precision=4)} [cm]")
 print(f"Gap Distances:{np.array2string(np.diff(gap_centers/cm), precision=4)} [cm]")
 print(f"Gap Voltage: {dsgn_gap_volt/kV:.2f} [kV]")
@@ -607,7 +604,7 @@ print(f"RF Frequency: {dsgn_freq/MHz:.2f} [MHz]")
 print(f"Sync Phi:{np.array2string(phi_s*180/np.pi,precision=3)} [deg]")
 print(f"Injection Energy: {dsgn_E[0]/keV:.2f} [keV]")
 print(f"Final Design Energy: {dsgn_E[-1]/keV:.2f} [keV]")
-print(f"Gain per Gap: {(dsgn_E[-1]-dsgn_initE)/keV/Ng:.2f} [keV]")
+print(f"Average Gain per Gap: {(dsgn_E[-1]-dsgn_initE)/keV/Ng:.2f} [keV]")
 print(f"Average Current: {Iavg/mA:.4e} [mA]")
 
 # ------------------------------------------------------------------------------
@@ -625,6 +622,12 @@ mask_E = (dsgn_initE >= dsgn_E[0] * (1 - fraction_Edev)) & (
 mask_t = (init_time >= dsgn_time[0] * (1 - fraction_tdev)) & (
     (final_t <= dsgn_time[-1] * (1 + fraction_tdev))
 )
+# Use Hamiltonian to find phase-width and idenitfy bucket
+phi2 = np.zeros(Ng)
+for i in range(len(phi_s)):
+    root = opt.root(calc_root_H, -0.75 * np.pi, args=phi_s[i])
+    phi2[i] = root.x
+
 mask = mask_E
 bucket_E = final_E[mask]
 bucket_time = final_t[mask]
@@ -661,7 +664,7 @@ if l_plot_bucket_diagnostics:
         ax1.hist2d(
             np.modf((phase_diagnostic[mask, i] - phase_sdiagnostic[i]) / np.pi)[0],
             (Ediagnostic[mask, i] - E_sdiagnostic[i]) / keV,
-            bins=[100, 100],
+            bins=[50, 50],
             cmin=0.01,
         )
         plt.tight_layout()
@@ -730,37 +733,47 @@ rms_bucket_E = np.mean(Ediagnostic[mask, :], axis=0)
 rms_bucket_t = np.mean(tdiagnostic[mask, :], axis=0)
 if l_plot_RMS:
     fig = plt.figure(tight_layout=True, figsize=(8, 10))
-    gs = gridspec.GridSpec(2, 1)
+    gs = gridspec.GridSpec(2, 2)
     ax1 = fig.add_subplot(gs[0, 0])
-    ax2 = fig.add_subplot(gs[1, 0], sharex=ax1)
+    axx1 = fig.add_subplot(gs[0, 1])
+    ax2 = fig.add_subplot(gs[1, 0])
+    axx2 = fig.add_subplot(gs[1, 1])
 
-    ax1.set_title("RMS Energy and Time at Diagnostic")
-    axx1 = ax1.twinx()
+    ax1.set_title("RMS Beam Energy \n at Diagnostic Locations")
     ax1.set_xlabel("z[mm]")
-    ax1.set_ylabel("RMS Energy [keV]")
-    axx1.set_ylabel(r"RMS Time [$\mu$s]")
-    axx1.yaxis.label.set_color("blue")
+    ax1.set_ylabel("RMS Beam Energy [keV]")
+
+    axx1.set_title("RMS Beam Time \n at Diagnostic Locations")
+    axx1.set_ylabel(r"RMS Beam Time [$\mu$s]")
+    axx1.set_xlabel("z[mm]")
+    ax1.yaxis.grid(True)
+    axx1.yaxis.grid(True)
 
     # Plot gap centers
     for cent in gap_centers:
         ax1.axvline(cent / mm, c="grey", lw=1, ls="--")
+        axx1.axvline(cent / mm, c="grey", lw=1, ls="--")
 
-    ax1.plot(zdiagnostics / mm, rms_E / keV, c="k", label="RMS Energy")
-    axx1.plot(zdiagnostics / mm, rms_t / us, c="b", ls="--", label="RMS Time")
+    ax1.scatter(zdiagnostics / mm, rms_E / keV, label="RMS Energy")
+    axx1.scatter(zdiagnostics / mm, rms_t / us, label="RMS Time")
 
-    ax2.set_title("Bucket RMS Energy and Time at Diagnostic")
-    axx2 = ax2.twinx()
+    ax2.set_title("Bucket RMS Beam Energy \n at Diagnostic Locations")
     ax2.set_xlabel("z[mm]")
-    ax2.set_ylabel("RMS Energy [keV]")
-    axx2.set_ylabel(r"RMS Time [$\mu$s]")
-    axx2.yaxis.label.set_color("blue")
+    ax2.set_ylabel("RMS Beam Energy [keV]")
+
+    axx2.set_title("Bucket RMS Beam Time \n at Diagnostic Locations")
+    axx2.set_ylabel(r"RMS Beam Time [$\mu$s]")
+    axx2.set_xlabel("z[mm]")
+    ax2.yaxis.grid(True)
+    axx2.yaxis.grid(True)
 
     # Plot gap centers
     for cent in gap_centers:
         ax2.axvline(cent / mm, c="grey", lw=1, ls="--")
+        axx2.axvline(cent / mm, c="grey", lw=1, ls="--")
 
-    ax2.plot(zdiagnostics / mm, rms_bucket_E / keV, c="k", label="RMS Energy")
-    axx2.plot(zdiagnostics / mm, rms_bucket_t / us, c="b", ls="--", label="RMS Time")
+    ax2.scatter(zdiagnostics / mm, rms_bucket_E / keV, label="RMS Energy")
+    axx2.scatter(zdiagnostics / mm, rms_bucket_t / us, label="RMS Time")
     plt.tight_layout()
 
 
