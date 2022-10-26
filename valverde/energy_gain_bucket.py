@@ -209,7 +209,7 @@ fraction_tdev = 0.05
 l_use_flattop_field = False
 l_use_Warp_field = True
 l_plot_diagnostics = True
-l_plot_bucket_diagnostics = True
+l_plot_bucket_diagnostics = False
 l_save_all_plots_pdf = True
 l_plot_lattice = True
 l_plot_RMS = True
@@ -534,12 +534,13 @@ if l_plot_diagnostics:
         ax1.set_ylabel(
             rf"Energy Deviation $\Delta W$[keV]", fontsize="x-large",
         )
-        ax1.hist2d(
+        h = ax1.hist2d(
             np.modf((phase_diagnostic[:, i] - phase_sdiagnostic[i]) / np.pi)[0],
             (Ediagnostic[:, i] - E_sdiagnostic[i]) / keV,
             bins=[50, 50],
             cmin=0.01,
         )
+        fig.colorbar(h[3], ax=ax1)
 
         # Plot the energy distribution at diagnostic
         Ecounts, Eedges = np.histogram(Ediagnostic[:, i], bins=100)
@@ -661,12 +662,13 @@ if l_plot_bucket_diagnostics:
         ax1.set_ylabel(
             rf"Energy Deviation $\Delta W$[keV]", fontsize="x-large",
         )
-        ax1.hist2d(
+        h = ax1.hist2d(
             np.modf((phase_diagnostic[mask, i] - phase_sdiagnostic[i]) / np.pi)[0],
             (Ediagnostic[mask, i] - E_sdiagnostic[i]) / keV,
             bins=[50, 50],
             cmin=0.01,
         )
+        fig.colorbar(h[3], ax=ax1)
         plt.tight_layout()
 
         # Plot the energy distribution at diagnostic
