@@ -108,5 +108,5 @@ ax.set_ylabel("Electric Field")
 plt.show()
 
 # Save isolated field and mesh
-np.save("Ez_isolated_7kV_2mm_20um", Ez_iso)
-np.save("z_isolated_7kV_2mm_20um", z_iso)
+np.save("Ez_isolated_5kV_2mm_10um", Ez_iso)
+np.save("z_isolated_5kV_2mm_10um", z_iso)
