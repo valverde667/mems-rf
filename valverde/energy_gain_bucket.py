@@ -41,7 +41,6 @@ ns = 1e-9  # nanoseconds
 mA = 1e-3
 uA = 1e-6
 twopi = 2 * np.pi
-Vscale = 1.0901  # Scaling factor to get desired Electric field and potential
 
 # ------------------------------------------------------------------------------
 #     Functions
@@ -178,7 +177,7 @@ Np = int(1e5)
 # Simulation parameters for gaps and geometries
 Ng = 4
 gap_width = 2.0 * mm
-dsgn_gap_volt = 5.0 * kV * Vscale
+dsgn_gap_volt = 5.0 * kV
 real_gap_volt = dsgn_gap_volt
 dsgn_freq = 13.06 * MHz
 real_freq = dsgn_freq
@@ -289,6 +288,10 @@ if l_use_Warp_field:
     # load isolated field
     z_iso = np.load("z_isolated_5kV_2mm_10um.npy")
     Ez_iso = np.load("Ez_isolated_5kV_2mm_10um.npy")
+
+    # Compute the scale factor in case the voltage setting is changed
+    scale = real_gap_volt / gap_width / Ez_iso.max()
+    Ez_iso *= scale
 
     # Find extent of field
     Ez_extent = z_iso[-1] - z_iso[0]
