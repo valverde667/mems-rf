@@ -41,6 +41,7 @@ ns = 1e-9  # nanoseconds
 mA = 1e-3
 uA = 1e-6
 twopi = 2 * np.pi
+Vscale = 1.0901  # Scaling factor to get desired Electric field and potential
 
 # ------------------------------------------------------------------------------
 #     Functions
@@ -177,7 +178,7 @@ Np = int(1e5)
 # Simulation parameters for gaps and geometries
 Ng = 4
 gap_width = 2.0 * mm
-dsgn_gap_volt = 5.0 * kV
+dsgn_gap_volt = 5.0 * kV * Vscale
 real_gap_volt = dsgn_gap_volt
 dsgn_freq = 13.06 * MHz
 real_freq = dsgn_freq
