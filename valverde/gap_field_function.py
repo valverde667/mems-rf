@@ -31,6 +31,7 @@ um = 1e-6
 ns = 1e-9  # nanoseconds
 uA = 1e-6
 twopi = 2 * np.pi
+Vscale = 1.0901  # Scale factor to get desired voltage max on field.
 
 wp.setup()
 # ------------------------------------------------------------------------------
@@ -499,7 +500,7 @@ f = 13.06 * MHz
 Ng = 2
 Np = int(1e4)
 Ntrack = int(1e1)
-Vg = 5.0 * kV
+Vg = 5.0 * kV * Vscale
 Vgset = Vg
 E_DC = Vg / gap_width
 dsgn_phase = -0.0 * np.pi
@@ -552,7 +553,7 @@ wp.w3d.zmmin = -16 * mm
 wp.w3d.zmmax = gap_centers[-1] + fcup_dist
 
 # Set resolution to be 20um giving 35 points to resolve plates and 100 pts in gap
-wp.w3d.nz = round((wp.w3d.zmmax - wp.w3d.zmmin) / 50 / um)
+wp.w3d.nz = round((wp.w3d.zmmax - wp.w3d.zmmin) / 10 / um)
 dz = (wp.w3d.zmmax - wp.w3d.zmmin) / wp.w3d.nz
 
 # Create particle characteristics. Particles need to be loaded later if using
