@@ -175,7 +175,7 @@ dsgn_initE = 7 * kV
 Np = int(1e5)
 
 # Simulation parameters for gaps and geometries
-Ng = 4
+Ng = 8
 gap_width = 2.0 * mm
 dsgn_gap_volt = 5.0 * kV
 real_gap_volt = dsgn_gap_volt
@@ -183,6 +183,7 @@ dsgn_freq = 13.06 * MHz
 real_freq = dsgn_freq
 E_DC = real_gap_volt / gap_width
 h_rf = beta(dsgn_initE, mass=Ar_mass) * SC.c / dsgn_freq
+T_rf = 1.0 / dsgn_freq
 
 # Energy analyzer parameters
 Fcup_dist = 10 * mm
@@ -209,7 +210,7 @@ fraction_tdev = 0.05
 l_use_flattop_field = False
 l_use_Warp_field = True
 l_plot_diagnostics = True
-l_plot_bucket_diagnostics = False
+l_plot_bucket_diagnostics = True
 l_save_all_plots_pdf = True
 l_plot_lattice = True
 l_plot_RMS = True
@@ -226,7 +227,7 @@ plots_filename = "all-diagnostics.pdf"
 # be used. The first gap is always placed such that the design particle will
 # arrive at the desired phase when starting at z=0 with energy W.
 phi_s = np.ones(Ng) * dsgn_phase
-phi_s[1:] = np.array([-np.pi / 3, -np.pi / 4, -np.pi / 6])
+phi_s[2:] = np.linspace(-np.pi / 3, -np.pi / 2000, Ng - 2)
 
 gap_dist = np.zeros(Ng)
 E_s = dsgn_initE
@@ -371,7 +372,7 @@ parts_time = np.zeros(Np)
 phi_dev_plus = np.pi - dsgn_phase
 phi_dev_minus = abs(-np.pi - dsgn_phase)
 init_phase = np.linspace(dsgn_phase - phi_dev_minus, dsgn_phase + phi_dev_plus, Np)
-init_time = init_phase / twopi / dsgn_freq
+init_time = np.linspace(-T_rf / 2.0, T_rf / 2, Np)
 
 parts_pos[:] = z.min()
 parts_time[:] = init_time
@@ -620,20 +621,18 @@ print(f"Average Current: {Iavg/mA:.4e} [mA]")
 # show the distribution of the energy relative to the design particle and
 # distribution of phase relative to the design particle.
 # ------------------------------------------------------------------------------
-# Create mask using the desired percent deviation in energy
-mask_E = (dsgn_initE >= dsgn_E[0] * (1 - fraction_Edev)) & (
-    (final_E <= dsgn_initE * (1 + fraction_Edev))
-)
-mask_t = (init_time >= dsgn_time[0] * (1 - fraction_tdev)) & (
-    (final_t <= dsgn_time[-1] * (1 + fraction_tdev))
-)
-# Use Hamiltonian to find phase-width and idenitfy bucket
+# Create mask for computing statistics. The negative energy particles are ignored
+# when computing both the total beam statistics and the bucket statistics.
 phi2 = np.zeros(Ng)
 for i in range(len(phi_s)):
     root = opt.root(calc_root_H, -0.75 * np.pi, args=phi_s[i])
     phi2[i] = root.x
 
-mask = mask_E
+maskE = final_E < 0
+final_dt = final_t - dsgn_time[-1]
+mask = (final_dt / dsgn_time[-1] >= -fraction_tdev) & (
+    final_dt / dsgn_time[-1] <= fraction_tdev
+)
 bucket_E = final_E[mask]
 bucket_time = final_t[mask]
 
@@ -676,7 +675,7 @@ if l_plot_bucket_diagnostics:
         plt.tight_layout()
 
         # Plot the energy distribution at diagnostic
-        Ecounts, Eedges = np.histogram(Ediagnostic[mask, i], bins=100)
+        Ecounts, Eedges = np.histogram(Ediagnostic[mask, i], bins=50)
         ax2.set_title(
             f"Longitudinal Bucket Energy Distribution \n z={zloc/mm:.2f}[mm] ",
             fontsize="x-large",
@@ -692,10 +691,7 @@ if l_plot_bucket_diagnostics:
         ax2.set_ylabel(r"Fraction of Particles", fontsize="x-large")
         plt.tight_layout()
 
-        # Plot the time distribution at diagnostic
-        tcounts, tedges = np.histogram(
-            tdiagnostic[mask, i] - t_sdiagnostic[i], bins=100
-        )
+        tcounts, tedges = np.histogram(tdiagnostic[mask, i] - t_sdiagnostic[i], bins=50)
         ax3.bar(
             tedges[:-1] / us,
             tcounts / Np,
@@ -732,11 +728,23 @@ ax.axhline(
 )
 ax.legend()
 
-# Plot RMS values for each diagnostic
-rms_E = np.mean(Ediagnostic, axis=0)
-rms_t = np.mean(tdiagnostic, axis=0)
-rms_bucket_E = np.mean(Ediagnostic[mask, :], axis=0)
-rms_bucket_t = np.mean(tdiagnostic[mask, :], axis=0)
+# Calculate and plot mean RMS spread for energy and time
+rms_E = np.zeros(zdiagnostics.shape[-1])
+rms_t = np.zeros(zdiagnostics.shape[-1])
+rms_bucket_E = np.zeros(zdiagnostics.shape[-1])
+rms_bucket_t = np.zeros(zdiagnostics.shape[-1])
+
+for i in range(zdiagnostics.shape[-1]):
+    ts = dsgn_time[idiagnostic[i]]
+    Es = dsgn_E[idiagnostic[i]]
+    t = tdiagnostic[:, i]
+    E = Ediagnostic[:, i]
+
+    rms_E[i] = np.mean(np.sqrt(pow(E - Es, 2)))
+    rms_t[i] = np.mean(np.sqrt(pow(t - ts, 2)))
+    rms_bucket_E[i] = np.mean(np.sqrt(pow(E[mask] - Es, 2)))
+    rms_bucket_t[i] = np.mean(np.sqrt(pow(t[mask] - ts, 2)))
+
 if l_plot_RMS:
     fig = plt.figure(tight_layout=True, figsize=(8, 10))
     gs = gridspec.GridSpec(2, 2)
@@ -745,12 +753,12 @@ if l_plot_RMS:
     ax2 = fig.add_subplot(gs[1, 0])
     axx2 = fig.add_subplot(gs[1, 1])
 
-    ax1.set_title("RMS Beam Energy \n at Diagnostic Locations")
+    ax1.set_title("RMS Energy Spread \n at Diagnostic Locations")
     ax1.set_xlabel("z[mm]")
-    ax1.set_ylabel("RMS Beam Energy [keV]")
+    ax1.set_ylabel(r"$(\Delta E)_{rms}$ [keV]")
 
-    axx1.set_title("RMS Beam Time \n at Diagnostic Locations")
-    axx1.set_ylabel(r"RMS Beam Time [$\mu$s]")
+    axx1.set_title("RMS Time Spread \n at Diagnostic Locations")
+    axx1.set_ylabel(r"$(\Delta t)_{rms}$ [$\mu$s]")
     axx1.set_xlabel("z[mm]")
     ax1.yaxis.grid(True)
     axx1.yaxis.grid(True)
@@ -765,10 +773,10 @@ if l_plot_RMS:
 
     ax2.set_title("Bucket RMS Beam Energy \n at Diagnostic Locations")
     ax2.set_xlabel("z[mm]")
-    ax2.set_ylabel("RMS Beam Energy [keV]")
+    ax1.set_ylabel(r"$(\Delta E)_{rms}$ [keV]")
 
     axx2.set_title("Bucket RMS Beam Time \n at Diagnostic Locations")
-    axx2.set_ylabel(r"RMS Beam Time [$\mu$s]")
+    axx1.set_ylabel(r"$(\Delta t)_{rms}$ [$\mu$s]")
     axx2.set_xlabel("z[mm]")
     ax2.yaxis.grid(True)
     axx2.yaxis.grid(True)
@@ -802,5 +810,5 @@ print("Fractional time selection: {fraction_tdev:.2e} [s]")
 print(f"Percent Energy Deviation Selection: {fraction_Edev*100:.0f}%")
 print(f"Particles in Bucket: {percent_parts:.0f}%")
 print(
-    f"Average Current: {np.sum(d_bucket_Ecounts)*SC.e/(d_bucket_tedges[-1] - d_bucket_tedges[0])/mA:.4e}[mA] "
+    f"Fractional Current I/I0: {(np.sum(d_bucket_Ecounts)*SC.e/(d_bucket_tedges[-1] - d_bucket_tedges[0]))/Iavg:.4f} "
 )
