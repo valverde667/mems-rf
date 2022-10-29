@@ -794,8 +794,9 @@ emit_bucket = np.zeros(zdiagnostics.shape[-1])
 
 for i in range(zdiagnostics.shape[-1]):
     # Calculate and plot mean RMS spread for energy and time
-    ts = dsgn_time[idiagnostic[i]]
-    Es = dsgn_E[idiagnostic[i]]
+    ind = idiagnostic[i]
+    ts = dsgn_time[ind]
+    Es = dsgn_E[ind]
     t = tdiagnostic[:, i]
     E = Ediagnostic[:, i]
 
@@ -806,7 +807,7 @@ for i in range(zdiagnostics.shape[-1]):
     rms_bucket_t[i] = np.mean(np.sqrt(pow(t[mask] - ts, 2)))
 
     # Calculate RMS emittance
-    emit[i] = calc_emittance(Ediagnostic[maskE] - Es, tdiagnostic[maskE])
+    emit[i] = calc_emittance(E[maskE] - Es, t[maskE])
     emit_bucket[i] = calc_emittance(E[mask] - Es, t[mask])
 
 
