@@ -18,6 +18,8 @@ import scipy.optimize as opt
 import os
 import pdb
 
+import warp as wp
+
 mpl.rcParams["xtick.direction"] = "in"
 mpl.rcParams["xtick.minor.visible"] = True
 mpl.rcParams["ytick.direction"] = "in"
@@ -29,11 +31,7 @@ mpl.rcParams["figure.max_open_warning"] = 60
 
 # different particle masses in eV
 # amu in eV
-amu = SC.physical_constants["atomic mass constant energy equivalent in MeV"][0] * 1e6
-
-Ar_mass = 39.948 * amu
-He_mass = 4 * amu
-p_mass = amu
+amu_to_eV = wp.amu * pow(SC.c, 2) / wp.echarge
 kV = 1000
 keV = 1000
 MHz = 1e6
@@ -82,7 +80,7 @@ def getindex(mesh, value, spacing):
     return index
 
 
-def beta(E, mass=Ar_mass, q=1, nonrel=True):
+def beta(E, mass, q=1, nonrel=True):
     """Velocity of a particle with energy E."""
     if nonrel:
         sign = np.sign(E)
@@ -108,7 +106,7 @@ def calc_dipole_deflection(voltage, energy, length=50 * mm, g=11 * mm, drift=185
     return deflection
 
 
-def calc_Hamiltonian(W_s, phi_s, W, phi, f, V, g=2 * mm, m=Ar_mass, T=1):
+def calc_Hamiltonian(W_s, phi_s, W, phi, f, V, m, g=2 * mm, T=1):
     """Calculate the Hamiltonian.
 
     The non-linear Hamiltonian is dependent on the energy E, RF-frequency f,
@@ -182,20 +180,24 @@ def calc_emittance(x, y):
 # thus, if varied here are varied everywhere. In addition, some useful values
 # such as the average DC electric field and initial RF wavelength are computed.
 # ------------------------------------------------------------------------------
+# Designate particle type
+ion = wp.Species(type=wp.Argon, charge_state=+1)
+mass = ion.mass * pow(SC.c, 2) / wp.echarge
+
 # Simulation Parameters for design particle
 dsgn_phase = -np.pi / 2
 dsgn_initE = 7 * kV
 Np = int(1e5)
 
 # Simulation parameters for gaps and geometries
-Ng = 12
+Ng = 4
 gap_width = 2.0 * mm
 dsgn_gap_volt = 5.0 * kV
 real_gap_volt = dsgn_gap_volt
 dsgn_freq = 13.06 * MHz
 real_freq = dsgn_freq
 E_DC = real_gap_volt / gap_width
-h_rf = beta(dsgn_initE, mass=Ar_mass) * SC.c / dsgn_freq
+h_rf = beta(dsgn_initE, mass=mass) * SC.c / dsgn_freq
 T_rf = 1.0 / dsgn_freq
 
 # Energy analyzer parameters
@@ -209,7 +211,7 @@ slit_center = 37 * mm
 
 # Compute useful values
 E_DC = real_gap_volt / gap_width
-h_rf = beta(dsgn_initE, mass=Ar_mass) * SC.c / dsgn_freq
+h_rf = beta(dsgn_initE, mass=mass) * SC.c / dsgn_freq
 dsgn_omega = twopi * dsgn_freq
 
 # Fractions to mask particles in order to create a bucket for analysis.
@@ -246,8 +248,8 @@ phi_s[1:] = np.linspace(-np.pi / 3, -np.pi / 2000, Ng - 1)
 gap_dist = np.zeros(Ng)
 E_s = dsgn_initE
 for i in range(Ng):
-    this_beta = beta(E_s, mass=Ar_mass)
-    this_cent = beta(E_s) * SC.c / 2 / dsgn_freq
+    this_beta = beta(E_s, mass)
+    this_cent = this_beta * SC.c / 2 / dsgn_freq
     cent_offset = (phi_s[i] - phi_s[i - 1]) * this_beta * SC.c / dsgn_freq / twopi
     if i < 1:
         gap_dist[i] = (phi_s[i] + np.pi) * this_beta * SC.c / twopi / dsgn_freq
@@ -371,7 +373,7 @@ dsgn_time = np.zeros(Nz)
 
 dsgn_pos[0] = z.min()
 dsgn_E[0] = dsgn_initE
-dsgn_time[0] = z.min() / beta(dsgn_E[0]) / SC.c
+dsgn_time[0] = z.min() / beta(dsgn_E[0], mass) / SC.c
 
 # Create particle arrays to store histories
 parts_pos = np.zeros(Np)
@@ -446,7 +448,7 @@ for i in range(1, len(z)):
 
     # Do design particle
     this_dz = z[i] - z[i - 1]
-    this_vs = beta(dsgn_E[i - 1]) * SC.c
+    this_vs = beta(dsgn_E[i - 1], mass) * SC.c
     this_dt = this_dz / this_vs
     dsgn_time[i] = dsgn_time[i - 1] + this_dt
 
@@ -458,7 +460,7 @@ for i in range(1, len(z)):
 
     # Do other particles
     mask = parts_E > 0
-    this_v = beta(parts_E[mask]) * SC.c
+    this_v = beta(parts_E[mask], mass) * SC.c
     this_dt = this_dz / this_v
     parts_time[mask] += this_dt
 
@@ -486,6 +488,7 @@ for i in range(1, len(z)):
                 twopi * dsgn_freq * parts_time,
                 dsgn_freq,
                 dsgn_gap_volt,
+                mass,
             )
             H_sdiagnostic[i_Hdiagn_count] = calc_Hamiltonian(
                 dsgn_E[i],
@@ -494,6 +497,7 @@ for i in range(1, len(z)):
                 twopi * dsgn_freq * dsgn_time[i],
                 dsgn_freq,
                 dsgn_gap_volt,
+                mass,
             )
 
             i_Hdiagn_count += 1
@@ -622,6 +626,8 @@ if l_plot_diagnostics:
 # ------------------------------------------------------------------------------
 print("")
 print("#----- Simulation Parameters")
+print(f"{'Injection Energy:':<30} {dsgn_E[0]/keV:.2f} [keV]")
+print(f"{'Initial Energy Spread:':<30} {E_dev/keV:.3f} [keV]")
 print(f"{'Number of Gaps':<30} {int(Ng)}")
 print(f"{'Number of grid points:':<30} {len(z)}")
 print(f"{'Grid spacing:':<30} {dz:>.4e} [m]")
@@ -638,8 +644,6 @@ print(f"{'Gap Width:':<30} {gap_width/mm:.2f} [mm]")
 print(f"{'RF Frequency:':<30} {dsgn_freq/MHz:.2f} [MHz]")
 print(f"{'RF Wavelength:':<30} {SC.c/dsgn_freq:.2f} [m]")
 print(f"{'Sync Phi:':<30} {np.array2string(phi_s*180/np.pi,precision=3)} [deg]")
-print(f"{'Injection Energy:':<30} {dsgn_E[0]/keV:.2f} [keV]")
-print(f"{'Initial Energy Spread:':<30} {E_dev/keV:.3f} [keV]")
 print(f"{'Final Design Energy:':<30} {dsgn_E[-1]/keV:.2f} [keV]")
 print(f"{'Average Gain per Gap:':<30} {(dsgn_E[-1]-dsgn_initE)/keV/Ng:.2f} [keV]")
 print(f"{'Injected Average Current Iavg:':<30} {Iavg/mA:.4e} [mA]")
