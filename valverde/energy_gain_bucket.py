@@ -22,6 +22,8 @@ import warp as wp
 
 mpl.rcParams["xtick.direction"] = "in"
 mpl.rcParams["xtick.minor.visible"] = True
+mpl.rcParams["xtick.top"] = True
+mpl.rcParams["xtick.minor.top"] = True
 mpl.rcParams["ytick.direction"] = "in"
 mpl.rcParams["ytick.minor.visible"] = True
 mpl.rcParams["ytick.right"] = True
@@ -625,14 +627,16 @@ if l_plot_diagnostics:
 # Print some of the system parameters being used.
 # ------------------------------------------------------------------------------
 print("")
-print("#----- Simulation Parameters")
+print("#----- Injected Beam")
+print(f"{'Ion:':<30} {ion.type.name}")
+print(f"{'Number of Particles:':<30} {Np:.0e}")
 print(f"{'Injection Energy:':<30} {dsgn_E[0]/keV:.2f} [keV]")
 print(f"{'Initial Energy Spread:':<30} {E_dev/keV:.3f} [keV]")
+print(f"{'Injected Average Current Iavg:':<30} {Iavg/mA:.4e} [mA]")
+print(f"{'Predicted Final Design Energy:':<30} {dsgn_E[-1]/keV:.2f} [keV]")
+
+print("#----- Acceleration Lattice")
 print(f"{'Number of Gaps':<30} {int(Ng)}")
-print(f"{'Number of grid points:':<30} {len(z)}")
-print(f"{'Grid spacing:':<30} {dz:>.4e} [m]")
-print(f"{'Grid spacing in gap:':<30} {z_iso[1] - z_iso[0]:.4e} [m]")
-print(f"{'Steps in Gap:':<30} {int(np.floor(gap_width/(z_iso[1]-z_iso[0])))}")
 print(f"{'Fcup Distance (from final plate):':<30} {Fcup_dist/mm:.2f} [mm]")
 print(f"{'Gap Centers:':<30} {np.array2string(gap_centers/cm, precision=4)} [cm]")
 print(
@@ -644,9 +648,15 @@ print(f"{'Gap Width:':<30} {gap_width/mm:.2f} [mm]")
 print(f"{'RF Frequency:':<30} {dsgn_freq/MHz:.2f} [MHz]")
 print(f"{'RF Wavelength:':<30} {SC.c/dsgn_freq:.2f} [m]")
 print(f"{'Sync Phi:':<30} {np.array2string(phi_s*180/np.pi,precision=3)} [deg]")
-print(f"{'Final Design Energy:':<30} {dsgn_E[-1]/keV:.2f} [keV]")
-print(f"{'Average Gain per Gap:':<30} {(dsgn_E[-1]-dsgn_initE)/keV/Ng:.2f} [keV]")
-print(f"{'Injected Average Current Iavg:':<30} {Iavg/mA:.4e} [mA]")
+print(f"{'Average Gain per Gap:':<30} {dsgn_E[-1]/keV/Ng:.2f} [keV]")
+
+print("#----- Numerical Parameters")
+print(f"{'Number of grid points:':<30} {len(z)}")
+print(f"{'Grid spacing:':<30} {dz:>.4e} [m]")
+print(f"{'Grid spacing in gap:':<30} {z_iso[1] - z_iso[0]:.4e} [m]")
+print(
+    f"{'Number of gridp points in gap:':<30} {int(np.floor(gap_width/(z_iso[1]-z_iso[0])))}"
+)
 
 # ------------------------------------------------------------------------------
 #    Bucket Analysis
@@ -922,7 +932,7 @@ plt.show()
 # ------------------------------------------------------------------------------
 print("")
 print("#----- Bucket Characteristics ")
-print(f"{'Fractional time selection:':<30} {fraction_tdev:.2e}")
+print(f"{'Fractional time selection:':<30} +/-{fraction_tdev:.2e}")
 print(f"{'Percent Energy Deviation Selection:':<30} {fraction_Edev*100:.0f}%")
 print(f"{'Particles in Bucket:':<30} {percent_parts:.0f}%")
 print(
