@@ -22,6 +22,10 @@ mpl.rcParams["xtick.direction"] = "in"
 mpl.rcParams["xtick.minor.visible"] = True
 mpl.rcParams["ytick.direction"] = "in"
 mpl.rcParams["ytick.minor.visible"] = True
+mpl.rcParams["ytick.right"] = True
+mpl.rcParams["ytick.major.right"] = True
+mpl.rcParams["ytick.minor.right"] = True
+mpl.rcParams["figure.max_open_warning"] = 60
 
 # different particle masses in eV
 # amu in eV
@@ -162,6 +166,15 @@ def calc_root_H(phi, phi_s=-np.pi / 2):
     return term1 + term2
 
 
+def calc_emittance(x, y):
+    """Calculate the RMS emittance for x,y"""
+    term1 = np.mean(pow(x, 2)) * np.mean(pow(y, 2))
+    term2 = pow(np.mean(x * y), 2)
+    emit = np.sqrt(term1 - term2)
+
+    return emit
+
+
 # ------------------------------------------------------------------------------
 #     Simulation Parameters
 # This section is dedicated to naming and initializing design parameters that are
@@ -175,7 +188,7 @@ dsgn_initE = 7 * kV
 Np = int(1e5)
 
 # Simulation parameters for gaps and geometries
-Ng = 8
+Ng = 12
 gap_width = 2.0 * mm
 dsgn_gap_volt = 5.0 * kV
 real_gap_volt = dsgn_gap_volt
@@ -214,6 +227,7 @@ l_plot_bucket_diagnostics = True
 l_save_all_plots_pdf = True
 l_plot_lattice = True
 l_plot_RMS = True
+l_plot_emit = True
 plots_filename = "all-diagnostics.pdf"
 
 # ------------------------------------------------------------------------------
@@ -227,7 +241,7 @@ plots_filename = "all-diagnostics.pdf"
 # be used. The first gap is always placed such that the design particle will
 # arrive at the desired phase when starting at z=0 with energy W.
 phi_s = np.ones(Ng) * dsgn_phase
-phi_s[2:] = np.linspace(-np.pi / 3, -np.pi / 2000, Ng - 2)
+phi_s[1:] = np.linspace(-np.pi / 3, -np.pi / 2000, Ng - 1)
 
 gap_dist = np.zeros(Ng)
 E_s = dsgn_initE
@@ -371,8 +385,9 @@ parts_time = np.zeros(Np)
 # Initialize particles be distributed around the synchronous particle's phase
 phi_dev_plus = np.pi - dsgn_phase
 phi_dev_minus = abs(-np.pi - dsgn_phase)
+E_dev = 0.0 * keV
 init_phase = np.linspace(dsgn_phase - phi_dev_minus, dsgn_phase + phi_dev_plus, Np)
-init_time = np.linspace(-T_rf / 2.0, T_rf / 2, Np)
+init_time = np.linspace(-T_rf / 2.0, T_rf / 2.0, Np)
 
 parts_pos[:] = z.min()
 parts_time[:] = init_time
@@ -522,6 +537,14 @@ if l_plot_lattice:
     ax.legend()
     plt.tight_layout()
 
+    fig, ax = plt.subplots()
+    ax.yaxis.grid(True)
+    ax.set_title("Synchronous Phase at Gap")
+    ax.set_xlabel(r"$N_g$")
+    ax.set_ylabel(r"$\phi_s$ [deg]")
+    ax.scatter([i + 1 for i in range(Ng)], phi_s / np.pi * 180)
+    plt.tight_layout()
+
 # Plot the phase-space, energy and time distributions
 if l_plot_diagnostics:
     for i, zloc in enumerate(zdiagnostics):
@@ -533,7 +556,8 @@ if l_plot_diagnostics:
         ax3 = fig.add_subplot(gs[1, 1])
 
         ax1.set_title(
-            f"Longitudinal Phase-Space \n z={zloc/mm:.2f}[mm]", fontsize="x-large"
+            f"Full Distribution: Longitudinal Phase-Space \n z={zloc/mm:.2f}[mm]",
+            fontsize="x-large",
         )
         ax1.set_xlabel(r"Phase Deviation $\Delta \phi / \pi$", fontsize="x-large")
         ax1.set_ylabel(
@@ -550,7 +574,7 @@ if l_plot_diagnostics:
         # Plot the energy distribution at diagnostic
         Ecounts, Eedges = np.histogram(Ediagnostic[:, i], bins=100)
         ax2.set_title(
-            f"Longitudinal Energy Distibution \n z={zloc/mm:.2f}[mm]",
+            f"Full Distribution: Longitudinal Energy Distibution \n z={zloc/mm:.2f}[mm]",
             fontsize="x-large",
         )
         ax2.bar(
@@ -577,16 +601,17 @@ if l_plot_diagnostics:
         # Plot the time distribution at diagnostic
         tcounts, tedges = np.histogram(tdiagnostic[:, i] - t_sdiagnostic[i], bins=100)
         ax3.bar(
-            tedges[:-1] / us,
+            tedges[:-1] / ns,
             tcounts / Np,
-            width=np.diff(tedges / us),
+            width=np.diff(tedges / ns),
             edgecolor="black",
             lw="1",
         )
         ax3.set_title(
-            f"Longitudinal Time Distibution \n z={zloc/mm:.2f}[mm]", fontsize="x-large",
+            f"Full Distribution: Longitudinal Time Distibution \n z={zloc/mm:.2f}[mm]",
+            fontsize="x-large",
         )
-        ax3.set_xlabel(r"$\Delta t$ [$\mu$s]", fontsize="x-large")
+        ax3.set_xlabel(r"$\Delta t$ [ns]", fontsize="x-large")
         ax3.set_ylabel(r"Fraction of Particles", fontsize="x-large")
         plt.tight_layout()
 
@@ -605,13 +630,17 @@ print(f"Steps in Gap: {int(np.floor(gap_width/(z_iso[1]-z_iso[0])))}")
 print(f"Fcup Distance (from final plate): {Fcup_dist/mm:.2f} [mm]")
 print(f"Gap Centers: {np.array2string(gap_centers/cm, precision=4)} [cm]")
 print(f"Gap Distances:{np.array2string(np.diff(gap_centers/cm), precision=4)} [cm]")
+print(f"System Length: {z.max()/cm:.3f} [cm]")
 print(f"Gap Voltage: {dsgn_gap_volt/kV:.2f} [kV]")
+print(f"Gap Width: {gap_width/mm:.2f} [mm]")
 print(f"RF Frequency: {dsgn_freq/MHz:.2f} [MHz]")
+print(f"RF Wavelength: {SC.c/dsgn_freq:.2f} [m]")
 print(f"Sync Phi:{np.array2string(phi_s*180/np.pi,precision=3)} [deg]")
 print(f"Injection Energy: {dsgn_E[0]/keV:.2f} [keV]")
+print(f"Initial Energy Spread: {E_dev/keV:.3f} [keV]")
 print(f"Final Design Energy: {dsgn_E[-1]/keV:.2f} [keV]")
 print(f"Average Gain per Gap: {(dsgn_E[-1]-dsgn_initE)/keV/Ng:.2f} [keV]")
-print(f"Average Current: {Iavg/mA:.4e} [mA]")
+print(f"Injected Average Current Iavg: {Iavg/mA:.4e} [mA]")
 
 # ------------------------------------------------------------------------------
 #    Bucket Analysis
@@ -628,11 +657,12 @@ for i in range(len(phi_s)):
     root = opt.root(calc_root_H, -0.75 * np.pi, args=phi_s[i])
     phi2[i] = root.x
 
-maskE = final_E < 0
+maskE = final_E > 0
 final_dt = final_t - dsgn_time[-1]
-mask = (final_dt / dsgn_time[-1] >= -fraction_tdev) & (
+maskt = (final_dt / dsgn_time[-1] >= -fraction_tdev) & (
     final_dt / dsgn_time[-1] <= fraction_tdev
 )
+mask = maskE & maskt
 bucket_E = final_E[mask]
 bucket_time = final_t[mask]
 
@@ -687,15 +717,24 @@ if l_plot_bucket_diagnostics:
             edgecolor="black",
             lw="1",
         )
+        ax2.text(
+            0.5,
+            0.99,
+            f"%Particles in Bucket %: {percent_parts:.2f}%",
+            horizontalalignment="center",
+            verticalalignment="top",
+            transform=ax2.transAxes,
+            bbox=dict(boxstyle="round", fc="lightgrey", ec="k", lw=1),
+        )
         ax2.set_xlabel(r"Energy [keV]", fontsize="x-large")
         ax2.set_ylabel(r"Fraction of Particles", fontsize="x-large")
         plt.tight_layout()
 
         tcounts, tedges = np.histogram(tdiagnostic[mask, i] - t_sdiagnostic[i], bins=50)
         ax3.bar(
-            tedges[:-1] / us,
+            tedges[:-1] / ns,
             tcounts / Np,
-            width=np.diff(tedges / us),
+            width=np.diff(tedges / ns),
             edgecolor="black",
             lw="1",
         )
@@ -703,14 +742,14 @@ if l_plot_bucket_diagnostics:
             f"Longitudinal Bucket Time Distribution \n z={zloc/mm:.2f}[mm]",
             fontsize="x-large",
         )
-        ax3.set_xlabel(r"$\Delta t$ [$\mu$s]", fontsize="x-large")
+        ax3.set_xlabel(r"$\Delta t$ [ns]", fontsize="x-large")
         ax3.set_ylabel(r"Fraction of Particles ", fontsize="x-large")
         plt.tight_layout()
 
 
 # Plot design particle energy gain
 fig, ax = plt.subplots()
-ax.set_title("Design Particle Energy Gain")
+ax.set_title("Design Particle Energy")
 ax.set_xlabel("z[mm]")
 ax.set_ylabel(r"$W_s$[keV]")
 ax.plot(dsgn_pos / mm, dsgn_E / keV)
@@ -728,37 +767,56 @@ ax.axhline(
 )
 ax.legend()
 
-# Calculate and plot mean RMS spread for energy and time
+# since these particles will throw off statistics.
 rms_E = np.zeros(zdiagnostics.shape[-1])
 rms_t = np.zeros(zdiagnostics.shape[-1])
 rms_bucket_E = np.zeros(zdiagnostics.shape[-1])
 rms_bucket_t = np.zeros(zdiagnostics.shape[-1])
 
+emit = np.zeros(zdiagnostics.shape[-1])
+emit_bucket = np.zeros(zdiagnostics.shape[-1])
+
 for i in range(zdiagnostics.shape[-1]):
+    # Calculate and plot mean RMS spread for energy and time
     ts = dsgn_time[idiagnostic[i]]
     Es = dsgn_E[idiagnostic[i]]
     t = tdiagnostic[:, i]
     E = Ediagnostic[:, i]
 
-    rms_E[i] = np.mean(np.sqrt(pow(E - Es, 2)))
-    rms_t[i] = np.mean(np.sqrt(pow(t - ts, 2)))
+    # Mask out E<0 particles since these will skew calculations.
+    rms_E[i] = np.mean(np.sqrt(pow(E[maskE] - Es, 2)))
+    rms_t[i] = np.mean(np.sqrt(pow(t[maskE] - ts, 2)))
     rms_bucket_E[i] = np.mean(np.sqrt(pow(E[mask] - Es, 2)))
     rms_bucket_t[i] = np.mean(np.sqrt(pow(t[mask] - ts, 2)))
 
+    # Calculate RMS emittance
+    emit[i] = calc_emittance(Ediagnostic[maskE] - Es, tdiagnostic[maskE])
+    emit_bucket[i] = calc_emittance(E[mask] - Es, t[mask])
+
+
 if l_plot_RMS:
-    fig = plt.figure(tight_layout=True, figsize=(8, 10))
+    fig = plt.figure(tight_layout=True, figsize=(8, 9))
     gs = gridspec.GridSpec(2, 2)
     ax1 = fig.add_subplot(gs[0, 0])
     axx1 = fig.add_subplot(gs[0, 1])
     ax2 = fig.add_subplot(gs[1, 0])
     axx2 = fig.add_subplot(gs[1, 1])
 
-    ax1.set_title("RMS Energy Spread \n at Diagnostic Locations")
+    ax1.set_title("RMS Energy Spread")
     ax1.set_xlabel("z[mm]")
     ax1.set_ylabel(r"$(\Delta E)_{rms}$ [keV]")
+    ax1.text(
+        0.5,
+        2.18,
+        f"Transmission %: {transmission_diagnostic[i]/Np*100:.2f}%",
+        horizontalalignment="center",
+        verticalalignment="top",
+        transform=ax2.transAxes,
+        bbox=dict(boxstyle="round", fc="lightgrey", ec="k", lw=1),
+    )
 
-    axx1.set_title("RMS Time Spread \n at Diagnostic Locations")
-    axx1.set_ylabel(r"$(\Delta t)_{rms}$ [$\mu$s]")
+    axx1.set_title("RMS Time Spread")
+    axx1.set_ylabel(r"$(\Delta t)_{rms}$ [ns]")
     axx1.set_xlabel("z[mm]")
     ax1.yaxis.grid(True)
     axx1.yaxis.grid(True)
@@ -769,14 +827,22 @@ if l_plot_RMS:
         axx1.axvline(cent / mm, c="grey", lw=1, ls="--")
 
     ax1.scatter(zdiagnostics / mm, rms_E / keV, label="RMS Energy")
-    axx1.scatter(zdiagnostics / mm, rms_t / us, label="RMS Time")
+    axx1.scatter(zdiagnostics / mm, rms_t / ns, label="RMS Time")
 
-    ax2.set_title("Bucket RMS Beam Energy \n at Diagnostic Locations")
+    ax2.set_title("Bucket RMS Beam Energy Spread")
     ax2.set_xlabel("z[mm]")
-    ax1.set_ylabel(r"$(\Delta E)_{rms}$ [keV]")
-
-    axx2.set_title("Bucket RMS Beam Time \n at Diagnostic Locations")
-    axx1.set_ylabel(r"$(\Delta t)_{rms}$ [$\mu$s]")
+    ax2.set_ylabel(r"$(\Delta E)_{rms}$ [keV]")
+    ax2.text(
+        0.5,
+        0.97,
+        f"% Particles in Bucket: {percent_parts:.2f}%",
+        horizontalalignment="center",
+        verticalalignment="top",
+        transform=ax2.transAxes,
+        bbox=dict(boxstyle="round", fc="lightgrey", ec="k", lw=1),
+    )
+    axx2.set_title("Bucket RMS Beam Time Spread")
+    axx2.set_ylabel(r"$(\Delta t)_{rms}$ [ns]")
     axx2.set_xlabel("z[mm]")
     ax2.yaxis.grid(True)
     axx2.yaxis.grid(True)
@@ -787,7 +853,51 @@ if l_plot_RMS:
         axx2.axvline(cent / mm, c="grey", lw=1, ls="--")
 
     ax2.scatter(zdiagnostics / mm, rms_bucket_E / keV, label="RMS Energy")
-    axx2.scatter(zdiagnostics / mm, rms_bucket_t / us, label="RMS Time")
+    axx2.scatter(zdiagnostics / mm, rms_bucket_t / ns, label="RMS Time")
+    plt.tight_layout()
+
+if l_plot_emit:
+    fig = plt.figure(tight_layout=True, figsize=(8, 9))
+    gs = gridspec.GridSpec(2, 1)
+    ax1 = fig.add_subplot(gs[0])
+    ax2 = fig.add_subplot(gs[1])
+
+    ax1.set_title("RMS Emittance")
+    ax1.set_xlabel("z[mm]")
+    ax1.set_ylabel(r"$\epsilon_{rms} = \sqrt{<\Delta E^2><t^2> - <\Delta E t>}$ [eV-s]")
+    ax1.text(
+        0.5,
+        2.18,
+        f"Transmission %: {transmission_diagnostic[i]/Np*100:.2f}%",
+        horizontalalignment="center",
+        verticalalignment="top",
+        transform=ax2.transAxes,
+        bbox=dict(boxstyle="round", fc="lightgrey", ec="k", lw=1),
+    )
+
+    ax2.set_title("RMS Bucket Emittance")
+    ax2.set_xlabel("z[mm]")
+    ax2.set_ylabel(r"$\epsilon_{rms} = \sqrt{<\Delta E^2><t^2> - <\Delta E t>}$ [eV-s]")
+    ax2.text(
+        0.5,
+        0.97,
+        f"% Particles in Bucket: {percent_parts:.2f}%",
+        horizontalalignment="center",
+        verticalalignment="top",
+        transform=ax2.transAxes,
+        bbox=dict(boxstyle="round", fc="lightgrey", ec="k", lw=1),
+    )
+    ax1.yaxis.grid(True)
+    ax2.yaxis.grid(True)
+
+    # Plot gap centers
+    for cent in gap_centers:
+        ax1.axvline(cent / mm, c="grey", lw=1, ls="--")
+        ax2.axvline(cent / mm, c="grey", lw=1, ls="--")
+
+    ax1.scatter(zdiagnostics / mm, emit)
+    ax2.scatter(zdiagnostics / mm, emit_bucket)
+
     plt.tight_layout()
 
 
@@ -799,16 +909,16 @@ if l_save_all_plots_pdf:
         fig.savefig(pp, format="pdf")
     pp.close()
 plt.show()
+
 # ------------------------------------------------------------------------------
 #    System Outputs for Bucket
 # Print some of the system parameters being used.
 # ------------------------------------------------------------------------------
 print("")
 print("#----- Bucket Characteristics ")
-print("Fractional energy selection: {fraction_Edev/keV:.2f} [keV]")
-print("Fractional time selection: {fraction_tdev:.2e} [s]")
+print(f"Fractional time selection: {fraction_tdev:.2e}")
 print(f"Percent Energy Deviation Selection: {fraction_Edev*100:.0f}%")
 print(f"Particles in Bucket: {percent_parts:.0f}%")
 print(
-    f"Fractional Current I/I0: {(np.sum(d_bucket_Ecounts)*SC.e/(d_bucket_tedges[-1] - d_bucket_tedges[0]))/Iavg:.4f} "
+    f"Fractional average current I/Iavg: {(np.sum(d_bucket_Ecounts)*SC.e/(d_bucket_tedges[-1] - d_bucket_tedges[0]))/Iavg:.4f} "
 )
