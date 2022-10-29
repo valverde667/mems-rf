@@ -483,7 +483,7 @@ for i in range(1, len(z)):
                 dsgn_E[i],
                 twopi * dsgn_freq * dsgn_time[i],
                 parts_E,
-                twopi * dsgn_freq * parts_time[i],
+                twopi * dsgn_freq * parts_time,
                 dsgn_freq,
                 dsgn_gap_volt,
             )
@@ -622,25 +622,27 @@ if l_plot_diagnostics:
 # ------------------------------------------------------------------------------
 print("")
 print("#----- Simulation Parameters")
-print(f"Number of Gaps: {int(Ng)}")
-print(f"Number of grid points: {len(z)}")
-print(f"Grid spacing: {dz:.4e} [m]")
-print(f"Grid spacing in gap: {z_iso[1] - z_iso[0]:.4e} [m]")
-print(f"Steps in Gap: {int(np.floor(gap_width/(z_iso[1]-z_iso[0])))}")
-print(f"Fcup Distance (from final plate): {Fcup_dist/mm:.2f} [mm]")
-print(f"Gap Centers: {np.array2string(gap_centers/cm, precision=4)} [cm]")
-print(f"Gap Distances:{np.array2string(np.diff(gap_centers/cm), precision=4)} [cm]")
-print(f"System Length: {z.max()/cm:.3f} [cm]")
-print(f"Gap Voltage: {dsgn_gap_volt/kV:.2f} [kV]")
-print(f"Gap Width: {gap_width/mm:.2f} [mm]")
-print(f"RF Frequency: {dsgn_freq/MHz:.2f} [MHz]")
-print(f"RF Wavelength: {SC.c/dsgn_freq:.2f} [m]")
-print(f"Sync Phi:{np.array2string(phi_s*180/np.pi,precision=3)} [deg]")
-print(f"Injection Energy: {dsgn_E[0]/keV:.2f} [keV]")
-print(f"Initial Energy Spread: {E_dev/keV:.3f} [keV]")
-print(f"Final Design Energy: {dsgn_E[-1]/keV:.2f} [keV]")
-print(f"Average Gain per Gap: {(dsgn_E[-1]-dsgn_initE)/keV/Ng:.2f} [keV]")
-print(f"Injected Average Current Iavg: {Iavg/mA:.4e} [mA]")
+print(f"{'Number of Gaps':<30} {int(Ng)}")
+print(f"{'Number of grid points:':<30} {len(z)}")
+print(f"{'Grid spacing:':<30} {dz:>.4e} [m]")
+print(f"{'Grid spacing in gap:':<30} {z_iso[1] - z_iso[0]:.4e} [m]")
+print(f"{'Steps in Gap:':<30} {int(np.floor(gap_width/(z_iso[1]-z_iso[0])))}")
+print(f"{'Fcup Distance (from final plate):':<30} {Fcup_dist/mm:.2f} [mm]")
+print(f"{'Gap Centers:':<30} {np.array2string(gap_centers/cm, precision=4)} [cm]")
+print(
+    f"{'Gap Distances:':<30} {np.array2string(np.diff(gap_centers/cm), precision=4)} [cm]"
+)
+print(f"{'System Length:':<30} {z.max()/cm:.3f} [cm]")
+print(f"{'Gap Voltage:':<30} {dsgn_gap_volt/kV:.2f} [kV]")
+print(f"{'Gap Width:':<30} {gap_width/mm:.2f} [mm]")
+print(f"{'RF Frequency:':<30} {dsgn_freq/MHz:.2f} [MHz]")
+print(f"{'RF Wavelength:':<30} {SC.c/dsgn_freq:.2f} [m]")
+print(f"{'Sync Phi:':<30} {np.array2string(phi_s*180/np.pi,precision=3)} [deg]")
+print(f"{'Injection Energy:':<30} {dsgn_E[0]/keV:.2f} [keV]")
+print(f"{'Initial Energy Spread:':<30} {E_dev/keV:.3f} [keV]")
+print(f"{'Final Design Energy:':<30} {dsgn_E[-1]/keV:.2f} [keV]")
+print(f"{'Average Gain per Gap:':<30} {(dsgn_E[-1]-dsgn_initE)/keV/Ng:.2f} [keV]")
+print(f"{'Injected Average Current Iavg:':<30} {Iavg/mA:.4e} [mA]")
 
 # ------------------------------------------------------------------------------
 #    Bucket Analysis
@@ -916,9 +918,9 @@ plt.show()
 # ------------------------------------------------------------------------------
 print("")
 print("#----- Bucket Characteristics ")
-print(f"Fractional time selection: {fraction_tdev:.2e}")
-print(f"Percent Energy Deviation Selection: {fraction_Edev*100:.0f}%")
-print(f"Particles in Bucket: {percent_parts:.0f}%")
+print(f"{'Fractional time selection:':<30} {fraction_tdev:.2e}")
+print(f"{'Percent Energy Deviation Selection:':<30} {fraction_Edev*100:.0f}%")
+print(f"{'Particles in Bucket:':<30} {percent_parts:.0f}%")
 print(
     f"Fractional average current I/Iavg: {(np.sum(d_bucket_Ecounts)*SC.e/(d_bucket_tedges[-1] - d_bucket_tedges[0]))/Iavg:.4f} "
 )
