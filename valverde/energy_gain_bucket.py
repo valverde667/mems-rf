@@ -245,7 +245,7 @@ plots_filename = "all-diagnostics.pdf"
 # be used. The first gap is always placed such that the design particle will
 # arrive at the desired phase when starting at z=0 with energy W.
 phi_s = np.ones(Ng) * dsgn_phase
-phi_s[1:] = np.linspace(-np.pi / 3, -np.pi / 2000, Ng - 1)
+phi_s[1:] = np.linspace(-np.pi / 3, -0.0, Ng - 1)
 
 gap_dist = np.zeros(Ng)
 E_s = dsgn_initE
