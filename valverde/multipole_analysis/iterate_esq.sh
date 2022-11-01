@@ -24,3 +24,9 @@
 #   do
 #     python conductor_fieldsolve.py --rod_fraction $x --scale_pole 1.145
 #   done
+
+# iterate Rod Voltage
+# for x in $(cat Vsets.txt);
+#   do
+#     python conductor_fieldsolve.py --voltage $x --rod_fraction 1.0
+#   done
