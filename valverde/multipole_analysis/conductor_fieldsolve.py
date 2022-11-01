@@ -32,6 +32,7 @@ warpoptions.parser.add_argument("--scale_length", default=False, type=float)
 # of 0 will place simulation box just before rod giving no rod. A fraction of 2
 # will place the chop at 2R giving the full rod.
 warpoptions.parser.add_argument("--rod_fraction", default=False, type=float)
+warpoptions.parser.add_argument("--voltage", default=False, type=float)
 inputs = warpoptions.parser.parse_args()
 if inputs.scale_pole != False:
     scale_pole_rad = inputs.scale_pole
@@ -49,6 +50,11 @@ else:
     # Full rod plus spacing between rod end and mesh limit
     rod_fraction = 2.5
 
+if inputs.voltage != False:
+    voltage = inputs.voltage
+else:
+    voltage = 100.0
+
 import warp as wp
 
 # Save string for convenience
@@ -61,6 +67,7 @@ um = 1e-6
 print(f"--Using Pole Scale Factor of {scale_pole_rad}")
 print(f"--Using ESQ Length Scale Factor of {scale_Lesq}")
 print(f"--Using Rod Fraction of {rod_fraction}")
+print(f"--Using Voltage {voltage/kV:.2f} [kV]")
 
 # ------------------------------------------------------------------------------
 #                     User Defined function
@@ -461,7 +468,6 @@ def interp2d_area(x_interp, y_interp, xmesh, ymesh, grid_data):
 #                     Create and load mesh and conductors
 # ------------------------------------------------------------------------------
 # Set paraemeeters for conductors
-voltage = 0.3 * kV
 separation = 0 * mm
 Nesq = 1
 
@@ -584,6 +590,7 @@ phi = wp.getphi()
 phixy = wp.getphi()[:, :, zcenterindex]
 Ex = wp.getselfe(comp="x")
 Ey = wp.getselfe(comp="y")
+Ez = wp.getselfe(comp="z")
 gradex = Ex[xzeroindex + 1, yzeroindex, :] / wp.w3d.dx
 
 make_effective_length_plots = False
@@ -753,6 +760,17 @@ if make_transField_plots:
     # plt.savefig("/Users/nickvalverde/Desktop/y_transfields.pdf", dpi=400)
     # plt.show()
 
+# Find max electric fields. To do this, the xy-plane for each grid point in z is
+# examined and the maximum field found for each component.
+maxEx, maxEy, maxEz = [], [], []
+maxE = []
+for i in range(Ez.shape[-1]):
+    ex, ey, ez = Ex[:, :, i], Ey[:, :, i], Ez[:, :, i]
+    Emag = np.sqrt(pow(ex, 2) + pow(ey, 2) + pow(ez, 2))
+    maxE.append(np.amax(Emag))
+    maxEx.append(np.amax(ex))
+    maxEy.append(np.amax(ey))
+    maxEz.append(np.amax(ez))
 
 # ------------------------------------------------------------------------------
 #                     Testing area for interpolation
@@ -923,7 +941,6 @@ norm = np.max(abs(Ancoeff_array) + abs(Bncoeff_array))
 nmax_index = np.argmax(abs(Ancoeff_array) + abs(Bncoeff_array))
 An_norm = np.max(abs(Ancoeff_array))
 Bn_norm = np.max(abs(Bncoeff_array))
-
 # Store data in a dataframe and append to csv file. If csv file already exists
 # the column headers are ignored. If not, the file is created with headers.
 filename = "multipole_data.csv"
@@ -936,6 +953,11 @@ df["L_esq/R_aper"] = scale_Lesq
 df["rod-fraction"] = rod_fraction
 df["separation[mm]"] = separation
 df["n-interp"] = interp_np
+df["voltage"] = voltage
+df["Ex-max"] = np.max(maxEx)
+df["Ey-max"] = np.max(maxEy)
+df["Ez-max"] = np.max(maxEz)
+df["E-max"] = np.max(maxE)
 for i in range(len(nterms)):
     # Loop through n-poles and create column header
     df[f"Norm A{i+1}"] = Ancoeff_array[i] / An_norm
@@ -956,7 +978,7 @@ with open(os.path.join(savepath, filename), "a") as f:
 print(f"--Scale Fraction {scale_pole_rad}")
 print(f"--Max order n = {nterms[nmax_index]}:")
 print("--Normalized-squared coefficients (A,B)")
-print(f"### Coeff. Values Squared Normalized by Maximum Coeff. ###")
+print("### Coeff. Values Squared Normalized by Maximum Coeff. ###")
 
 for i, n in enumerate(nterms):
     print(f"####  n={n}  ####")
