@@ -17,6 +17,7 @@ import scipy.integrate as integrate
 import scipy.optimize as opt
 import os
 import pdb
+import time
 
 import warp as wp
 
@@ -189,7 +190,7 @@ mass = ion.mass * pow(SC.c, 2) / wp.echarge
 # Simulation Parameters for design particle
 dsgn_phase = -np.pi / 2
 dsgn_initE = 7 * kV
-Np = int(1e5)
+Np = int(1e4)
 
 # Simulation parameters for gaps and geometries
 Ng = 4
@@ -217,7 +218,7 @@ h_rf = beta(dsgn_initE, mass=mass) * SC.c / dsgn_freq
 dsgn_omega = twopi * dsgn_freq
 
 # Fractions to mask particles in order to create a bucket for analysis.
-fraction_Edev = 0.05
+fraction_Edev = 0.00
 fraction_tdev = 0.05
 
 # ------------------------------------------------------------------------------
@@ -433,8 +434,11 @@ i_Hdiagnostic = np.zeros(len(z_Hdiagnostic), dtype=int)
 for i, zloc in enumerate(z_Hdiagnostic):
     ind = np.argmin(abs(z - z_Hdiagnostic[i]))
     i_Hdiagnostic[i] = ind
-Hdiagnostic = np.zeros(shape=(Np, Ng))
-H_sdiagnostic = np.zeros(Ng)
+H_tdiagnostic = np.zeros(shape=(Np, Ng))
+H_Ediagnostic = np.zeros(shape=(Np, Ng))
+
+H_Esdiagnostic = np.zeros(Ng)
+H_tsdiagnostic = np.zeros(Ng)
 
 # ------------------------------------------------------------------------------
 #    Particle Advancement
@@ -483,27 +487,13 @@ for i in range(1, len(z)):
     # Check Hamiltonian diagnostic point
     if i <= i_Hdiagnostic[-1]:
         if i == i_Hdiagnostic[i_Hdiagn_count]:
-            Hdiagnostic[:, i_Hdiagn_count] = calc_Hamiltonian(
-                dsgn_E[i],
-                twopi * dsgn_freq * dsgn_time[i],
-                parts_E,
-                twopi * dsgn_freq * parts_time,
-                dsgn_freq,
-                dsgn_gap_volt,
-                mass,
-            )
-            H_sdiagnostic[i_Hdiagn_count] = calc_Hamiltonian(
-                dsgn_E[i],
-                twopi * dsgn_freq * dsgn_time[i],
-                dsgn_E[i],
-                twopi * dsgn_freq * dsgn_time[i],
-                dsgn_freq,
-                dsgn_gap_volt,
-                mass,
-            )
+            # Grab data for diagnostic point in Energy and Time
+            H_Ediagnostic[:, i_Hdiagn_count] = parts_E
+            H_tdiagnostic[:, i_Hdiagn_count] = parts_time
+            H_Esdiagnostic[i_Hdiagn_count] = dsgn_E[i]
+            H_tsdiagnostic[i_Hdiagn_count] = dsgn_time[i]
 
             i_Hdiagn_count += 1
-
 
 # Convert nan values to 0
 final_E = np.nan_to_num(parts_E[:])
@@ -514,7 +504,6 @@ tdiagnostic = np.nan_to_num(tdiagnostic)
 
 phase_sdiagnostic = twopi * dsgn_freq * t_sdiagnostic
 phase_diagnostic = twopi * dsgn_freq * tdiagnostic
-
 # ------------------------------------------------------------------------------
 #    Diagnostic Plots
 # Plot phase space for each diagnostic location. The phase-space will be in terms
@@ -526,7 +515,7 @@ if l_plot_lattice:
     fig, ax = plt.subplots()
     ax.set_title("Accel. Lattice with Applied Field at t=0", fontsize="large")
     ax.set_xlabel("z [mm]", fontsize="large")
-    ax.set_ylabel(r"On-axis E-field $E(r=0, z)/E_{DC}$ [kV/mm]", fontsize="large")
+    ax.set_ylabel(r"$E(r=0, z)/E_{DC}$ [kV/mm]", fontsize="large")
     ax.plot(z / mm, Ez0 / E_DC)
     ax.axvline(gap_centers[0] / mm, c="grey", lw=1, ls="--", label="Gap Center")
     if Ng > 1:
@@ -554,6 +543,12 @@ if l_plot_lattice:
 # Plot the phase-space, energy and time distributions
 if l_plot_diagnostics:
     for i, zloc in enumerate(zdiagnostics):
+        # Grab energy and time
+        this_E = Ediagnostic[:, i]
+        this_t = tdiagnostic[:, i]
+        this_Es = E_sdiagnostic[i]
+        this_ts = t_sdiagnostic[i]
+
         # Plot phase space
         fig = plt.figure(tight_layout=True, figsize=(14, 12))
         gs = gridspec.GridSpec(2, 2)
@@ -565,20 +560,20 @@ if l_plot_diagnostics:
             f"Full Distribution: Longitudinal Phase-Space \n z={zloc/mm:.2f}[mm]",
             fontsize="x-large",
         )
-        ax1.set_xlabel(r"Phase Deviation $\Delta \phi / \pi$", fontsize="x-large")
+        ax1.set_xlabel(r"Time Deviation $\Delta t / \tau_{rf}$", fontsize="x-large")
         ax1.set_ylabel(
             rf"Energy Deviation $\Delta W$[keV]", fontsize="x-large",
         )
         h = ax1.hist2d(
-            np.modf((phase_diagnostic[:, i] - phase_sdiagnostic[i]) / np.pi)[0],
-            (Ediagnostic[:, i] - E_sdiagnostic[i]) / keV,
+            (this_t - this_ts) / T_rf,
+            (this_E - this_Es) / keV,
             bins=[50, 50],
             cmin=0.01,
         )
         fig.colorbar(h[3], ax=ax1)
 
         # Plot the energy distribution at diagnostic
-        Ecounts, Eedges = np.histogram(Ediagnostic[:, i], bins=100)
+        Ecounts, Eedges = np.histogram(this_E, bins=100)
         ax2.set_title(
             f"Full Distribution: Longitudinal Energy Distibution \n z={zloc/mm:.2f}[mm]",
             fontsize="x-large",
@@ -605,7 +600,7 @@ if l_plot_diagnostics:
         plt.tight_layout()
 
         # Plot the time distribution at diagnostic
-        tcounts, tedges = np.histogram(tdiagnostic[:, i] - t_sdiagnostic[i], bins=100)
+        tcounts, tedges = np.histogram(this_t - this_ts, bins=100)
         ax3.bar(
             tedges[:-1] / ns,
             tcounts / Np,
@@ -621,7 +616,70 @@ if l_plot_diagnostics:
         ax3.set_ylabel(r"Fraction of Particles", fontsize="x-large")
         plt.tight_layout()
 
+# Plot final diagnostic at Fcup
+fig = plt.figure(tight_layout=True, figsize=(14, 12))
+gs = gridspec.GridSpec(2, 2)
+ax1 = fig.add_subplot(gs[0, :])
+ax2 = fig.add_subplot(gs[1, 0])
+ax3 = fig.add_subplot(gs[1, 1])
 
+ax1.set_title(
+    f"Full Distribution: Longitudinal Phase-Space \n at Fcup", fontsize="x-large",
+)
+ax1.set_xlabel(r" $\Delta t / \tau_{rf}$", fontsize="x-large")
+ax1.set_ylabel(
+    rf"Energy Deviation $\Delta W$[keV]", fontsize="x-large",
+)
+h = ax1.hist2d(
+    (parts_time[mask] - dsgn_time[-1]) / T_rf,
+    (parts_E[mask] - dsgn_E[-1]) / keV,
+    bins=[50, 50],
+    cmin=0.01,
+)
+fig.colorbar(h[3], ax=ax1)
+
+# Plot the energy distribution at diagnostic
+Ecounts, Eedges = np.histogram(parts_E[mask], bins=100)
+ax2.set_title(
+    f"Full Distribution: Longitudinal Energy Distibution \n at Fcup",
+    fontsize="x-large",
+)
+ax2.bar(
+    Eedges[:-1] / keV,
+    Ecounts[:] / Np,
+    width=np.diff(Eedges[:] / keV),
+    edgecolor="black",
+    lw="1",
+)
+ax2.set_xlabel(r"Energy [keV]", fontsize="x-large")
+ax2.set_ylabel(r"Fraction of Particles", fontsize="x-large")
+ax2.text(
+    0.5,
+    0.99,
+    f"Transmission %: {transmission_diagnostic[i]/Np*100:.2f}%",
+    horizontalalignment="center",
+    verticalalignment="top",
+    transform=ax2.transAxes,
+    bbox=dict(boxstyle="round", fc="lightgrey", ec="k", lw=1),
+)
+
+plt.tight_layout()
+
+# Plot the time distribution at diagnostic
+tcounts, tedges = np.histogram(parts_time[mask] - dsgn_time[-1], bins=100)
+ax3.bar(
+    tedges[:-1] / ns,
+    tcounts / Np,
+    width=np.diff(tedges / ns),
+    edgecolor="black",
+    lw="1",
+)
+ax3.set_title(
+    f"Full Distribution: Longitudinal Time Distibution \n at Fcup ", fontsize="x-large",
+)
+ax3.set_xlabel(r"$\Delta t$ [ns]", fontsize="x-large")
+ax3.set_ylabel(r"Fraction of Particles", fontsize="x-large")
+plt.tight_layout()
 # ------------------------------------------------------------------------------
 #    System Outputs
 # Print some of the system parameters being used.
@@ -633,7 +691,7 @@ print(f"{'Number of Particles:':<30} {Np:.0e}")
 print(f"{'Injection Energy:':<30} {dsgn_E[0]/keV:.2f} [keV]")
 print(f"{'Initial Energy Spread:':<30} {E_dev/keV:.3f} [keV]")
 print(f"{'Injected Average Current Iavg:':<30} {Iavg/mA:.4e} [mA]")
-print(f"{'Predicted Final Design Energy:':<30} {dsgn_E[-1]/keV:.2f} [keV]")
+print(f"{'Predicted Final Design Energy:':<30} {E_s/keV:.2f} [keV]")
 
 print("#----- Acceleration Lattice")
 print(f"{'Number of Gaps':<30} {int(Ng)}")
@@ -673,12 +731,29 @@ for i in range(len(phi_s)):
     root = opt.root(calc_root_H, -0.75 * np.pi, args=phi_s[i])
     phi2[i] = root.x
 
+# Compute the time differentials for the two roots of the Hamiltonian. Select
+# particles based on these times.
+H_dt_list = []
+for i in range(Ng):
+    phi_neg = phi2[i]
+    phi_pos = -phi_s[i]
+    tneg = phi_neg / twopi / dsgn_freq
+    tpos = phi_pos / twopi / dsgn_freq
+    H_dt_list.append((tneg, tpos))
+
+# Mask particles based on the time differences found above.
+Hmasks = []
+for i, Hdt in enumerate(H_dt_list):
+    this_ts = H_tsdiagnostic[i]
+    this_t = H_tdiagnostic[:, i]
+    this_mask = (this_t >= Hdt[0] + this_ts) & (this_t <= Hdt[-1] + this_ts)
+    Hmasks.append(this_mask)
+
+
 maskE = final_E > 0
 final_dt = final_t - dsgn_time[-1]
-maskt = (final_dt / dsgn_time[-1] >= -fraction_tdev) & (
-    final_dt / dsgn_time[-1] <= fraction_tdev
-)
-mask = maskE & maskt
+maskt = abs(final_dt / dsgn_time[-1]) <= fraction_tdev
+mask = maskt & maskE
 bucket_E = final_E[mask]
 bucket_time = final_t[mask]
 
@@ -691,11 +766,16 @@ d_bucket_Ecounts, d_bucket_Eedges = np.histogram(d_bucket_E, bins=100)
 d_bucket_tcounts, d_bucket_tedges = np.histogram(d_bucket_t, bins=100)
 
 # Calculate percent of particles that in plot
-percent_parts = np.sum(d_bucket_Ecounts) / Np * 100
+percent_parts = np.sum(d_bucket_tcounts) / Np * 100
 
 # Repeat previous plots for the selected particles
 if l_plot_bucket_diagnostics:
     for i, zloc in enumerate(zdiagnostics):
+        # Grab energy and time
+        this_E = Ediagnostic[mask, i]
+        this_t = tdiagnostic[mask, i]
+        this_Es = E_sdiagnostic[i]
+        this_ts = t_sdiagnostic[i]
         # Plot phase space
         fig = plt.figure(tight_layout=True, figsize=(14, 12))
         gs = gridspec.GridSpec(2, 2)
@@ -704,16 +784,16 @@ if l_plot_bucket_diagnostics:
         ax3 = fig.add_subplot(gs[1, 1])
 
         ax1.set_title(
-            f"Longitudinal Bucket Phase-Space \n z={zloc/mm:.2f}[mm]",
+            f"Longitudinal Bucket Phase-Space Selection \n z={zloc/mm:.2f}[mm]",
             fontsize="x-large",
         )
-        ax1.set_xlabel(r"Phase Deviation $\Delta \phi / \pi$")
+        ax1.set_xlabel(r"Time Deviation $\Delta t / \tau_{rf}$")
         ax1.set_ylabel(
             rf"Energy Deviation $\Delta W$[keV]", fontsize="x-large",
         )
         h = ax1.hist2d(
-            np.modf((phase_diagnostic[mask, i] - phase_sdiagnostic[i]) / np.pi)[0],
-            (Ediagnostic[mask, i] - E_sdiagnostic[i]) / keV,
+            (this_t - this_ts) / T_rf,
+            (this_E - this_Es) / keV,
             bins=[50, 50],
             cmin=0.01,
         )
@@ -721,7 +801,7 @@ if l_plot_bucket_diagnostics:
         plt.tight_layout()
 
         # Plot the energy distribution at diagnostic
-        Ecounts, Eedges = np.histogram(Ediagnostic[mask, i], bins=50)
+        Ecounts, Eedges = np.histogram(this_E, bins=50)
         ax2.set_title(
             f"Longitudinal Bucket Energy Distribution \n z={zloc/mm:.2f}[mm] ",
             fontsize="x-large",
@@ -746,7 +826,7 @@ if l_plot_bucket_diagnostics:
         ax2.set_ylabel(r"Fraction of Particles", fontsize="x-large")
         plt.tight_layout()
 
-        tcounts, tedges = np.histogram(tdiagnostic[mask, i] - t_sdiagnostic[i], bins=50)
+        tcounts, tedges = np.histogram((this_t - this_ts), bins=50)
         ax3.bar(
             tedges[:-1] / ns,
             tcounts / Np,
@@ -933,6 +1013,7 @@ plt.show()
 # ------------------------------------------------------------------------------
 print("")
 print("#----- Bucket Characteristics ")
+print(f"{'Final Design Energy:':<30} {dsgn_E[-1]/keV:.3f} [keV]")
 print(f"{'Fractional time selection:':<30} +/-{fraction_tdev:.2e}")
 print(f"{'Percent Energy Deviation Selection:':<30} {fraction_Edev*100:.0f}%")
 print(f"{'Particles in Bucket:':<30} {percent_parts:.0f}%")
