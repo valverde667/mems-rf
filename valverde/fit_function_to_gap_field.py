@@ -3,9 +3,20 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import scipy.constants as SC
 import scipy.integrate as integrate
 
+mpl.rcParams["xtick.direction"] = "in"
+mpl.rcParams["xtick.minor.visible"] = True
+mpl.rcParams["xtick.top"] = True
+mpl.rcParams["xtick.minor.top"] = True
+mpl.rcParams["ytick.direction"] = "in"
+mpl.rcParams["ytick.minor.visible"] = True
+mpl.rcParams["ytick.right"] = True
+mpl.rcParams["ytick.major.right"] = True
+mpl.rcParams["ytick.minor.right"] = True
+mpl.rcParams["figure.max_open_warning"] = 60
 
 # Useful constants
 kV = 1000.0
