@@ -9,17 +9,20 @@ from scipy.special import jv
 import matplotlib.pyplot as plt
 import os
 import pdb
+import time
 
 import warp as wp
 from warp.utils.timedependentvoltage import TimeVoltage
 from warp.particles.singleparticle import TraceParticle
 
 
+st = time.time()
 # different particle masses in eV
 # amu in eV
 amu = SC.physical_constants["atomic mass constant energy equivalent in MeV"][0] * 1e6
 
 Ar_mass = 39.948 * amu
+mass = Ar_mass
 He_mass = 4 * amu
 p_mass = amu
 kV = 1000.0
@@ -501,30 +504,32 @@ Ng = 2
 Np = int(1e4)
 Ntrack = int(1e1)
 Vg = 5.0 * kV * Vscale
-Vgset = Vg
-E_DC = Vg / gap_width
-dsgn_phase = -0.0 * np.pi
+Vgset = Vg / Vscale
+E_DC = Vg / gap_width / Vscale
+dsgn_phase = -np.pi / 2
 gap_cent_dist = []
 Einit = 7.0 * keV
 rf_wave = beta(Einit) * SC.c / f
 fcup_dist = 10.0 * mm
 Energy = [Einit]
 
-# Evaluate and store gap distances and design energy gains.
+phi_s = np.ones(Ng) * dsgn_phase
+phi_s[1:] = np.linspace(-np.pi / 3, -0.0, Ng - 1)
+gap_dist = np.zeros(Ng)
+E_s = Einit
 for i in range(Ng):
-    this_dist = calc_pires(Energy[i], freq=f)
-    gap_cent_dist.append(this_dist)
-    Egain = Vg * np.cos(dsgn_phase)  # Max acceleration
-    Energy.append(Egain + Energy[i])
+    this_beta = beta(E_s, mass)
+    this_cent = this_beta * SC.c / 2 / f
+    cent_offset = (phi_s[i] - phi_s[i - 1]) * this_beta * SC.c / f / twopi
+    if i < 1:
+        gap_dist[i] = (phi_s[i] + np.pi) * this_beta * SC.c / twopi / f
+    else:
+        gap_dist[i] = this_cent + cent_offset
 
-Energy = np.array(Energy)
+    dsgn_Egain = Vgset * np.cos(phi_s[i])
+    E_s += dsgn_Egain
 
-# Real gap positions are the cumulative sums
-gap_cent_dist = np.array(gap_cent_dist)
-gap_centers = gap_cent_dist.cumsum()
-# Shift gaps by drift space to allow for the field to start from minimum and climb.
-
-
+gap_centers = np.array(gap_dist).cumsum()
 print("--Gap Centers")
 print(gap_centers / mm)
 
@@ -553,7 +558,7 @@ wp.w3d.zmmin = -16 * mm
 wp.w3d.zmmax = gap_centers[-1] + fcup_dist
 
 # Set resolution to be 20um giving 35 points to resolve plates and 100 pts in gap
-wp.w3d.nz = round((wp.w3d.zmmax - wp.w3d.zmmin) / 10 / um)
+wp.w3d.nz = round((wp.w3d.zmmax - wp.w3d.zmmin) / 50 / um)
 dz = (wp.w3d.zmmax - wp.w3d.zmmin) / wp.w3d.nz
 
 # Create particle characteristics. Particles need to be loaded later if using
@@ -575,36 +580,42 @@ wp.w3d.boundxy = wp.periodic
 wp.top.pbound0 = wp.absorb
 wp.top.pboundnz = wp.absorb
 
+conductors = []
+for i, cent in enumerate(gap_centers):
 
-l_lzc = gap_centers[0] - gap_width / 2 - length / 2
-l_rzc = gap_centers[0] + gap_width / 2 + length / 2
-l_left = create_wafer(l_lzc)
-l_right = create_wafer(l_rzc, voltage=Vgset)
-
-r_lzc = gap_centers[1] - gap_width / 2 - length / 2
-r_rzc = gap_centers[1] + gap_width / 2 + length / 2
-r_left = create_wafer(r_lzc, voltage=Vgset)
-r_right = create_wafer(r_rzc)
+    if i % 2 == 0:
+        lzc = cent - gap_width / 2 - length / 2
+        rzc = cent + gap_width / 2 + length / 2
+        left = create_wafer(lzc)
+        right = create_wafer(rzc, voltage=Vgset)
+        conductors.append(left)
+        conductors.append(right)
+    else:
+        lzc = cent - gap_width / 2 - length / 2
+        rzc = cent + gap_width / 2 + length / 2
+        left = create_wafer(lzc, voltage=Vgset)
+        right = create_wafer(rzc)
+        conductors.append(left)
+        conductors.append(right)
 
 wp.w3d.l4symtry = True
 wp.f3d.mgtol = 1.0e-6
 solver = wp.MRBlock3D()
 wp.registersolver(solver)
 
-# # Refine mesh in z
-# childs = []
-# for i, zc in enumerate(gap_centers):
-#     this_child = solver.addchild(
-#         mins=[wp.w3d.xmmin, wp.w3d.ymmin, zc - gap_width / 2],
-#         maxs=[0.01*mm, 0.01*mm, zc + gap_width / 2],
-#         refinement=[1, 1, 2],
-#     )
-#     childs.append(this_child)
+# Refine mesh in z
+childs = []
+for i, zc in enumerate(gap_centers):
+    this_child = solver.addchild(
+        mins=[wp.w3d.xmmin, wp.w3d.ymmin, zc - 1.2 * mm],
+        maxs=[0.01 * mm, 0.01 * mm, zc + 1.2 * mm],
+        refinement=[1, 1, 3],
+    )
+    childs.append(this_child)
 
-wp.installconductor(l_left)
-wp.installconductor(l_right)
-wp.installconductor(r_left)
-wp.installconductor(r_right)
+for cond in conductors:
+    wp.installconductor(cond)
+
 
 # Create accleration gaps with correct coordinates and settings. Collect in
 # list and then loop through and install on the mesh.
@@ -670,9 +681,9 @@ wp.installconductor(r_right)
 diagnostic = wp.Box(
     xsize=wp.top.largepos,
     ysize=wp.top.largepos,
-    zsize=3.0 * dz,
+    zsize=1.0 * dz,
     voltage=0,
-    zcent=18 * mm,
+    zcent=gap_centers[-1] + 5 * mm,
     xcent=0.0,
     ycent=0.0,
 )
@@ -715,7 +726,14 @@ tracker = TraceParticle(
     js=tracked_ions.js, x=0.0, y=0.0, z=0.0, vx=0.0, vy=0.0, vz=beam.vbeam,
 )
 
-wp.step(1000)
+while tracker.getz()[-1] < gap_centers[-1] + 2 * mm:
+    wp.step(20)
+
+# Do a few more additional steps to be sure
+wp.step(300)
+
+et = time.time()
+print(f"Run Time: {(et-st)}")
 
 E = Ar_mass * 0.5 * pow(tracker.getvz() / SC.c, 2)
 Ebeam = Ar_mass * 0.5 * pow(beam.getvz(lost=1) / SC.c, 2)
@@ -737,7 +755,7 @@ fig, ax = plt.subplots()
 ax.plot(tracker.getz() / mm, E / keV)
 ax.set_ylim(0, 20)
 ax.set_xlim(wp.w3d.zmmin / mm, wp.w3d.zmmax / mm)
-ax.axhline(y=17, c="r", ls="--", lw=1, label="Theoretical Max")
+ax.axhline(y=E_s, c="r", ls="--", lw=1, label="Theoretical Max")
 for i, cent in enumerate(gap_centers):
     ax.axvline(x=cent / mm, c="k", ls="--", lw=0.7)
 
@@ -771,7 +789,6 @@ ax.set_title("Final Energy Distribution")
 ax.set_xlabel(r"Energy [keV]")
 ax.set_ylabel(r"Fraction of Total Particles")
 plt.show()
-stop
 # load arrays
 # Ez0_arrays = np.load('field_arrays.npy')
 # phi0_arrays = np.load('potential_arrays.npy')
