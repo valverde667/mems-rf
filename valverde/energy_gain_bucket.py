@@ -109,7 +109,7 @@ def calc_dipole_deflection(voltage, energy, length=50 * mm, g=11 * mm, drift=185
     return deflection
 
 
-def calc_Hamiltonian(W_s, phi_s, W, phi, f, V, m, g=2 * mm, T=1):
+def calc_Hamiltonian(W_s, phi_s, W, phi, f, V, m, g=2 * mm, T=1, ret_coeffs=False):
     """Calculate the Hamiltonian.
 
     The non-linear Hamiltonian is dependent on the energy E, RF-frequency f,
@@ -135,6 +135,8 @@ def calc_Hamiltonian(W_s, phi_s, W, phi, f, V, m, g=2 * mm, T=1):
         Ion mass.
     T : float
         Transit time factor.
+    ret_coeffs : bool
+        If True, the coeffcients A and B will be returned.
 
     Returns
     -------
@@ -152,7 +154,11 @@ def calc_Hamiltonian(W_s, phi_s, W, phi, f, V, m, g=2 * mm, T=1):
     term2 = B * (np.sin(phi) - phi * np.cos(phi_s))
     H = term1 + term2
 
-    return H
+    if ret_coeffs:
+        return H, (A, B)
+
+    else:
+        return H
 
 
 def calc_root_H(phi, phi_s=-np.pi / 2):
@@ -200,7 +206,7 @@ real_gap_volt = dsgn_gap_volt
 dsgn_freq = 13.06 * MHz
 real_freq = dsgn_freq
 E_DC = real_gap_volt / gap_width
-h_rf = beta(dsgn_initE, mass=mass) * SC.c / dsgn_freq
+h_rf = SC.c / dsgn_freq
 T_rf = 1.0 / dsgn_freq
 
 # Energy analyzer parameters
@@ -741,6 +747,7 @@ for i in range(Ng):
     tpos = phi_pos / twopi / dsgn_freq
     H_dt_list.append((tneg, tpos))
 
+
 # Mask particles based on the time differences found above.
 Hmasks = []
 for i, Hdt in enumerate(H_dt_list):
@@ -750,16 +757,17 @@ for i, Hdt in enumerate(H_dt_list):
     Hmasks.append(this_mask)
 
 
-maskE = final_E > 0
-final_dt = final_t - dsgn_time[-1]
-maskt = abs(final_dt / dsgn_time[-1]) <= fraction_tdev
+maskE = Ediagnostic[:, -1] > 0.0
+final_dt = tdiagnostic[:, -1] - t_sdiagnostic[-1]
+maskt = abs(final_dt / t_sdiagnostic[-1]) <= fraction_tdev
 mask = maskt & maskE
-bucket_E = final_E[mask]
-bucket_time = final_t[mask]
+mask = Hmasks[-2] & maskE
+bucket_E = Ediagnostic[mask, -1]
+bucket_time = tdiagnostic[mask, -1]
 
 # Plot distribution of bucket relative to design
-d_bucket_E = bucket_E - dsgn_E[-1]
-d_bucket_t = bucket_time - dsgn_time[-1]
+d_bucket_E = bucket_E - E_sdiagnostic[-1]
+d_bucket_t = bucket_time - t_sdiagnostic[-1]
 
 # Plot distributions
 d_bucket_Ecounts, d_bucket_Eedges = np.histogram(d_bucket_E, bins=100)
