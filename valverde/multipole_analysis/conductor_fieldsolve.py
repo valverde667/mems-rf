@@ -9,6 +9,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.pyplot as mpl
 from mpl_toolkits.mplot3d import axes3d
 import scipy.integrate as integrate
 import os
@@ -16,6 +17,17 @@ import math
 import csv
 import pdb
 import sys
+
+mpl.rcParams["xtick.direction"] = "in"
+mpl.rcParams["xtick.minor.visible"] = True
+mpl.rcParams["xtick.top"] = True
+mpl.rcParams["xtick.minor.top"] = True
+mpl.rcParams["ytick.direction"] = "in"
+mpl.rcParams["ytick.minor.visible"] = True
+mpl.rcParams["ytick.right"] = True
+mpl.rcParams["ytick.major.right"] = True
+mpl.rcParams["ytick.minor.right"] = True
+mpl.rcParams["figure.max_open_warning"] = 60
 
 # Create argument parser for scaling. Must be done before importing Warp
 import warpoptions
@@ -38,7 +50,7 @@ if inputs.scale_pole != False:
     scale_pole_rad = inputs.scale_pole
 else:
     # Around optimum value found for isolated single quad.
-    scale_pole_rad = 1.146
+    scale_pole_rad = 1.135
 if inputs.scale_length != False:
     scale_Lesq = inputs.scale_length
 else:
@@ -48,12 +60,12 @@ if inputs.rod_fraction != False:
     rod_fraction = inputs.rod_fraction
 else:
     # Full rod plus spacing between rod end and mesh limit
-    rod_fraction = 2.5
+    rod_fraction = 1.0
 
 if inputs.voltage != False:
     voltage = inputs.voltage
 else:
-    voltage = 100.0
+    voltage = 428.0
 
 import warp as wp
 
@@ -483,21 +495,20 @@ wallzcent = ESQ_length + 1.0 * mm + walllength / 2
 # Creat mesh using conductor geometries (above) to keep resolution consistent
 wp.w3d.xmmin = -aperture - (pole_rad * rod_fraction)
 wp.w3d.xmmax = aperture + (pole_rad * rod_fraction)
-design_dx = 10 * um
+design_dx = 5 * um
 calc_nx = (wp.w3d.xmmax - wp.w3d.xmmin) / design_dx
 wp.w3d.nx = int(calc_nx)
 
 wp.w3d.ymmin = -aperture - (pole_rad * rod_fraction)
 wp.w3d.ymmax = aperture + (pole_rad * rod_fraction)
-wp.w3d.ny = int(calc_nx)
+wp.w3d.ny = wp.w3d.nx
 
 # Calculate nz to get about designed dz
 wp.w3d.zmmin = -(wallzcent + separation)
 wp.w3d.zmmax = wallzcent + separation
-design_dz = 20 * um
+design_dz = 15 * um
 calc_nz = (wp.w3d.zmmax - wp.w3d.zmmin) / design_dz
 wp.w3d.nz = int(calc_nz)
-print(int(calc_nz))
 
 # Add boundary conditions
 wp.w3d.bound0 = wp.dirichlet
@@ -505,7 +516,6 @@ wp.w3d.boundnz = wp.dirichlet
 wp.w3d.boundxy = wp.periodic
 wp.f3d.mgtol = 1e-8
 
-wp.w3d.l4symtry = False
 solver = wp.MRBlock3D()
 wp.registersolver(solver)
 
@@ -540,7 +550,6 @@ wp.generate()
 # ------------------------------------------------------------------------------
 # Rename meshes and find indicesfor the mesh z-center and z-center of right quad
 x, y, z = wp.w3d.xmesh, wp.w3d.ymesh, wp.w3d.zmesh
-zzeroindex = getindex(z, 0.0, wp.w3d.dz)
 zcenterindex = getindex(z, zc, wp.w3d.dz)
 xzeroindex = getindex(x, 0.0, wp.w3d.dx)
 yzeroindex = getindex(y, 0.0, wp.w3d.dy)
@@ -587,13 +596,14 @@ if warpplots:
 
 # Grab Fields
 phi = wp.getphi()
-phixy = wp.getphi()[:, :, zcenterindex]
+phixy = phi[:, :, zcenterindex]
 Ex = wp.getselfe(comp="x")
 Ey = wp.getselfe(comp="y")
 Ez = wp.getselfe(comp="z")
+Emag = wp.getselfe(comp="E")
 gradex = Ex[xzeroindex + 1, yzeroindex, :] / wp.w3d.dx
 
-make_effective_length_plots = False
+make_effective_length_plots = True
 if make_effective_length_plots:
     # Create plot of Ex gradient
     fig, ax = plt.subplots()
@@ -762,15 +772,61 @@ if make_transField_plots:
 
 # Find max electric fields. To do this, the xy-plane for each grid point in z is
 # examined and the maximum field found for each component.
-maxEx, maxEy, maxEz = [], [], []
-maxE = []
-for i in range(Ez.shape[-1]):
-    ex, ey, ez = Ex[:, :, i], Ey[:, :, i], Ez[:, :, i]
-    Emag = np.sqrt(pow(ex, 2) + pow(ey, 2) + pow(ez, 2))
-    maxE.append(np.amax(Emag))
-    maxEx.append(np.amax(ex))
-    maxEy.append(np.amax(ey))
-    maxEz.append(np.amax(ez))
+Emaxs = np.zeros(len(z))
+for i in range(len(z)):
+    this_E = Emag[:, :, i]
+    Emaxs[i] = np.max(this_E)
+
+zmax_ind = np.argmax(Emaxs)
+xmax_ind, ymax_ind = np.unravel_index(
+    Emag[:, :, zmax_ind].argmax(), Emag[:, :, zmax_ind].shape
+)
+plot_breakdown = True
+if plot_breakdown:
+    fig, ax = plt.subplots()
+    X, Y = np.meshgrid(x, y)
+    cp = ax.contourf(X / mm, Y / mm, Emag[:, :, zmax_ind] / 1e7, levels=50)
+    # cp.cmap.set_under('w')
+    # cp.set_clim(0.05)
+    cbar = fig.colorbar(cp)
+    cbar.set_label(r"$|E|/10^7$", rotation=90)
+    ax.set_xlabel("x [mm]")
+    ax.set_ylabel("y [mm]")
+    ax.set_title("x-y Slice of Magnitude Efield")
+    ax.scatter(
+        [x[xmax_ind] / mm],
+        [y[ymax_ind] / mm],
+        c="r",
+        marker="x",
+        s=100,
+        label="Max Field",
+    )
+    ax.legend()
+    ax.set_aspect("equal", adjustable="box")
+    plt.savefig("Exy.png")
+
+    fig, ax = plt.subplots()
+    Z, X = np.meshgrid(z, x)
+    cp = ax.contourf(Z / mm, X / mm, Emag[:, ymax_ind, :] / 1e7, levels=50)
+    # cp.cmap.set_under('w')
+    # cp.set_clim(0.05)
+    cbar = fig.colorbar(cp)
+    cbar.set_label(r"$|E|/10^7$", rotation=90)
+    ax.set_xlabel("z [mm]")
+    ax.set_ylabel("x [mm]")
+    ax.set_title("z-x Slice of Magnitude Efield")
+    ax.scatter(
+        [z[zmax_ind] / mm],
+        [x[xmax_ind] / mm],
+        c="r",
+        marker="x",
+        s=100,
+        label="Max Field",
+    )
+    ax.legend()
+    ax.set_aspect("equal", adjustable="box")
+    plt.savefig("Exz.png")
+    plt.show()
 
 # ------------------------------------------------------------------------------
 #                     Testing area for interpolation
@@ -916,6 +972,7 @@ for i in range(1, len(nterms)):
     Ancoeff_array[n - 1] = An
     Bncoeff_array[n - 1] = Bn
 
+
 # ------------------------------------------------------------------------------
 #                           Make plots of coefficient data
 # Visualize coefficient magnitudes with a 3D bar plot
@@ -954,10 +1011,10 @@ df["rod-fraction"] = rod_fraction
 df["separation[mm]"] = separation
 df["n-interp"] = interp_np
 df["voltage"] = voltage
-df["Ex-max"] = np.max(maxEx)
-df["Ey-max"] = np.max(maxEy)
-df["Ez-max"] = np.max(maxEz)
-df["E-max"] = np.max(maxE)
+df["Emag"] = np.max(Emaxs)
+df["xmax_ind"] = xmax_ind
+df["ymax_ind"] = ymax_ind
+df["zmax_ind"] = zmax_ind
 for i in range(len(nterms)):
     # Loop through n-poles and create column header
     df[f"Norm A{i+1}"] = Ancoeff_array[i] / An_norm
