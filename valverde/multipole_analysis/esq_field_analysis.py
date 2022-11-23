@@ -341,22 +341,14 @@ def getindex(mesh, value, spacing):
         Index for the mesh-value closest to the desired value.
     """
 
+    """Grab index of specifed value within a mesh"""
+
     # Check if value is already in mesh
     if value in mesh:
-        return np.where(mesh == value)[0][0]
+        index = np.where(mesh == value)[0][0]
 
-    # Create array of possible indices
-    indices = np.where((mesh > (value - spacing)) & (mesh < (value + spacing)))[0]
-
-    # Compute differences of the indexed mesh-value with desired value
-    difference = []
-    for index in indices:
-        diff = np.sqrt((mesh[index] ** 2 - value ** 2) ** 2)
-        difference.append(diff)
-
-    # Smallest element will be the index closest to value in indices
-    i = np.argmin(difference)
-    index = indices[i]
+    else:
+        index = np.argmin(abs(mesh - value))
 
     return index
 
