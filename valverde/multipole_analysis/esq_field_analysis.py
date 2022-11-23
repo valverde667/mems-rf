@@ -473,6 +473,17 @@ def interp2d_area(x_interp, y_interp, xmesh, ymesh, grid_data):
 
 
 # ------------------------------------------------------------------------------
+#                    Logical Flags
+# Logical flags for controlling various routines within the script. All flags
+# prefixed with l_.
+# ------------------------------------------------------------------------------
+l_warpplots = True
+l_make_effective_length_plots = True
+l_make_transField_plots = False
+l_plot_breakdown = True
+l_make_3d_integrand_plot = False
+l_multple_barplots = False
+# ------------------------------------------------------------------------------
 #                     Create and load mesh and conductors
 # ------------------------------------------------------------------------------
 # Set paraemeeters for conductors
@@ -551,8 +562,7 @@ xzeroindex = getindex(x, 0.0, wp.w3d.dx)
 yzeroindex = getindex(y, 0.0, wp.w3d.dy)
 
 # Create Warp plots. Useful for quick-checking
-warpplots = True
-if warpplots:
+if l_warpplots:
     wp.setup()
     leftquad.drawzx(filled=True)
     # rightwall.drawzx(filled=True)
@@ -599,8 +609,7 @@ Ez = wp.getselfe(comp="z")
 Emag = wp.getselfe(comp="E")
 gradex = Ex[xzeroindex + 1, yzeroindex, :] / wp.w3d.dx
 
-make_effective_length_plots = True
-if make_effective_length_plots:
+if l_make_effective_length_plots:
     # Create plot of Ex gradient
     fig, ax = plt.subplots()
     ax.set_xlabel("z [mm]")
@@ -634,7 +643,7 @@ dEdx = abs(gradex[:])
 ell = efflength(dEdx, wp.w3d.dz)
 print("Effective Length = ", ell / mm)
 
-if make_effective_length_plots:
+if l_make_effective_length_plots:
     fig, ax = plt.subplots()
     ax.set_title(
         f"Integrand For Effective Length {ell/mm:.4f} mm, zc = {zc/mm :.4f} mm, n = {Nesq}, Lq = {ESQ_length/mm:.4f} mm",
@@ -683,8 +692,7 @@ np.save("Ey_comp", Ey_comp)
 integrated_Ex = integrate.simpson(Ex_comp, dx=wp.w3d.dz) / ell
 integrated_Ey = integrate.simpson(Ey_comp, dx=wp.w3d.dz) / ell
 
-make_transField_plots = False
-if make_transField_plots:
+if l_make_transField_plots:
     fig, ax = plt.subplots()
     ax.set_title(r"$E_x(x,y,z=zcent)$")
     X, Y = np.meshgrid(x, y, indexing="ij")
@@ -777,8 +785,7 @@ zmax_ind = np.argmax(Emaxs)
 xmax_ind, ymax_ind = np.unravel_index(
     Emag[:, :, zmax_ind].argmax(), Emag[:, :, zmax_ind].shape
 )
-plot_breakdown = True
-if plot_breakdown:
+if l_plot_breakdown:
     fig, ax = plt.subplots()
     X, Y = np.meshgrid(x, y)
     cp = ax.contourf(X / mm, Y / mm, Emag[:, :, zmax_ind] / 1e7, levels=50)
@@ -914,8 +921,7 @@ wp.top.getgrid2d(
 # ------------------------------------------------------------------------------
 # Evaluate the coefficients a_n and b_n for Ex and Ey.
 
-make_3d_integrand_plot = False
-if make_3d_integrand_plot:
+if l_make_3d_integrand_plot:
     # Make contour polot of integrated z values for Ex
     theta3d = np.linspace(0, 2 * np.pi, int(2 * 4))
     # x3d = np.zeros(theta3d)
@@ -1040,8 +1046,7 @@ for i, n in enumerate(nterms):
     print(f"Normed Bn: {Bncoeff_array[i]/Bn_norm:.5E}")
     print("")
 
-do_multple_barplots = False
-if do_multple_barplots:
+if l_multple_barplots:
     # Plot An, Bn and An+Bn on bar plot where height represents fraction of Max pole
     ax.bar3d(nterms, 1 * y3, z3, xbar_width, ybar_width, An / norm, color="b")
     ax.bar3d(nterms, 3 * y3, z3, xbar_width, ybar_width, Bn / norm, color="g")
