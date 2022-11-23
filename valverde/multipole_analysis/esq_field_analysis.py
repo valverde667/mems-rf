@@ -561,6 +561,231 @@ zcenterindex = getindex(z, zc, wp.w3d.dz)
 xzeroindex = getindex(x, 0.0, wp.w3d.dx)
 yzeroindex = getindex(y, 0.0, wp.w3d.dy)
 
+# Grab Fields
+phi = wp.getphi()
+phixy = phi[:, :, zcenterindex]
+Ex = wp.getselfe(comp="x")
+Ey = wp.getselfe(comp="y")
+Ez = wp.getselfe(comp="z")
+Emag = wp.getselfe(comp="E")
+gradex = Ex[xzeroindex + 1, yzeroindex, :] / wp.w3d.dx
+
+# Plot and calculate effective length
+dEdx = abs(gradex[:])
+ell = efflength(dEdx, wp.w3d.dz)
+print("Effective Length = ", ell / mm)
+# ------------------------------------------------------------------------------
+#                          Multipole Analysis
+# This section will do the multipole analysis.
+# The x and y component of the electric field (Ex and Ey) are give on the full
+# 3D mesh. The analytic treatment of the multipole is given on the x-y plane
+# and is usualy seen as a function of r and theta E(r, theta). The 3D grid is
+# not a problem here since the analysis can be done for each plane at each grid
+# point of z. However, this is computationally expensive, and instead the field
+# compoenents are marginalized in z by integrating over the effective length of
+# one quad and dividing by this effective length.
+# ------------------------------------------------------------------------------
+# Find fields in the region from -ell/2 to ell/2
+eff_index_left = getindex(z, 0 * mm, wp.w3d.dz)
+eff_index_right = getindex(z, z.max(), wp.w3d.dz)
+Ex_comp = Ex.copy()[:, :, :]
+Ey_comp = Ey.copy()[:, :, :]
+nx, ny, nz = Ex_comp.shape
+
+# Reshape the fields to nx*ny by nz. This will give a column of vectors, where
+# each vector is the field along z at a given x,y coordinate.
+Ex_comp = Ex_comp.reshape(int(nx * ny), nz)
+Ey_comp = Ey_comp.reshape(int(nx * ny), nz)
+np.save("Ex_comp", Ex_comp)
+np.save("Ey_comp", Ey_comp)
+
+integrated_Ex = integrate.simpson(Ex_comp, dx=wp.w3d.dz) / ell
+integrated_Ey = integrate.simpson(Ey_comp, dx=wp.w3d.dz) / ell
+
+# Find max electric fields. To do this, the xy-plane for each grid point in z is
+# examined and the maximum field found for each component.
+Emaxs = np.zeros(len(z))
+for i in range(len(z)):
+    this_E = Emag[:, :, i]
+    Emaxs[i] = np.max(this_E)
+
+zmax_ind = np.argmax(Emaxs)
+xmax_ind, ymax_ind = np.unravel_index(
+    Emag[:, :, zmax_ind].argmax(), Emag[:, :, zmax_ind].shape
+)
+# ------------------------------------------------------------------------------
+#                     Testing area for interpolation
+# Exact geometrical fields can be specified and used to test calculated values.
+# Dipole field to be fixed due to division by zero error.
+# ------------------------------------------------------------------------------
+Exfun = lambda x, y: pow(x, 3) - 3 * x * pow(y, 2)
+Eyfun = lambda x, y: -3 * pow(x, 2) * y + pow(y, 3)
+xtest = np.linspace(-0.8, 0.8, 500) * mm
+ytest = np.linspace(-0.8, 0.8, 500) * mm
+X, Y = np.meshgrid(xtest, ytest)
+Extest = Exfun(X, Y)
+Eytest = Eyfun(X, Y)
+# ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# Set up paramters for interpolation
+interp_R = aperture - 2 * wp.w3d.dx
+interp_np = math.ceil(np.sqrt(2) * np.pi * wp.w3d.nx * interp_R / aperture)
+print(f"Np = {interp_np}")
+interp_theta = np.linspace(0, 2 * np.pi, interp_np)
+interp_x = interp_R * np.cos(interp_theta)
+interp_y = interp_R * np.sin(interp_theta)
+
+interp_Ex = np.zeros(interp_np)
+interp_Ey = np.zeros(interp_np)
+
+# Perform interpolation using Warp's getgrid. The algorithm is written in
+# Fortran and so the indices array-lengths for the grid data need to be deducted
+# one unit for proper indexing in Fortran. The interpolated arrays for the
+# field data (interp_Ex, interp_Ey) are changed in place
+wp.top.getgrid2d(
+    len(interp_x),
+    interp_x,
+    interp_y,
+    interp_Ex,
+    len(x) - 1,
+    len(y) - 1,
+    integrated_Ex.reshape(nx, ny),
+    x.min(),
+    x.max(),
+    y.min(),
+    y.max(),
+)
+
+wp.top.getgrid2d(
+    len(interp_x),
+    interp_x,
+    interp_y,
+    interp_Ey,
+    len(x) - 1,
+    len(y) - 1,
+    integrated_Ey.reshape(nx, ny),
+    x.min(),
+    x.max(),
+    y.min(),
+    y.max(),
+)
+# Uncomment this portion to run the test cases
+# wp.top.getgrid2d(
+#     len(interp_x),
+#     interp_x,
+#     interp_y,
+#     interp_Ex,
+#     len(xtest) - 1,
+#     len(ytest) - 1,
+#     Extest,
+#     xtest.min(),
+#     xtest.max(),
+#     ytest.min(),
+#     ytest.max(),
+# )
+# wp.top.getgrid2d(
+#     len(interp_x),
+#     interp_x,
+#     interp_y,
+#     interp_Ex,
+#     len(xtest) - 1,
+#     len(ytest) - 1,
+#     Eytest,
+#     xtest.min(),
+#     xtest.max(),
+#     ytest.min(),
+#     ytest.max(),
+# )
+
+# ------------------------------------------------------------------------------
+#                    Calculate multipole coefficients
+# ------------------------------------------------------------------------------
+# Evaluate the coefficients a_n and b_n for Ex and Ey.
+n_order = 14
+nterms = np.array([i for i in range(1, n_order + 1)])
+dtheta = interp_theta[1] - interp_theta[0]
+
+Ancoeff_array = np.zeros(len(nterms))
+Bncoeff_array = np.zeros(len(nterms))
+
+R = interp_R / aperture
+
+for i in range(1, len(nterms)):
+    n = nterms[i]
+
+    coeff = pow(1.0 / R, n - 1) / 2 / np.pi
+    # Partition Ex and Ey parts of integral for An and Bn for clarity
+    An_Ex_integrand = interp_Ex * np.cos((n - 1) * interp_theta)
+    An_Ey_integrand = -interp_Ey * np.sin((n - 1) * interp_theta)
+    An_integrand = An_Ex_integrand + An_Ey_integrand
+
+    Bn_Ex_integrand = interp_Ex * np.sin((n - 1) * interp_theta)
+    Bn_Ey_integrand = interp_Ey * np.cos((n - 1) * interp_theta)
+    Bn_integrand = Bn_Ex_integrand + Bn_Ey_integrand
+
+    An = coeff * integrate.trapezoid(An_integrand, dx=dtheta)
+    Bn = coeff * integrate.trapezoid(Bn_integrand, dx=dtheta)
+    Ancoeff_array[n - 1] = An
+    Bncoeff_array[n - 1] = Bn
+
+# Use maximum multipole value for normalization
+norm = np.max(abs(Ancoeff_array) + abs(Bncoeff_array))
+nmax_index = np.argmax(abs(Ancoeff_array) + abs(Bncoeff_array))
+An_norm = np.max(abs(Ancoeff_array))
+Bn_norm = np.max(abs(Bncoeff_array))
+
+# ------------------------------------------------------------------------------
+#                    Data Storage
+# ------------------------------------------------------------------------------
+# Store data in a dataframe and append to csv file. If csv file already exists
+# the column headers are ignored. If not, the file is created with headers.
+filename = "multipole_data.csv"
+file_exists = filename in os.listdir(savepath)
+df = pd.DataFrame()
+df["init"] = [np.nan]
+df["n-max"] = nmax_index + 1
+df["R_rod/R_aper"] = scale_pole_rad
+df["L_esq/R_aper"] = scale_Lesq
+df["rod-fraction"] = rod_fraction
+df["separation[mm]"] = separation
+df["n-interp"] = interp_np
+df["voltage"] = voltage
+df["Emag"] = np.max(Emaxs)
+df["xmax_ind"] = xmax_ind
+df["ymax_ind"] = ymax_ind
+df["zmax_ind"] = zmax_ind
+for i in range(len(nterms)):
+    # Loop through n-poles and create column header
+    df[f"Norm A{i+1}"] = Ancoeff_array[i] / An_norm
+    df[f"Norm B{i+1}"] = Bncoeff_array[i] / Bn_norm
+for i in range(len(nterms)):
+    df[f"A{i+1}"] = Ancoeff_array[i]
+    df[f"B{i+1}"] = Bncoeff_array[i]
+df["dx[mm]"] = wp.w3d.dx / mm
+df["dy[mm]"] = wp.w3d.dy / mm
+df["dz[mm]"] = wp.w3d.dz / mm
+df["mesh_zext[mm]"] = (wp.w3d.zmmax - wp.w3d.zmmin) / mm
+df.drop("init", axis=1, inplace=True)
+
+with open(os.path.join(savepath, filename), "a") as f:
+    df.to_csv(f, header=not (file_exists), index=False)
+
+# Print out numerical information for coefficients
+print(f"--Scale Fraction {scale_pole_rad}")
+print(f"--Max order n = {nterms[nmax_index]}:")
+print("--Normalized-squared coefficients (A,B)")
+print("### Coeff. Values Squared Normalized by Maximum Coeff. ###")
+
+for i, n in enumerate(nterms):
+    print(f"####  n={n}  ####")
+    print(f"(An, Bn): ({Ancoeff_array[i]:.5E},  {Bncoeff_array[i]:.5E})")
+    print(f"Normed An: {Ancoeff_array[i]/An_norm:.5E}")
+    print(f"Normed Bn: {Bncoeff_array[i]/Bn_norm:.5E}")
+    print("")
+# ------------------------------------------------------------------------------
+#                          Plotting Section
+# All plots and visualization should be put here.
+# ------------------------------------------------------------------------------
 # Create Warp plots. Useful for quick-checking
 if l_warpplots:
     wp.setup()
@@ -600,15 +825,6 @@ if l_warpplots:
     )
     wp.fma()
 
-# Grab Fields
-phi = wp.getphi()
-phixy = phi[:, :, zcenterindex]
-Ex = wp.getselfe(comp="x")
-Ey = wp.getselfe(comp="y")
-Ez = wp.getselfe(comp="z")
-Emag = wp.getselfe(comp="E")
-gradex = Ex[xzeroindex + 1, yzeroindex, :] / wp.w3d.dx
-
 if l_make_effective_length_plots:
     # Create plot of Ex gradient
     fig, ax = plt.subplots()
@@ -638,11 +854,6 @@ if l_make_effective_length_plots:
     plt.savefig(savepath + "full-mesh.pdf", dpi=400)
     plt.show()
 
-# Plot and calculate effective length
-dEdx = abs(gradex[:])
-ell = efflength(dEdx, wp.w3d.dz)
-print("Effective Length = ", ell / mm)
-
 if l_make_effective_length_plots:
     fig, ax = plt.subplots()
     ax.set_title(
@@ -663,34 +874,6 @@ if l_make_effective_length_plots:
     ax.legend()
     plt.savefig(savepath + "integrand.png", dpi=400)
     plt.show()
-
-# ------------------------------------------------------------------------------
-#                          Multipole Analysis
-# This section will do the multipole analysis.
-# The x and y component of the electric field (Ex and Ey) are give on the full
-# 3D mesh. The analytic treatment of the multipole is given on the x-y plane
-# and is usualy seen as a function of r and theta E(r, theta). The 3D grid is
-# not a problem here since the analysis can be done for each plane at each grid
-# point of z. However, this is computationally expensive, and instead the field
-# compoenents are marginalized in z by integrating over the effective length of
-# one quad and dividing by this effective length.
-# ------------------------------------------------------------------------------
-# Find fields in the region from -ell/2 to ell/2
-eff_index_left = getindex(z, 0 * mm, wp.w3d.dz)
-eff_index_right = getindex(z, z.max(), wp.w3d.dz)
-Ex_comp = Ex.copy()[:, :, :]
-Ey_comp = Ey.copy()[:, :, :]
-nx, ny, nz = Ex_comp.shape
-
-# Reshape the fields to nx*ny by nz. This will give a column of vectors, where
-# each vector is the field along z at a given x,y coordinate.
-Ex_comp = Ex_comp.reshape(int(nx * ny), nz)
-Ey_comp = Ey_comp.reshape(int(nx * ny), nz)
-np.save("Ex_comp", Ex_comp)
-np.save("Ey_comp", Ey_comp)
-
-integrated_Ex = integrate.simpson(Ex_comp, dx=wp.w3d.dz) / ell
-integrated_Ey = integrate.simpson(Ey_comp, dx=wp.w3d.dz) / ell
 
 if l_make_transField_plots:
     fig, ax = plt.subplots()
@@ -774,17 +957,6 @@ if l_make_transField_plots:
     # plt.savefig("/Users/nickvalverde/Desktop/y_transfields.pdf", dpi=400)
     # plt.show()
 
-# Find max electric fields. To do this, the xy-plane for each grid point in z is
-# examined and the maximum field found for each component.
-Emaxs = np.zeros(len(z))
-for i in range(len(z)):
-    this_E = Emag[:, :, i]
-    Emaxs[i] = np.max(this_E)
-
-zmax_ind = np.argmax(Emaxs)
-xmax_ind, ymax_ind = np.unravel_index(
-    Emag[:, :, zmax_ind].argmax(), Emag[:, :, zmax_ind].shape
-)
 if l_plot_breakdown:
     fig, ax = plt.subplots()
     X, Y = np.meshgrid(x, y)
@@ -831,96 +1003,6 @@ if l_plot_breakdown:
     plt.savefig("Exz.png")
     plt.show()
 
-# ------------------------------------------------------------------------------
-#                     Testing area for interpolation
-# Exact geometrical fields can be specified and used to test calculated values.
-# Dipole field to be fixed due to division by zero error.
-# ------------------------------------------------------------------------------
-Exfun = lambda x, y: pow(x, 3) - 3 * x * pow(y, 2)
-Eyfun = lambda x, y: -3 * pow(x, 2) * y + pow(y, 3)
-xtest = np.linspace(-0.8, 0.8, 500) * mm
-ytest = np.linspace(-0.8, 0.8, 500) * mm
-X, Y = np.meshgrid(xtest, ytest)
-Extest = Exfun(X, Y)
-Eytest = Eyfun(X, Y)
-# ------------------------------------------------------------------------------
-# ------------------------------------------------------------------------------
-
-# Set up paramters for interpolation
-interp_R = aperture - 2 * wp.w3d.dx
-interp_np = math.ceil(np.sqrt(2) * np.pi * wp.w3d.nx * interp_R / aperture)
-print(f"Np = {interp_np}")
-interp_theta = np.linspace(0, 2 * np.pi, interp_np)
-interp_x = interp_R * np.cos(interp_theta)
-interp_y = interp_R * np.sin(interp_theta)
-
-interp_Ex = np.zeros(interp_np)
-interp_Ey = np.zeros(interp_np)
-
-# Perform interpolation using Warp's getgrid. The algorithm is written in
-# Fortran and so the indices array-lengths for the grid data need to be deducted
-# one unit for proper indexing in Fortran. The interpolated arrays for the
-# field data (interp_Ex, interp_Ey) are changed in place
-wp.top.getgrid2d(
-    len(interp_x),
-    interp_x,
-    interp_y,
-    interp_Ex,
-    len(x) - 1,
-    len(y) - 1,
-    integrated_Ex.reshape(nx, ny),
-    x.min(),
-    x.max(),
-    y.min(),
-    y.max(),
-)
-
-wp.top.getgrid2d(
-    len(interp_x),
-    interp_x,
-    interp_y,
-    interp_Ey,
-    len(x) - 1,
-    len(y) - 1,
-    integrated_Ey.reshape(nx, ny),
-    x.min(),
-    x.max(),
-    y.min(),
-    y.max(),
-)
-# Uncomment this portion to run the test cases
-# wp.top.getgrid2d(
-#     len(interp_x),
-#     interp_x,
-#     interp_y,
-#     interp_Ex,
-#     len(xtest) - 1,
-#     len(ytest) - 1,
-#     Extest,
-#     xtest.min(),
-#     xtest.max(),
-#     ytest.min(),
-#     ytest.max(),
-# )
-# wp.top.getgrid2d(
-#     len(interp_x),
-#     interp_x,
-#     interp_y,
-#     interp_Ex,
-#     len(xtest) - 1,
-#     len(ytest) - 1,
-#     Eytest,
-#     xtest.min(),
-#     xtest.max(),
-#     ytest.min(),
-#     ytest.max(),
-# )
-
-# ------------------------------------------------------------------------------
-#                    Calculate multipole coefficients
-# ------------------------------------------------------------------------------
-# Evaluate the coefficients a_n and b_n for Ex and Ey.
-
 if l_make_3d_integrand_plot:
     # Make contour polot of integrated z values for Ex
     theta3d = np.linspace(0, 2 * np.pi, int(2 * 4))
@@ -946,105 +1028,6 @@ if l_make_3d_integrand_plot:
     plt.tight_layout()
     plt.savefig(savepath + "z_integration_visual.pdf", dpi=400)
     plt.show()
-
-n_order = 14
-nterms = np.array([i for i in range(1, n_order + 1)])
-dtheta = interp_theta[1] - interp_theta[0]
-
-Ancoeff_array = np.zeros(len(nterms))
-Bncoeff_array = np.zeros(len(nterms))
-
-R = interp_R / aperture
-
-for i in range(1, len(nterms)):
-    n = nterms[i]
-
-    coeff = pow(1.0 / R, n - 1) / 2 / np.pi
-    # Partition Ex and Ey parts of integral for An and Bn for clarity
-    An_Ex_integrand = interp_Ex * np.cos((n - 1) * interp_theta)
-    An_Ey_integrand = -interp_Ey * np.sin((n - 1) * interp_theta)
-    An_integrand = An_Ex_integrand + An_Ey_integrand
-
-    Bn_Ex_integrand = interp_Ex * np.sin((n - 1) * interp_theta)
-    Bn_Ey_integrand = interp_Ey * np.cos((n - 1) * interp_theta)
-    Bn_integrand = Bn_Ex_integrand + Bn_Ey_integrand
-
-    An = coeff * integrate.trapezoid(An_integrand, dx=dtheta)
-    Bn = coeff * integrate.trapezoid(Bn_integrand, dx=dtheta)
-    Ancoeff_array[n - 1] = An
-    Bncoeff_array[n - 1] = Bn
-
-
-# ------------------------------------------------------------------------------
-#                           Make plots of coefficient data
-# Visualize coefficient magnitudes with a 3D bar plot
-# The n-terms will be plotted using 3D bars, where there extent in z is their
-# contribution to the sum. To different coefficients are put on the same plot
-# with a separation given by the y3 argument. This controls where they are put
-# on the xy-plane. The dimensions of the box are given by dx,dy and dz. The
-# dimensions dx and dy are decided best onf aesthtic where dz will be give the
-# height or contribution to the sum.
-# ------------------------------------------------------------------------------
-fig = plt.figure(figsize=(10, 8))
-ax = fig.add_subplot(211, projection="3d")
-
-y3 = np.ones(len(nterms))
-z3 = np.zeros(len(nterms))
-
-# Set width of bars. These settings are for plot aesthetics and not significant
-xbar_width = np.ones(len(nterms)) / 4
-ybar_width = np.ones(len(nterms)) / 2
-
-# Use maximum multipole value for normalization
-norm = np.max(abs(Ancoeff_array) + abs(Bncoeff_array))
-nmax_index = np.argmax(abs(Ancoeff_array) + abs(Bncoeff_array))
-An_norm = np.max(abs(Ancoeff_array))
-Bn_norm = np.max(abs(Bncoeff_array))
-# Store data in a dataframe and append to csv file. If csv file already exists
-# the column headers are ignored. If not, the file is created with headers.
-filename = "multipole_data.csv"
-file_exists = filename in os.listdir(savepath)
-df = pd.DataFrame()
-df["init"] = [np.nan]
-df["n-max"] = nmax_index + 1
-df["R_rod/R_aper"] = scale_pole_rad
-df["L_esq/R_aper"] = scale_Lesq
-df["rod-fraction"] = rod_fraction
-df["separation[mm]"] = separation
-df["n-interp"] = interp_np
-df["voltage"] = voltage
-df["Emag"] = np.max(Emaxs)
-df["xmax_ind"] = xmax_ind
-df["ymax_ind"] = ymax_ind
-df["zmax_ind"] = zmax_ind
-for i in range(len(nterms)):
-    # Loop through n-poles and create column header
-    df[f"Norm A{i+1}"] = Ancoeff_array[i] / An_norm
-    df[f"Norm B{i+1}"] = Bncoeff_array[i] / Bn_norm
-for i in range(len(nterms)):
-    df[f"A{i+1}"] = Ancoeff_array[i]
-    df[f"B{i+1}"] = Bncoeff_array[i]
-df["dx[mm]"] = wp.w3d.dx / mm
-df["dy[mm]"] = wp.w3d.dy / mm
-df["dz[mm]"] = wp.w3d.dz / mm
-df["mesh_zext[mm]"] = (wp.w3d.zmmax - wp.w3d.zmmin) / mm
-df.drop("init", axis=1, inplace=True)
-
-with open(os.path.join(savepath, filename), "a") as f:
-    df.to_csv(f, header=not (file_exists), index=False)
-
-# Print out numerical information for coefficients
-print(f"--Scale Fraction {scale_pole_rad}")
-print(f"--Max order n = {nterms[nmax_index]}:")
-print("--Normalized-squared coefficients (A,B)")
-print("### Coeff. Values Squared Normalized by Maximum Coeff. ###")
-
-for i, n in enumerate(nterms):
-    print(f"####  n={n}  ####")
-    print(f"(An, Bn): ({Ancoeff_array[i]:.5E},  {Bncoeff_array[i]:.5E})")
-    print(f"Normed An: {Ancoeff_array[i]/An_norm:.5E}")
-    print(f"Normed Bn: {Bncoeff_array[i]/Bn_norm:.5E}")
-    print("")
 
 if l_multple_barplots:
     # Plot An, Bn and An+Bn on bar plot where height represents fraction of Max pole
