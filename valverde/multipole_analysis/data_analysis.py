@@ -2,6 +2,18 @@ import numpy as np
 import pandas as pd
 import os
 import matplotlib.pyplot as plt
+import matplotlib as mpl
+
+mpl.rcParams["xtick.direction"] = "in"
+mpl.rcParams["xtick.minor.visible"] = True
+mpl.rcParams["xtick.top"] = True
+mpl.rcParams["xtick.minor.top"] = True
+mpl.rcParams["ytick.direction"] = "in"
+mpl.rcParams["ytick.minor.visible"] = True
+mpl.rcParams["ytick.right"] = True
+mpl.rcParams["ytick.major.right"] = True
+mpl.rcParams["ytick.minor.right"] = True
+mpl.rcParams["figure.max_open_warning"] = 60
 
 data_path = "/Users/nickvalverde/Desktop/ESQ_files"
 df = pd.read_csv(os.path.join(data_path, "multipole_data.csv"))
@@ -167,15 +179,15 @@ a6 = data["Norm A6"].to_numpy()
 a10 = data["Norm A10"].to_numpy()
 a14 = data["Norm A14"].to_numpy()
 
-# fig, ax = plt.subplots(figsize=(10, 8))
-# ax.set_title("Leading Order Multipole Error for Various ESQ Lengths")
-# ax.set_xlabel(r"Ratio of ESQ Length to Aperture Radius $\ell_q/r_p$")
-# ax.set_ylabel(r"Normalized Multipole Moment $|A_6/A_2|$")
-# ax.scatter(rod_lengths, abs(a6))
-# ax.axhline(y=0, ls="--", lw=1, c="k")
-# plt.savefig("vary_rodlengths.png", dpi=400)
-# plt.show()
-
+fig, ax = plt.subplots(figsize=(10, 8))
+ax.set_title("Leading Order Multipole Error for Various ESQ Lengths")
+ax.set_xlabel(r"Ratio of ESQ Length to Aperture Radius $\ell_q/r_p$")
+ax.set_ylabel(r"Normalized Multipole Moment $|A_6/A_2|$")
+ax.scatter(rod_lengths, abs(a6))
+ax.axhline(y=0, ls="--", lw=1, c="k")
+plt.savefig("vary_rodlengths.png", dpi=400)
+plt.show()
+stop
 # fig, ax = plt.subplots(figsize=(10,8))
 # # Plot curves for 3 rod_radius settings
 # r1 = rod_rad[0]  # rp=0.8
@@ -186,7 +198,7 @@ a14 = data["Norm A14"].to_numpy()
 # r1_inds = np.where(rod_rad == r1)[0]
 # r2_inds = np.where(rod_rad == r2)[0]
 # r3_inds = np.where(rod_rad == r3)[0]
-#
+
 # ax.scatter(rod_fracs[r1_inds] / 2, a6[r1_inds], label=fr"$R/r_p$ = {r1:.2f}")
 # ax.scatter(rod_fracs[r2_inds] / 2, a6[r2_inds], label=fr"$R/r_p$ = {r2:.2f}")
 # ax.scatter(rod_fracs[r3_inds] / 2, a6[r3_inds], label=fr"$R/r_p$ = {r3:.2f}")
@@ -207,28 +219,27 @@ a14 = data["Norm A14"].to_numpy()
 # plt.savefig("varylengths_a6.png", dpi=400)
 # plt.show()
 
-# fig, ax = plt.subplots()
-# ax.set_title("Leading Order Multipole Error for Various Rod Radii")
-# ax.set_xlabel(r"Ratio of Rod Radius to Aperture $R_{rod}/r_p$")
-# ax.set_ylabel(r"Normalized Coefficient $\frac{A_6}{|A_2|}$")
-# ax.scatter(rod_rad, a6, s=4)
-# ax.plot(rod_rad, a6, lw=1)
-# ax.axhline(y=0, c="k", lw=0.2)
-# ax.axvline(x=1.146, c="k", ls="--", lw=1, label="Faltens")
-# ax.legend()
-# plt.tight_layout()
-# plt.savefig("varyradius_a6.png", dpi=400)
-# plt.show()
-
 fig, ax = plt.subplots()
-ax.set_title("Leading Order Multipole Error for Chopped Rods")
-ax.set_xlabel(r"Fraction of Rod Used $F$ ")
+ax.set_title("Leading Order Multipole Error for Various Rod Radii")
+ax.set_xlabel(r"Ratio of Rod Radius to Aperture Radius $R_{rod}/r_p$")
 ax.set_ylabel(r"Normalized Coefficient $\frac{A_6}{|A_2|}$")
-ax.scatter(rod_fracs / 2, a6)
+ax.scatter(rod_rad, a6, s=5)
 ax.axhline(y=0, c="k", lw=0.2)
+ax.axvline(x=1.146, c="k", ls="--", lw=1, label="Faltens")
+ax.legend()
 plt.tight_layout()
-plt.savefig("choppedA6_zoomed.png", dpi=400)
+plt.savefig("varyradius_a6.png", dpi=400)
 plt.show()
+stop
+# fig, ax = plt.subplots()
+# ax.set_title("Leading Order Multipole Error for Chopped Rods")
+# ax.set_xlabel(r"Fraction of Rod Used $F$ ")
+# ax.set_ylabel(r"Normalized Coefficient $\frac{A_6}{|A_2|}$")
+# ax.scatter(rod_fracs / 2, a6)
+# ax.axhline(y=0, c="k", lw=0.2)
+# plt.tight_layout()
+# plt.savefig("choppedA6_zoomed.png", dpi=400)
+# plt.show()
 
 # Make r-plots for various lengths
 plot_all_lengths = False
