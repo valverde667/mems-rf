@@ -3,6 +3,8 @@ import pandas as pd
 import os
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+from scipy.interpolate import interp1d
+
 
 mpl.rcParams["xtick.direction"] = "in"
 mpl.rcParams["xtick.minor.visible"] = True
@@ -171,14 +173,48 @@ def make_rscale_plot(df, save=False, panel=True):
         plt.savefig("a14plot.svg", dpi=400)
 
 
-# Make rod area plot
-rod_rad = data["R_rod/R_aper"].to_numpy()
+def plot_rod_ratios(df, interp=False, interp_val=0.0):
+
+    fig, ax = plt.subplots()
+    rod_fracs = df["R_rod/R_aper"].to_numpy()
+    a6 = df["Norm A6"].to_numpy()
+    ax.set_xlabel(r"Ratio of Rod-radius to Aperture Radius $(R_{rod}/r_p)$")
+    ax.set_ylabel(r"Normalized Error $A_6/|A_2|$")
+    ax.scatter(rod_fracs, a6)
+    ax.axhline(y=0, c="k", lw=1)
+    plt.tight_layout()
+
+    # Interpolate between two points fo find desired interpolation value
+    if interp:
+        # Find index of closest two points
+        dists = np.sqrt(pow(a6 - interp_val, 2))
+        nearest_inds = dists.argsort()[:2]
+        yvals = a6[nearest_inds]
+        xvals = rod_fracs[nearest_inds]
+
+        s = pd.Series(
+            [xvals[0], np.nan, xvals[1]], index=[yvals[0], interp_val, yvals[1]]
+        )
+        interp_data = s.interpolate(method="index")
+        val = interp_data.iloc[1]
+
+        ax.axvline(x=val, label=f"{val:.3f}")
+        ax.legend()
+
+
+# Load in data as numpy arrays
 rod_fracs = data["rod-fraction"].to_numpy()
 rod_lengths = data["L_esq/R_aper"].to_numpy()
 a6 = data["Norm A6"].to_numpy()
 a10 = data["Norm A10"].to_numpy()
 a14 = data["Norm A14"].to_numpy()
 
+# ------------------------------------------------------------------------------
+#     Logical Functions
+# Various logical flags for which plots are to be made
+# ------------------------------------------------------------------------------
+l_plot_rod_fracs = True
+l_plot_rod_lengths = True
 fig, ax = plt.subplots(figsize=(10, 8))
 ax.set_title("Leading Order Multipole Error for Various ESQ Lengths")
 ax.set_xlabel(r"Ratio of ESQ Length to Aperture Radius $\ell_q/r_p$")
