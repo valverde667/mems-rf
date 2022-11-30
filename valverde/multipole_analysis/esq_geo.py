@@ -205,29 +205,29 @@ class mems_ESQ_SolidCyl:
         )
 
         # Create connecting prongs for top and bottom ESQ
-        r_prong = wp.Box(
-            xsize=self.prong_long_dim,
-            ysize=self.prong_short_dim,
+        top_prong = wp.Box(
+            xsize=self.prong_short_dim,
+            ysize=self.prong_long_dim,
             zsize=self.copper_thickness,
             voltage=self.V_left,
             zcent=l_zc,
-            xcent=size / 2 - self.prong_long_dim / 2,
-            ycent=0.0,
+            xcent=0.0,
+            ycent=size / 2 - self.prong_long_dim / 2,
             condid=l_box_out.condid,
         )
-        l_prong = wp.Box(
-            xsize=self.prong_long_dim,
-            ysize=self.prong_short_dim,
+        bot_prong = wp.Box(
+            xsize=self.prong_short_dim,
+            ysize=self.prong_long_dim,
             zsize=self.copper_thickness,
             voltage=self.V_left,
             zcent=l_zc,
-            xcent=-(size / 2 - self.prong_long_dim / 2),
-            ycent=0.0,
+            xcent=0.0,
+            ycent=-(size / 2 - self.prong_long_dim / 2),
             condid=l_box_out.condid,
         )
 
         l_this_box = l_box_out - l_box_in
-        l_box = l_this_box + r_prong + l_prong
+        l_box = l_this_box + top_prong + bot_prong
 
         r_box_out = wp.Box(
             xsize=size,
@@ -250,28 +250,28 @@ class mems_ESQ_SolidCyl:
             condid=l_box_out.condid,
         )
 
-        top_prong = wp.Box(
-            xsize=self.prong_short_dim,
-            ysize=self.prong_long_dim,
+        r_prong = wp.Box(
+            xsize=self.prong_long_dim,
+            ysize=self.prong_short_dim,
             zsize=self.copper_thickness,
             voltage=self.V_right,
             zcent=r_zc,
-            xcent=0.0,
-            ycent=size / 2 - self.prong_long_dim / 2,
+            xcent=size / 2 - self.prong_long_dim / 2,
+            ycent=0.0,
             condid=l_box_out.condid,
         )
-        bot_prong = wp.Box(
-            xsize=self.prong_short_dim,
-            ysize=self.prong_long_dim,
+        l_prong = wp.Box(
+            xsize=self.prong_long_dim,
+            ysize=self.prong_short_dim,
             zsize=self.copper_thickness,
             voltage=self.V_right,
             zcent=r_zc,
-            xcent=0.0,
-            ycent=-(size / 2 - self.prong_long_dim / 2),
+            xcent=-(size / 2 - self.prong_long_dim / 2),
+            ycent=0.0,
             condid=l_box_out.condid,
         )
         r_this_box = r_box_out - r_box_in
-        r_box = r_this_box + top_prong + bot_prong
+        r_box = r_this_box + r_prong + l_prong
 
         box = l_box + r_box
 
