@@ -135,18 +135,7 @@ class mems_ESQ_SolidCyl:
         Combines four poles to create esq object.
     """
 
-    def __init__(
-        self,
-        zc,
-        id,
-        V_left,
-        V_right,
-        xc=0.0,
-        yc=0.0,
-        lq=0.695 * mm,
-        R=0.8 * mm,
-        rp=0.55 * mm,
-    ):
+    def __init__(self, zc, id, V_left, V_right, xc=0.0, yc=0.0):
 
         self.zc = zc
         self.id = id
@@ -154,15 +143,34 @@ class mems_ESQ_SolidCyl:
         self.V_right = V_right
         self.xc = 0.0
         self.yc = 0.0
-        self.lq = lq
-        self.R = R
-        self.rp = rp
+        self.rp = None
+
+        self.lq = None
+        self.R = None
 
         # Surrounding square dimensions.
         self.copper_thickness = None
         self.cell_width = None
 
-    def create_outer_box(self, cell_width=1 * mm, copper_thickness=35 * um):
+        # Prong length that connects rods to surrounding conductor
+        self.prong_short_dim = 0.2 * mm
+        self.prong_long_dim = 0.4 * mm
+
+    def set_geometry(
+        self,
+        rp=0.55 * mm,
+        R=0.8 * mm,
+        lq=0.695 * mm,
+        copper_thickness=35 * um,
+        cell_width=3.0 * mm,
+    ):
+        self.rp = rp
+        self.R = R
+        self.lq = lq
+        self.copper_thickness = copper_thickness
+        self.cell_width = cell_width
+
+    def create_outer_box(self):
         """Create surrounding square conductors.
 
         The ESQs are surrounding by a square conductor. Because of the opposing
@@ -170,15 +178,15 @@ class mems_ESQ_SolidCyl:
         wafer and the opposing bias on the other side. This function creates
         the +/- polarity """
 
-        self.cell_width = cell_width
-        self.copper_thickness = copper_thickness
-        l_zc = self.zc - self.lq / 2.0 + copper_thickness
-        r_zc = self.zc + self.lq / 2.0 - copper_thickness
+        l_zc = self.zc - self.lq / 2.0 - self.copper_thickness
+        r_zc = self.zc + self.lq / 2.0 + self.copper_thickness
+
+        size = 3.0 * mm
 
         l_box_out = wp.Box(
-            xsize=cell_width,
-            ysize=cell_width,
-            zsize=copper_thickness,
+            xsize=size,
+            ysize=size,
+            zsize=self.copper_thickness,
             zcent=l_zc,
             xcent=self.xc,
             ycent=self.yc,
@@ -186,21 +194,45 @@ class mems_ESQ_SolidCyl:
             condid=self.id,
         )
         l_box_in = wp.Box(
-            xsize=cell_width - 0.0002,
-            ysize=cell_width - 0.0002,
-            zsize=copper_thickness,
+            xsize=size - 0.0002,
+            ysize=size - 0.0002,
+            zsize=self.copper_thickness,
             zcent=l_zc,
             xcent=self.xc,
             ycent=self.yc,
             voltage=self.V_left,
             condid=l_box_out.condid,
         )
-        l_box = l_box_out - l_box_in
+
+        # Create connecting prongs for top and bottom ESQ
+        r_prong = wp.Box(
+            xsize=self.prong_long_dim,
+            ysize=self.prong_short_dim,
+            zsize=self.copper_thickness,
+            voltage=self.V_left,
+            zcent=l_zc,
+            xcent=size / 2 - self.prong_long_dim / 2,
+            ycent=0.0,
+            condid=l_box_out.condid,
+        )
+        l_prong = wp.Box(
+            xsize=self.prong_long_dim,
+            ysize=self.prong_short_dim,
+            zsize=self.copper_thickness,
+            voltage=self.V_left,
+            zcent=l_zc,
+            xcent=-(size / 2 - self.prong_long_dim / 2),
+            ycent=0.0,
+            condid=l_box_out.condid,
+        )
+
+        l_this_box = l_box_out - l_box_in
+        l_box = l_this_box + r_prong + l_prong
 
         r_box_out = wp.Box(
-            xsize=cell_width,
-            ysize=cell_width,
-            zsize=copper_thickness,
+            xsize=size,
+            ysize=size,
+            zsize=self.copper_thickness,
             zcent=r_zc,
             xcent=self.xc,
             ycent=self.yc,
@@ -208,22 +240,91 @@ class mems_ESQ_SolidCyl:
             condid=l_box_out.condid,
         )
         r_box_in = wp.Box(
-            xsize=cell_width - 0.0002,
-            ysize=cell_width - 0.0002,
-            zsize=copper_thickness,
+            xsize=size - 0.0002,
+            ysize=size - 0.0002,
+            zsize=self.copper_thickness,
             zcent=r_zc,
             xcent=self.xc,
             ycent=self.yc,
             voltage=self.V_right,
             condid=l_box_out.condid,
         )
-        r_box = r_box_out - r_box_in
+
+        top_prong = wp.Box(
+            xsize=self.prong_short_dim,
+            ysize=self.prong_long_dim,
+            zsize=self.copper_thickness,
+            voltage=self.V_right,
+            zcent=r_zc,
+            xcent=0.0,
+            ycent=size / 2 - self.prong_long_dim / 2,
+            condid=l_box_out.condid,
+        )
+        bot_prong = wp.Box(
+            xsize=self.prong_short_dim,
+            ysize=self.prong_long_dim,
+            zsize=self.copper_thickness,
+            voltage=self.V_right,
+            zcent=r_zc,
+            xcent=0.0,
+            ycent=-(size / 2 - self.prong_long_dim / 2),
+            condid=l_box_out.condid,
+        )
+        r_this_box = r_box_out - r_box_in
+        r_box = r_this_box + top_prong + bot_prong
 
         box = l_box + r_box
 
         return box
 
-    def generate(self, data=False):
+    def create_rods(self):
+        """Create the biased rods"""
+
+        # Create top and bottom rods
+        top = wp.ZCylinder(
+            voltage=self.V_left,
+            xcent=self.rp + self.R,
+            ycent=0.0,
+            zcent=self.zc,
+            radius=self.R,
+            length=self.lq,
+            condid=self.id,
+        )
+        bot = wp.ZCylinder(
+            voltage=self.V_left,
+            xcent=-(self.rp + self.R),
+            ycent=0.0,
+            zcent=self.zc,
+            radius=self.R,
+            length=self.lq,
+            condid=self.id,
+        )
+
+        # Create left and right rods
+        left = wp.ZCylinder(
+            voltage=self.V_right,
+            xcent=0.0,
+            ycent=-(self.rp + self.R),
+            zcent=self.zc,
+            radius=self.R,
+            length=self.lq,
+            condid=self.id,
+        )
+        right = wp.ZCylinder(
+            voltage=self.V_right,
+            xcent=0.0,
+            ycent=self.rp + self.R,
+            zcent=self.zc,
+            radius=self.R,
+            length=self.lq,
+            condid=self.id,
+        )
+
+        conductor = top + bot + left + right
+
+        return conductor
+
+    def generate(self):
         """Combine four electrodes to form ESQ.
 
         Note that in the xy-plane the voltage for the top/bottom electrode is
@@ -231,10 +332,11 @@ class mems_ESQ_SolidCyl:
         """
         # Create four poles
         square_conds = self.create_outer_box()
+        rods = self.create_rods()
 
-        conductor = square_conds
+        conductor = square_conds + rods
 
-        return conductor
+        return square_conds
 
 
 # ------------------------------------------------------------------------------
@@ -249,32 +351,28 @@ l_warpplots = True
 # Set paraemeeters for conductors
 separation = 0 * mm
 Nesq = 1
-rod_fraction = 0.5
 
 zc = 0 * mm
-wallvoltage = 0 * kV
 aperture = 0.55 * mm
-pole_rad = aperture * 1.5
-ESQ_length = 0.695 * mm
+pole_rad = 0.715 * mm
+ESQ_length = 0.7 * mm
 xycent = aperture + pole_rad
-walllength = 0.1 * mm
-wallzcent = ESQ_length + 1.0 * mm + walllength / 2
+
 
 # Creat mesh using conductor geometries (above) to keep resolution consistent
-wp.w3d.xmmin = -aperture - pole_rad
-wp.w3d.xmmax = aperture + pole_rad
-design_dx = 5 * um
-calc_nx = (wp.w3d.xmmax - wp.w3d.xmmin) / design_dx
+wp.w3d.xmmin = -1.5 * mm
+wp.w3d.xmmax = 1.5 * mm
 wp.w3d.nx = 200
 
-wp.w3d.ymmin = -aperture - pole_rad
-wp.w3d.ymmax = aperture + pole_rad
-wp.w3d.ny = wp.w3d.nx
+wp.w3d.ymmin = -1.5 * mm
+wp.w3d.ymmax = 1.5 * mm
+wp.w3d.ny = 200
 
 # Calculate nz to get about designed dz
-wp.w3d.zmmin = -0.4 * mm
-wp.w3d.zmmax = 0.4 * mm
-wp.w3d.nz = 200
+wp.w3d.zmmin = -0.7 * mm
+wp.w3d.zmmax = 0.7 * mm
+design_dz = 20 * um
+wp.w3d.nz = 350
 
 # Add boundary conditions
 wp.w3d.bound0 = wp.dirichlet
@@ -287,11 +385,14 @@ wp.registersolver(solver)
 
 
 ESQ = mems_ESQ_SolidCyl(0.0, "1", 0.5 * kV, -0.5 * kV)
+ESQ.set_geometry(rp=aperture, R=pole_rad, lq=ESQ_length)
 wp.installconductor(ESQ.generate())
 wp.generate()
 
 z = wp.w3d.zmesh
+x, y = wp.w3d.xmesh, wp.w3d.ymesh
 dz = wp.w3d.dz
+Ez = wp.getselfe(comp="z")
 
 # Warp plotting for verification that mesh and conductors were created properly.
 warpplots = True
@@ -301,9 +402,25 @@ if warpplots:
     wp.pfzy(fill=1, filled=1)
     wp.fma()
 
-    # plot the left-side wafer
-    xy_cent = ESQ.zc - ESQ.lq / 2.0
-    plate_cent_ind = np.argmin(abs(z - ESQ.lq / 2.0))
+    # Plot xy where the surrounding wall starts
+    val = ESQ.lq / 2.0 + 35 * um
+
+    plate_cent_ind = np.argmin(abs(z + ESQ.lq / 2.0))
     zind = plate_cent_ind
     wp.pfxy(iz=zind, fill=1, filled=1)
     wp.fma()
+
+    # plot the left-side wafer
+    plate_cent_ind = np.argmin(abs(z - val))
+    zind = plate_cent_ind
+    wp.pfxy(iz=zind, fill=1, filled=1)
+    wp.fma()
+
+dEzdx = (Ez[51, 50, :] - Ez[50, 50, :]) / wp.w3d.dx
+
+fig, ax = plt.subplots()
+ax.plot(z / mm, dEzdx)
+ax.axvline(x=-ESQ.lq / 2.0 / mm, c="k", ls="--", lw=1)
+ax.axvline(x=ESQ.lq / 2.0 / mm, c="k", ls="--", lw=1)
+
+plt.show()
