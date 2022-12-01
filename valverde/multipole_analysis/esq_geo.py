@@ -115,24 +115,68 @@ class ESQ_SolidCyl:
 
 class mems_ESQ_SolidCyl:
     """
-    Creates an ESQ object comprised of four solid cylinders extenind in z.
+    Creates ESQ conductor based on MEMS design.
+
+    The ESQ (at the moment) is created using solid cylindrical rods. The rods
+    have a radius R and can be chopped, i.e. half-rod. The aperture radius rp
+    remains fixed at 0.55 mm. Surrounding the ESQ is a rectangular conductor
+    that makes up the cell. This cell is 3 mm x 3 mm in x and y. The transverse
+    thickness is set to be 0.2 mm.
+    Longitudinal (z-direction) the ESQs have length lq while the cell is given
+    a z-length of copper_thickness. On each cell is a pair of prongs that connect
+    to the ESQs. The first cell has two prongs in +/- y that connect to the
+    top and bottom rods. The second cell has prongs in +/- x that connect to the
+    left and right prongs. These sets of prongs, along with the cell, have
+    opposing biases.
 
     Attributes
     ----------
-    radius : float
-        raidus of cylindrical ectrode.
     zc : float
         Center of electrode. The extent of the electrode is the half-total
         length in the positive and negative direction of zc.
-    length : float
-        Length of electrode.
+    id : str
+        An ID string for the conductor created. Setting all these to be
+        identical will ensure the addition and subtraction of conductors is
+        done correctly.
+    V_left : float
+        The voltage setting on the first cell that will also be the bias of the
+        top and bottom rods.
+    V_right : float
+        The voltage setting on the second cell that will also be teh biase of
+        the left and right rods.
+    xc : float
+        The center location of the rods in x.
+    yc : float
+        The center location of the rods in y.
+    rp : float
+        Aperture radius.
+    lq : float
+        Phycial length (longitudinally) of the ESQ rods.
+    R : float
+        Radius of the ESQ rods.
+    copper_zlen : float
+        Longitudinal length of the surrounding metallic structure.
+    copper_xysize : float
+        The size in x and y of the surrounding square conductor.
+    prong_short_dim : float
+        The non-connecting size of the prong connecting to the ESQ.
+    prong_long_dim : float
+        The connecting size of the prong connecting to the ESQ.
 
     Methods
     -------
-    pole(voltage, xcent, ycent)
-        Creates the individual electrode using Warp's ZCylinder
-    generate(voltage, xcent, ycent, data=False)
-        Combines four poles to create esq object.
+    set_geometry
+        Initializes geometrical settings for the ESQ wafer. This needs to be
+        called each time the class is created in order to set the values.
+    create_outer_box
+        Creates the surrounding square conducting material along with the prongs
+        that connect to the ESQ rods.
+    create_rods
+        Creates the ESQ rods.
+    generate
+        Combines the square conductor and the rods together to form the ESQ
+        structure. This and teh set_geometry method should be the only calls
+        done.
     """
 
     def __init__(self, zc, id, V_left, V_right, xc=0.0, yc=0.0):
@@ -149,44 +193,47 @@ class mems_ESQ_SolidCyl:
         self.R = None
 
         # Surrounding square dimensions.
-        self.copper_thickness = None
+        self.copper_zlen = None
         self.cell_xysize = None
 
         # Prong length that connects rods to surrounding conductor
         self.prong_short_dim = 0.2 * mm
-        self.prong_long_dim = 0.4 * mm
+        self.prong_long_dim = 0.3 * mm
 
     def set_geometry(
         self,
         rp=0.55 * mm,
         R=0.8 * mm,
         lq=0.695 * mm,
-        copper_thickness=35 * um,
+        copper_zlen=35 * um,
         cell_xysize=3.0 * mm,
     ):
+        """Initializes the variable geometrical settings for the ESQ."""
+
         self.rp = rp
         self.R = R
         self.lq = lq
-        self.copper_thickness = copper_thickness
+        self.copper_zlen = copper_zlen
         self.cell_xysize = cell_xysize
 
     def create_outer_box(self):
         """Create surrounding square conductors.
 
-        The ESQs are surrounding by a square conductor. Because of the opposing
+        The ESQs are surrounded by a square conductor. Because of the opposing
         polarities the surrounding square takes one voltage on one side of the
         wafer and the opposing bias on the other side. This function creates
-        the +/- polarity """
+        the +/- polarity.
+        """
 
-        l_zc = self.zc - self.lq / 2.0 - self.copper_thickness
-        r_zc = self.zc + self.lq / 2.0 + self.copper_thickness
+        l_zc = self.zc - self.lq / 2.0 - self.copper_zlen
+        r_zc = self.zc + self.lq / 2.0 + self.copper_zlen
 
         size = self.cell_xysize
 
         l_box_out = wp.Box(
             xsize=size,
             ysize=size,
-            zsize=self.copper_thickness,
+            zsize=self.copper_zlen,
             zcent=l_zc,
             xcent=self.xc,
             ycent=self.yc,
@@ -194,9 +241,9 @@ class mems_ESQ_SolidCyl:
             condid=self.id,
         )
         l_box_in = wp.Box(
-            xsize=size - 0.0002,
-            ysize=size - 0.0002,
-            zsize=self.copper_thickness,
+            xsize=size - 0.2 * mm,
+            ysize=size - 0.2 * mm,
+            zsize=self.copper_zlen,
             zcent=l_zc,
             xcent=self.xc,
             ycent=self.yc,
@@ -208,7 +255,7 @@ class mems_ESQ_SolidCyl:
         top_prong = wp.Box(
             xsize=self.prong_short_dim,
             ysize=self.prong_long_dim,
-            zsize=self.copper_thickness,
+            zsize=self.copper_zlen,
             voltage=self.V_left,
             zcent=l_zc,
             xcent=0.0,
@@ -218,7 +265,7 @@ class mems_ESQ_SolidCyl:
         bot_prong = wp.Box(
             xsize=self.prong_short_dim,
             ysize=self.prong_long_dim,
-            zsize=self.copper_thickness,
+            zsize=self.copper_zlen,
             voltage=self.V_left,
             zcent=l_zc,
             xcent=0.0,
@@ -232,7 +279,7 @@ class mems_ESQ_SolidCyl:
         r_box_out = wp.Box(
             xsize=size,
             ysize=size,
-            zsize=self.copper_thickness,
+            zsize=self.copper_zlen,
             zcent=r_zc,
             xcent=self.xc,
             ycent=self.yc,
@@ -240,9 +287,9 @@ class mems_ESQ_SolidCyl:
             condid=l_box_out.condid,
         )
         r_box_in = wp.Box(
-            xsize=size - 0.0002,
-            ysize=size - 0.0002,
-            zsize=self.copper_thickness,
+            xsize=size - 0.2 * mm,
+            ysize=size - 0.2 * mm,
+            zsize=self.copper_zlen,
             zcent=r_zc,
             xcent=self.xc,
             ycent=self.yc,
@@ -253,7 +300,7 @@ class mems_ESQ_SolidCyl:
         r_prong = wp.Box(
             xsize=self.prong_long_dim,
             ysize=self.prong_short_dim,
-            zsize=self.copper_thickness,
+            zsize=self.copper_zlen,
             voltage=self.V_right,
             zcent=r_zc,
             xcent=size / 2 - self.prong_long_dim / 2,
@@ -263,7 +310,7 @@ class mems_ESQ_SolidCyl:
         l_prong = wp.Box(
             xsize=self.prong_long_dim,
             ysize=self.prong_short_dim,
-            zsize=self.copper_thickness,
+            zsize=self.copper_zlen,
             voltage=self.V_right,
             zcent=r_zc,
             xcent=-(size / 2 - self.prong_long_dim / 2),
@@ -289,7 +336,7 @@ class mems_ESQ_SolidCyl:
             ycent=size / 2.0 - self.prong_long_dim - self.R / 2,
             zcent=self.zc,
             radius=self.R,
-            length=self.lq + 4 * self.copper_thickness,
+            length=self.lq + 4 * self.copper_zlen,
             condid=self.id,
         )
         bot = wp.ZCylinder(
@@ -298,7 +345,7 @@ class mems_ESQ_SolidCyl:
             ycent=-(size / 2.0 - self.prong_long_dim - self.R / 2),
             zcent=self.zc,
             radius=self.R,
-            length=self.lq + 4 * self.copper_thickness,
+            length=self.lq + 4 * self.copper_zlen,
             condid=self.id,
         )
 
@@ -309,7 +356,7 @@ class mems_ESQ_SolidCyl:
             ycent=0.0,
             zcent=self.zc,
             radius=self.R,
-            length=self.lq + 4 * self.copper_thickness,
+            length=self.lq + 4 * self.copper_zlen,
             condid=self.id,
         )
         right = wp.ZCylinder(
@@ -318,7 +365,7 @@ class mems_ESQ_SolidCyl:
             ycent=0.0,
             zcent=self.zc,
             radius=self.R,
-            length=self.lq + 4 * self.copper_thickness,
+            length=self.lq + 4 * self.copper_zlen,
             condid=self.id,
         )
 
@@ -327,11 +374,7 @@ class mems_ESQ_SolidCyl:
         return conductor
 
     def generate(self):
-        """Combine four electrodes to form ESQ.
-
-        Note that in the xy-plane the voltage for the top/bottom electrode is
-        set to +.
-        """
+        """Combine four electrodes to form ESQ."""
         # Create four poles
         square_conds = self.create_outer_box()
         rods = self.create_rods()
