@@ -29,8 +29,6 @@ mpl.rcParams["ytick.major.right"] = True
 mpl.rcParams["ytick.minor.right"] = True
 mpl.rcParams["figure.max_open_warning"] = 60
 
-wp.setup()
-
 # Useful constants
 kV = wp.kV
 mm = wp.mm
@@ -113,7 +111,7 @@ class ESQ_SolidCyl:
         return conductor
 
 
-class mems_ESQ_SolidCyl:
+class Mems_ESQ_SolidCyl:
     """
     Creates ESQ conductor based on MEMS design.
 
@@ -123,7 +121,7 @@ class mems_ESQ_SolidCyl:
     that makes up the cell. This cell is 3 mm x 3 mm in x and y. The transverse
     thickness is set to be 0.2 mm.
     Longitudinal (z-direction) the ESQs have length lq while the cell is given
-    a z-length of copper_thickness. On each cell is a pair of prongs that connect
+    a z-length of copper_zlen. On each cell is a pair of prongs that connect
     to the ESQs. The first cell has two prongs in +/- y that connect to the
     top and bottom rods. The second cell has prongs in +/- x that connect to the
     left and right prongs. These sets of prongs, along with the cell, have
@@ -197,8 +195,9 @@ class mems_ESQ_SolidCyl:
         self.cell_xysize = None
 
         # Prong length that connects rods to surrounding conductor
-        self.prong_short_dim = 0.2 * mm
-        self.prong_long_dim = 0.3 * mm
+        self.prong_short_dim = 0.1 * mm
+        self.prong_long_dim = 0.1 * mm
+        xy_cent = None
 
     def set_geometry(
         self,
@@ -241,8 +240,8 @@ class mems_ESQ_SolidCyl:
             condid=self.id,
         )
         l_box_in = wp.Box(
-            xsize=size - 0.2 * mm,
-            ysize=size - 0.2 * mm,
+            xsize=size - 0.1 * mm,
+            ysize=size - 0.1 * mm,
             zsize=self.copper_zlen,
             zcent=l_zc,
             xcent=self.xc,
@@ -287,8 +286,8 @@ class mems_ESQ_SolidCyl:
             condid=l_box_out.condid,
         )
         r_box_in = wp.Box(
-            xsize=size - 0.2 * mm,
-            ysize=size - 0.2 * mm,
+            xsize=size - 0.1 * mm,
+            ysize=size - 0.1 * mm,
             zsize=self.copper_zlen,
             zcent=r_zc,
             xcent=self.xc,
@@ -328,12 +327,18 @@ class mems_ESQ_SolidCyl:
         """Create the biased rods"""
 
         size = self.cell_xysize
+        cent = size / 2.0 - 0.1 * mm - self.prong_long_dim - self.R
+        self.xycent = cent
+
+        # assert cent - self.R >= self.rp, "Rods cross into aperture."
+        # assert cent + self.R <= 2.5 * mm, "Rod places rods outside of cell."
+        # assert 2. * pow(self.R + self.rp, 2) > 4. * pow(self.R, 2), "Rods touching."
 
         # Create top and bottom rods
         top = wp.ZCylinder(
             voltage=self.V_left,
             xcent=0.0,
-            ycent=size / 2.0 - self.prong_long_dim - self.R / 2,
+            ycent=cent,
             zcent=self.zc,
             radius=self.R,
             length=self.lq + 4 * self.copper_zlen,
@@ -342,7 +347,7 @@ class mems_ESQ_SolidCyl:
         bot = wp.ZCylinder(
             voltage=self.V_left,
             xcent=0.0,
-            ycent=-(size / 2.0 - self.prong_long_dim - self.R / 2),
+            ycent=-cent,
             zcent=self.zc,
             radius=self.R,
             length=self.lq + 4 * self.copper_zlen,
@@ -352,7 +357,7 @@ class mems_ESQ_SolidCyl:
         # Create left and right rods
         left = wp.ZCylinder(
             voltage=self.V_right,
-            xcent=-(size / 2.0 - self.prong_long_dim - self.R / 2),
+            xcent=-cent,
             ycent=0.0,
             zcent=self.zc,
             radius=self.R,
@@ -361,7 +366,7 @@ class mems_ESQ_SolidCyl:
         )
         right = wp.ZCylinder(
             voltage=self.V_right,
-            xcent=size / 2.0 - self.prong_long_dim - self.R / 2,
+            xcent=cent,
             ycent=0.0,
             zcent=self.zc,
             radius=self.R,
@@ -384,93 +389,95 @@ class mems_ESQ_SolidCyl:
         return conductor
 
 
-# ------------------------------------------------------------------------------
-#                    Logical Flags
-# Logical flags for controlling various routines within the script. All flags
-# prefixed with l_.
-# ------------------------------------------------------------------------------
-l_warpplots = True
-# ------------------------------------------------------------------------------
-#                     Create and load mesh and conductors
-# ------------------------------------------------------------------------------
-# Set paraemeeters for conductors
-separation = 0 * mm
-Nesq = 1
+# if __name__ == "__main__":
 
-zc = 0 * mm
-aperture = 0.55 * mm
-pole_rad = 0.415 * mm
-ESQ_length = 0.7 * mm
-xycent = aperture + pole_rad
+#     # ------------------------------------------------------------------------------
+#     #                    Logical Flags
+#     # Logical flags for controlling various routines within the script. All flags
+#     # prefixed with l_.
+#     # ------------------------------------------------------------------------------
+#     l_warpplots = True
+#     # ------------------------------------------------------------------------------
+#     #                     Create and load mesh and conductors
+#     # ------------------------------------------------------------------------------
+#     # Set paraemeeters for conductors
+#     separation = 0 * mm
+#     Nesq = 1
 
-
-# Creat mesh using conductor geometries (above) to keep resolution consistent
-wp.w3d.xmmin = -1.5 * mm
-wp.w3d.xmmax = 1.5 * mm
-wp.w3d.nx = 150
-
-wp.w3d.ymmin = -1.5 * mm
-wp.w3d.ymmax = 1.5 * mm
-wp.w3d.ny = 150
-
-# Calculate nz to get about designed dz
-wp.w3d.zmmin = -1.3 * mm
-wp.w3d.zmmax = 1.3 * mm
-design_dz = 20 * um
-wp.w3d.nz = 400
-
-# Add boundary conditions
-wp.w3d.bound0 = wp.dirichlet
-wp.w3d.boundnz = wp.dirichlet
-wp.w3d.boundxy = wp.periodic
-wp.f3d.mgtol = 1e-8
-
-solver = wp.MRBlock3D()
-wp.registersolver(solver)
+#     zc = 0 * mm
+#     aperture = 0.55 * mm
+#     pole_rad = 0.415 * mm
+#     ESQ_length = 0.7 * mm
+#     xycent = aperture + pole_rad
 
 
-ESQ = mems_ESQ_SolidCyl(0.0, "1", 0.1 * kV, -0.1 * kV)
-ESQ.set_geometry(rp=aperture, R=pole_rad, lq=ESQ_length)
-wp.installconductor(ESQ.generate())
-wp.generate()
+#     # Creat mesh using conductor geometries (above) to keep resolution consistent
+#     wp.w3d.xmmin = -1.5 * mm
+#     wp.w3d.xmmax = 1.5 * mm
+#     wp.w3d.nx = 150
 
-z = wp.w3d.zmesh
-x, y = wp.w3d.xmesh, wp.w3d.ymesh
-xzero_ind = np.argmin(abs(x))
-dz = wp.w3d.dz
-Ex = wp.getselfe(comp="x")
+#     wp.w3d.ymmin = -1.5 * mm
+#     wp.w3d.ymmax = 1.5 * mm
+#     wp.w3d.ny = 150
 
-# Warp plotting for verification that mesh and conductors were created properly.
-warpplots = True
-if warpplots:
-    wp.pfzx(fill=1, filled=1)
-    wp.fma()
-    wp.pfzy(fill=1, filled=1)
-    wp.fma()
+#     # Calculate nz to get about designed dz
+#     wp.w3d.zmmin = -1.5 * mm
+#     wp.w3d.zmmax = 1.5* mm
+#     wp.w3d.nz = 400
 
-    # Plot xy where the surrounding wall starts
-    val = ESQ.lq / 2.0 + 35 * um
+#     # Add boundary conditions
+#     wp.w3d.bound0 = wp.dirichlet
+#     wp.w3d.boundnz = wp.dirichlet
+#     wp.w3d.boundxy = wp.periodic
+#     wp.f3d.mgtol = 1e-6
 
-    plate_cent_ind = np.argmin(abs(z + ESQ.lq / 2.0))
-    zind = plate_cent_ind
-    wp.pfxy(iz=zind, fill=1, filled=1)
-    wp.fma()
+#     solver = wp.MRBlock3D()
+#     wp.registersolver(solver)
 
-    # plot the left-side wafer
-    plate_cent_ind = np.argmin(abs(z - val))
-    zind = plate_cent_ind
-    wp.pfxy(iz=zind, fill=1, filled=1)
-    wp.fma()
 
-dExdx = (Ex[xzero_ind + 1, xzero_ind, :] - Ex[xzero_ind, xzero_ind, :]) / wp.w3d.dx
+#     ESQ = Mems_ESQ_SolidCyl(0.0, "1", 0.1 * kV, -0.1 * kV)
+#     ESQ.set_geometry(rp=aperture, R=0.46 * aperture, lq=ESQ_length)
+#     wp.installconductor(ESQ.generate())
+#     wp.generate()
 
-fig, ax = plt.subplots()
-ax.plot(z / mm, dExdx / kV * mm * mm)
-ax.axvline(
-    x=-(ESQ.zc + ESQ.lq / 2.0 + 2 * ESQ.copper_thickness) / mm, c="k", ls="--", lw=1
-)
-ax.axvline(
-    x=(ESQ.zc + ESQ.lq / 2.0 + 2 * ESQ.copper_thickness) / mm, c="k", ls="--", lw=1
-)
+#     z = wp.w3d.zmesh
+#     x, y = wp.w3d.xmesh, wp.w3d.ymesh
+#     xzero_ind = np.argmin(abs(x))
+#     dz = wp.w3d.dz
+#     Ex = wp.getselfe(comp="x")
 
-plt.show()
+#     # Warp plotting for verification that mesh and conductors were created properly.
+#     warpplots = True
+#     if warpplots:
+#         wp.pfzx(fill=1, filled=1)
+#         wp.fma()
+#         wp.pfzy(fill=1, filled=1)
+#         wp.fma()
+
+#         # Plot xy where the surrounding wall starts
+#         val = ESQ.lq / 2.0 + 35 * um
+
+#         plate_cent_ind = np.argmin(abs(z + ESQ.lq / 2.0))
+#         zind = plate_cent_ind
+#         wp.pfxy(iz=zind, fill=1, filled=1)
+#         wp.fma()
+
+#         # plot the left-side wafer
+#         plate_cent_ind = np.argmin(abs(z - val))
+#         zind = plate_cent_ind
+#         wp.pfxy(iz=zind, fill=1, filled=1)
+#         wp.fma()
+
+#     dExdx = (Ex[xzero_ind + 1, xzero_ind, :] - Ex[xzero_ind, xzero_ind, :]) / wp.w3d.dx
+
+#     fig, ax = plt.subplots()
+#     ax.plot(z / mm, dExdx / kV * mm * mm)
+#     ax.axvline(
+#         x=-(ESQ.zc + ESQ.lq / 2.0 + 2 * ESQ.copper_zlen) / mm, c="k", ls="--", lw=1
+#     )
+#     ax.axvline(
+#         x=(ESQ.zc + ESQ.lq / 2.0 + 2 * ESQ.copper_zlen) / mm, c="k", ls="--", lw=1
+#     )
+#     ax.axhline(y=0, c='k', ls='--', lw=1)
+
+#     plt.show()
