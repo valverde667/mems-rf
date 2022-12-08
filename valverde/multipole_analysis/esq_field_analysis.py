@@ -9,36 +9,12 @@
 # is stored in a .csv file called multipole_data.csv. The path should be changed
 # for any new user.
 
-
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.pyplot as mpl
-from mpl_toolkits.mplot3d import axes3d
-import scipy.integrate as integrate
-import os
-import math
-import csv
-import pdb
-import sys
-
-mpl.rcParams["xtick.direction"] = "in"
-mpl.rcParams["xtick.minor.visible"] = True
-mpl.rcParams["xtick.top"] = True
-mpl.rcParams["xtick.minor.top"] = True
-mpl.rcParams["ytick.direction"] = "in"
-mpl.rcParams["ytick.minor.visible"] = True
-mpl.rcParams["ytick.right"] = True
-mpl.rcParams["ytick.major.right"] = True
-mpl.rcParams["ytick.minor.right"] = True
-mpl.rcParams["figure.max_open_warning"] = 60
-
 # Create argument parser for scaling. Must be done before importing Warp
 import warpoptions
 
 # Scale pole argument will set the radius of the ESQ rod in units of aperture
 # radius
-warpoptions.parser.add_argument("--scale_pole", default=False, type=float)
+warpoptions.parser.add_argument("--scale_pole_rad", default=False, type=float)
 
 # Scale length argument will set the length of the ESQ rod in units of aperture
 # radius
@@ -50,8 +26,8 @@ warpoptions.parser.add_argument("--scale_length", default=False, type=float)
 warpoptions.parser.add_argument("--rod_fraction", default=False, type=float)
 warpoptions.parser.add_argument("--voltage", default=False, type=float)
 inputs = warpoptions.parser.parse_args()
-if inputs.scale_pole != False:
-    scale_pole_rad = inputs.scale_pole
+if inputs.scale_pole_rad != False:
+    scale_pole_rad = inputs.scale_pole_rad
 else:
     # Around optimum value found for isolated single quad.
     scale_pole_rad = 1.135
@@ -71,15 +47,13 @@ if inputs.voltage != False:
 else:
     voltage = 428.0
 
-import warp as wp
+from imports import *
+from esq_geo import Mems_ESQ_SolidCyl
+
 
 # Save string for convenience
 savepath = "/Users/nickvalverde/Desktop/ESQ_files/"
 
-# Useful constants
-kV = wp.kV
-mm = wp.mm
-um = 1e-6
 print(f"--Using Pole Scale Factor of {scale_pole_rad}")
 print(f"--Using ESQ Length Scale Factor of {scale_Lesq}")
 print(f"--Using Rod Fraction of {rod_fraction}")
@@ -478,9 +452,9 @@ def interp2d_area(x_interp, y_interp, xmesh, ymesh, grid_data):
 # prefixed with l_.
 # ------------------------------------------------------------------------------
 l_warpplots = True
-l_make_effective_length_plots = True
+l_make_effective_length_plots = False
 l_make_transField_plots = False
-l_plot_breakdown = True
+l_plot_breakdown = False
 l_make_3d_integrand_plot = False
 l_multple_barplots = False
 # ------------------------------------------------------------------------------
@@ -500,20 +474,20 @@ walllength = 0.1 * mm
 wallzcent = ESQ_length + 1.0 * mm + walllength / 2
 
 # Creat mesh using conductor geometries (above) to keep resolution consistent
-wp.w3d.xmmin = -aperture - (pole_rad * rod_fraction)
-wp.w3d.xmmax = aperture + (pole_rad * rod_fraction)
+wp.w3d.xmmin = -1.5 * mm
+wp.w3d.xmmax = 1.5 * mm
 design_dx = 5 * um
 calc_nx = (wp.w3d.xmmax - wp.w3d.xmmin) / design_dx
 wp.w3d.nx = int(calc_nx)
 
-wp.w3d.ymmin = -aperture - (pole_rad * rod_fraction)
-wp.w3d.ymmax = aperture + (pole_rad * rod_fraction)
+wp.w3d.ymmin = -1.5 * mm
+wp.w3d.ymmax = 1.5 * mm
 wp.w3d.ny = wp.w3d.nx
 
 # Calculate nz to get about designed dz
-wp.w3d.zmmin = -(wallzcent + separation)
-wp.w3d.zmmax = wallzcent + separation
-design_dz = 15 * um
+wp.w3d.zmmin = -1.2 * mm
+wp.w3d.zmmax = 1.2 * mm
+design_dz = 10 * um
 calc_nz = (wp.w3d.zmmax - wp.w3d.zmmin) / design_dz
 wp.w3d.nz = int(calc_nz)
 
@@ -526,30 +500,10 @@ wp.f3d.mgtol = 1e-8
 solver = wp.MRBlock3D()
 wp.registersolver(solver)
 
-# Create left and right quads
-leftconductor = ESQ_SolidCyl(zc=-zc, radius=pole_rad, length=ESQ_length)
-leftquad = leftconductor.generate(
-    voltage=voltage, xcent=xycent, ycent=xycent, data=False
-)
-# rightconductor = ESQ_SolidCyl(zc=zc, radius=pole_rad, length=ESQ_length)
-# rightquad = rightconductor.generate(
-#     voltage=-voltage, xcent=xycent, ycent=xycent, data=False
-# )
-#
-# l_leftwall = Wall().generate(apperture=aperture, voltage=7*kV, zcenter=-12.1*mm)
-# r_leftwall = Wall().generate(apperture=aperture, voltage=0*kV, zcenter=-10.1*mm)
-#
-# l_rightwall = Wall().generate(apperture=aperture, voltage=0*kV, zcenter=10.1*mm)
-# r_rightwall = Wall().generate(apperture=aperture, voltage=7*kV, zcenter=12.1*mm)
-
-# Install Conductors and generate mesh
-wp.installconductor(leftquad)
-# wp.installconductor(rightquad)
-# wp.installconductor(l_leftwall)
-# wp.installconductor(r_leftwall)
-# wp.installconductor(l_rightwall)
-# wp.installconductor(r_rightwall)
-
+# Create Quadrupole
+leftquad = Mems_ESQ_SolidCyl(0.0, "1", voltage, -voltage)
+leftquad.set_geometry(rp=aperture, R=pole_rad, lq=ESQ_length)
+wp.installconductor(leftquad.generate())
 wp.generate()
 
 # ------------------------------------------------------------------------------
@@ -789,13 +743,13 @@ for i, n in enumerate(nterms):
 # Create Warp plots. Useful for quick-checking
 if l_warpplots:
     wp.setup()
-    leftquad.drawzx(filled=True)
+    # leftquad.drawzx(filled=True)
     # rightwall.drawzx(filled=True)
     # leftwall.drawzx(filled=True)
-    wp.fma()
+    # wp.fma()
 
-    leftquad.drawxy(filled=True)
-    wp.fma()
+    # leftquad.drawxy(filled=True)
+    # wp.fma()
 
     wp.pfxy(iz=zcenterindex, fill=1, filled=1)
     wp.fma()
