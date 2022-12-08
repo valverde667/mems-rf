@@ -16,13 +16,13 @@
 # iterate Rod Radius
 for x in $(cat rod_ratios.txt);
   do
-    python esq_field_analysis.py --scale_pole $x
+    python esq_field_analysis.py --scale_pole_rad $x
   done
 
 # iterate Rod Fraction
 # for x in $(cat chop.txt);
 #   do
-#     python esq_field_analysis.py --rod_fraction $x --scale_pole 1.145
+#     python esq_field_analysis.py --rod_fraction $x --scale_pole_rad 1.145
 #   done
 
 # iterate Rod Voltage
