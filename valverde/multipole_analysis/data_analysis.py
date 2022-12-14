@@ -19,7 +19,6 @@ mpl.rcParams["figure.max_open_warning"] = 60
 
 data_path = "/Users/nickvalverde/Desktop/ESQ_files"
 df = pd.read_csv(os.path.join(data_path, "multipole_data.csv"))
-# df = pd.read_csv(os.path.join(data_path, "vary_rod-radius_rod-fraction.csv"))
 data = df.copy()
 mm = 1.0e-3
 # data.drop_duplicates(subset='R_pole/R_aper', keep='last', inplace=True)
@@ -178,6 +177,7 @@ def plot_rod_ratios(df, interp=False, interp_val=0.0):
     fig, ax = plt.subplots()
     rod_fracs = df["R_rod/R_aper"].to_numpy()
     a6 = df["Norm A6"].to_numpy()
+    ax.set_title("Leading Order Multipole Error for Various Rod Radii")
     ax.set_xlabel(r"Ratio of Rod-radius to Aperture Radius $(R_{rod}/r_p)$")
     ax.set_ylabel(r"Normalized Error $A_6/|A_2|$")
     ax.scatter(rod_fracs, a6)
@@ -198,7 +198,7 @@ def plot_rod_ratios(df, interp=False, interp_val=0.0):
         interp_data = s.interpolate(method="index")
         val = interp_data.iloc[1]
 
-        ax.axvline(x=val, label=f"{val:.3f}")
+        ax.axvline(x=val, c="k", lw=1, ls="--", label=fr"$R/r_p$ = {val:.3f}")
         ax.legend()
 
 
