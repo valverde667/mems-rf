@@ -30,7 +30,7 @@ if inputs.scale_pole_rad != False:
     scale_pole_rad = inputs.scale_pole_rad
 else:
     # Around optimum value found for isolated single quad.
-    scale_pole_rad = 1.135
+    scale_pole_rad = 0.674
 if inputs.scale_length != False:
     scale_Lesq = inputs.scale_length
 else:
@@ -93,7 +93,7 @@ class ESQ_SolidCyl:
         self.length = length
 
     def pole(self, voltage, xcent, ycent):
-        """Create individual electrode for ESQ
+        """Create individual electrode for ESQ.
 
         Parameters
         ----------
@@ -501,7 +501,7 @@ solver = wp.MRBlock3D()
 wp.registersolver(solver)
 
 # Create Quadrupole
-leftquad = Mems_ESQ_SolidCyl(0.0, "1", voltage, -voltage)
+leftquad = Mems_ESQ_SolidCyl(0.0, "1", voltage, -voltage, chop=True)
 leftquad.set_geometry(rp=aperture, R=pole_rad, lq=ESQ_length)
 wp.installconductor(leftquad.generate())
 wp.generate()
@@ -752,6 +752,19 @@ if l_warpplots:
     # wp.fma()
 
     wp.pfxy(iz=zcenterindex, fill=1, filled=1)
+    wp.fma()
+
+    # find center of box
+    this_iz = getindex(
+        z, leftquad.zc - leftquad.lq / 2.0 - leftquad.copper_zlen, wp.w3d.dz
+    )
+    wp.pfxy(iz=this_iz, fill=1, filled=1)
+    wp.fma()
+
+    this_iz = getindex(
+        z, leftquad.zc + leftquad.lq / 2.0 + leftquad.copper_zlen, wp.w3d.dz
+    )
+    wp.pfxy(iz=this_iz, fill=1, filled=1)
     wp.fma()
 
     wp.pfzx(fill=1, filled=1)
