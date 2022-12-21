@@ -4,6 +4,7 @@ import os
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from scipy.interpolate import interp1d
+import scipy
 
 
 mpl.rcParams["xtick.direction"] = "in"
@@ -16,11 +17,13 @@ mpl.rcParams["ytick.right"] = True
 mpl.rcParams["ytick.major.right"] = True
 mpl.rcParams["ytick.minor.right"] = True
 mpl.rcParams["figure.max_open_warning"] = 60
+mpl.rcParams["axes.grid"] = True
 
 data_path = "/Users/nickvalverde/Desktop/ESQ_files"
 df = pd.read_csv(os.path.join(data_path, "multipole_data.csv"))
 data = df.copy()
 mm = 1.0e-3
+kV = 1.0e3
 # data.drop_duplicates(subset='R_pole/R_aper', keep='last', inplace=True)
 
 
@@ -172,7 +175,7 @@ def make_rscale_plot(df, save=False, panel=True):
         plt.savefig("a14plot.svg", dpi=400)
 
 
-def plot_rod_ratios(df, interp=False, interp_val=0.0):
+def plot_rod_ratios(df, interp=False, interp_val=0.0, save=True):
 
     fig, ax = plt.subplots()
     rod_fracs = df["R_rod/R_aper"].to_numpy()
@@ -182,6 +185,7 @@ def plot_rod_ratios(df, interp=False, interp_val=0.0):
     ax.set_ylabel(r"Normalized Error $A_6/|A_2|$")
     ax.scatter(rod_fracs, a6)
     ax.axhline(y=0, c="k", lw=1)
+    ax.grid("on")
     plt.tight_layout()
 
     # Interpolate between two points fo find desired interpolation value
@@ -201,6 +205,38 @@ def plot_rod_ratios(df, interp=False, interp_val=0.0):
         ax.axvline(x=val, c="k", lw=1, ls="--", label=fr"$R/r_p$ = {val:.3f}")
         ax.legend()
 
+    if save:
+        plt.savefig("rod_ratios.svg", dpi=400)
+
+
+def plot_volt_max(df, voltages, interp=False, val=0.5):
+    """Plot the max Efield found with varying bias settings
+
+    The dataframe contains the maximum Efield |E(x,y,z)| found when a voltage
+    was applied to the ESQ. The voltages are in a Vsets.txt."""
+
+    breakdown = 1e7
+    y = df["Emag"] / breakdown
+    x = voltages / kV
+    fig, ax = plt.subplots()
+    ax.set_xlabel("ESQ Voltage (kV)")
+    ax.set_ylabel(r"$|E(x,y,z)| \times 10^7$ (V/m)")
+    ax.scatter(x, y)
+    ax.axhline(y=1, c="r", ls="--")
+    ax.axhline(y=0.5, c="r", ls="--")
+    if interp:
+        # Linearly interpolate data and find (x, val) pair.
+        f = scipy.interpolate.interp1d(x, y)
+        xnew = np.linspace(x.min(), x.max(), 250)
+        ynew = f(xnew)
+        ind = np.argmin(abs(ynew - val))
+
+        ax.axvline(x=xnew[ind], ls="--", c="k", label=fr"$V_q$ = {xnew[ind]:.3f} kV")
+
+    ax.legend()
+    plt.tight_layout()
+    plt.savefig("voltage_breakdown.svg", dpi=400)
+
 
 # Load in data as numpy arrays
 rod_fracs = data["rod-fraction"].to_numpy()
@@ -209,6 +245,9 @@ a6 = data["Norm A6"].to_numpy()
 a10 = data["Norm A10"].to_numpy()
 a14 = data["Norm A14"].to_numpy()
 
+v = np.loadtxt("Vsets.txt")
+plot_volt_max(df, v, interp=True)
+stop
 # ------------------------------------------------------------------------------
 #     Logical Functions
 # Various logical flags for which plots are to be made
