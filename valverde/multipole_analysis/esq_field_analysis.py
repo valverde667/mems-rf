@@ -30,7 +30,7 @@ if inputs.scale_pole_rad != False:
     scale_pole_rad = inputs.scale_pole_rad
 else:
     # Around optimum value found for isolated single quad.
-    scale_pole_rad = 0.674
+    scale_pole_rad = 1.304
 if inputs.scale_length != False:
     scale_Lesq = inputs.scale_length
 else:
@@ -86,7 +86,7 @@ class ESQ_SolidCyl:
         Combines four poles to create esq object.
     """
 
-    def __init__(self, radius=0.5 * mm, zc=2.2 * mm, length=0.695 * mm):
+    def __init__(self, radius=0.5 * mm, zc=0.0 * mm, length=0.695 * mm):
 
         self.radius = radius
         self.zc = zc
@@ -122,20 +122,43 @@ class ESQ_SolidCyl:
         )
         return conductor
 
-    def generate(self, voltage, xcent, ycent, data=False):
+    def generate(self, voltage, xcent, ycent, data=False, chop=False):
         """Combine four electrodes to form ESQ.
 
         Note that in the xy-plane the voltage for the top/bottom electrode is
         set to +.
         """
+        rp = 0.55 * mm
+        c = rp + self.radius
         # Create four poles
-        top = self.pole(voltage=voltage, xcent=0, ycent=ycent)
-        bottom = self.pole(voltage=voltage, xcent=0, ycent=-ycent)
-        left = self.pole(voltage=-voltage, xcent=-xcent, ycent=0)
-        right = self.pole(voltage=-voltage, xcent=xcent, ycent=0)
+        top = self.pole(voltage=voltage, xcent=0, ycent=c)
+        bottom = self.pole(voltage=voltage, xcent=0, ycent=-c)
+        left = self.pole(voltage=-voltage, xcent=-c, ycent=0)
+        right = self.pole(voltage=-voltage, xcent=c, ycent=0)
 
         # Combine poles into single ESQ
         conductor = top + bottom + left + right
+
+        if chop == True:
+            # Create surrounding box to chop rods in half.
+            chop_box_out = wp.Box(
+                xsize=10 * mm,
+                ysize=10 * mm,
+                zsize=10 * mm,
+                zcent=self.zc,
+                xcent=0.0,
+                ycent=0.0,
+            )
+            chop_box_in = wp.Box(
+                xsize=2 * (rp + self.radius),
+                ysize=2 * (rp + self.radius),
+                zsize=10 * mm,
+                zcent=self.zc,
+                xcent=0.0,
+                ycent=0.0,
+            )
+            box = chop_box_out - chop_box_in
+            conductor = conductor - box
 
         return conductor
 
@@ -452,9 +475,9 @@ def interp2d_area(x_interp, y_interp, xmesh, ymesh, grid_data):
 # prefixed with l_.
 # ------------------------------------------------------------------------------
 l_warpplots = True
-l_make_effective_length_plots = False
+l_make_effective_length_plots = True
 l_make_transField_plots = False
-l_plot_breakdown = False
+l_plot_breakdown = True
 l_make_3d_integrand_plot = False
 l_multple_barplots = False
 # ------------------------------------------------------------------------------
@@ -474,19 +497,19 @@ walllength = 0.1 * mm
 wallzcent = ESQ_length + 1.0 * mm + walllength / 2
 
 # Creat mesh using conductor geometries (above) to keep resolution consistent
-wp.w3d.xmmin = -1.5 * mm
 wp.w3d.xmmax = 1.5 * mm
-design_dx = 5 * um
+wp.w3d.xmmin = -wp.w3d.xmmax
+design_dx = 7 * um
 calc_nx = (wp.w3d.xmmax - wp.w3d.xmmin) / design_dx
 wp.w3d.nx = int(calc_nx)
 
-wp.w3d.ymmin = -1.5 * mm
-wp.w3d.ymmax = 1.5 * mm
+wp.w3d.ymmax = wp.w3d.xmmax
+wp.w3d.ymmin = wp.w3d.xmmin
 wp.w3d.ny = wp.w3d.nx
 
 # Calculate nz to get about designed dz
-wp.w3d.zmmin = -1.2 * mm
-wp.w3d.zmmax = 1.2 * mm
+wp.w3d.zmmin = -2 * mm
+wp.w3d.zmmax = -wp.w3d.zmmin
 design_dz = 10 * um
 calc_nz = (wp.w3d.zmmax - wp.w3d.zmmin) / design_dz
 wp.w3d.nz = int(calc_nz)
@@ -496,7 +519,6 @@ wp.w3d.bound0 = wp.dirichlet
 wp.w3d.boundnz = wp.dirichlet
 wp.w3d.boundxy = wp.periodic
 wp.f3d.mgtol = 1e-8
-
 solver = wp.MRBlock3D()
 wp.registersolver(solver)
 
@@ -504,6 +526,8 @@ wp.registersolver(solver)
 leftquad = Mems_ESQ_SolidCyl(0.0, "1", voltage, -voltage, chop=True)
 leftquad.set_geometry(rp=aperture, R=pole_rad, lq=ESQ_length)
 wp.installconductor(leftquad.generate())
+
+
 wp.generate()
 
 # ------------------------------------------------------------------------------
@@ -755,17 +779,17 @@ if l_warpplots:
     wp.fma()
 
     # find center of box
-    this_iz = getindex(
-        z, leftquad.zc - leftquad.lq / 2.0 - leftquad.copper_zlen, wp.w3d.dz
-    )
-    wp.pfxy(iz=this_iz, fill=1, filled=1)
-    wp.fma()
+    # this_iz = getindex(
+    #     z, leftquad.zc - leftquad.lq / 2.0 - leftquad.copper_zlen, wp.w3d.dz
+    # )
+    # wp.pfxy(iz=this_iz, fill=1, filled=1)
+    # wp.fma()
 
-    this_iz = getindex(
-        z, leftquad.zc + leftquad.lq / 2.0 + leftquad.copper_zlen, wp.w3d.dz
-    )
-    wp.pfxy(iz=this_iz, fill=1, filled=1)
-    wp.fma()
+    # this_iz = getindex(
+    #     z, leftquad.zc + leftquad.lq / 2.0 + leftquad.copper_zlen, wp.w3d.dz
+    # )
+    # wp.pfxy(iz=this_iz, fill=1, filled=1)
+    # wp.fma()
 
     wp.pfzx(fill=1, filled=1)
     wp.fma()
@@ -795,8 +819,8 @@ if l_warpplots:
 if l_make_effective_length_plots:
     # Create plot of Ex gradient
     fig, ax = plt.subplots()
-    ax.set_xlabel("z [mm]")
-    ax.set_ylabel(r"$E_x(dx, 0, z)$/dx [kV mm$^{-2}$]")
+    ax.set_xlabel("z (mm)")
+    ax.set_ylabel(r"$E_x(dx, 0, z)$/dx (kV mm$^{-2}$)")
     ax.set_title(r"$E_x$ Gradient One Grid-cell Off-axis vs z")
     ax.scatter(z / mm, gradex / kV / 1e6, s=1.2)
     ax.axhline(y=0, c="k", lw=0.5)
@@ -809,6 +833,8 @@ if l_make_effective_length_plots:
     # esq2right = zc + ESQ_length / 2
     ax.axvline(x=esq1left / mm, c="b", lw=0.8, ls="--", label="ESQ Ends")
     ax.axvline(x=esq1right / mm, c="b", lw=0.8, ls="--")
+    ax.axvline(x=-ell / 2 / mm, c="g", lw=0.8, ls="--")
+    ax.axvline(x=ell / 2 / mm, c="g", lw=0.8, ls="--")
     # ax.axvline(x=esq2left / mm, c="r", lw=0.8, ls="--", label="Second ESQ")
     # ax.axvline(x=esq2right / mm, c="r", lw=0.8, ls="--")
     # ax.axvline(
@@ -818,7 +844,7 @@ if l_make_effective_length_plots:
     # ax.axvline(x=(wallzcent + walllength / 2) / mm, c="grey", lw=0.8, ls="--")
     # ax.axvline(x=-(wallzcent + walllength / 2) / mm, c="grey", lw=0.8, ls="--")
     plt.legend()
-    plt.savefig(savepath + "full-mesh.pdf", dpi=400)
+    plt.savefig(savepath + "full-mesh.svg", dpi=400)
     plt.show()
 
 if l_make_effective_length_plots:
@@ -827,8 +853,8 @@ if l_make_effective_length_plots:
         f"Integrand For Effective Length {ell/mm:.4f} mm, zc = {zc/mm :.4f} mm, n = {Nesq}, Lq = {ESQ_length/mm:.4f} mm",
         fontsize="small",
     )
-    ax.set_ylabel(r"$|E(x=dx,y=0,z)$/dx| [kV mm$^{-2}$]")
-    ax.set_xlabel("z [mm]")
+    ax.set_ylabel(r"$|E(x=dx,y=0,z)$/dx| (kV mm$^{-2}$)")
+    ax.set_xlabel("z (mm)")
     ax.scatter(z / mm, dEdx / kV / 1000 / 1000, s=0.5)
     # Annotate
     ax.axhline(y=0, lw=0.5, c="k")
@@ -859,8 +885,8 @@ if l_make_transField_plots:
         colors="k",
     )
     fig.colorbar(contourx, ax=ax)
-    ax.set_xlabel("x [mm]")
-    ax.set_ylabel("y [mm]")
+    ax.set_xlabel("x (mm)")
+    ax.set_ylabel("y (mm)")
     plt.savefig("/Users/nickvalverde/Desktop/Ex_original.pdf", dpi=400)
     plt.show()
 
@@ -879,8 +905,8 @@ if l_make_transField_plots:
         colors="k",
     )
     fig.colorbar(contourx, ax=ax)
-    ax.set_xlabel("x [mm]")
-    ax.set_ylabel("y [mm]")
+    ax.set_xlabel("x (mm)")
+    ax.set_ylabel("y (mm)")
     plt.savefig("/Users/nickvalverde/Desktop/Ey_original.pdf", dpi=400)
     plt.show()
 
@@ -931,10 +957,10 @@ if l_plot_breakdown:
     # cp.cmap.set_under('w')
     # cp.set_clim(0.05)
     cbar = fig.colorbar(cp)
-    cbar.set_label(r"$|E|/10^7$", rotation=90)
-    ax.set_xlabel("x [mm]")
-    ax.set_ylabel("y [mm]")
-    ax.set_title("x-y Slice of Magnitude Efield")
+    cbar.set_label(r"$|E|/10^7$ (V/m)", rotation=90)
+    ax.set_xlabel("x (mm)")
+    ax.set_ylabel("y (mm)")
+    ax.set_title("Location of 50%-Breakdown Limit (xy-plane)")
     ax.scatter(
         [x[xmax_ind] / mm],
         [y[ymax_ind] / mm],
@@ -945,7 +971,7 @@ if l_plot_breakdown:
     )
     ax.legend()
     ax.set_aspect("equal", adjustable="box")
-    plt.savefig("Exy.png")
+    plt.savefig("Exy.svg")
 
     fig, ax = plt.subplots()
     Z, X = np.meshgrid(z, x)
@@ -953,10 +979,10 @@ if l_plot_breakdown:
     # cp.cmap.set_under('w')
     # cp.set_clim(0.05)
     cbar = fig.colorbar(cp)
-    cbar.set_label(r"$|E|/10^7$", rotation=90)
-    ax.set_xlabel("z [mm]")
-    ax.set_ylabel("x [mm]")
-    ax.set_title("z-x Slice of Magnitude Efield")
+    cbar.set_label(r"$|E|/10^7$ (V/m)", rotation=90)
+    ax.set_xlabel("z (mm)")
+    ax.set_ylabel("x (mm)")
+    ax.set_title("Location of 50%-Breakdown Limit (xz-plane)")
     ax.scatter(
         [z[zmax_ind] / mm],
         [x[xmax_ind] / mm],
@@ -967,7 +993,7 @@ if l_plot_breakdown:
     )
     ax.legend()
     ax.set_aspect("equal", adjustable="box")
-    plt.savefig("Exz.png")
+    plt.savefig("Exz.svg")
     plt.show()
 
 if l_make_3d_integrand_plot:
@@ -1003,7 +1029,7 @@ if l_multple_barplots:
     ax.bar3d(nterms, 6 * y3, z3, xbar_width, ybar_width, (An + Bn) / norm, color="k")
 
     ax.set_title(
-        fr"Normalized Squared-Multipole Coefficients for $E(x,y)$", fontsize="x-small",
+        rf"Normalized Squared-Multipole Coefficients for $E(x,y)$", fontsize="x-small",
     )
     ax.set_xlabel("n", fontsize="small")
     ax.set_ylabel("")
@@ -1057,7 +1083,7 @@ if l_multple_barplots:
     )
 
     ax.set_title(
-        fr"Normalized Squared-Multipole Coefficients (Dominant Term Removed)",
+        rf"Normalized Squared-Multipole Coefficients (Dominant Term Removed)",
         fontsize="x-small",
     )
     ax.set_xlabel("n", fontsize="small")
