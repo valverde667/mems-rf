@@ -142,6 +142,189 @@ def restorebeam(nb_beam=beamnumber):
         wp.top.npmax = len(beamdata["z"])
 
 
+def create_gap(
+    cent,
+    left_volt,
+    right_volt,
+    width=2.0 * mm,
+    cell_width=3.0 * mm,
+    length=0.7 * mm,
+    rin=0.55 * mm,
+    rout=0.75 * mm,
+    xcent=0.0 * mm,
+    ycent=0.0 * mm,
+):
+    """Create an acceleration gap consisting of two wafers.
+
+    The wafer consists of a thin annulus with four rods attaching to the conducting
+    cell wall. The cell is 5mm where the edge is a conducting square. The annulus
+    is approximately 0.2mm in thickness with an inner radius of 0.55mm and outer
+    radius of 0.75mm. The top, bottom, and two sides of the annulus are connected
+    to the outer conducting box by 4 prongs that are of approximately equal
+    thickness to the ring.
+
+    Here, the annuli are created easy enough. The box and prongs are created
+    individually for each left/right wafer and then added to give the overall
+    conductor.
+
+    Note, this assumes l4 symmetry is turned on. Thus, only one set of prongs needs
+    to be created for top/bottom left/right symmetry."""
+
+    prong_width = rout - rin
+    ravg = (rout + rin) / 2
+
+    # Left wafer first.
+    left_wafer = wp.Annulus(
+        rmin=rin,
+        rmax=rout,
+        length=length,
+        voltage=left_volt,
+        zcent=cent - width / 2 - length / 2,
+        xcent=xcent,
+        ycent=ycent,
+    )
+
+    # Create box surrounding wafer. The extent is slightly larger than 5mm unit
+    # cell. The simulation cell will chop this to be correct so long as the
+    # inner box separation is correct (approximately 0.2mm thickness)
+    l_box_out = wp.Box(
+        xsize=cell_width * (1 + 0.02),
+        ysize=cell_width * (1 + 0.02),
+        zsize=length,
+        voltage=left_volt,
+        zcent=cent - width / 2 - length / 2,
+        xcent=xcent,
+        ycent=ycent,
+    )
+    l_box_in = wp.Box(
+        xsize=cell_width * (1 - 0.02),
+        ysize=cell_width * (1 - 0.02),
+        zsize=length,
+        voltage=left_volt,
+        zcent=cent - width / 2 - length / 2,
+        xcent=xcent,
+        ycent=ycent,
+    )
+    l_box = l_box_out - l_box_in
+
+    # Create prongs. This is done using four box conductors and shifting
+    # respective x/y centers to create the prong.
+    l_top_prong = wp.Box(
+        xsize=prong_width,
+        ysize=cell_width / 2 - ravg,
+        zsize=length,
+        voltage=left_volt,
+        zcent=cent - width / 2 - length / 2,
+        xcent=xcent,
+        ycent=ycent + (cell_width / 2 + ravg) / 2,
+    )
+    l_bot_prong = wp.Box(
+        xsize=prong_width,
+        ysize=cell_width / 2 - ravg,
+        zsize=length,
+        voltage=left_volt,
+        zcent=cent - width / 2 - length / 2,
+        xcent=xcent,
+        ycent=ycent - (cell_width / 2 + ravg) / 2,
+    )
+    l_rside_prong = wp.Box(
+        xsize=cell_width / 2 - ravg,
+        ysize=prong_width,
+        zsize=length,
+        voltage=left_volt,
+        zcent=cent - width / 2 - length / 2,
+        xcent=xcent + (cell_width / 2 + ravg) / 2,
+        ycent=ycent,
+    )
+    l_lside_prong = wp.Box(
+        xsize=cell_width / 2 - ravg,
+        ysize=prong_width,
+        zsize=length,
+        voltage=left_volt,
+        zcent=cent - width / 2 - length / 2,
+        xcent=xcent - (cell_width / 2 + ravg) / 2,
+        ycent=ycent,
+    )
+
+    # Add together
+    left = (
+        left_wafer + l_box + l_top_prong + l_bot_prong + l_rside_prong + l_lside_prong
+    )
+
+    right_wafer = wp.Annulus(
+        rmin=rin,
+        rmax=rout,
+        length=length,
+        voltage=right_volt,
+        zcent=cent + width / 2 + length / 2,
+        xcent=xcent,
+        ycent=ycent,
+    )
+
+    r_box_out = wp.Box(
+        xsize=cell_width * (1 + 0.02),
+        ysize=cell_width * (1 + 0.02),
+        zsize=length,
+        voltage=right_volt,
+        zcent=cent + width / 2 + length / 2,
+        xcent=xcent,
+        ycent=ycent,
+    )
+    r_box_in = wp.Box(
+        xsize=cell_width * (1 - 0.02),
+        ysize=cell_width * (1 - 0.02),
+        zsize=length,
+        voltage=right_volt,
+        zcent=cent + width / 2 + length / 2,
+        xcent=xcent,
+        ycent=ycent,
+    )
+    r_box = r_box_out - r_box_in
+
+    r_top_prong = wp.Box(
+        xsize=prong_width,
+        ysize=cell_width / 2 - ravg,
+        zsize=length,
+        voltage=right_volt,
+        zcent=cent + width / 2 + length / 2,
+        xcent=xcent,
+        ycent=ycent + (cell_width / 2 + ravg) / 2,
+    )
+    r_bot_prong = wp.Box(
+        xsize=prong_width,
+        ysize=cell_width / 2 - ravg,
+        zsize=length,
+        voltage=right_volt,
+        zcent=cent + width / 2 + length / 2,
+        xcent=xcent,
+        ycent=ycent - (cell_width / 2 + ravg) / 2,
+    )
+    r_rside_prong = wp.Box(
+        xsize=cell_width / 2 - ravg,
+        ysize=prong_width,
+        zsize=length,
+        voltage=right_volt,
+        zcent=cent + width / 2 + length / 2,
+        xcent=xcent + (cell_width / 2 + ravg) / 2,
+        ycent=ycent,
+    )
+    r_lside_prong = wp.Box(
+        xsize=cell_width / 2 - ravg,
+        ysize=prong_width,
+        zsize=length,
+        voltage=right_volt,
+        zcent=cent + width / 2 + length / 2,
+        xcent=xcent - (cell_width / 2 + ravg) / 2,
+        ycent=ycent,
+    )
+    right = (
+        right_wafer + r_box + r_top_prong + r_bot_prong + r_rside_prong + r_lside_prong
+    )
+
+    gap = left + right
+    return gap
+
+
 # -------------------------------------------------------------------------------
 #    Script inputs
 # Parameter inputs for running the script. Initially were set as command line
@@ -508,6 +691,8 @@ voltages = [
     gen_volt(toffset=RF_offset, frequency=14.8e6),
 ]
 conductors = RF_stack(positionArray, voltages)
+
+
 wp.installconductors(conductors)
 
 # Recalculate the fields
