@@ -142,6 +142,113 @@ def restorebeam(nb_beam=beamnumber):
         wp.top.npmax = len(beamdata["z"])
 
 
+def create_wafer(
+    cent,
+    width=2.0 * mm,
+    cell_width=3.0 * mm,
+    length=0.7 * mm,
+    rin=0.55 * mm,
+    rout=0.75 * mm,
+    xcent=0.0 * mm,
+    ycent=0.0 * mm,
+    voltage=0.0,
+):
+    """ Create a single wafer
+
+    An acceleration gap will be comprised of two wafers, one grounded and one
+    with an RF varying voltage. Creating a single wafer without combining them
+    (create_gap function) will allow to place a time variation using Warp that
+    one mess up the potential fields."""
+
+    prong_width = rout - rin
+    ravg = (rout + rin) / 2
+
+    # Left wafer first.
+
+    # Create box surrounding wafer. The extent is slightly larger than 5mm unit
+    # cell. The simulation cell will chop this to be correct so long as the
+    # inner box separation is correct (approximately 0.2mm thickness)
+    box_out = wp.Box(
+        xsize=cell_width,
+        ysize=cell_width,
+        zsize=length,
+        zcent=cent,
+        xcent=xcent,
+        ycent=ycent,
+        voltage=voltage,
+    )
+    box_in = wp.Box(
+        xsize=cell_width - 0.0002,
+        ysize=cell_width - 0.0002,
+        zsize=length,
+        zcent=cent,
+        xcent=xcent,
+        ycent=ycent,
+        voltage=voltage,
+        condid=box_out.condid,
+    )
+    box = box_out - box_in
+
+    annulus = wp.Annulus(
+        rmin=rin,
+        rmax=rout,
+        length=length,
+        zcent=cent,
+        xcent=xcent,
+        ycent=ycent,
+        voltage=voltage,
+        condid=box.condid,
+    )
+
+    # Create prongs. This is done using four box conductors and shifting
+    # respective x/y centers to create the prong.
+    top_prong = wp.Box(
+        xsize=prong_width,
+        ysize=cell_width / 2 - ravg,
+        zsize=length,
+        zcent=cent,
+        xcent=xcent,
+        ycent=ycent + (cell_width / 2 + ravg) / 2,
+        voltage=voltage,
+        condid=box.condid,
+    )
+    bot_prong = wp.Box(
+        xsize=prong_width,
+        ysize=cell_width / 2 - ravg,
+        zsize=length,
+        zcent=cent,
+        xcent=xcent,
+        ycent=ycent - (cell_width / 2 + ravg) / 2,
+        voltage=voltage,
+        condid=box.condid,
+    )
+    rside_prong = wp.Box(
+        xsize=cell_width / 2 - ravg,
+        ysize=prong_width,
+        zsize=length,
+        zcent=cent,
+        xcent=xcent + (cell_width / 2 + ravg) / 2,
+        ycent=ycent,
+        voltage=voltage,
+        condid=box.condid,
+    )
+    lside_prong = wp.Box(
+        xsize=cell_width / 2 - ravg,
+        ysize=prong_width,
+        zsize=length,
+        zcent=cent,
+        xcent=xcent - (cell_width / 2 + ravg) / 2,
+        ycent=ycent,
+        voltage=voltage,
+        condid=box.condid,
+    )
+
+    # Add together
+    cond = annulus + box + top_prong + bot_prong + rside_prong + lside_prong
+
+    return cond
+
+
 def create_gap(
     cent,
     left_volt,
@@ -342,37 +449,38 @@ emittingRadius = 0.25 * mm
 divergenceAngle = 5e-3
 ibeaminit = 10 * uA
 beamdelay = 0.0
-dt = 0.1 * ns
 
 storebeam = warpoptions.options.storebeam
 loadbeam = warpoptions.options.loadbeam
 
 first_gapzc = 5 * mm  # First gap center
 
-
+rf_volt = lambda time: Vmax * np.cos(2.0 * np.pi * freq * time)
 # -------------------------------------------------------------------------------
 #    Mesh setup
 # Specify mesh sizing and time stepping for simulation.
 # -------------------------------------------------------------------------------
 # Specify  simulation mesh
-wp.w3d.solvergeom = wp.w3d.XYZgeom
 wp.w3d.xmmax = 3 / 2 * mm
 wp.w3d.xmmin = -wp.w3d.xmmax
 wp.w3d.ymmax = wp.w3d.xmmax
-wp.w3d.ymmin = -wp.w3d.ymmin
+wp.w3d.ymmin = -wp.w3d.ymmax
 
-framewidth = 65 * mm
+framewidth = 10 * mm
 wp.w3d.zmmin = 0 * mm
-wp.w3d.zmmax = wp.w3d.zmmin + framewidth
+wp.w3d.zmmax = 14 * mm
+wp.w3d.nx = 40
+wp.w3d.ny = 40
+wp.w3d.nz = 200
+dz = (wp.w3d.zmmax - wp.w3d.zmmin) / wp.w3d.nz
+dt = 0.2 * ns
 wp.top.dt = dt
-wp.w3d.nx = 20
-wp.w3d.ny = 20
-wp.w3d.nz = 200.0
 
 # Set boundary conditions
 wp.w3d.bound0 = wp.dirichlet
 wp.w3d.boundnz = wp.dirichlet
 wp.w3d.boundxy = wp.periodic
+
 wp.top.pbound0 = wp.absorb
 wp.top.pboundnz = wp.absorb
 wp.top.prwall = 1 * mm
@@ -385,18 +493,6 @@ ions = wp.Species(type=wp.Dinitrogen, charge_state=1, name="N2+", color=wp.red)
 wp.top.ssnpid = wp.nextpid()
 wp.top.tbirthpid = wp.nextpid()
 
-writejson("bunchlength", L_bunch)
-writejson("Vmax", Vmax)
-writejson("Vesq", Vesq)
-writejson("ekininit", ekininit)
-writejson("frequency", freq)
-writejson("emitting_Radus", emittingRadius)
-writejson("divergance_Angle", divergenceAngle)
-writejson("name", name)
-writejson("beamnumber", beamnumber)
-writejson("ibeaminit", ibeaminit)
-writejson("beamdelay", beamdelay)
-writejson("tstep", dt)
 
 # Set Injection Parameters for injector and beam
 wp.top.ns = 2
@@ -429,6 +525,7 @@ wp.top.lhvzrmsz = True
 wp.top.lsavelostpart = True
 
 # Set up fieldsolver
+wp.w3d.l4symtry = False
 solver = wp.MRBlock3D()
 wp.registersolver(solver)
 solver.mgtol = 1.0  # Poisson solver tolerance, in volts
@@ -514,65 +611,6 @@ ESQ_toffset = 0
 Vpos = []
 
 
-# calculating the ideal positions
-def calculateRFwaferpositions():
-    positionArray = []
-    # Calculating first position
-    # this is not actually C but the very first wafer a
-    global first_gapzc
-    c = (
-        first_gapzc
-        - geometry.gapGNDRF / 2
-        - geometry.copper_thickness
-        - geometry.wafer_thickness / 2
-    )
-    betalambda0 = 0
-    betalambda1 = 0
-    for i in np.arange(0, Units):
-        # a, b, c & d are the positions of the center of RFs/GND wafers
-        # GND RF RF GND
-        a = c + betalambda0
-        b = (
-            a
-            + geometry.gapGNDRF
-            + geometry.copper_thickness * 2
-            + geometry.wafer_thickness
-        )
-        betalambda1 = (
-            wp.sqrt(
-                (ekininit + V_arrival * Vmax * (2 * i + 1))
-                * 2
-                * selectedIons.charge
-                / selectedIons.mass
-            )
-            * 1
-            / freq
-            / 2
-        )
-        c = a + betalambda1
-        d = b + betalambda1
-        betalambda0 = (
-            wp.sqrt(
-                (ekininit + V_arrival * Vmax * (2 * i + 2))
-                * 2
-                * selectedIons.charge
-                / selectedIons.mass
-            )
-            * 1
-            / freq
-            / 2
-        )
-
-        if Units == 1:
-            c = c - 10 * mm
-        elif Units == 2:
-            a = a - 50 * mm
-            b = b + 40 * mm
-
-        positionArray.append([a, b, c, d])
-    return positionArray
-
-
 def rrms():
     x_dis = selectedIons.getx()
     y_dis = selectedIons.gety()
@@ -586,114 +624,31 @@ def rrms():
     return rrms
 
 
-# Here it is optional to overwrite the position Array, to
-# simulate the ACTUAL setup:
-calculatedPositionArray = calculateRFwaferpositions()
-# print(calculatedPositionArray)
-positionArray = [
-    [1.158 * mm, 3.211 * mm, 5.873 * mm, 9.029 * mm],
-]
-writejson("waferpositions", positionArray)
+positionArray = np.array([3, 8]) * mm
 
 ### Functions for automated wafer position by batch running
 markedpositions = []
 markedpositionsenergies = []
 
-
-def autoinit():  # AUTORUN METHOD
-    rj = readjson()
-    global positionArray
-    waferposloaded = rj["rf_gaps"]
-    positionArray = waferposloaded
-    global markedpositions
-    markedpositions = rj["markedpositions"]
-    #
-    print(f"marked positions {markedpositions}")
-    writejson("rf_voltage", Vmax)
-    writejson("bunch_length", L_bunch)
-    writejson("ekininit", ekininit)
-    writejson("freq", freq)
-    writejson("tstep", warpoptions.options.timestep)
-    writejson("rfgaps_ideal", calculateRFwaferpositions())
-    if "beamsavepositions" in rj.keys():
-        global storebeam
-        storebeam = rj["beamsavepositions"]
-
-
-def autosave(se):  # AUTORUN METHOD
-    # print(f'marked positions {markedpositions}')
-    """se : selected Ions"""
-    if warpoptions.options.autorun:
-        if se.getz().max() > markedpositions[0]:
-            print(f"STORING BEAM at {se.getz().max()} ")
-            ekinmax = se.getke().max()
-            ekinav = se.getke().mean()
-            markedpositionsenergies.append({"ekinmax": ekinmax, "ekinav": ekinav})
-            writejson("markedpositionsenergies", markedpositionsenergies)
-            print("markedpositionsenergies stored")
-            del markedpositions[0]
-            if len(markedpositions) == 0:
-                print("ENDING SIM")
-                return True  # cancels the entire simulation loop
-    return False
-
-
-if warpoptions.options.autorun:
-    autoinit()
-
-# this needs to be called after autoinit
-if storebeam != []:
-    if type(storebeam) == str:
-        import ast
-
-        res = ast.literal_eval(storebeam)
-        storebeam = res
-    print(f"STOREBEAM {storebeam}")
-    storebeam.sort()
-    storebeam.reverse()
-
-
-def beamsave():
-    if storebeam != []:
-        if selectedIons.getz().mean() >= storebeam[-1]:
-            sbpos = storebeam.pop()
-            print(f"STORING BEAM AT POSTION {sbpos}")
-            # [{'x':..,'y'...,'vz'...}, {}] -> array of dictionaries
-            sb = {
-                "x": selectedIons.getx().tolist(),
-                "y": selectedIons.gety().tolist(),
-                "z": selectedIons.getz().tolist(),
-                "vx": selectedIons.getvx().tolist(),
-                "vy": selectedIons.getvy().tolist(),
-                "vz": selectedIons.getvz().tolist(),
-                "t": wp.top.time,
-                "framecenter": selectedIons.getz().mean(),
-                "storemarker": sbpos,
-            }
-            rj = readjson()
-            if "storedbeams" not in rj.keys():
-                writejson("storedbeams", [])
-                rj = readjson()
-            storedbeams = rj["storedbeams"]
-            storedbeams.append(sb)
-            writejson("storedbeams", storedbeams)
-
-
 for i, pa in enumerate(positionArray):
     print(f"Unit {i} placed at {pa}")
 
-# Create conductor RF stacks. Need to create voltage lists for stacks. The list
-# consist of each RF-stack voltage. That is, the voltage returned by
-# by gen_volt() is for each RF stack. Setting frequency overwrites the
-# default/waroptions frequency setting.
-voltages = [
-    gen_volt(toffset=RF_offset, frequency=14.8e6),
-    gen_volt(toffset=RF_offset, frequency=14.8e6),
-]
-conductors = RF_stack(positionArray, voltages)
+conductors = []
+for i, pos in enumerate(positionArray):
+    zl = pos - 1 * mm
+    zr = pos + 1 * mm
+    if i % 2 == 0:
+        this_lcond = create_wafer(zl, voltage=0.0)
+        this_rcond = create_wafer(zr, voltage=rf_volt)
+    else:
+        this_lcond = create_wafer(zl, voltage=rf_volt)
+        this_rcond = create_wafer(zr, voltage=0.0)
 
+    conductors.append(this_lcond)
+    conductors.append(this_rcond)
 
-wp.installconductors(conductors)
+for cond in conductors:
+    wp.installconductors(cond)
 
 # Recalculate the fields
 wp.fieldsol(-1)
@@ -701,54 +656,54 @@ wp.fieldsol(-1)
 zc_pos = True
 
 
-def savezcrossing():
-    if zc_pos:
-        zc_data = {
-            "x": zc.getx().tolist(),
-            "y": zc.gety().tolist(),
-            "z": zc_pos,
-            "vx": zc.getvx().tolist(),
-            "vy": zc.getvy().tolist(),
-            "vz": zc.getvz().tolist(),
-            "t": zc.gett().tolist(),
-        }
-        writejson("zcrossing", zc_data)
-        zc_start_data = {
-            "x": zc_start.getx().tolist(),
-            "y": zc_start.gety().tolist(),
-            "z": zc_start_position,
-            "vx": zc_start.getvx().tolist(),
-            "vy": zc_start.getvy().tolist(),
-            "vz": zc_start.getvz().tolist(),
-            "t": zc_start.gett().tolist(),
-        }
-        writejson("zcrossing_start", zc_data)
-        print("STORED Z CROSSING")
+# def savezcrossing():
+#     if zc_pos:
+#         zc_data = {
+#             "x": zc.getx().tolist(),
+#             "y": zc.gety().tolist(),
+#             "z": zc_pos,
+#             "vx": zc.getvx().tolist(),
+#             "vy": zc.getvy().tolist(),
+#             "vz": zc.getvz().tolist(),
+#             "t": zc.gett().tolist(),
+#         }
+#         writejson("zcrossing", zc_data)
+#         zc_start_data = {
+#             "x": zc_start.getx().tolist(),
+#             "y": zc_start.gety().tolist(),
+#             "z": zc_start_position,
+#             "vx": zc_start.getvx().tolist(),
+#             "vy": zc_start.getvy().tolist(),
+#             "vz": zc_start.getvz().tolist(),
+#             "t": zc_start.gett().tolist(),
+#         }
+#         writejson("zcrossing_start", zc_data)
+#         print("STORED Z CROSSING")
 
 
 #############################
 
 
 # @wp.callfromafterstep
-def allzcrossing():
-    if len(zcs_staple):
-        if min(selectedIons.getz()) > zcs_staple[-1]:
-            zcs_data = []
-            zcs_staple.pop()
-            for zcc, pos in zip(zcs, zcs_pos):
-                zcs_data.append(
-                    {
-                        "x": zcc.getx().tolist(),
-                        "y": zcc.gety().tolist(),
-                        "z": pos,
-                        "vx": zcc.getvx().tolist(),
-                        "vy": zcc.getvy().tolist(),
-                        "vz": zcc.getvz().tolist(),
-                        "t": zcc.gett().tolist(),
-                    }
-                )
-            writejson("allzcrossing", zcs_data)
-            print("Json Saved")
+# def allzcrossing():
+#     if len(zcs_staple):
+#         if min(selectedIons.getz()) > zcs_staple[-1]:
+#             zcs_data = []
+#             zcs_staple.pop()
+#             for zcc, pos in zip(zcs, zcs_pos):
+#                 zcs_data.append(
+#                     {
+#                         "x": zcc.getx().tolist(),
+#                         "y": zcc.gety().tolist(),
+#                         "z": pos,
+#                         "vx": zcc.getvx().tolist(),
+#                         "vy": zcc.getvy().tolist(),
+#                         "vz": zcc.getvz().tolist(),
+#                         "t": zcc.gett().tolist(),
+#                     }
+#                 )
+#             writejson("allzcrossing", zcs_data)
+#             print("Json Saved")
 
 
 zmid = 0.5 * (z.max() + z.min())
@@ -825,7 +780,7 @@ wp.winon(winnum=3, suffix="pxy", xon=False)
 
 # Calculate various control values to dictate when the simulation ends
 velo = np.sqrt(2 * ekininit * selectedIons.charge / selectedIons.mass)
-length = positionArray[-1][-1] + 25 * mm
+length = positionArray[-1] + 25 * mm
 tmax = length / velo  # this is used for the maximum time for timesteps
 zrunmax = length  # this is used for the maximum distance for timesteps
 period = 1 / freq
@@ -927,7 +882,7 @@ while wp.top.time < 5 * period:
         contours=50,
         cmin=-app_maxEz,
         cmax=app_maxEz,
-        titlet="Ez, N+(Blue) and N2+(Red)",
+        titlet="Ez, Ar+(Blue) and N2+(Red)",
     )
     selectedIons.ppzx(color=wp.blue, msize=2, titles=0)
     ions.ppzx(color=wp.red, msize=2, titles=0)
@@ -937,12 +892,12 @@ while wp.top.time < 5 * period:
 
     wp.window(3)
     selectedIons.ppxy(
-        color=wp.blue, msize=2, titlet="Particles N+(Blue) and N2+(Red) in XY"
+        color=wp.blue, msize=2, titlet="Particles Ar+(Blue) and N2+(Red) in XY"
     )
     ions.ppxy(color=wp.red, msize=2, titles=0)
     wp.limits(x.min(), x.max(), y.min(), y.max())
     wp.plg(Y, X, type="dash")
-    wp.titlet = "Particles N+(Blue) and N2+(Red) in XY"
+    wp.titlet = "Particles Ar+(Blue) and N2+(Red) in XY"
     wp.fma()
 
     wp.step(1)
