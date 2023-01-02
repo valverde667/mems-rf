@@ -487,7 +487,6 @@ wp.top.prwall = 1 * mm
 
 # Create Species
 selectedIons = wp.Species(type=wp.Argon, charge_state=1, name="Ar+", color=wp.blue)
-ions = wp.Species(type=wp.Dinitrogen, charge_state=1, name="N2+", color=wp.red)
 
 # keep track of when the particles are born
 wp.top.ssnpid = wp.nextpid()
@@ -885,7 +884,6 @@ while wp.top.time < 5 * period:
         titlet="Ez, Ar+(Blue) and N2+(Red)",
     )
     selectedIons.ppzx(color=wp.blue, msize=2, titles=0)
-    ions.ppzx(color=wp.red, msize=2, titles=0)
     wp.plg(pltdiagn_y, pltdiagn_x, width=3, color=wp.magenta)
     wp.limits(z.min(), z.max(), x.min(), x.max())
     wp.fma()
@@ -894,7 +892,6 @@ while wp.top.time < 5 * period:
     selectedIons.ppxy(
         color=wp.blue, msize=2, titlet="Particles Ar+(Blue) and N2+(Red) in XY"
     )
-    ions.ppxy(color=wp.red, msize=2, titles=0)
     wp.limits(x.min(), x.max(), y.min(), y.max())
     wp.plg(Y, X, type="dash")
     wp.titlet = "Particles Ar+(Blue) and N2+(Red) in XY"
@@ -908,26 +905,21 @@ hnpinj = wp.top.hnpinject[: wp.top.jhist + 1, :]
 hnpselected = sum(hnpinj[:, 0])
 hnpother = sum(hnpinj[:, 1])
 print("Number {} injected: {}".format(selectedIons.name, hnpselected))
-print("Number {} injected: {}".format(ions.name, hnpother))
 npdiagn_select, npdiagn_other = np.array(npdiagn_select), np.array(npdiagn_other)
 vz_select, vz_other = np.array(vz_select), np.array(vz_other)
 tdiagn_select, tdiagn_other = np.array(tdiagn_select), np.array(tdiagn_other)
 
 # Calculate KE and current statistics
 keselect = selectedIons.mass * pow(vz_select, 2) / 2 / wp.jperev
-keother = ions.mass * pow(vz_other, 2) / 2 / wp.jperev
 
 currselect = selectedIons.charge * vz_select * npdiagn_select
-currother = ions.charge * vz_other * npdiagn_other
 
 # Calculate end of simulation KE for all particles. This will entail grabbing
 # values from the lost particle histories.
 inslost = wp.top.inslost  # Starting index for each species in the lost arrays
 uzlost = wp.top.uzplost  # Vz array for lost particle velocities
 Nuz = np.hstack((selectedIons.getvz(), uzlost[inslost[0] : inslost[-1]]))
-N2uz = np.hstack((ions.getvz(), uzlost[inslost[-1] :]))
 Nke = selectedIons.mass * pow(Nuz, 2) / 2 / wp.jperev
-N2ke = ions.mass * pow(N2uz, 2) / 2 / wp.jperev
 
 # Plot statistics. Find limits for axes.
 KEmax_limit = max(max(keselect), max(keother))
