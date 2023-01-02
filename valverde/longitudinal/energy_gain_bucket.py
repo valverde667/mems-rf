@@ -267,7 +267,7 @@ def uniform_box_load(Np, xlims, ylims, xc=0, yc=0, seed=42):
 # ------------------------------------------------------------------------------
 st = time.time()
 # Designate particle type
-ion = wp.Species(type=wp.Proton, charge_state=+1)
+ion = wp.Species(type=wp.Argon, charge_state=+1)
 mass = ion.mass * pow(SC.c, 2) / wp.echarge
 
 # Simulation Parameters for design particle
@@ -278,9 +278,9 @@ Np = int(1e5)
 # Simulation parameters for gaps and geometries
 Ng = 2
 gap_width = 2.0 * mm
-dsgn_gap_volt = 15.0 * kV
+dsgn_gap_volt = 5.0 * kV
 real_gap_volt = dsgn_gap_volt
-dsgn_freq = 500.0 * MHz
+dsgn_freq = 13.6 * MHz
 real_freq = dsgn_freq
 E_DC = real_gap_volt / gap_width
 h_rf = SC.c / dsgn_freq
@@ -624,7 +624,7 @@ phase_sdiagnostic = twopi * dsgn_freq * t_sdiagnostic
 phase_diagnostic = twopi * dsgn_freq * tdiagnostic
 et = time.time()
 print(f"End time: {et-st:.4f}")
-stop
+
 # ------------------------------------------------------------------------------
 #    Diagnostic Plots
 # Plot phase space for each diagnostic location. The phase-space will be in terms
