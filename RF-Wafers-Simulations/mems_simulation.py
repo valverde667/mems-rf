@@ -119,29 +119,6 @@ def writejson(key, value, fp=f"{basepath}{thisrunID}.json"):
         json.dump(writedata, writefile, sort_keys=True, indent=1)
 
 
-def restorebeam(nb_beam=beamnumber):
-    if loadbeam != "":
-        rj = readjson(loadbeam)
-        print(rj["storedbeams"])
-        beamdata = rj["storedbeams"][nb_beam]
-        # those things need to be overwritten
-        selectedIons.addparticles(
-            x=beamdata["x"],
-            y=beamdata["y"],
-            z=beamdata["z"],
-            vx=beamdata["vx"],
-            vy=beamdata["vy"],
-            vz=beamdata["vz"],
-            lallindomain=True,
-        )
-        wp.top.time = beamdata["t"]
-        wp.w3d.zmmin = beamdata["framecenter"] - framewidth / 2
-        wp.w3d.zmmax = beamdata["framecenter"] + framewidth / 2
-        wp.top.vbeamfrm = selectedIons.getvz().mean()
-        wp.top.inject = 0
-        wp.top.npmax = len(beamdata["z"])
-
-
 def create_wafer(
     cent,
     width=2.0 * mm,
@@ -542,72 +519,6 @@ RFs = []
 ID_ESQ = 100
 ID_RF = 201
 ID_target = 1
-
-# Conductor utility functions
-def gen_volt(toffset=0, frequency=freq):  # 0
-    """ A cos voltage function with variable offset"""
-
-    def RFvoltage(time):
-        return -Vmax * np.cos(2 * np.pi * frequency * (time + toffset))
-
-    return RFvoltage
-
-
-def gen_volt_esq(Vesq, inverse=False, toffset=0):
-    def ESQvoltage(time):
-        if inverse:
-            return -Vesq  # *np.sin(2*np.pi*freq*(time+toffset))
-        else:
-            return Vesq  # *np.sin(2*np.pi*freq*(time+toffset))
-
-    return ESQvoltage
-
-
-def calc_RFoffset(
-    gapcntr=first_gapzc, part=selectedIons, b_delay=beamdelay, Ekin=ekininit
-):
-    """Function calculates the RF for first acceleration gap
-
-    The ions are injected at grid position z=0. This function is useful for
-    calculating a desired RF offset given ions and a beam delay.
-
-    Parameters
-    ----------
-    gapcntr : float
-        Center of first acceleration gap in meters.
-
-    part : Class
-        Warp particle class. Since the particle mass is used, this can be given
-        as an attribute of the predescrived Species types. For example,
-        part = wp.Dinitrogen.
-
-    b_delay : float
-        Delay of the actual beam in seconds.
-
-    Ek = float
-        Kinetic energy of ions in eV
-
-    Returns
-    -------
-    RF_offset : float
-        RF_offset for acceleration gap in seconds.
-    """
-    # Calculate time of arrival (toa) of ions at gap center
-    velo = np.sqrt(2 * Ekin * wp.jperev / part.mass)
-    toa = gapcntr / velo
-
-    # Calculate offset
-    RF_offset = gapcntr / wp.clight - toa - beamdelay
-
-    return RF_offset
-
-
-# Calculate RF offset for gap
-RF_offset = calc_RFoffset()
-print("RF offset calculated to be {:.3f}[ns]".format(RF_offset / 1e-9))
-
-ESQ_toffset = 0
-Vpos = []
 
 
 def rrms():
