@@ -702,8 +702,6 @@ velo = np.sqrt(2 * ekininit * selectedIons.charge / selectedIons.mass)
 length = positionArray[-1] + 25 * mm
 tmax = length / velo  # this is used for the maximum time for timesteps
 zrunmax = length  # this is used for the maximum distance for timesteps
-period = 1 / freq
-tcontrol = period / 2
 scale_maxEz = 1.25
 app_maxEz = scale_maxEz * Vmax / geometry.gapGNDRF
 if warpoptions.options.runtime:
@@ -715,46 +713,6 @@ if warpoptions.options.runtime:
 zdiagn = ZCrossingParticles(zz=max(z) - 10 * solver.dz, laccumulate=0)
 selectind = 0
 otherind = 1
-# First loop. Inject particles for 1.5 RF cycles then cut in injection.
-# while wp.top.time <= period:
-#     # Create pseudo random injection
-#     Nselect = np.random.randint(low=1, high=20)
-#     Nother = np.random.randint(low=1, high=20)
-#     wp.top.rnpinje_s = [Nselect, Nother]
-#
-#     # Plot particle trajectory in zx
-#     wp.window(2)
-#     wp.pfzx(
-#         fill=1,
-#         filled=1,
-#         plotselfe=1,
-#         comp="z",
-#         contours=50,
-#         cmin=-app_maxEz,
-#         cmax=app_maxEz,
-#         titlet="Ez, N+(Blue) and N2+(Red)",
-#     )
-#     selectedIons.ppzx(color=wp.blue, msize=2, titles=0)
-#     ions.ppzx(color=wp.red, msize=2, titles=0)
-#     wp.limits(z.min(), z.max(), x.min(), x.max())
-#     wp.fma()
-#
-#     # Plot particle trajectory in xy
-#     wp.window(3)
-#     selectedIons.ppxy(
-#         color=wp.blue, msize=2, titlet="Particles N+(Blue) and N2+(Red) in XY"
-#     )
-#     ions.ppxy(color=wp.red, msize=2, titles=0)
-#     wp.limits(x.min(), x.max(), y.min(), y.max())
-#     wp.plg(Y, X, type="dash")
-#     wp.titlet = "Particles N+(Blue) and N2+(Red) in XY"
-#     wp.fma()
-#
-#     wp.step(1)
-#
-#
-# # Turn injection off
-# wp.top.inject = 0
 
 # Grab number of particles injected.
 hnpinj = wp.top.hnpinject[: wp.top.jhist + 1, :]
