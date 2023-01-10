@@ -778,6 +778,7 @@ class Mems_ESQ_SolidCyl:
 L_bunch = 1 * ns
 lq = 0.696 * mm
 Vq = 0.2 * kV
+gap_width = 2 * mm
 Units = 2
 Vmax = 5 * kV
 Vesq = 0.1 * kV
@@ -860,7 +861,7 @@ beam.vthz = 700.0
 
 def injection():
     global Np_injected
-    Np_inject = np.random.randint(low=75, high=125)
+    Np_inject = 275
     Np_injected += Np_inject
 
     beam.add_uniform_cylinder(
@@ -901,39 +902,20 @@ solver.uppasses = 2
 # Generate the PIC code (allocate storage, load ptcls, t=0 plots, etc.)
 wp.package("w3d")
 wp.generate()
+x, y, z = wp.w3d.xmesh, wp.w3d.ymesh, wp.w3d.zmesh
 
+# Add tracker beam that will record full history. This must be set after
+# generate is called.
 tracked_ions = wp.Species(type=wp.Argon, charge_state=1, name="Track", color=wp.red)
 tracker = TraceParticle(
     js=tracked_ions.js, x=0.0, y=0.0, z=-3.38 * mm, vx=0.0, vy=0.0, vz=beam.vbeam
 )
 
-solver.gridmode = 0  # Temporary fix for fields to oscillate in time.
-x, y, z = wp.w3d.xmesh, wp.w3d.ymesh, wp.w3d.zmesh
-ESQs = []
-RFs = []
-ID_ESQ = 100
-ID_RF = 201
-ID_target = 1
-
-
-def rrms():
-    x_dis = beam.getx()
-    y_dis = beam.gety()
-
-    xrms = np.sqrt(np.mean(x_dis ** 2))
-    yrms = np.sqrt(np.mean(y_dis ** 2))
-    rrms = np.sqrt(np.mean(x_dis ** 2 + y_dis ** 2))
-
-    print(f" XRMS: {xrms} \n YRMS: {yrms} \n RRMS: {rrms}")
-
-    return rrms
-
+# Recalculate fields and conductor information every time step. Needed for
+# oscillating fields in a moving frame.
+solver.gridmode = 0
 
 positionArray = np.array([6.76049119, 15.61205193]) * mm - 3.38 * mm
-
-### Functions for automated wafer position by batch running
-markedpositions = []
-markedpositionsenergies = []
 
 for i, pa in enumerate(positionArray):
     print(f"Unit {i} placed at {pa}")
@@ -961,140 +943,34 @@ aperture_wall = wp.ZCylinderOut(
 scraper = wp.ParticleScraper(aperture_wall, lcollectlpdata=True)
 
 
-lESQ = Mems_ESQ_SolidCyl(15.5 * mm, "1", Vq, -Vq, chop=True)
-lESQ.set_geometry(rp=aperture, R=0.68 * aperture, lq=lq)
+# lESQ = Mems_ESQ_SolidCyl(15.5 * mm, "1", Vq, -Vq, chop=True)
+# lESQ.set_geometry(rp=aperture, R=0.68 * aperture, lq=lq)
 
-rESQ = Mems_ESQ_SolidCyl(19.5 * mm, "2", -Vq, Vq, chop=True)
-rESQ.set_geometry(rp=aperture, R=0.68 * aperture, lq=lq)
+# rESQ = Mems_ESQ_SolidCyl(19.5 * mm, "2", -Vq, Vq, chop=True)
+# rESQ.set_geometry(rp=aperture, R=0.68 * aperture, lq=lq)
 
-wp.installconductor(lESQ.generate())
-wp.installconductor(rESQ.generate())
+# wp.installconductor(lESQ.generate())
+# wp.installconductor(rESQ.generate())
 
 # Recalculate the fields
 wp.fieldsol(-1)
-
-zc_pos = True
-
-
-def savezcrossing():
-    if zc_pos:
-        zc_data = {
-            "x": zc.getx().tolist(),
-            "y": zc.gety().tolist(),
-            "z": zc_pos,
-            "vx": zc.getvx().tolist(),
-            "vy": zc.getvy().tolist(),
-            "vz": zc.getvz().tolist(),
-            "t": zc.gett().tolist(),
-        }
-        writejson("zcrossing", zc_data)
-        zc_start_data = {
-            "x": zc_start.getx().tolist(),
-            "y": zc_start.gety().tolist(),
-            "z": zc_start_position,
-            "vx": zc_start.getvx().tolist(),
-            "vy": zc_start.getvy().tolist(),
-            "vz": zc_start.getvz().tolist(),
-            "t": zc_start.gett().tolist(),
-        }
-        writejson("zcrossing_start", zc_data)
-        print("STORED Z CROSSING")
-
-
-zmid = 0.5 * (z.max() + z.min())
 
 # Make a circle to show the beam pipe on warp plots in xy.
 R = 0.5 * mm  # beam radius
 t = np.linspace(0, 2 * np.pi, 100)
 X = R * np.sin(t)
 Y = R * np.cos(t)
-deltaKE = 10e3
-time_time = []
-numsel = []
-KE_select = []
-KE_select_Max = []  # modified 4/16
-RMS = []
 
-Particle_Counts_Above_E = []  # modified 4/17,
-# will list how much Particles have higher E than avg KE at that moment
-beamwidth = []
-energy_time = []
-starting_particles = []
-Z = [0]
 scraper = wp.ParticleScraper(conductors, lcollectlpdata=True)
-
-
-def plotf(axes, component, new_page=True):
-    if axes not in ["xy", "zx", "zy"]:
-        print("error!!!! wrong axes input!!")
-        return
-
-    if component not in ["x", "y", "z", "E"]:
-        print("Error! Wrong component declared!!!")
-        return
-
-    if axes == "xy":
-        plotfunc = wp.pfxy
-    elif axes == "zy":
-        plotfunc = wp.pfzy
-    elif axes == "zx":
-        plotfunc = wp.pfzx
-
-    plotfunc(
-        fill=1,
-        filled=1,
-        plotselfe=True,
-        comp=component,
-        titles=0,
-        cmin=-1.2 * Vmax / geometry.gapGNDRF,
-        cmax=1.2 * Vmax / geometry.gapGNDRF,
-    )  # Vmax/geometry.RF_gap
-
-    if component == "E":
-        wp.ptitles(axes, "plot of magnitude of field")
-    elif component == "x":
-        wp.ptitles(axes, "plot of E_x component of field")
-    elif component == "y":
-        wp.ptitles(axes, " plot of E_y component of field")
-    elif component == "z":
-        wp.ptitles(axes, "plot of E_z component of field")
-
-    if new_page:
-        wp.fma()
-
-
-if warpoptions.options.loadbeam == "":  # workaround
-    wp.step(1)  # This is needed, so that beam exists
 
 # Create cgm windows for plotting
 wp.winon(winnum=2, suffix="pzx", xon=False)
 wp.winon(winnum=3, suffix="pxy", xon=False)
-# wp.winon(winnum=4, suffix="stats", xon=False)
-
-# Calculate various control values to dictate when the simulation ends
-velo = np.sqrt(2 * ekininit * beam.charge / beam.mass)
-length = positionArray[-1] + 25 * mm
-tmax = length / velo  # this is used for the maximum time for timesteps
-zrunmax = length  # this is used for the maximum distance for timesteps
-scale_maxEz = 1.25
-app_maxEz = scale_maxEz * Vmax / geometry.gapGNDRF
-if warpoptions.options.runtime:
-    tmax = warpoptions.options.runtime
 
 # Create a lab window for the collecting diagnostic data at the end of the run.
 # Create zparticle diagnostic. The function gchange is needed to allocate
 # arrays for the windo moments. Lastly, create variables for the species index.
 zdiagn = ZCrossingParticles(zz=max(z) - 5 * solver.dz, laccumulate=1)
-selectind = 0
-
-# Grab number of particles injected.
-hnpinj = wp.top.hnpinject[: wp.top.jhist + 1, :]
-hnpselected = sum(hnpinj[:, 0])
-
-# Creat array for holding number of particles that cross diagnostics
-npdiagn_select = []
-vz_select = []
-tdiagn_select = []
 
 # Create vertical line for diagnostic visual
 pltdiagn_x = np.ones(3) * zdiagn.zz
@@ -1102,12 +978,6 @@ pltdiagn_y = np.linspace(-wp.largepos, wp.largepos, 3)
 
 # Inject particles for a singple period.
 while wp.top.time < 1 * period:
-    # Check whether diagnostic arrays are empty
-    if zdiagn.getn(selectind) != 0:
-        npdiagn_select.append(zdiagn.getn(selectind))
-        vz_select.append(zdiagn.getvz(selectind).mean())
-        tdiagn_select.append(zdiagn.gett(selectind).mean())
-
     wp.window(2)
     wp.pfzx(
         fill=1,
@@ -1115,8 +985,8 @@ while wp.top.time < 1 * period:
         plotselfe=1,
         comp="z",
         contours=50,
-        cmin=-app_maxEz,
-        cmax=app_maxEz,
+        cmin=-1.25 * Vmax / gap_width,
+        cmax=1.25 * Vmax / gap_width,
         titlet="Ez, Ar+(Blue) and Track(Red)",
     )
     beam.ppzx(color=wp.blue, msize=2, titles=0)
@@ -1138,243 +1008,89 @@ while wp.top.time < 1 * period:
 # time of tracker particle.
 wp.top.inject = 0
 wp.uninstalluserinjection(injection)
-tracker_fin_time = tracker.gett()[-1]
-# final_time = tracker_fin_time + .1 * period
-final_time = 1.5 * period
-while wp.top.time < final_time:
-    # Check whether diagnostic arrays are empty
-    if zdiagn.getn(selectind) != 0:
-        npdiagn_select.append(zdiagn.getn(selectind))
-        vz_select.append(zdiagn.getvz(selectind).mean())
-        tdiagn_select.append(zdiagn.gett(selectind).mean())
+while tracker.getz()[-1] < z[zdiagn.getiz()]:
+    if wp.top.it % 5 == 0:
+        wp.window(2)
+        wp.pfzx(
+            fill=1,
+            filled=1,
+            plotselfe=1,
+            comp="z",
+            contours=50,
+            cmin=-1.25 * Vmax / gap_width,
+            cmax=1.25 * Vmax / gap_width,
+            titlet="Ez, Ar+(Blue) and Track(Red)",
+        )
+        beam.ppzx(color=wp.blue, msize=2, titles=0)
+        wp.plg(pltdiagn_y, pltdiagn_x, width=3, color=wp.magenta)
+        wp.plp(tracker.getx()[-1], tracker.getz()[-1], color=wp.red, msize=3)
+        wp.limits(z.min(), z.max(), x.min(), x.max())
+        wp.fma()
 
-    wp.window(2)
-    wp.pfzx(
-        fill=1,
-        filled=1,
-        plotselfe=1,
-        comp="z",
-        contours=50,
-        cmin=-app_maxEz,
-        cmax=app_maxEz,
-        titlet="Ez, Ar+(Blue) and Track(Red)",
-    )
-    beam.ppzx(color=wp.blue, msize=2, titles=0)
-    wp.plg(pltdiagn_y, pltdiagn_x, width=3, color=wp.magenta)
-    wp.plp(tracker.getx()[-1], tracker.getz()[-1], color=wp.red, msize=3)
-    wp.limits(z.min(), z.max(), x.min(), x.max())
-    wp.fma()
-
-    wp.window(3)
-    beam.ppxy(color=wp.blue, msize=2, titlet="Particles Ar+(Blue) and N2+(Red) in XY")
-    wp.limits(x.min(), x.max(), y.min(), y.max())
-    wp.plg(Y, X, type="dash")
-    wp.titlet = "Particles Ar+(Blue) and N2+(Red) in XY"
-    wp.fma()
+        wp.window(3)
+        beam.ppxy(
+            color=wp.blue, msize=2, titlet="Particles Ar+(Blue) and N2+(Red) in XY"
+        )
+        wp.limits(x.min(), x.max(), y.min(), y.max())
+        wp.plg(Y, X, type="dash")
+        wp.titlet = "Particles Ar+(Blue) and N2+(Red) in XY"
+        wp.fma()
 
     wp.step(1)
 
-### END of Simulation
-# Grab number of particles injected.
-hnpinj = wp.top.hnpinject[: wp.top.jhist + 1, :]
-hnpselected = sum(hnpinj[:, 0])
-print("Number {} injected: {}".format(beam.name, hnpselected))
-npdiagn_select = np.array(npdiagn_select)
-vz_select = np.array(vz_select)
-tdiagn_select = np.array(tdiagn_select)
+tracker_fin_time = tracker.gett()[-1]
+final_time = tracker_fin_time + 2 * period
+while wp.top.time < final_time:
+    if wp.top.it % 5 == 0:
+        wp.window(2)
+        wp.pfzx(
+            fill=1,
+            filled=1,
+            plotselfe=1,
+            comp="z",
+            contours=50,
+            cmin=-1.25 * Vmax / gap_width,
+            cmax=1.25 * Vmax / gap_width,
+            titlet="Ez, Ar+(Blue) and Track(Red)",
+        )
+        beam.ppzx(color=wp.blue, msize=2, titles=0)
+        wp.plg(pltdiagn_y, pltdiagn_x, width=3, color=wp.magenta)
+        wp.plp(tracker.getx()[-1], tracker.getz()[-1], color=wp.red, msize=3)
+        wp.limits(z.min(), z.max(), x.min(), x.max())
+        wp.fma()
 
-# Calculate KE and current statistics
-keselect = beam.mass * pow(vz_select, 2) / 2 / wp.jperev
+        wp.window(3)
+        beam.ppxy(
+            color=wp.blue, msize=2, titlet="Particles Ar+(Blue) and N2+(Red) in XY"
+        )
+        wp.limits(x.min(), x.max(), y.min(), y.max())
+        wp.plg(Y, X, type="dash")
+        wp.titlet = "Particles Ar+(Blue) and N2+(Red) in XY"
+        wp.fma()
 
-currselect = beam.charge * vz_select * npdiagn_select
+    wp.step(1)
 
-# Calculate end of simulation KE for all particles. This will entail grabbing
-# values from the lost particle histories.
-inslost = wp.top.inslost  # Starting index for each species in the lost arrays
-uzlost = wp.top.uzplost  # Vz array for lost particle velocities
-Nuz = np.hstack((beam.getvz(), uzlost[inslost[0] : inslost[-1]]))
-Nke = beam.mass * pow(Nuz, 2) / 2 / wp.jperev
+# ------------------------------------------------------------------------------
+#    Simulation Diagnostics
+# Here the final diagnostics are computed/extracted. The diagnostic plots are
+# made.
+# ------------------------------------------------------------------------------
+Np_delivered = zdiagn.getvz().shape[0]
+Efin = beam.mass * pow(zdiagn.getvz(), 2) / 2.0 / wp.jperev
+tfin = zdiagn.gett()
+frac_delivered = Np_delivered / Np_injected
+frac_lost = abs(Np_delivered - Np_injected) / Np_injected
 
-# Plot statistics. Find limits for axes.
-KEmax_limit = max(keselect)
-tmin_limit = min(tdiagn_select)
-tmax_limit = max(tdiagn_select)
-currmax_limit = max(currselect)
-
-# Create plots for kinetic energy, current, and particle counts.
-fig, ax = plt.subplots(nrows=3, ncols=1)
-keplt = ax[0]
-currplt = ax[1]
-currplt.sharex(keplt)
-kehist = ax[2]
-
-# Make KE plots
-keplt.plot(tdiagn_select / ns, keselect / wp.kV, c="b")
-keplt.set_xlim(tmin_limit / ns, tmax_limit / ns)
-keplt.set_ylim(ekininit / wp.kV, KEmax_limit / wp.kV)
-keplt.set_ylabel("Avg KE in z [KeV]")
-
-# Make Current Plots
-currplt.plot(tdiagn_select / ns, currselect / 1e-6, c="b")
-currplt.set_xlim(tmin_limit / ns, tmax_limit / ns)
-currplt.set_ylim(0, currmax_limit / 1e-6)
-currplt.set_ylabel(r" Avg Current [$\mu$A]")
-currplt.set_xlabel("Time [ns]")
-
-# Make histogram of particle energies for each species
-kehist.hist(
-    Nke / wp.kV, bins=100, color="b", alpha=0.7, edgecolor="k", linewidth=1, label="Ar+"
-)
-kehist.set_xlabel("End Energy [KeV]")
-kehist.set_ylabel("Number of Particles")
-kehist.legend()
-plt.tight_layout()
-plt.savefig("stats", dpi=300)
+fig, ax = plt.subplots()
+ax.set_title("Final Energy Distribution")
+ax.set_xlabel("Kinetic Energy (keV)")
+ax.set_ylabel("Number of Particles")
+ax.hist(Efin / keV, bins=100, edgecolor="k")
 plt.show()
 
-###### Final Plots
-### Frame, Particle count vs Time Plot
-wp.plg(numsel, time_time, color=wp.blue)
-wp.ptitles("Particle Count vs Time", "Time (s)", "Number of Particles")
-wp.fma()  # fourth to last frame in cgm file
-# plot lost particles with respect to Z
-wp.plg(beam.lostpars, wp.top.zplmesh + wp.top.zbeam)
-wp.ptitles("Particles Lost vs Z", "Z", "Number of Particles Lost")
-wp.fma()
-### Frame, surviving particles plot:
-for i in range(len(numsel)):
-    p = max(numsel)
-    starting_particles.append(p)
-# fraction of surviving particles
-f_survive = [i / j for i, j in zip(numsel, starting_particles)]
-# want the particles that just make it through the last RF, need position of RF.
-# This way we can see how many particles made it through the last important
-# component of the accelerator
-
-wp.plg(f_survive, time_time, color=wp.green)
-wp.ptitles(
-    "Fraction of Surviving Particles vs Time",
-    "Time (s)",
-    "Fraction of Surviving Particles",
-)
-wp.fma()
-### Frame, rms envelope plot
-wp.hpxrms(color=wp.red, titles=0)
-wp.hpyrms(color=wp.blue, titles=0)
-wp.hprrms(color=wp.green, titles=0)
-wp.ptitles("X(red), Y(blue), R(green)", "Time [s]", "X/Y/R [m]", "")
-wp.fma()
-### Frame, rms envelope plot
-wp.pzenvx(color=wp.red, titles=0)
-wp.pzenvy(color=wp.blue, titles=0)
-wp.ptitles("X(red), Y(blue)", "Z [m]", "X/Y [m]", "")
-wp.fma()
-### Frame, vx and vy plot
-wp.hpvxbar(color=wp.red, titles=0)
-wp.hpvybar(color=wp.blue, titles=0)
-wp.ptitles("X(red), Y(blue), R(green)", "Time [s]", "X/Y/R [m]", "")
-wp.fma()
-### Frame, Kinetic Energy at certain Z value
-wp.plg(KE_select, time_time, color=wp.blue)
-wp.limits(0, 70e-9, 0, 30e3)  # limits(xmin,xmax,ymin,ymax)
-wp.ptitles("Kinetic Energy vs Time")
-wp.fma()
-# ### Frame, rms and kinetic energy vs time
-# fig, ax1 = plt.subplots()
-
-# color = "tab:red"
-# ax1.set_xlabel("time [s]")
-# ax1.set_ylabel("RMS", color=color)
-# ax1.plot(time_time, RMS, color=color)
-# ax1.tick_params(axis="y", labelcolor=color)
-
-# ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
-
-# color = "tab:blue"
-# ax2.set_ylabel("Kinetic Energy [eV]", color=color)
-# ax2.plot(time_time, KE_select, color=color)
-# ax2.tick_params(axis="y", labelcolor=color)
-
-# fig.tight_layout()  # otherwise the right y-label is slightly clipped
-# plt.show()
-# plt.savefig("RMS & E vs Time.png")
-### Frame, maximal kinetic energy at certain Z value
-wp.plg(KE_select_Max, time_time, color=wp.blue)
-wp.limits(0, 70e-9, 0, 30e3)  # limits(xmin,xmax,ymin,ymax)
-wp.ptitles(" Maximal Kinetic Energy vs Time")
-wp.fma()
-# kinetic energy plot
-wp.plg(KE_select, time_time, color=wp.blue)
-wp.ptitles("kinetic energy vs time")
-wp.fma()
-### kinetic energy plot
-wp.plg(KE_select_Max, time_time, color=wp.red)
-wp.ptitles("Max kinetic energy vs time")
-wp.fma()
-
-wp.plg(Particle_Counts_Above_E, KE_select, color=wp.blue)
-wp.ptitles("Particle Count(t) vs Energy(t)")  # modified 4/16
-wp.fma()
-### Frame, showing ---
-KE = beam.getke()
-plotmin = np.min(KE) - 1
-plotmax = np.max(KE) + 1
-plotE = np.linspace(plotmin, plotmax, 20)
-listcount = []
-for e in plotE:
-    elementcount = 0
-    for k in KE:
-        if k > e:
-            elementcount += 1
-
-    listcount.append(elementcount)
-wp.plg(listcount, plotE, color=wp.red)
-wp.ptitles("Number of Particles above E vs E after last gap ")
-C, edges = np.histogram(KE, bins=len(plotE), range=(plotmin, plotmax))
-wp.plg(C, plotE)
-wp.fma()
-#####
-
-### Data storage
-# save history information, so that we can plot all cells in one plot
-
-t = np.trim_zeros(wp.top.thist, "b")
-hepsny = beam.hepsny[0]
-hepsnz = beam.hepsnz[0]
-hep6d = beam.hepsx[0] * beam.hepsy[0] * beam.hepsz[0]
-hekinz = 1e-6 * 0.5 * wp.top.aion * wp.amu * beam.hvzbar[0] ** 2 / wp.jperev
-u = beam.hvxbar[0] ** 2 + beam.hvybar[0] ** 2 + beam.hvzbar[0] ** 2
-hekin = 1e-6 * 0.5 * wp.top.aion * wp.amu * u / wp.jperev
-hxrms = beam.hxrms[0]
-hyrms = beam.hyrms[0]
-hrrms = beam.hrrms[0]
-
-hpnum = beam.hpnum[0]
-
-print("debug", t.shape, hepsny.shape)
-out = np.stack((t, hepsny, hepsnz, hep6d, hekinz, hekin, hxrms, hyrms, hrrms, hpnum))
-
-rt = (time.time() - start) / 60
-print(f"RUNTIME OF THIS SIMULATION: {rt:.0f} minutes")
-if warpoptions.options.autorun:
-    writejson("runtimeminutes", rt)
-
-### END BELOW HERE IS CODE THAT MIGHT BE USEFUL LATER
-# Optional plots:
-"""#plot history of scraped particles plot for conductors
-wp.plg(conductors.get_energy_histogram)
-wp.fma()
-
-wp.plg(conductors.plot_energy_histogram)
-wp.fma()
-
-wp.plg(conductors.get_current_history)
-wp.fma()
-
-wp.plg(conductors.plot_current_history)
-wp.fma()"""
-
-"""wp.plg(t, x, color=wp.green)
-wp.ptitles("Spread of survived particles in the x direction")
-wp.fma() #last frame -1 in file
-"""
+fig, ax = plt.subplots()
+ax.set_title("Final Time Distribution")
+ax.set_xlabel(fr"$\Delta t$ (ns), $t_s$ = {tracker.gett()[-1]/ns:.3f} ns")
+ax.set_ylabel("Number of Particles")
+ax.hist((tfin - tracker.gett()[-1]) / ns, bins=100, edgecolor="k")
+plt.show()
