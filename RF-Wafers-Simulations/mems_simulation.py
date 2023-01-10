@@ -799,35 +799,10 @@ loadbeam = warpoptions.options.loadbeam
 first_gapzc = 5 * mm  # First gap center
 
 rf_volt = lambda time: Vmax * np.cos(2.0 * np.pi * freq * time)
+
 # ------------------------------------------------------------------------------
-#    Mesh setup
-# Specify mesh sizing and time stepping for simulation.
+#     Beam and ion specifications
 # ------------------------------------------------------------------------------
-# Specify  simulation mesh
-wp.w3d.xmmax = 3 / 2 * mm
-wp.w3d.xmmin = -wp.w3d.xmmax
-wp.w3d.ymmax = wp.w3d.xmmax
-wp.w3d.ymmin = -wp.w3d.ymmax
-
-framewidth = 10 * mm
-wp.w3d.zmmin = -3.4 * mm
-wp.w3d.zmmax = 22 * mm
-wp.w3d.nx = 40
-wp.w3d.ny = 40
-wp.w3d.nz = 200
-dz = (wp.w3d.zmmax - wp.w3d.zmmin) / wp.w3d.nz
-dt = 0.2 * ns
-wp.top.dt = dt
-
-# Set boundary conditions
-wp.w3d.bound0 = wp.dirichlet
-wp.w3d.boundnz = wp.dirichlet
-wp.w3d.boundxy = wp.periodic
-
-wp.top.pbound0 = wp.absorb
-wp.top.pboundnz = wp.absorb
-wp.top.prwall = 0.55 * mm
-
 # Create Species
 beam = wp.Species(type=wp.Argon, charge_state=1, name="Ar+", color=wp.blue)
 beam.a0 = emittingRadius
@@ -874,6 +849,35 @@ def injection():
 
 
 wp.installuserinjection(injection)
+
+# ------------------------------------------------------------------------------
+#    Mesh setup
+# Specify mesh sizing and time stepping for simulation.
+# ------------------------------------------------------------------------------
+# Specify  simulation mesh
+wp.w3d.xmmax = 3 / 2 * mm
+wp.w3d.xmmin = -wp.w3d.xmmax
+wp.w3d.ymmax = wp.w3d.xmmax
+wp.w3d.ymmin = -wp.w3d.ymmax
+
+framewidth = 10 * mm
+wp.w3d.zmmin = -3.4 * mm
+wp.w3d.zmmax = 22 * mm
+wp.w3d.nx = 40
+wp.w3d.ny = 40
+wp.w3d.nz = 200
+dz = (wp.w3d.zmmax - wp.w3d.zmmin) / wp.w3d.nz
+dt = 0.2 * ns
+wp.top.dt = dt
+
+# Set boundary conditions
+wp.w3d.bound0 = wp.dirichlet
+wp.w3d.boundnz = wp.dirichlet
+wp.w3d.boundxy = wp.periodic
+
+wp.top.pbound0 = wp.absorb
+wp.top.pboundnz = wp.absorb
+wp.top.prwall = 0.55 * mm
 
 # Setup Histories and moment calculations
 wp.top.lspeciesmoments = True
