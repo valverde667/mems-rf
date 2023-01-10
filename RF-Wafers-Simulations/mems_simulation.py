@@ -1,7 +1,7 @@
 import warpoptions
 
 """
-python3 single-species-simulation.py --esq_voltage=500 --fraction=.8 --speciesMass=20 --ekininit=15e3
+python3 single-species-simulation.py --esq_voltage=500 --fraction=.8 --speciesMass=20 --init_E=15e3
 """
 
 #   mass of the ions being accelerated
@@ -65,10 +65,12 @@ from geometry import RF_stack, ESQ_doublet
 start = time.time()
 
 # Define useful constants
+mrad = 1e-3
 mm = 1e-3
 um = 1e-6
 nm = 1e-9
 kV = 1e3
+eV = 1.0
 keV = 1e3
 ms = 1e-3
 us = 1e-6
@@ -775,30 +777,59 @@ class Mems_ESQ_SolidCyl:
 # arguments. Setting to a designated section for better organization and
 # overview. Eventually this will be stripped and turn into an input file.
 # ------------------------------------------------------------------------------
-L_bunch = 1 * ns
+
+# Specify conductor characteristics
 lq = 0.696 * mm
 Vq = 0.2 * kV
 gap_width = 2 * mm
-Units = 2
-Vmax = 5 * kV
-Vesq = 0.1 * kV
-V_arrival = 1.0
-ekininit = 7 * keV
+Vg = 5 * kV
+Vq = 0.1 * kV
+Ng = 2
+
+# Operating paramters
 freq = 13.6 * MHz
 period = 1.0 / freq
 emittingRadius = 0.25 * mm
 aperture = 0.55 * mm
+rf_volt = lambda time: Vg * np.cos(2.0 * np.pi * freq * time)
+
+# Beam Paramters
+init_E = 7.0 * keV
+Tb = 0.1 * eV
+init_emit = 3 * mm * mrad
 divergenceAngle = 5e-3
-ibeaminit = 10 * uA
-beamdelay = 0.0
-Np_injected = 0
+init_I = 10 * uA
+Np_injected = 0  # initialize injection counter
 
-storebeam = warpoptions.options.storebeam
-loadbeam = warpoptions.options.loadbeam
+# ------------------------------------------------------------------------------
+#    Mesh setup
+# Specify mesh sizing and time stepping for simulation.
+# TODO: - set zmmin to be half a wavelength where the trakcer will be placed.
+#       The first gap should then be placed commensurate with the tracker and
+#       phaseing.
+# ------------------------------------------------------------------------------
+# Specify  simulation mesh
+wp.w3d.xmmax = 1.5 * mm
+wp.w3d.xmmin = -wp.w3d.xmmax
+wp.w3d.ymmax = wp.w3d.xmmax
+wp.w3d.ymmin = -wp.w3d.ymmax
 
-first_gapzc = 5 * mm  # First gap center
+framewidth = 10 * mm
+wp.w3d.zmmin = -3.4 * mm
+wp.w3d.zmmax = 22 * mm
+wp.w3d.nx = 40
+wp.w3d.ny = 40
+wp.w3d.nz = 200
+dz = (wp.w3d.zmmax - wp.w3d.zmmin) / wp.w3d.nz
 
-rf_volt = lambda time: Vmax * np.cos(2.0 * np.pi * freq * time)
+# Set boundary conditions
+wp.w3d.bound0 = wp.dirichlet
+wp.w3d.boundnz = wp.dirichlet
+wp.w3d.boundxy = wp.periodic
+
+wp.top.pbound0 = wp.absorb
+wp.top.pboundnz = wp.absorb
+wp.top.prwall = aperture
 
 # ------------------------------------------------------------------------------
 #     Beam and ion specifications
@@ -807,34 +838,31 @@ rf_volt = lambda time: Vmax * np.cos(2.0 * np.pi * freq * time)
 beam = wp.Species(type=wp.Argon, charge_state=1, name="Ar+", color=wp.blue)
 beam.a0 = emittingRadius
 beam.b0 = emittingRadius
-beam.emit = 3e-6
+beam.emit = init_emit
 beam.ap0 = 0.0
 beam.bp0 = 0.0
-beam.ibeam = ibeaminit
+beam.ibeam = init_I
 beam.vbeam = 0.0
-beam.ekin = ekininit
+beam.ekin = init_E
+vth = np.sqrt(2 * Tb * wp.jperev / beam.mass)
 
 # keep track of when the particles are born
 wp.top.ssnpid = wp.nextpid()
 wp.top.tbirthpid = wp.nextpid()
 
-# Set Injection Parameters for injector and beam
-wp.top.ns = 1  # numper of species
-wp.top.inject = 1  # Constant current injection
-wp.top.npinject = 10
-wp.top.ainject = emittingRadius
-wp.top.binject = emittingRadius
-wp.top.apinject = 0.0
-wp.top.bpinject = 0.0
-wp.top.vinject = 1.0  # source voltage
-
-wp.top.ibeam_s = ibeaminit
-wp.top.ekin_s = ekininit
+wp.top.ibeam_s = init_I
+wp.top.ekin_s = init_E
 wp.derivqty()
-beam.vthz = 700.0
+wp.top.dt = 0.7 * dz / beam.vbeam
+inj_dz = beam.vbeam * wp.top.dt
 
-
+# Create injection scheme. A uniform cylinder will be injected with each time
+# step.
 def injection():
+    """A uniform injection to be called each time step.
+    The injection is done each time step and the width of injection is
+    calculated above using vz*dt.
+    """
     global Np_injected
     Np_inject = 275
     Np_injected += Np_inject
@@ -843,7 +871,10 @@ def injection():
         np=Np_inject,
         rmax=emittingRadius,
         zmin=0.0,
-        zmax=3.677707206124987e-05,
+        zmax=inj_dz,
+        vthx=vth,
+        vthy=vth,
+        vthz=vth,
         vzmean=beam.vbeam,
     )
 
@@ -989,8 +1020,8 @@ while wp.top.time < 1 * period:
         plotselfe=1,
         comp="z",
         contours=50,
-        cmin=-1.25 * Vmax / gap_width,
-        cmax=1.25 * Vmax / gap_width,
+        cmin=-1.25 * Vg / gap_width,
+        cmax=1.25 * Vg / gap_width,
         titlet="Ez, Ar+(Blue) and Track(Red)",
     )
     beam.ppzx(color=wp.blue, msize=2, titles=0)
@@ -1021,8 +1052,8 @@ while tracker.getz()[-1] < z[zdiagn.getiz()]:
             plotselfe=1,
             comp="z",
             contours=50,
-            cmin=-1.25 * Vmax / gap_width,
-            cmax=1.25 * Vmax / gap_width,
+            cmin=-1.25 * Vg / gap_width,
+            cmax=1.25 * Vg / gap_width,
             titlet="Ez, Ar+(Blue) and Track(Red)",
         )
         beam.ppzx(color=wp.blue, msize=2, titles=0)
@@ -1053,8 +1084,8 @@ while wp.top.time < final_time:
             plotselfe=1,
             comp="z",
             contours=50,
-            cmin=-1.25 * Vmax / gap_width,
-            cmax=1.25 * Vmax / gap_width,
+            cmin=-1.25 * Vg / gap_width,
+            cmax=1.25 * Vg / gap_width,
             titlet="Ez, Ar+(Blue) and Track(Red)",
         )
         beam.ppzx(color=wp.blue, msize=2, titles=0)
