@@ -849,7 +849,7 @@ vth = np.sqrt(2 * Tb * wp.jperev / beam.mass)
 # keep track of when the particles are born
 wp.top.ssnpid = wp.nextpid()
 wp.top.tbirthpid = wp.nextpid()
-
+wp.top.inject = 1
 wp.top.ibeam_s = init_I
 wp.top.ekin_s = init_E
 wp.derivqty()
