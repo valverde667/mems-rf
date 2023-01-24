@@ -48,7 +48,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.constants as SC
 import time
-import json
 import os
 import pdb
 
@@ -100,30 +99,6 @@ basepath = warpoptions.options.path
 if basepath == "":
     basepath = f"{step1path}/"
 thisrunID = warpoptions.options.name
-
-# Utility Functions
-def initjson(fp=f"{basepath}{thisrunID}.json"):
-    if not os.path.isfile(fp):
-        print(f"Saving new Json")
-        with open(fp, "w") as writefile:
-            json.dump({}, writefile, sort_keys=True, indent=1)
-
-
-def readjson(fp=f"{basepath}{thisrunID}.json"):
-    initjson(fp)
-    with open(fp, "r") as readfile:
-        data = json.load(readfile)
-    return data
-
-
-def writejson(key, value, fp=f"{basepath}{thisrunID}.json"):
-    print(f"Writing Data to json {fp}")
-    # print("WRITING DATA")
-    # print(f" KEY {key} \n VALUE {value}")
-    writedata = readjson(fp)
-    writedata[key] = value
-    with open(fp, "w") as writefile:
-        json.dump(writedata, writefile, sort_keys=True, indent=1)
 
 
 def create_wafer(
