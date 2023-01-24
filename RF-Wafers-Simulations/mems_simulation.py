@@ -785,12 +785,20 @@ class Data_Ext:
     def __init__(self, lab_windows, zcrossings):
         self.lws = lab_windows
         self.zcs = zcrossings
-        self.data = {}
+        self.data_lw = {}
+        self.data_zcross = {}
 
         # Create lab window names and initialize empty dictionary
         nlw = len(self.lws)
-        names = [f"ilw{i+1}" for i in range(nlw)]
+        lw_names = [f"ilw{i+1}" for i in range(nlw)]
         for i in range(nlw):
+            key = names[i]
+            this_dict = {key: {}}
+            self.data.update(this_dict)
+
+        nzc = len(self.zcs)
+        zc_names = [f"zc{i+1}" for i in range(ncz)]
+        for i in range(nzc):
             key = names[i]
             this_dict = {key: {}}
             self.data.update(this_dict)
@@ -798,7 +806,7 @@ class Data_Ext:
         # List of keys for extracting data. This is used to make the dictionary
         # names and not to navigate through the lab window data features. If
         # a new key is added, be sure to modify the grab_data function to grap.
-        self.data_keys = [
+        self.data_lw_keys = [
             "I",
             "xrms",
             "yrms",
@@ -817,7 +825,7 @@ class Data_Ext:
         """Iterate through lab windows and extract data"""
 
         # iterate through lab window data and assign to dictionary entry.
-        for i, key in enumerate(self.data.keys()):
+        for i, key in enumerate(self.data_lw.keys()):
             this_lw = self.lws[i]
             this_I = wp.top.currlw[: wp.top.ilabwn[this_lw, 0], this_lw, 0]
             this_xrms = wp.top.xrmslw[: wp.top.ilabwn[this_lw, 0], this_lw, 0]
@@ -849,8 +857,8 @@ class Data_Ext:
             ]
 
             # Populate dictionary entry for this lab window
-            this_dict = dict(zip(self.data_keys, vals))
-            self.data[key] = this_dict
+            this_dict_lw = dict(zip(self.data_lw_keys, vals))
+            self.data_lw[key] = this_dict_lw
 
 
 def beta(E, mass, q=1, nonrel=True):
