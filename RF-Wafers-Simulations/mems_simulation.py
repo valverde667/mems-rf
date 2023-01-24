@@ -734,14 +734,14 @@ class Data_Ext:
         nlw = len(self.lws)
         lw_names = [f"ilw{i+1}" for i in range(nlw)]
         for i in range(nlw):
-            key = names[i]
+            key = lw_names[i]
             this_dict = {key: {}}
             self.data.update(this_dict)
 
         nzc = len(self.zcs)
         zc_names = [f"zc{i+1}" for i in range(ncz)]
         for i in range(nzc):
-            key = names[i]
+            key = zc_names[i]
             this_dict = {key: {}}
             self.data.update(this_dict)
 
@@ -842,6 +842,7 @@ rf_volt = lambda time: Vg * np.cos(2.0 * np.pi * freq * time)
 # Beam Paramters
 init_E = 7.0 * keV
 Tb = 0.1 * eV
+div_angle = 3.78 * mrad
 init_I = 10 * uA
 Np_injected = 0  # initialize injection counter
 Np_max = int(1e5)
@@ -920,8 +921,8 @@ wp.top.prwall = aperture
 # ------------------------------------------------------------------------------
 beam.a0 = emittingRadius
 beam.b0 = emittingRadius
-beam.ap0 = 0.0
-beam.bp0 = 0.0
+beam.ap0 = div_angle
+beam.bp0 = div_angle
 beam.ibeam = init_I
 beam.vbeam = 0.0
 beam.ekin = init_E
@@ -1042,11 +1043,11 @@ for i, pos in enumerate(gap_centers):
     zl = pos - 1 * mm
     zr = pos + 1 * mm
     if i % 2 == 0:
-        this_lcond = create_wafer(zl, voltage=rf_volt)
-        this_rcond = create_wafer(zr, voltage=0.0)
-    else:
         this_lcond = create_wafer(zl, voltage=0.0)
         this_rcond = create_wafer(zr, voltage=rf_volt)
+    else:
+        this_lcond = create_wafer(zl, voltage=rf_volt)
+        this_rcond = create_wafer(zr, voltage=0.0)
 
     conductors.append(this_lcond)
     conductors.append(this_rcond)
