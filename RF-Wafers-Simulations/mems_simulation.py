@@ -56,6 +56,7 @@ import pdb
 import warp as wp
 from warp.particles.extpart import ZCrossingParticles
 from warp.particles.singleparticle import TraceParticle
+from warp.diagnostics.gridcrossingdiags import GridCrossingDiags
 
 
 # --Import custom packages
@@ -77,6 +78,7 @@ us = 1e-6
 ns = 1e-9
 MHz = 1e6
 uA = 1e-6
+twopi = 2.0 * np.pi
 
 # Utility definitions
 name = warpoptions.options.name
@@ -135,7 +137,7 @@ def create_wafer(
     ycent=0.0 * mm,
     voltage=0.0,
 ):
-    """ Create a single wafer
+    """Create a single wafer
 
     An acceleration gap will be comprised of two wafers, one grounded and one
     with an RF varying voltage. Creating a single wafer without combining them
@@ -771,6 +773,99 @@ class Mems_ESQ_SolidCyl:
         return conductor
 
 
+class Data_Ext:
+    """Extract the data from the lab windows in top and plot
+
+    The lab windows are given their own index on creation. They can be kept
+    in a list and then cycled through to grap the various data. This class
+    will cycle through the list, grab the data, store it, and will have further
+    capabilities to plot, save, etc.
+    """
+
+    def __init__(self, lab_windows, zcrossings):
+        self.lws = lab_windows
+        self.zcs = zcrossings
+        self.data = {}
+
+        # Create lab window names and initialize empty dictionary
+        nlw = len(self.lws)
+        names = [f"ilw{i+1}" for i in range(nlw)]
+        for i in range(nlw):
+            key = names[i]
+            this_dict = {key: {}}
+            self.data.update(this_dict)
+
+        # List of keys for extracting data. This is used to make the dictionary
+        # names and not to navigate through the lab window data features. If
+        # a new key is added, be sure to modify the grab_data function to grap.
+        self.data_keys = [
+            "I",
+            "xrms",
+            "yrms",
+            "xprms",
+            "yprms",
+            "vxrms",
+            "vyrms",
+            "vzrms",
+            "emitx",
+            "emity",
+            "emitx_n",
+            "emitx_n",
+        ]
+
+    def grab_data(self):
+        """Iterate through lab windows and extract data"""
+
+        # iterate through lab window data and assign to dictionary entry.
+        for i, key in enumerate(self.data.keys()):
+            this_lw = self.lws[i]
+            this_I = wp.top.currlw[: wp.top.ilabwn[this_lw, 0], this_lw, 0]
+            this_xrms = wp.top.xrmslw[: wp.top.ilabwn[this_lw, 0], this_lw, 0]
+            this_yrms = wp.top.yrmslw[: wp.top.ilabwn[this_lw, 0], this_lw, 0]
+            this_xprms = wp.top.xprmslw[: wp.top.ilabwn[this_lw, 0], this_lw, 0]
+            this_yprms = wp.top.yprmslw[: wp.top.ilabwn[this_lw, 0], this_lw, 0]
+            this_vxrms = wp.top.vxrmslw[: wp.top.ilabwn[this_lw, 0], this_lw, 0]
+            this_vyrms = wp.top.vyrmslw[: wp.top.ilabwn[this_lw, 0], this_lw, 0]
+            this_vzrms = wp.top.vzrmslw[: wp.top.ilabwn[this_lw, 0], this_lw, 0]
+            this_emitx = wp.top.epsxlw[: wp.top.ilabwn[this_lw, 0], this_lw, 0]
+            this_emity = wp.top.epsylw[: wp.top.ilabwn[this_lw, 0], this_lw, 0]
+            this_emitx_n = wp.top.epsnxlw[: wp.top.ilabwn[this_lw, 0], this_lw, 0]
+            this_emity_n = wp.top.epsnylw[: wp.top.ilabwn[this_lw, 0], this_lw, 0]
+
+            # Collect into single list
+            vals = [
+                this_I,
+                this_xrms,
+                this_yrms,
+                this_xprms,
+                this_yprms,
+                this_vxrms,
+                this_vyrms,
+                this_vzrms,
+                this_emitx,
+                this_emity,
+                this_emitx_n,
+                this_emity_n,
+            ]
+
+            # Populate dictionary entry for this lab window
+            this_dict = dict(zip(self.data_keys, vals))
+            self.data[key] = this_dict
+
+
+def beta(E, mass, q=1, nonrel=True):
+    """Velocity of a particle with energy E."""
+    if nonrel:
+        sign = np.sign(E)
+        beta = np.sqrt(2 * abs(E) / mass)
+        beta *= sign
+    else:
+        gamma = (E + mass) / mass
+        beta = np.sqrt(1 - 1 / gamma / gamma)
+
+    return beta
+
+
 # ------------------------------------------------------------------------------
 #    Script inputs
 # Parameter inputs for running the script. Initially were set as command line
@@ -785,6 +880,7 @@ gap_width = 2 * mm
 Vg = 5 * kV
 Vq = 0.1 * kV
 Ng = 2
+Fcup_dist = 10 * mm
 
 # Operating paramters
 freq = 13.6 * MHz
@@ -796,11 +892,47 @@ rf_volt = lambda time: Vg * np.cos(2.0 * np.pi * freq * time)
 # Beam Paramters
 init_E = 7.0 * keV
 Tb = 0.1 * eV
-init_emit = 3 * mm * mrad
-divergenceAngle = 5e-3
 init_I = 10 * uA
 Np_injected = 0  # initialize injection counter
+Np_max = int(1e5)
 
+# Sepcify the design phase.
+dsgn_phase = -np.pi / 3.0
+
+# Specify Species and ion type
+weight = 46  # Calculated using W = dt * I / q / Np_inject
+beam = wp.Species(
+    type=wp.Argon, weight=weight, charge_state=1, name="Ar+", color=wp.blue
+)
+mass_eV = beam.mass * pow(SC.c, 2) / wp.jperev
+# ------------------------------------------------------------------------------
+#     Gap Centers
+# Here, the gaps are initialized using the design values listed. The first gap
+# is started fully negative to ensure the most compact structure. The design
+# particle is initialized at z=0 t=0 so that it arrives at the first gap at the
+# synchronous phase while the field is rising.
+# ------------------------------------------------------------------------------
+# Calculate additional gap centers if applicable. Here the design values should
+# be used. The first gap is always placed such that the design particle will
+# arrive at the desired phase when starting at z=0 with energy W.
+phi_s = np.ones(Ng) * dsgn_phase * 0
+phi_s[1:] = np.linspace(-np.pi / 3, -0.0, Ng - 1) * 0
+
+gap_dist = np.zeros(Ng)
+E_s = init_E
+for i in range(Ng):
+    this_beta = beta(E_s, mass_eV)
+    this_cent = this_beta * SC.c / 2 / freq
+    cent_offset = (phi_s[i] - phi_s[i - 1]) * this_beta * SC.c / freq / twopi
+    if i < 1:
+        gap_dist[i] = (phi_s[i] + np.pi) * this_beta * SC.c / twopi / freq
+    else:
+        gap_dist[i] = this_cent + cent_offset
+
+    dsgn_Egain = Vg * np.cos(phi_s[i])
+    E_s += dsgn_Egain
+
+gap_centers = np.array(gap_dist).cumsum()
 # ------------------------------------------------------------------------------
 #    Mesh setup
 # Specify mesh sizing and time stepping for simulation.
@@ -815,8 +947,10 @@ wp.w3d.ymmax = wp.w3d.xmmax
 wp.w3d.ymmin = -wp.w3d.ymmax
 
 framewidth = 10 * mm
-wp.w3d.zmmin = -3.4 * mm
-wp.w3d.zmmax = 22 * mm
+wp.w3d.zmmin = -0.5 * mm
+# End of simulation will be final gap + gap_width / 2 + the Fcup + some spacing
+# to ensure the boundary conditions are not interfering.
+wp.w3d.zmmax = gap_centers[-1] + 1 * mm + Fcup_dist + 3 * mm
 wp.w3d.nx = 40
 wp.w3d.ny = 40
 wp.w3d.nz = 200
@@ -834,11 +968,8 @@ wp.top.prwall = aperture
 # ------------------------------------------------------------------------------
 #     Beam and ion specifications
 # ------------------------------------------------------------------------------
-# Create Species
-beam = wp.Species(type=wp.Argon, charge_state=1, name="Ar+", color=wp.blue)
 beam.a0 = emittingRadius
 beam.b0 = emittingRadius
-beam.emit = init_emit
 beam.ap0 = 0.0
 beam.bp0 = 0.0
 beam.ibeam = init_I
@@ -864,7 +995,10 @@ def injection():
     calculated above using vz*dt.
     """
     global Np_injected
-    Np_inject = 275
+    global Np_max
+
+    # Calculate number to inject to reach max
+    Np_inject = int(Np_max / (period / wp.top.dt))
     Np_injected += Np_inject
 
     beam.add_uniform_cylinder(
@@ -882,33 +1016,10 @@ def injection():
 wp.installuserinjection(injection)
 
 # ------------------------------------------------------------------------------
-#    Mesh setup
-# Specify mesh sizing and time stepping for simulation.
+#    History Setup and Initial generation
+# Tell Warp what histories to save and when (in units of iterations) to do it.
+# There are also some controls for the solver.
 # ------------------------------------------------------------------------------
-# Specify  simulation mesh
-wp.w3d.xmmax = 3 / 2 * mm
-wp.w3d.xmmin = -wp.w3d.xmmax
-wp.w3d.ymmax = wp.w3d.xmmax
-wp.w3d.ymmin = -wp.w3d.ymmax
-
-framewidth = 10 * mm
-wp.w3d.zmmin = -3.4 * mm
-wp.w3d.zmmax = 22 * mm
-wp.w3d.nx = 40
-wp.w3d.ny = 40
-wp.w3d.nz = 200
-dz = (wp.w3d.zmmax - wp.w3d.zmmin) / wp.w3d.nz
-dt = 0.2 * ns
-wp.top.dt = dt
-
-# Set boundary conditions
-wp.w3d.bound0 = wp.dirichlet
-wp.w3d.boundnz = wp.dirichlet
-wp.w3d.boundxy = wp.periodic
-
-wp.top.pbound0 = wp.absorb
-wp.top.pboundnz = wp.absorb
-wp.top.prwall = 0.55 * mm
 
 # Setup Histories and moment calculations
 wp.top.lspeciesmoments = True
@@ -925,9 +1036,27 @@ wp.top.lhepsnyz = True
 wp.top.lhvzrmsz = True
 wp.top.lsavelostpart = True
 
+# Set up lab window for collecting whole beam diagnostics such as current and
+# RMS values. Also set the diagnostic for collecting individual particle data
+# as they cross.
+ilws = []
+zdiagns = []
+ilws.append(wp.addlabwindow(5.0 * dz))  # Initial lab window
+zdiagns.append(ZCrossingParticles(zz=5.0 * dz, laccumulate=1))
+
+# Loop through gap_centers and place diagnostics at center point between gaps.
+for i in range(Ng - 1):
+    zloc = (gap_centers[i + 1] - gap_centers[i]) / 2.0
+    ilws.append(wp.addlabwindow(zloc))
+    zdiagns.append(ZCrossingParticles(zz=zloc, laccumulate=1))
+
+ilws.append(wp.addlabwindow(gap_centers[-1] + Fcup_dist))
+zdiagns.append(ZCrossingParticles(zz=gap_centers[-1] + Fcup_dist, laccumulate=1))
+
 # Set up fieldsolver
 wp.w3d.l4symtry = False
 solver = wp.MRBlock3D()
+solver.ldosolve = True  # Enable self-fields.
 wp.registersolver(solver)
 solver.mgtol = 1.0  # Poisson solver tolerance, in volts
 solver.mgparam = 1.5
@@ -943,28 +1072,31 @@ x, y, z = wp.w3d.xmesh, wp.w3d.ymesh, wp.w3d.zmesh
 # generate is called.
 tracked_ions = wp.Species(type=wp.Argon, charge_state=1, name="Track", color=wp.red)
 tracker = TraceParticle(
-    js=tracked_ions.js, x=0.0, y=0.0, z=-3.38 * mm, vx=0.0, vy=0.0, vz=beam.vbeam
+    js=tracked_ions.js, x=0.0, y=0.0, z=0.0, vx=0.0, vy=0.0, vz=beam.vbeam
 )
+
+# For unknown reasons, the tracer cannt be placed arbitrarily in the injection
+# scheme. Thus, it is created early on, disabled, then renabled at the desire
+# point in injection (after half-period of inejction).
+tracker.disable()
 
 # Recalculate fields and conductor information every time step. Needed for
 # oscillating fields in a moving frame.
 solver.gridmode = 0
 
-positionArray = np.array([6.76049119, 15.61205193]) * mm - 3.38 * mm
-
-for i, pa in enumerate(positionArray):
+for i, pa in enumerate(gap_centers):
     print(f"Unit {i} placed at {pa}")
 
 conductors = []
-for i, pos in enumerate(positionArray):
+for i, pos in enumerate(gap_centers):
     zl = pos - 1 * mm
     zr = pos + 1 * mm
     if i % 2 == 0:
-        this_lcond = create_wafer(zl, voltage=0.0)
-        this_rcond = create_wafer(zr, voltage=rf_volt)
-    else:
         this_lcond = create_wafer(zl, voltage=rf_volt)
         this_rcond = create_wafer(zr, voltage=0.0)
+    else:
+        this_lcond = create_wafer(zl, voltage=0.0)
+        this_rcond = create_wafer(zr, voltage=rf_volt)
 
     conductors.append(this_lcond)
     conductors.append(this_rcond)
@@ -972,12 +1104,13 @@ for i, pos in enumerate(positionArray):
 for cond in conductors:
     wp.installconductors(cond)
 
+# Create and intialize the scraper that will collected 'lost' particles.
 aperture_wall = wp.ZCylinderOut(
     radius=aperture, zlower=-wp.top.largepos, zupper=wp.top.largepos
 )
 scraper = wp.ParticleScraper(aperture_wall, lcollectlpdata=True)
 
-
+# Create and install ESQs
 # lESQ = Mems_ESQ_SolidCyl(15.5 * mm, "1", Vq, -Vq, chop=True)
 # lESQ.set_geometry(rp=aperture, R=0.68 * aperture, lq=lq)
 
@@ -1002,17 +1135,21 @@ scraper = wp.ParticleScraper(conductors, lcollectlpdata=True)
 wp.winon(winnum=2, suffix="pzx", xon=False)
 wp.winon(winnum=3, suffix="pxy", xon=False)
 
-# Create a lab window for the collecting diagnostic data at the end of the run.
-# Create zparticle diagnostic. The function gchange is needed to allocate
-# arrays for the windo moments. Lastly, create variables for the species index.
-zdiagn = ZCrossingParticles(zz=max(z) - 5 * solver.dz, laccumulate=1)
+# ------------------------------------------------------------------------------
+#    Injection and advancement
+# Here the particles are injected. The first while-loop injects particles for
+# a half-period in time. Afterward, a trace particle is added and then the
+# second while-loop finishes the injection so that a full period of beam is
+# injected. The particles are advanced. After the trace (design) particle has
+# arrived at the Fcup, the particle advancement is done for 2 more RF periods
+# to capture remaining particles.
+# TODO: In moving frame it probably isnt best to continue advancement for so long
+# after design particle has arrived.
+# ------------------------------------------------------------------------------
 
-# Create vertical line for diagnostic visual
-pltdiagn_x = np.ones(3) * zdiagn.zz
-pltdiagn_y = np.linspace(-wp.largepos, wp.largepos, 3)
-
-# Inject particles for a singple period.
-while wp.top.time < 1 * period:
+# Inject particles for a half-period, then inject the tracker particle and
+# continue injection for another half-period.
+while wp.top.time < 0.5 * period:
     wp.window(2)
     wp.pfzx(
         fill=1,
@@ -1025,7 +1162,35 @@ while wp.top.time < 1 * period:
         titlet="Ez, Ar+(Blue) and Track(Red)",
     )
     beam.ppzx(color=wp.blue, msize=2, titles=0)
-    wp.plg(pltdiagn_y, pltdiagn_x, width=3, color=wp.magenta)
+    wp.limits(z.min(), z.max(), x.min(), x.max())
+    wp.fma()
+
+    wp.window(3)
+    beam.ppxy(color=wp.blue, msize=2, titlet="Particles Ar+(Blue) and N2+(Red) in XY")
+    wp.limits(x.min(), x.max(), y.min(), y.max())
+    wp.plg(Y, X, type="dash")
+    wp.titlet = "Particles Ar+(Blue) and N2+(Red) in XY"
+    wp.fma()
+
+    wp.step(1)
+
+# Turn on tracker
+tracker.enable()
+
+# Continue injection for another half-period
+while wp.top.time < 1.0 * period:
+    wp.window(2)
+    wp.pfzx(
+        fill=1,
+        filled=1,
+        plotselfe=1,
+        comp="z",
+        contours=50,
+        cmin=-1.25 * Vg / gap_width,
+        cmax=1.25 * Vg / gap_width,
+        titlet="Ez, Ar+(Blue) and Track(Red)",
+    )
+    beam.ppzx(color=wp.blue, msize=2, titles=0)
     wp.plp(tracker.getx()[-1], tracker.getz()[-1], color=wp.red, msize=3)
     wp.limits(z.min(), z.max(), x.min(), x.max())
     wp.fma()
@@ -1043,7 +1208,7 @@ while wp.top.time < 1 * period:
 # time of tracker particle.
 wp.top.inject = 0
 wp.uninstalluserinjection(injection)
-while tracker.getz()[-1] < z[zdiagn.getiz()]:
+while tracker.getz()[-1] < z[zdiagns[-1].getiz()]:
     if wp.top.it % 5 == 0:
         wp.window(2)
         wp.pfzx(
@@ -1057,7 +1222,6 @@ while tracker.getz()[-1] < z[zdiagn.getiz()]:
             titlet="Ez, Ar+(Blue) and Track(Red)",
         )
         beam.ppzx(color=wp.blue, msize=2, titles=0)
-        wp.plg(pltdiagn_y, pltdiagn_x, width=3, color=wp.magenta)
         wp.plp(tracker.getx()[-1], tracker.getz()[-1], color=wp.red, msize=3)
         wp.limits(z.min(), z.max(), x.min(), x.max())
         wp.fma()
@@ -1089,7 +1253,6 @@ while wp.top.time < final_time:
             titlet="Ez, Ar+(Blue) and Track(Red)",
         )
         beam.ppzx(color=wp.blue, msize=2, titles=0)
-        wp.plg(pltdiagn_y, pltdiagn_x, width=3, color=wp.magenta)
         wp.plp(tracker.getx()[-1], tracker.getz()[-1], color=wp.red, msize=3)
         wp.limits(z.min(), z.max(), x.min(), x.max())
         wp.fma()
@@ -1110,9 +1273,9 @@ while wp.top.time < final_time:
 # Here the final diagnostics are computed/extracted. The diagnostic plots are
 # made.
 # ------------------------------------------------------------------------------
-Np_delivered = zdiagn.getvz().shape[0]
-Efin = beam.mass * pow(zdiagn.getvz(), 2) / 2.0 / wp.jperev
-tfin = zdiagn.gett()
+Np_delivered = zdiagns[-1].getvz().shape[0]
+Efin = beam.mass * pow(zdiagns[-1].getvz(), 2) / 2.0 / wp.jperev
+tfin = zdiagns[-1].gett()
 frac_delivered = Np_delivered / Np_injected
 frac_lost = abs(Np_delivered - Np_injected) / Np_injected
 
@@ -1121,11 +1284,16 @@ ax.set_title("Final Energy Distribution")
 ax.set_xlabel("Kinetic Energy (keV)")
 ax.set_ylabel("Number of Particles")
 ax.hist(Efin / keV, bins=100, edgecolor="k")
+plt.savefig("Edist.svg")
 plt.show()
 
 fig, ax = plt.subplots()
 ax.set_title("Final Time Distribution")
-ax.set_xlabel(fr"$\Delta t$ (ns), $t_s$ = {tracker.gett()[-1]/ns:.3f} ns")
+ax.set_xlabel(rf"$\Delta t$ (ns), $t_s$ = {tracker.gett()[-1]/ns:.3f} ns")
 ax.set_ylabel("Number of Particles")
 ax.hist((tfin - tracker.gett()[-1]) / ns, bins=100, edgecolor="k")
+plt.savefig("tdist.svg")
 plt.show()
+
+Data = Data_Ext(ilws, zdiagns)
+Data.grab_data()
