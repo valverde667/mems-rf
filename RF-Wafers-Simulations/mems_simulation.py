@@ -1,14 +1,5 @@
 import warpoptions
 
-"""
-python3 single-species-simulation.py --esq_voltage=500 --fraction=.8 --speciesMass=20 --init_E=15e3
-"""
-
-#   mass of the ions being accelerated
-warpoptions.parser.add_argument(
-    "--species_mass", dest="speciesMass", type=int, default="40"
-)
-
 #   special cgm name - for mass output / scripting
 warpoptions.parser.add_argument("--name", dest="name", type=str, default="multions")
 
@@ -16,32 +7,9 @@ warpoptions.parser.add_argument("--name", dest="name", type=str, default="multio
 warpoptions.parser.add_argument("--path", dest="path", type=str, default="")
 
 
-#   Volt ratio for ESQs @ToDo Zhihao : is this correct?
-warpoptions.parser.add_argument(
-    "--volt_ratio", dest="volt_ratio", type=float, default="1.04"
-)
-
-#   enables some additional code if True
-warpoptions.parser.add_argument("--autorun", dest="autorun", type=bool, default=False)
-
-# sets wp.steps(#)
-warpoptions.parser.add_argument("--plotsteps", dest="plotsteps", type=int, default=20)
-
 # changes simulation to a "cb-beam" simulation
 warpoptions.parser.add_argument("--cb", dest="cb_framewidth", type=float, default=0)
 
-# enables a Z-Crossing location, saving particles that are crossing the given z-value
-warpoptions.parser.add_argument("--zcrossing", dest="zcrossing", type=float, default=0)
-
-# set maximal running time, this disables other means of ending the simulation
-warpoptions.parser.add_argument("--runtime", dest="runtime", type=float, default=0)
-
-warpoptions.parser.add_argument(
-    "--beamdelay", dest="beamdelay", type=float, default=0.0
-)
-warpoptions.parser.add_argument("--storebeam", dest="storebeam", default="[]")
-warpoptions.parser.add_argument("--loadbeam", dest="loadbeam", type=str, default="")
-warpoptions.parser.add_argument("--beamnumber", dest="beamnumber", type=int, default=-1)
 
 # --Python packages
 import numpy as np
@@ -81,7 +49,6 @@ twopi = 2.0 * np.pi
 
 # Utility definitions
 name = warpoptions.options.name
-beamnumber = warpoptions.options.beamnumber
 
 # --- where to store the outputfiles
 cgm_name = name
