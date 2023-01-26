@@ -67,6 +67,26 @@ if basepath == "":
     basepath = f"{step1path}/"
 thisrunID = warpoptions.options.name
 
+# ------------------------------------------------------------------------------
+#    Functions and Classes
+# This section defines the various functions and classes used within the script.
+# Eventually this will be moved into a seperate script and then imported via the
+# mems package for this system.
+# ------------------------------------------------------------------------------
+
+
+def beta(E, mass, q=1, nonrel=True):
+    """Velocity of a particle with energy E."""
+    if nonrel:
+        sign = np.sign(E)
+        beta = np.sqrt(2 * abs(E) / mass)
+        beta *= sign
+    else:
+        gamma = (E + mass) / mass
+        beta = np.sqrt(1 - 1 / gamma / gamma)
+
+    return beta
+
 
 def create_wafer(
     cent,
@@ -724,9 +744,11 @@ class Data_Ext:
     capabilities to plot, save, etc.
     """
 
-    def __init__(self, lab_windows, zcrossings):
+    def __init__(self, lab_windows, zcrossings, beam, trace_particle):
         self.lws = lab_windows
         self.zcs = zcrossings
+        self.beam = beam
+        self.trace_particle = trace_particle
         self.data_lw = {}
         self.data_zcross = {}
 
@@ -736,14 +758,14 @@ class Data_Ext:
         for i in range(nlw):
             key = lw_names[i]
             this_dict = {key: {}}
-            self.data.update(this_dict)
+            self.data_lw.update(this_dict)
 
         nzc = len(self.zcs)
-        zc_names = [f"zc{i+1}" for i in range(ncz)]
+        zc_names = [f"zc{i+1}" for i in range(nzc)]
         for i in range(nzc):
             key = zc_names[i]
             this_dict = {key: {}}
-            self.data.update(this_dict)
+            self.data_zcross.update(this_dict)
 
         # List of keys for extracting data. This is used to make the dictionary
         # names and not to navigate through the lab window data features. If
@@ -803,19 +825,6 @@ class Data_Ext:
             self.data_lw[key] = this_dict_lw
 
 
-def beta(E, mass, q=1, nonrel=True):
-    """Velocity of a particle with energy E."""
-    if nonrel:
-        sign = np.sign(E)
-        beta = np.sqrt(2 * abs(E) / mass)
-        beta *= sign
-    else:
-        gamma = (E + mass) / mass
-        beta = np.sqrt(1 - 1 / gamma / gamma)
-
-    return beta
-
-
 # ------------------------------------------------------------------------------
 #    Script inputs
 # Parameter inputs for running the script. Initially were set as command line
@@ -829,15 +838,16 @@ Vq = 0.2 * kV
 gap_width = 2 * mm
 Vg = 5 * kV
 Vq = 0.1 * kV
-Ng = 2
+Ng = 4
 Fcup_dist = 10 * mm
 
 # Operating paramters
 freq = 13.6 * MHz
+hrf = SC.c / freq
 period = 1.0 / freq
 emittingRadius = 0.25 * mm
 aperture = 0.55 * mm
-rf_volt = lambda time: Vg * np.cos(2.0 * np.pi * freq * time)
+rf_volt = lambda time: Vg * np.cos(2.0 * np.pi * freq * time + np.pi)
 
 # Beam Paramters
 init_E = 7.0 * keV
@@ -898,10 +908,11 @@ wp.w3d.ymmax = wp.w3d.xmmax
 wp.w3d.ymmin = -wp.w3d.ymmax
 
 framewidth = 10 * mm
-wp.w3d.zmmin = -0.5 * mm
+wp.w3d.zmmin = -10 * mm
 # End of simulation will be final gap + gap_width / 2 + the Fcup + some spacing
 # to ensure the boundary conditions are not interfering.
-wp.w3d.zmmax = gap_centers[-1] + 1 * mm + Fcup_dist + 3 * mm
+# wp.w3d.zmmax = gap_centers[-1] + 1 * mm + Fcup_dist + 3 * mm
+wp.w3d.zmmax = 30 * mm
 wp.w3d.nx = 40
 wp.w3d.ny = 40
 wp.w3d.nz = 200
@@ -997,7 +1008,7 @@ zdiagns.append(ZCrossingParticles(zz=5.0 * dz, laccumulate=1))
 
 # Loop through gap_centers and place diagnostics at center point between gaps.
 for i in range(Ng - 1):
-    zloc = (gap_centers[i + 1] - gap_centers[i]) / 2.0
+    zloc = (gap_centers[i + 1] + gap_centers[i]) / 2.0
     ilws.append(wp.addlabwindow(zloc))
     zdiagns.append(ZCrossingParticles(zz=zloc, laccumulate=1))
 
@@ -1059,7 +1070,15 @@ for cond in conductors:
 aperture_wall = wp.ZCylinderOut(
     radius=aperture, zlower=-wp.top.largepos, zupper=wp.top.largepos
 )
+Fcup = wp.Box(
+    xsize=wp.top.largepos,
+    ysize=wp.top.largepos,
+    zsize=5.0 * dz,
+    zcent=zdiagns[-1].getzz() + 2 * mm,
+)
 scraper = wp.ParticleScraper(aperture_wall, lcollectlpdata=True)
+scraper.registerconductors(conductors)
+scraper.registerconductors(Fcup)
 
 # Create and install ESQs
 # lESQ = Mems_ESQ_SolidCyl(15.5 * mm, "1", Vq, -Vq, chop=True)
@@ -1080,8 +1099,6 @@ t = np.linspace(0, 2 * np.pi, 100)
 X = R * np.sin(t)
 Y = R * np.cos(t)
 
-scraper = wp.ParticleScraper(conductors, lcollectlpdata=True)
-
 # Create cgm windows for plotting
 wp.winon(winnum=2, suffix="pzx", xon=False)
 wp.winon(winnum=3, suffix="pxy", xon=False)
@@ -1098,22 +1115,33 @@ wp.winon(winnum=3, suffix="pxy", xon=False)
 # after design particle has arrived.
 # ------------------------------------------------------------------------------
 
-# Inject particles for a half-period, then inject the tracker particle and
-# continue injection for another half-period.
-while wp.top.time < 0.5 * period:
-    wp.window(2)
+# Def plotting routine to be called in stepping
+def plotbeam(lplt_tracker=False):
+    """Plot particles, conductors, and Ez contours as particles advance."""
     wp.pfzx(
+        plotsg=0,
+        cond=0,
         fill=1,
         filled=1,
-        plotselfe=1,
+        condcolor="black",
+        titles=0,
+        contours=60,
         comp="z",
-        contours=50,
+        plotselfe=1,
         cmin=-1.25 * Vg / gap_width,
         cmax=1.25 * Vg / gap_width,
         titlet="Ez, Ar+(Blue) and Track(Red)",
     )
-    beam.ppzx(color=wp.blue, msize=2, titles=0)
-    wp.limits(z.min(), z.max(), x.min(), x.max())
+    wp.ppzx(titles=0, color=wp.blue, msize=2)
+    if lplt_tracker:
+        wp.plp(tracker.getx()[-1], tracker.getz()[-1], color=wp.red, msize=3)
+
+
+# Inject particles for a half-period, then inject the tracker particle and
+# continue injection for another half-period.
+while wp.top.time < 0.5 * period:
+    wp.window(2)
+    plotbeam()
     wp.fma()
 
     wp.window(3)
@@ -1131,19 +1159,8 @@ tracker.enable()
 # Continue injection for another half-period
 while wp.top.time < 1.0 * period:
     wp.window(2)
-    wp.pfzx(
-        fill=1,
-        filled=1,
-        plotselfe=1,
-        comp="z",
-        contours=50,
-        cmin=-1.25 * Vg / gap_width,
-        cmax=1.25 * Vg / gap_width,
-        titlet="Ez, Ar+(Blue) and Track(Red)",
-    )
-    beam.ppzx(color=wp.blue, msize=2, titles=0)
-    wp.plp(tracker.getx()[-1], tracker.getz()[-1], color=wp.red, msize=3)
-    wp.limits(z.min(), z.max(), x.min(), x.max())
+    plotbeam(lplt_tracker=True)
+    wp.fma()
     wp.fma()
 
     wp.window(3)
@@ -1159,22 +1176,32 @@ while wp.top.time < 1.0 * period:
 # time of tracker particle.
 wp.top.inject = 0
 wp.uninstalluserinjection(injection)
-while tracker.getz()[-1] < z[zdiagns[-1].getiz()]:
+# Wait for tracker to get to the center of the cell and then start moving frame
+while tracker.getz()[-1] < 0.5 * (wp.w3d.zmmax - wp.w3d.zmmin):
     if wp.top.it % 5 == 0:
         wp.window(2)
-        wp.pfzx(
-            fill=1,
-            filled=1,
-            plotselfe=1,
-            comp="z",
-            contours=50,
-            cmin=-1.25 * Vg / gap_width,
-            cmax=1.25 * Vg / gap_width,
-            titlet="Ez, Ar+(Blue) and Track(Red)",
+        plotbeam(lplt_tracker=True)
+        wp.fma()
+
+        wp.window(3)
+        beam.ppxy(
+            color=wp.blue, msize=2, titlet="Particles Ar+(Blue) and N2+(Red) in XY"
         )
-        beam.ppzx(color=wp.blue, msize=2, titles=0)
-        wp.plp(tracker.getx()[-1], tracker.getz()[-1], color=wp.red, msize=3)
-        wp.limits(z.min(), z.max(), x.min(), x.max())
+        wp.limits(x.min(), x.max(), y.min(), y.max())
+        wp.plg(Y, X, type="dash")
+        wp.titlet = "Particles Ar+(Blue) and N2+(Red) in XY"
+        wp.fma()
+
+    wp.step(1)
+wp.top.vbeamfrm = beam.vbeam
+
+while tracker.getz()[-1] < zdiagns[-1].getzz():
+    if wp.top.it % 5 == 0:
+        wp.window(2)
+        zmin = wp.top.zgrid - wp.w3d.zmmax
+        zmax = wp.top.zgrid + wp.w3d.zmmax
+        wp.limits(zmin, zmax, wp.w3d.xmmin, wp.w3d.xmmax)
+        plotbeam(lplt_tracker=True)
         wp.fma()
 
         wp.window(3)
@@ -1190,22 +1217,16 @@ while tracker.getz()[-1] < z[zdiagns[-1].getiz()]:
 
 tracker_fin_time = tracker.gett()[-1]
 final_time = tracker_fin_time + 2 * period
+wp.top.vbeamfrm = 0.0
 while wp.top.time < final_time:
     if wp.top.it % 5 == 0:
         wp.window(2)
-        wp.pfzx(
-            fill=1,
-            filled=1,
-            plotselfe=1,
-            comp="z",
-            contours=50,
-            cmin=-1.25 * Vg / gap_width,
-            cmax=1.25 * Vg / gap_width,
-            titlet="Ez, Ar+(Blue) and Track(Red)",
-        )
-        beam.ppzx(color=wp.blue, msize=2, titles=0)
-        wp.plp(tracker.getx()[-1], tracker.getz()[-1], color=wp.red, msize=3)
-        wp.limits(z.min(), z.max(), x.min(), x.max())
+        zmin = wp.top.zgrid - wp.w3d.zmmin
+        zmax = wp.top.zgrid + wp.w3d.zmmax
+        wp.limits(zmin, zmax, wp.w3d.xmmin, wp.w3d.xmmax)
+
+        wp.limits(zcent - zmin, zcent + zmax, wp.w3d.xmmin, wp.w3d.xmmax)
+        plotbeam(lplt_tracker=True)
         wp.fma()
 
         wp.window(3)
@@ -1246,5 +1267,5 @@ ax.hist((tfin - tracker.gett()[-1]) / ns, bins=100, edgecolor="k")
 plt.savefig("tdist.svg")
 plt.show()
 
-Data = Data_Ext(ilws, zdiagns)
+Data = Data_Ext(ilws, zdiagns, beam, tracker)
 Data.grab_data()
