@@ -787,9 +787,27 @@ class Data_Ext:
             "emitx",
             "emity",
             "emitx_n",
-            "emitx_n",
+            "emity_n",
             "time",
         ]
+
+        # Create a dictionary of values that will hold scale factors and names
+        # for scaling the respective data and naming the plots
+        self.scale_factors = {
+            "I": (uA, "Current (uA)"),
+            "xrms": (mm, "xrms (mm)"),
+            "yrms": (mm, "yrms (mm)"),
+            "xprms": (mrad, "xprms (mrad)"),
+            "yprms": (mrad, "yprms (mrad)"),
+            "vxrms": (um / ns, "vxrms (um/ns)"),
+            "vyrms": (um / ns, "vyrms (um/ns)"),
+            "vzrms": (um / ns, "vzrms (mm/ns)"),
+            "emitx": (mm * mrad, "emitx (mm-mrad)"),
+            "emity": (mm * mrad, "emity (mm-mrad)"),
+            "emitx_n": (mm * mrad, "emitx_n (mm-mrad)"),
+            "emity_n": (mm * mrad, "emity_n (mm-mrad)"),
+            "time": (ns, "time (ns)"),
+        }
 
     def grab_data(self):
         """Iterate through lab windows and extract data"""
@@ -1404,10 +1422,12 @@ with PdfPages(path + "/Ehists.pdf") as pdf:
 for key in Data.data_lw_keys:
     with PdfPages(path + "/" + key + ".pdf") as pdf:
         # Loop through the lab window for this measurment and plot
+        scale_time, xlabel = Data.scale_factors["time"]
         for i, lw in enumerate(Data.data_lw.keys()):
             fig, ax = plt.subplots()
             this_t = Data.data_lw[lw]["time"]
             this_y = Data.data_lw[lw][key]
+            scale_y, ylabel = Data.scale_factors[key]
 
             # These lines will do some selection to clean up the plot outputs.
             # The first mask will select the additional entries in the time arrays
@@ -1420,8 +1440,9 @@ for key in Data.data_lw_keys:
             mask = mask_t & mask_val
 
             # Grab time and do some processing to eliminate zero elements
-            ax.plot(this_t[mask] / ns, this_y[mask])
-            ax.set_ylabel(key)
+            ax.plot(this_t[mask] / scale_time, this_y[mask] / scale_y)
+            ax.set_xlabel(xlabel)
+            ax.set_ylabel(ylabel)
             ax.set_title(f"z={zdiagns[i].getzz()/mm:.2f} (mm)")
             plt.tight_layout()
             pdf.savefig()
