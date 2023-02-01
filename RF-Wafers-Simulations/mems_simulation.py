@@ -14,9 +14,13 @@ warpoptions.parser.add_argument("--cb", dest="cb_framewidth", type=float, defaul
 # --Python packages
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+import matplotlib.patches as patches
 import scipy.constants as SC
 import time
+import datetime
 import os
+
 import pdb
 
 # --Import third-party packages
@@ -751,6 +755,7 @@ class Data_Ext:
         self.trace_particle = trace_particle
         self.data_lw = {}
         self.data_zcross = {}
+        self.save_path = os.getcwd()
 
         # Create lab window names and initialize empty dictionary
         nlw = len(self.lws)
@@ -783,6 +788,7 @@ class Data_Ext:
             "emity",
             "emitx_n",
             "emitx_n",
+            "time",
         ]
 
     def grab_data(self):
@@ -803,6 +809,7 @@ class Data_Ext:
             this_emity = wp.top.epsylw[: wp.top.ilabwn[this_lw, 0], this_lw, 0]
             this_emitx_n = wp.top.epsnxlw[: wp.top.ilabwn[this_lw, 0], this_lw, 0]
             this_emity_n = wp.top.epsnylw[: wp.top.ilabwn[this_lw, 0], this_lw, 0]
+            this_time = wp.top.timelw[: wp.top.ilabwn[this_lw, 0], this_lw, 0]
 
             # Collect into single list
             vals = [
@@ -818,11 +825,41 @@ class Data_Ext:
                 this_emity,
                 this_emitx_n,
                 this_emity_n,
+                this_time,
             ]
 
             # Populate dictionary entry for this lab window
             this_dict_lw = dict(zip(self.data_lw_keys, vals))
             self.data_lw[key] = this_dict_lw
+
+    def plot_hist(self, data, bins, scalex):
+        """Plot binned data with fractional counts"""
+        counts, edges = np.histogram(data, bins=bin)
+        N = np.sum(counts)
+        fig, ax = plt.subplots()
+        ax.bar(
+            edges[:-1] / scalex,
+            counts[:] / N,
+            width=np.diff(edges[:] / scalex),
+            edgecolor="black",
+            lw=1,
+        )
+        ax.set_ylabel("Fractional Counts")
+
+        return (fig, ax)
+
+    def plot_data(self, save_path=""):
+        # Check for new save path
+        if len(save_path) != 0:
+            self.save_path = save_path
+        else:
+            # Create file name with datetime format
+            now = datetime.datetime.now()
+            fmt = "%Y-%m-%d_%H:%M:%S"
+            fname_prefix = datetime.datetime.strftime(now, fmt)
+            path = os.join(sefl.save_path, fname_prefix)
+
+        # Loop through lab windows and export plots to pdf.
 
 
 # ------------------------------------------------------------------------------
@@ -838,7 +875,7 @@ Vq = 0.2 * kV
 gap_width = 2 * mm
 Vg = 5 * kV
 Vq = 0.1 * kV
-Ng = 4
+Ng = 2
 Fcup_dist = 10 * mm
 
 # Operating paramters
@@ -851,7 +888,7 @@ rf_volt = lambda time: Vg * np.cos(2.0 * np.pi * freq * time + np.pi)
 
 # Beam Paramters
 init_E = 7.0 * keV
-Tb = 0.1 * eV
+Tb = 0.1  # eV
 div_angle = 3.78 * mrad
 init_I = 10 * uA
 Np_injected = 0  # initialize injection counter
@@ -937,7 +974,7 @@ beam.bp0 = div_angle
 beam.ibeam = init_I
 beam.vbeam = 0.0
 beam.ekin = init_E
-vth = np.sqrt(2 * Tb * wp.jperev / beam.mass)
+vth = np.sqrt(Tb * wp.jperev / beam.mass)
 
 # keep track of when the particles are born
 wp.top.ssnpid = wp.nextpid()
@@ -998,13 +1035,18 @@ wp.top.lhepsnyz = True
 wp.top.lhvzrmsz = True
 wp.top.lsavelostpart = True
 
+# Set the z-windows to calculate moment date at select windows relative to the
+# beam frame. top.zwindows[:,0] always includes the who longitudinal extent
+# and should not be changed.
+wp.top.zwindows[:, 1] = [-5 * mm, 5 * mm]
+
 # Set up lab window for collecting whole beam diagnostics such as current and
 # RMS values. Also set the diagnostic for collecting individual particle data
 # as they cross.
 ilws = []
 zdiagns = []
-ilws.append(wp.addlabwindow(5.0 * dz))  # Initial lab window
-zdiagns.append(ZCrossingParticles(zz=5.0 * dz, laccumulate=1))
+ilws.append(wp.addlabwindow(2.0 * dz))  # Initial lab window
+zdiagns.append(ZCrossingParticles(zz=2.0 * dz, laccumulate=1))
 
 # Loop through gap_centers and place diagnostics at center point between gaps.
 for i in range(Ng - 1):
@@ -1014,6 +1056,13 @@ for i in range(Ng - 1):
 
 ilws.append(wp.addlabwindow(gap_centers[-1] + Fcup_dist))
 zdiagns.append(ZCrossingParticles(zz=gap_centers[-1] + Fcup_dist, laccumulate=1))
+
+g1 = GridCrossingDiags(zmmin=0.0, zmmax=wp.w3d.zmmax - 5 * mm, lmoving_frame=True)
+g2 = GridCrossingDiags(
+    zmmin=zdiagns[-1].getzz() - 10 * dz,
+    zmmax=zdiagns[-1].getzz() - 5 * dz,
+    starttime=385 * ns,
+)
 
 # Set up fieldsolver
 wp.w3d.l4symtry = False
@@ -1177,7 +1226,7 @@ while wp.top.time < 1.0 * period:
 wp.top.inject = 0
 wp.uninstalluserinjection(injection)
 # Wait for tracker to get to the center of the cell and then start moving frame
-while tracker.getz()[-1] < 0.5 * (wp.w3d.zmmax - wp.w3d.zmmin):
+while tracker.getz()[-1] < 0.5 * (wp.w3d.zmmax + wp.w3d.zmmin):
     if wp.top.it % 5 == 0:
         wp.window(2)
         plotbeam(lplt_tracker=True)
@@ -1193,14 +1242,32 @@ while tracker.getz()[-1] < 0.5 * (wp.w3d.zmmax - wp.w3d.zmmin):
         wp.fma()
 
     wp.step(1)
-wp.top.vbeamfrm = beam.vbeam
 
+for i in range(Ng - 2):
+    wp.top.vbeamfrm = tracker.getvz()[-1]
+    wp.top.dt = 0.7 * dz / tracker.getvz()[-1]
+    while tracker.getz()[-1] < gap_centers[i + 2]:
+        if wp.top.it % 5 == 0:
+            wp.window(2)
+            plotbeam(lplt_tracker=True)
+            wp.fma()
+
+            wp.window(3)
+            beam.ppxy(
+                color=wp.blue, msize=2, titlet="Particles Ar+(Blue) and N2+(Red) in XY"
+            )
+            wp.limits(x.min(), x.max(), y.min(), y.max())
+            wp.plg(Y, X, type="dash")
+            wp.titlet = "Particles Ar+(Blue) and N2+(Red) in XY"
+            wp.fma()
+
+        wp.step(1)
+
+wp.top.vbeamfrm = tracker.getvz()[-1]
+wp.top.dt = 0.7 * dz / tracker.getvz()[-1]
 while tracker.getz()[-1] < zdiagns[-1].getzz():
     if wp.top.it % 5 == 0:
         wp.window(2)
-        zmin = wp.top.zgrid - wp.w3d.zmmax
-        zmax = wp.top.zgrid + wp.w3d.zmmax
-        wp.limits(zmin, zmax, wp.w3d.xmmin, wp.w3d.xmmax)
         plotbeam(lplt_tracker=True)
         wp.fma()
 
@@ -1216,16 +1283,11 @@ while tracker.getz()[-1] < zdiagns[-1].getzz():
     wp.step(1)
 
 tracker_fin_time = tracker.gett()[-1]
-final_time = tracker_fin_time + 2 * period
+final_time = tracker_fin_time + 3 * period
 wp.top.vbeamfrm = 0.0
 while wp.top.time < final_time:
     if wp.top.it % 5 == 0:
         wp.window(2)
-        zmin = wp.top.zgrid - wp.w3d.zmmin
-        zmax = wp.top.zgrid + wp.w3d.zmmax
-        wp.limits(zmin, zmax, wp.w3d.xmmin, wp.w3d.xmmax)
-
-        wp.limits(zcent - zmin, zcent + zmax, wp.w3d.xmmin, wp.w3d.xmmax)
         plotbeam(lplt_tracker=True)
         wp.fma()
 
@@ -1251,21 +1313,119 @@ tfin = zdiagns[-1].gett()
 frac_delivered = Np_delivered / Np_injected
 frac_lost = abs(Np_delivered - Np_injected) / Np_injected
 
-fig, ax = plt.subplots()
-ax.set_title("Final Energy Distribution")
-ax.set_xlabel("Kinetic Energy (keV)")
-ax.set_ylabel("Number of Particles")
-ax.hist(Efin / keV, bins=100, edgecolor="k")
-plt.savefig("Edist.svg")
-plt.show()
-
-fig, ax = plt.subplots()
-ax.set_title("Final Time Distribution")
-ax.set_xlabel(rf"$\Delta t$ (ns), $t_s$ = {tracker.gett()[-1]/ns:.3f} ns")
-ax.set_ylabel("Number of Particles")
-ax.hist((tfin - tracker.gett()[-1]) / ns, bins=100, edgecolor="k")
-plt.savefig("tdist.svg")
-plt.show()
-
 Data = Data_Ext(ilws, zdiagns, beam, tracker)
 Data.grab_data()
+
+# ------------------------------------------------------------------------------
+#    Diagnostic Plotting
+# Plots are collected and exported to pdf file. Later this will be incorporated
+# into the Data class.
+# ------------------------------------------------------------------------------
+now = datetime.datetime.now()
+fmt = "%Y-%m-%d_%H:%M:%S"
+save_prefix = datetime.datetime.strftime(now, fmt)
+
+# Make directory in diagnostics for the current run sim
+path_diagnostic = os.path.join(os.getcwd(), "diagnostics")
+path = os.path.join(path_diagnostic, save_prefix)
+os.mkdir(path)
+
+# Create energy history of trace particle
+with PdfPages(path + "/trace.pdf") as pdf:
+    Etrace = 0.5 * beam.mass * pow(tracker.getvz(), 2) / wp.jperev
+    ttrace = tracker.gett()
+    ztrace = tracker.getz()
+
+    fig, ax = plt.subplots()
+    ax.plot(ttrace / ns, Etrace / keV)
+    ax.set_xlabel("Time (ns)")
+    ax.set_ylabel("Kinetic Energy (keV)")
+    plt.tight_layout()
+    pdf.savefig()
+    plt.close
+
+    # Plot gaps and fill
+    fig, ax = plt.subplots()
+    ax.plot(ztrace / mm, Etrace / keV)
+    ax.set_xlabel("z (mm)")
+    ax.set_ylabel("Kinetic Energy (keV)")
+    for i, cent in enumerate(gap_centers):
+        x1 = cent - 1 * mm
+        x2 = cent + 1 * mm
+        ax.axvline(x=x1 / mm, c="k", ls="--", lw=1)
+        ax.axvline(x=x2 / mm, c="k", ls="--", lw=1)
+
+    plt.tight_layout()
+    pdf.savefig()
+    plt.close
+
+# Make Energy histograms
+with PdfPages(path + "/Ehists.pdf") as pdf:
+    # loop through zcrossings and plot histogram of energy and time
+    for i in range(len(zdiagns)):
+        this_E = 0.5 * beam.mass * pow(zdiagns[i].getvz(), 2) / wp.jperev
+        this_t = zdiagns[i].gett()
+
+        fig, ax = plt.subplots(ncols=2)
+        Eax, tax = ax[0], ax[1]
+        Ecounts, Eedges = np.histogram(this_E, bins=100)
+        tcounts, tedges = np.histogram(this_t, bins=100)
+        Np = np.sum(Ecounts)
+
+        # Hist the energies
+        Eax.bar(
+            Eedges[:-1] / keV,
+            Ecounts[:] / Np,
+            width=np.diff(Eedges[:] / keV),
+            edgecolor="black",
+            lw="1",
+        )
+        Eax.set_xlabel("Kinetic Energy (keV)")
+        Eax.set_ylabel("Fraction of Particles")
+        Eax.set_title(f"z={zdiagns[i].getzz()/mm:.2f} (mm)")
+
+        tax.bar(
+            tedges[:-1] / ns,
+            tcounts[:] / Np,
+            width=np.diff(tedges[:] / ns),
+            edgecolor="black",
+            lw="1",
+        )
+        tax.set_xlabel("Time (ns)")
+        tax.set_ylabel("Fraction of Particles")
+        tax.set_title(f"z={zdiagns[i].getzz()/mm:.2f} (mm)")
+
+        plt.tight_layout()
+        pdf.savefig()
+        plt.close()
+
+
+# Loop through lab windows and plot onto pdf.
+for key in Data.data_lw_keys:
+    with PdfPages(path + "/" + key + ".pdf") as pdf:
+        # Loop through the lab window for this measurment and plot
+        for i, lw in enumerate(Data.data_lw.keys()):
+            fig, ax = plt.subplots()
+            this_t = Data.data_lw[lw]["time"]
+            this_y = Data.data_lw[lw][key]
+
+            # These lines will do some selection to clean up the plot outputs.
+            # The first mask will select the additional entries in the time arrays
+            # that are 0. These entries are place holders and not actual
+            # information. The second mask will handle the 0 calculations. These
+            # values arise because the lab windows are calculating values when
+            # no beam is present.
+            mask_t = this_t > 0.0
+            mask_val = abs(this_y) > abs(this_y.max() * 1e-6)
+            mask = mask_t & mask_val
+
+            # Grab time and do some processing to eliminate zero elements
+            ax.plot(this_t[mask] / ns, this_y[mask])
+            ax.set_ylabel(key)
+            ax.set_title(f"z={zdiagns[i].getzz()/mm:.2f} (mm)")
+            plt.tight_layout()
+            pdf.savefig()
+            plt.close()
+
+
+print(f"Elapsed time: {(time.time() - start) / 60:.2f} (min)")
