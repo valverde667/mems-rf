@@ -14,6 +14,7 @@ warpoptions.parser.add_argument("--cb", dest="cb_framewidth", type=float, defaul
 # --Python packages
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.patches as patches
 import scipy.constants as SC
@@ -22,6 +23,17 @@ import datetime
 import os
 
 import pdb
+
+mpl.rcParams["xtick.direction"] = "in"
+mpl.rcParams["xtick.minor.visible"] = True
+mpl.rcParams["xtick.top"] = True
+mpl.rcParams["xtick.minor.top"] = True
+mpl.rcParams["ytick.direction"] = "in"
+mpl.rcParams["ytick.minor.visible"] = True
+mpl.rcParams["ytick.right"] = True
+mpl.rcParams["ytick.major.right"] = True
+mpl.rcParams["ytick.minor.right"] = True
+mpl.rcParams["figure.max_open_warning"] = 60
 
 # --Import third-party packages
 import warp as wp
@@ -77,6 +89,39 @@ thisrunID = warpoptions.options.name
 # Eventually this will be moved into a seperate script and then imported via the
 # mems package for this system.
 # ------------------------------------------------------------------------------
+
+
+def set_lhistories():
+    """Utility function to set all the history flags wanted for sim.
+
+    These flags can be found in the top.v file. I believe some may get autoset
+    when others are turned on. I'd rather be explicit and set them all to
+    avoid confusion.
+    """
+
+    wp.top.lspeciesmoments = True
+    wp.top.itlabwn = 1  # Sets how often moment calculations are done
+    wp.top.nhist = 1  # Save history data every N time step
+    wp.top.itmomnts = wp.top.nhist
+
+    wp.top.lhnpsimz = True
+    wp.top.hnpinject = True
+    wp.top.lhcurrz = True
+
+    wp.top.lhrrmsz = True
+    wp.top.lhxrmsz = True
+    wp.top.lhyrmsz = True
+
+    wp.top.lhvxrmsz = True
+    wp.top.lhvyrmsz = True
+    wp.top.lhvzrmsz = True
+
+    wp.top.lhepsxz = True
+    wp.top.lhepsyz = True
+    wp.top.lhepsnxz = True
+    wp.top.lhepsnyz = True
+
+    wp.top.lsavelostpart = True
 
 
 def beta(E, mass, q=1, nonrel=True):
@@ -893,7 +938,7 @@ Vq = 0.2 * kV
 gap_width = 2 * mm
 Vg = 5 * kV
 Vq = 0.1 * kV
-Ng = 2
+Ng = 4
 Fcup_dist = 10 * mm
 
 # Operating paramters
@@ -1023,9 +1068,9 @@ def injection():
         rmax=emittingRadius,
         zmin=0.0,
         zmax=inj_dz,
-        vthx=vth,
-        vthy=vth,
-        vthz=vth,
+        vthx=vth / 4,
+        vthy=vth / 4,
+        vthz=vth / 4,
         vzmean=beam.vbeam,
     )
 
@@ -1039,24 +1084,12 @@ wp.installuserinjection(injection)
 # ------------------------------------------------------------------------------
 
 # Setup Histories and moment calculations
-wp.top.lspeciesmoments = True
-wp.top.itlabwn = 1
-wp.top.nhist = 1  # Save history data every N time step
-wp.top.itmomnts = wp.top.nhist
-wp.top.lhpnumz = True
-wp.top.lhcurrz = True
-wp.top.lhrrmsz = True
-wp.top.lhxrmsz = True
-wp.top.lhyrmsz = True
-wp.top.lhepsnxz = True
-wp.top.lhepsnyz = True
-wp.top.lhvzrmsz = True
-wp.top.lsavelostpart = True
+set_lhistories()
 
 # Set the z-windows to calculate moment date at select windows relative to the
 # beam frame. top.zwindows[:,0] always includes the who longitudinal extent
 # and should not be changed.
-wp.top.zwindows[:, 1] = [-5 * mm, 5 * mm]
+wp.top.zwindows[:, 1] = [-1 * mm, 1 * mm]
 
 # Set up lab window for collecting whole beam diagnostics such as current and
 # RMS values. Also set the diagnostic for collecting individual particle data
@@ -1197,9 +1230,9 @@ def plotbeam(lplt_tracker=False):
         plotselfe=1,
         cmin=-1.25 * Vg / gap_width,
         cmax=1.25 * Vg / gap_width,
-        titlet="Ez, Ar+(Blue) and Track(Red)",
     )
-    wp.ppzx(titles=0, color=wp.blue, msize=2)
+    wp.ptitles("Ez, Ar+(Blue) and Tracker (Red)", "z (m)", "x (m)")
+    wp.ppzx(titles=0, color=wp.blue, msize=1)
     if lplt_tracker:
         wp.plp(tracker.getx()[-1], tracker.getz()[-1], color=wp.red, msize=3)
 
@@ -1212,7 +1245,7 @@ while wp.top.time < 0.5 * period:
     wp.fma()
 
     wp.window(3)
-    beam.ppxy(color=wp.blue, msize=2, titlet="Particles Ar+(Blue) and N2+(Red) in XY")
+    beam.ppxy(color=wp.blue, msize=1, titlet="Particles Ar+(Blue) and N2+(Red) in XY")
     wp.limits(x.min(), x.max(), y.min(), y.max())
     wp.plg(Y, X, type="dash")
     wp.titlet = "Particles Ar+(Blue) and N2+(Red) in XY"
@@ -1252,7 +1285,7 @@ while tracker.getz()[-1] < 0.5 * (wp.w3d.zmmax + wp.w3d.zmmin):
 
         wp.window(3)
         beam.ppxy(
-            color=wp.blue, msize=2, titlet="Particles Ar+(Blue) and N2+(Red) in XY"
+            color=wp.blue, msize=1, titlet="Particles Ar+(Blue) and N2+(Red) in XY"
         )
         wp.limits(x.min(), x.max(), y.min(), y.max())
         wp.plg(Y, X, type="dash")
@@ -1272,7 +1305,7 @@ for i in range(Ng - 2):
 
             wp.window(3)
             beam.ppxy(
-                color=wp.blue, msize=2, titlet="Particles Ar+(Blue) and N2+(Red) in XY"
+                color=wp.blue, msize=1, titlet="Particles Ar+(Blue) and N2+(Red) in XY"
             )
             wp.limits(x.min(), x.max(), y.min(), y.max())
             wp.plg(Y, X, type="dash")
@@ -1291,7 +1324,7 @@ while tracker.getz()[-1] < zdiagns[-1].getzz():
 
         wp.window(3)
         beam.ppxy(
-            color=wp.blue, msize=2, titlet="Particles Ar+(Blue) and N2+(Red) in XY"
+            color=wp.blue, msize=1, titlet="Particles Ar+(Blue) and N2+(Red) in XY"
         )
         wp.limits(x.min(), x.max(), y.min(), y.max())
         wp.plg(Y, X, type="dash")
@@ -1301,7 +1334,7 @@ while tracker.getz()[-1] < zdiagns[-1].getzz():
     wp.step(1)
 
 tracker_fin_time = tracker.gett()[-1]
-final_time = tracker_fin_time + 3 * period
+final_time = tracker_fin_time + 1 * period
 wp.top.vbeamfrm = 0.0
 while wp.top.time < final_time:
     if wp.top.it % 5 == 0:
@@ -1311,7 +1344,7 @@ while wp.top.time < final_time:
 
         wp.window(3)
         beam.ppxy(
-            color=wp.blue, msize=2, titlet="Particles Ar+(Blue) and N2+(Red) in XY"
+            color=wp.blue, msize=1, titlet="Particles Ar+(Blue) and N2+(Red) in XY"
         )
         wp.limits(x.min(), x.max(), y.min(), y.max())
         wp.plg(Y, X, type="dash")
@@ -1447,6 +1480,199 @@ for key in Data.data_lw_keys:
             plt.tight_layout()
             pdf.savefig()
             plt.close()
+
+# Create history plots for selected moments
+def plot_hist(xvals, yvals, xlabel, ylabel, scalex, scaley, xmark=None):
+    fig, ax = plt.subplots()
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    if xmark != None:
+        # This will probably only ever be marking the time the tracker particle
+        # hits the target
+        ax.axvline(x=xmark / scalex, c="k", ls="--", lw=1, label="Tracker Time")
+    ax.plot(xvals / scalex, yvals / scaley)
+    ax.legend()
+    plt.tight_layout()
+    return (fig, ax)
+
+
+with PdfPages(path + "/" + "histories" + ".pdf") as pdf:
+    htime = wp.top.thist[: wp.top.jhist + 1]
+    hzbeam = wp.top.hzbeam[: wp.top.jhist + 1]
+    xmark = tracker.gett()[-1]
+
+    plot_hist(
+        htime,
+        wp.top.hzrms[0, : wp.top.jhist + 1, 0],
+        "time (ns)",
+        "z-rms (mm)",
+        ns,
+        mm,
+        xmark=xmark,
+    )
+    pdf.savefig()
+    plt.close()
+
+    plot_hist(
+        htime,
+        wp.top.hnpsim[0, : wp.top.jhist + 1, 0],
+        "time (ns)",
+        "Fraction of Np",
+        ns,
+        Np_injected,
+        xmark=xmark,
+    )
+    pdf.savefig()
+    plt.close()
+
+    plot_hist(
+        htime,
+        wp.top.hxrms[0, : wp.top.jhist + 1, 0],
+        "time (ns)",
+        "x-rms (mm)",
+        ns,
+        mm,
+        xmark=xmark,
+    )
+    pdf.savefig()
+    plt.close()
+
+    plot_hist(
+        htime,
+        wp.top.hyrms[0, : wp.top.jhist + 1, 0],
+        "time (ns)",
+        "y-rms (mm)",
+        ns,
+        mm,
+        xmark=xmark,
+    )
+    pdf.savefig()
+    plt.close()
+
+    plot_hist(
+        htime,
+        wp.top.hepsz[0, : wp.top.jhist + 1, 0],
+        "time (ns)",
+        "emit-z (mm-mrad)",
+        ns,
+        mm * mrad,
+        xmark=xmark,
+    )
+    pdf.savefig()
+    plt.close()
+
+    plot_hist(
+        htime,
+        wp.top.hepsx[0, : wp.top.jhist + 1, 0],
+        "time (ns)",
+        "emit-x (mm-mrad)",
+        ns,
+        mm * mrad,
+        xmark=xmark,
+    )
+    pdf.savefig()
+    plt.close()
+
+    plot_hist(
+        htime,
+        wp.top.hepsy[0, : wp.top.jhist + 1, 0],
+        "time (ns)",
+        "emit-y (mm-mrad)",
+        ns,
+        mm * mrad,
+        xmark=xmark,
+    )
+    pdf.savefig()
+    plt.close()
+
+with PdfPages(path + "/" + "win-histories" + ".pdf") as pdf:
+    htime = wp.top.thist[: wp.top.jhist + 1]
+    hzbeam = wp.top.hzbeam[: wp.top.jhist + 1]
+    xmark = tracker.gett()[-1]
+
+    plot_hist(
+        htime,
+        wp.top.hzrms[1, : wp.top.jhist + 1, 0],
+        "time (ns)",
+        "z-rms (mm)",
+        ns,
+        mm,
+        xmark=xmark,
+    )
+    pdf.savefig()
+    plt.close()
+
+    plot_hist(
+        htime,
+        wp.top.hnpsim[1, : wp.top.jhist + 1, 0],
+        "time (ns)",
+        "Fraction of Np",
+        ns,
+        Np_injected,
+        xmark=xmark,
+    )
+    pdf.savefig()
+    plt.close()
+
+    plot_hist(
+        htime,
+        wp.top.hxrms[1, : wp.top.jhist + 1, 0],
+        "time (ns)",
+        "x-rms (mm)",
+        ns,
+        mm,
+        xmark=xmark,
+    )
+    pdf.savefig()
+    plt.close()
+
+    plot_hist(
+        htime,
+        wp.top.hyrms[1, : wp.top.jhist + 1, 0],
+        "time (ns)",
+        "y-rms (mm)",
+        ns,
+        mm,
+        xmark=xmark,
+    )
+    pdf.savefig()
+    plt.close()
+
+    plot_hist(
+        htime,
+        wp.top.hepsz[1, : wp.top.jhist + 1, 0],
+        "time (ns)",
+        "emit-z (mm-mrad)",
+        ns,
+        mm * mrad,
+        xmark=xmark,
+    )
+    pdf.savefig()
+    plt.close()
+
+    plot_hist(
+        htime,
+        wp.top.hepsx[1, : wp.top.jhist + 1, 0],
+        "time (ns)",
+        "emit-x (mm-mrad)",
+        ns,
+        mm * mrad,
+        xmark=xmark,
+    )
+    pdf.savefig()
+    plt.close()
+
+    plot_hist(
+        htime,
+        wp.top.hepsy[1, : wp.top.jhist + 1, 0],
+        "time (ns)",
+        "emit-y (mm-mrad)",
+        ns,
+        mm * mrad,
+        xmark=xmark,
+    )
+    pdf.savefig()
+    plt.close()
 
 
 print(f"Elapsed time: {(time.time() - start) / 60:.2f} (min)")
