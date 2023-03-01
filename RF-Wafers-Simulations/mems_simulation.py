@@ -1,3 +1,11 @@
+# Warp simulation for the full mems linear accelerator. The simulation
+# injects a full DC beam with initial particles injected at the head and tail
+# ends to simulate what is done in the lab – 60us continuous injection.
+# The script uses a tracker particle as a control to advance the window as the
+# particles move further down the acceleration lattice. The tracker particle is
+# also used to center a z-window that will calculate beam moments within a fixed
+# range in z.
+
 import warpoptions
 
 #   special cgm name - for mass output / scripting
@@ -5,11 +13,6 @@ warpoptions.parser.add_argument("--name", dest="name", type=str, default="multio
 
 #   special cgm path - for mass output / scripting
 warpoptions.parser.add_argument("--path", dest="path", type=str, default="")
-
-
-# changes simulation to a "cb-beam" simulation
-warpoptions.parser.add_argument("--cb", dest="cb_framewidth", type=float, default=0)
-
 
 # --Python packages
 import numpy as np
@@ -40,11 +43,6 @@ import warp as wp
 from warp.particles.extpart import ZCrossingParticles
 from warp.particles.singleparticle import TraceParticle
 from warp.diagnostics.gridcrossingdiags import GridCrossingDiags
-
-
-# --Import custom packages
-import geometry
-from geometry import RF_stack, ESQ_doublet
 
 start = time.time()
 
@@ -930,7 +928,7 @@ Vg = 5 * kV
 Ng = 4
 Fcup_dist = 10 * mm
 
-# Operating paramters
+# Operating parameters
 freq = 13.6 * MHz
 hrf = SC.c / freq
 period = 1.0 / freq
@@ -954,6 +952,8 @@ Np_max = int(1e5)
 dsgn_phase = -np.pi / 3.0
 
 # Specify Species and ion type
+# TODO: Figure out how to calculate the weight later so that this is changed
+# along with the script parameters and not hardcoded.
 weight = 46  # Calculated using W = dt * I / q / Np_inject
 beam = wp.Species(
     type=wp.Argon, weight=weight, charge_state=1, name="Ar+", color=wp.blue
@@ -964,14 +964,13 @@ mass_eV = beam.mass * pow(SC.c, 2) / wp.jperev
 # Here, the gaps are initialized using the design values listed. The first gap
 # is started fully negative to ensure the most compact structure. The design
 # particle is initialized at z=0 t=0 so that it arrives at the first gap at the
-# synchronous phase while the field is rising.
+# synchronous phase while the field is rising. However, note that a full period
+# of particles is injected before the design particle (tracker particle) is to
+# ensure proper particle-particle interactions at the head of the beam.
 # ------------------------------------------------------------------------------
-# Calculate additional gap centers if applicable. Here the design values should
-# be used. The first gap is always placed such that the design particle will
-# arrive at the desired phase when starting at z=0 with energy W.
+# Design phases are specified with the max field corresponding to phi_s=0.
 phi_s = np.ones(Ng) * dsgn_phase * 0
 phi_s[1:] = np.linspace(-np.pi / 3, -0.0, Ng - 1) * 0
-
 gap_dist = np.zeros(Ng)
 E_s = init_E
 for i in range(Ng):
@@ -991,7 +990,7 @@ gap_centers = np.array(gap_dist).cumsum()
 #    Mesh setup
 # Specify mesh sizing and time stepping for simulation. The zmmin and zmmax
 # settings will set the length of the lab window. This window will move with
-# the trace particle. It should be long enough to encompass the beam and not
+# the trace particle. It should be long enough to encompass the beam and
 # provide enough spacing between the sim box edges where the field solver is
 # screwy.
 # ------------------------------------------------------------------------------
@@ -1001,7 +1000,7 @@ wp.w3d.xmmin = -wp.w3d.xmmax
 wp.w3d.ymmax = wp.w3d.xmmax
 wp.w3d.ymmin = -wp.w3d.ymmax
 
-# Max and min here will determine length of lab windwo.
+# Max and min here will determine length of lab window.
 wp.w3d.zmmin = -18 * mm
 wp.w3d.zmmax = 38 * mm
 wp.w3d.nx = 40
@@ -1032,8 +1031,6 @@ beam.ekin = init_E
 vth = np.sqrt(Tb * wp.jperev / beam.mass)
 
 # keep track of when the particles are born
-wp.top.ssnpid = wp.nextpid()
-wp.top.tbirthpid = wp.nextpid()
 wp.top.inject = 1
 wp.top.ibeam_s = init_I
 wp.top.ekin_s = init_E
@@ -1041,7 +1038,7 @@ wp.derivqty()
 wp.top.dt = 0.7 * dz / beam.vbeam
 inj_dz = beam.vbeam * wp.top.dt
 
-# Set z-location of injection. This uses the phase shift ot ensure rf resonance
+# Set z-location of injection. This uses the phase shift to ensure rf resonance
 # with the trace particle
 wp.top.zinject = -9 * mm
 
@@ -1084,7 +1081,8 @@ set_lhistories()
 
 # Set the z-windows to calculate moment date at select windows relative to the
 # beam frame. top.zwindows[:,0] always includes the who longitudinal extent
-# and should not be changed.
+# and should not be changed. Here, the window length is calculated for the beam
+# extend at the initial condition.
 zwin_length = beam.vbeam * period
 wp.top.zwindows[:, 1] = [lab_center - zwin_length / 2, lab_center + zwin_length / 2]
 
@@ -1133,7 +1131,7 @@ tracker = TraceParticle(
     js=tracked_ions.js, x=0.0, y=0.0, z=wp.top.zinject[0], vx=0.0, vy=0.0, vz=beam.vbeam
 )
 
-# For unknown reasons, the tracer cannt be placed arbitrarily in the injection
+# For unknown reasons, the tracer cannot be placed arbitrarily in the injection
 # scheme. Thus, it is created early on, disabled, then renabled at the desired
 # point in injection.
 tracker.disable()
@@ -1145,12 +1143,10 @@ solver.gridmode = 0
 for i, pa in enumerate(gap_centers):
     print(f"Unit {i} placed at {pa}")
 
+# Create list of conductors to hold the created gaps and ESQs
 conductors = []
 
-# Create matching section consisting of four quadrupoles
-start_match = wp.top.zinject + 1.5 * mm
-match_pos = np.array([-7.1525, -3.9575, -0.7625, 2.4325,]) * mm
-
+# Create acceleration gaps.
 for i, pos in enumerate(gap_centers):
     zl = pos - 1 * mm
     zr = pos + 1 * mm
@@ -1164,6 +1160,10 @@ for i, pos in enumerate(gap_centers):
     conductors.append(this_lcond)
     conductors.append(this_rcond)
 
+# Create matching section consisting of four quadrupoles
+# TODO: Devise better placement scheme rather than hardcode.
+start_match = wp.top.zinject + 1.5 * mm
+match_pos = np.array([-7.1525, -3.9575, -0.7625, 2.4325,]) * mm
 for i, pos in enumerate(match_pos):
     this_zc = pos
     if i % 2 == 0:
@@ -1176,7 +1176,7 @@ for i, pos in enumerate(match_pos):
 for cond in conductors:
     wp.installconductors(cond)
 
-# Create and intialize the scraper that will collected 'lost' particles.
+# Create and intialize the scraper that will collect lost particle data.
 aperture_wall = wp.ZCylinderOut(
     radius=aperture, zlower=-wp.top.largepos, zupper=wp.top.largepos
 )
@@ -1190,6 +1190,7 @@ scraper = wp.ParticleScraper(aperture_wall, lcollectlpdata=True)
 scraper.registerconductors(conductors)
 scraper.registerconductors(Fcup)
 
+# TODO: Create ESQ installation scheme.
 # Create and install ESQs
 # lESQ = Mems_ESQ_SolidCyl(15.5 * mm, "1", Vq, -Vq, chop=True)
 # lESQ.set_geometry(rp=aperture, R=0.68 * aperture, lq=lq)
@@ -1221,8 +1222,7 @@ wp.winon(winnum=3, suffix="pxy", xon=False)
 # injected. The particles are advanced. After the trace (design) particle has
 # arrived at the Fcup, the particle advancement is done for 2 more RF periods
 # to capture remaining particles.
-# TODO: In moving frame it probably isnt best to continue advancement for so long
-# after design particle has arrived.
+# TODO: Devise better injection and advancment scheme rather than multiple for-loops.
 # ------------------------------------------------------------------------------
 
 # Def plotting routine to be called in stepping
