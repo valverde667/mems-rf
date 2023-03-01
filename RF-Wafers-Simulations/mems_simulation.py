@@ -952,12 +952,7 @@ Np_max = int(1e5)
 dsgn_phase = -np.pi / 3.0
 
 # Specify Species and ion type
-# TODO: Figure out how to calculate the weight later so that this is changed
-# along with the script parameters and not hardcoded.
-weight = 46  # Calculated using W = dt * I / q / Np_inject
-beam = wp.Species(
-    type=wp.Argon, weight=weight, charge_state=1, name="Ar+", color=wp.blue
-)
+beam = wp.Species(type=wp.Argon, charge_state=1, name="Ar+", color=wp.blue)
 mass_eV = beam.mass * pow(SC.c, 2) / wp.jperev
 # ------------------------------------------------------------------------------
 #     Gap Centers
@@ -1038,6 +1033,11 @@ wp.derivqty()
 wp.top.dt = 0.7 * dz / beam.vbeam
 inj_dz = beam.vbeam * wp.top.dt
 
+# Calculate and set the weight of particle
+Np_inject = int(Np_max / (period / wp.top.dt))
+pweight = wp.top.dt * init_I / beam.charge / Np_inject
+beam.pgroup.sw[0] = pweight
+
 # Set z-location of injection. This uses the phase shift to ensure rf resonance
 # with the trace particle
 wp.top.zinject = -9 * mm
@@ -1051,9 +1051,9 @@ def injection():
     """
     global Np_injected
     global Np_max
+    global Np_inject
 
     # Calculate number to inject to reach max
-    Np_inject = int(Np_max / (period / wp.top.dt))
     Np_injected += Np_inject
 
     beam.add_uniform_cylinder(
