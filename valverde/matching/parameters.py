@@ -6,7 +6,6 @@ from math import sqrt
 import argparse
 
 import warp as wp
-import MEQALAC.simulation as meqsim
 
 # Define useful constants
 amu = SC.physical_constants["atomic mass constant energy equivalent in MeV"][0] * 1e6
@@ -37,6 +36,19 @@ dext = 11 * mm
 # This section creates the functions for calcated the generalied perveance Q,
 # RMS-edge emittance, and the child langumuir current density.
 # ------------------------------------------------------------------------------
+def calc_beta(E, mass, q=1, nonrel=True):
+    """Velocity of a particle with energy E."""
+    if nonrel:
+        sign = np.sign(E)
+        beta = np.sqrt(2 * abs(E) / mass)
+        beta *= sign
+    else:
+        gamma = (E + mass) / mass
+        beta = np.sqrt(1 - 1 / gamma / gamma)
+
+    return beta
+
+
 def calc_perveance(current, energy, mass, return_density=True, charge_state=+1):
     """Calculate perveance Q in KV-envelope equation
 
@@ -83,7 +95,7 @@ def calc_perveance(current, energy, mass, return_density=True, charge_state=+1):
 
     # Calculate variables gamma, beta
     gamma = (energy + mass) / mass
-    beta = meqsim.beta(energy, mass=Ar_mass, q=charge_state)
+    beta = calc_beta(energy, mass=Ar_mass, q=charge_state)
 
     # Calculate term2 current density
     term2 = current / beta / SC.c
