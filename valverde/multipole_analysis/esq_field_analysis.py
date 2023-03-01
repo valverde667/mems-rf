@@ -477,7 +477,7 @@ def interp2d_area(x_interp, y_interp, xmesh, ymesh, grid_data):
 l_warpplots = True
 l_make_effective_length_plots = True
 l_make_transField_plots = False
-l_plot_breakdown = True
+l_plot_breakdown = False
 l_make_3d_integrand_plot = False
 l_multple_barplots = False
 # ------------------------------------------------------------------------------
@@ -499,7 +499,7 @@ wallzcent = ESQ_length + 1.0 * mm + walllength / 2
 # Creat mesh using conductor geometries (above) to keep resolution consistent
 wp.w3d.xmmax = 1.5 * mm
 wp.w3d.xmmin = -wp.w3d.xmmax
-design_dx = 7 * um
+design_dx = 10 * um
 calc_nx = (wp.w3d.xmmax - wp.w3d.xmmin) / design_dx
 wp.w3d.nx = int(calc_nx)
 
@@ -508,9 +508,9 @@ wp.w3d.ymmin = wp.w3d.xmmin
 wp.w3d.ny = wp.w3d.nx
 
 # Calculate nz to get about designed dz
-wp.w3d.zmmin = -2 * mm
-wp.w3d.zmmax = -wp.w3d.zmmin
-design_dz = 10 * um
+wp.w3d.zmmax = 3 * mm
+wp.w3d.zmmin = -wp.w3d.zmmax
+design_dz = 20 * um
 calc_nz = (wp.w3d.zmmax - wp.w3d.zmmin) / design_dz
 wp.w3d.nz = int(calc_nz)
 
@@ -822,7 +822,7 @@ if l_make_effective_length_plots:
     ax.set_xlabel("z (mm)")
     ax.set_ylabel(r"$E_x(dx, 0, z)$/dx (kV mm$^{-2}$)")
     ax.set_title(r"$E_x$ Gradient One Grid-cell Off-axis vs z")
-    ax.scatter(z / mm, gradex / kV / 1e6, s=1.2)
+    ax.scatter(z / mm, gradex / kV / 1e6, c="k", s=1.2)
     ax.axhline(y=0, c="k", lw=0.5)
     ax.axvline(x=0, c="k", lw=0.5)
 
