@@ -493,10 +493,9 @@ class Mems_ESQ_SolidCyl:
         done.
     """
 
-    def __init__(self, zc, id, V_left, V_right, xc=0.0, yc=0.0, chop=False):
+    def __init__(self, zc, V_left, V_right, xc=0.0, yc=0.0, chop=False):
 
         self.zc = zc
-        self.id = id
         self.V_left = V_left
         self.V_right = V_right
         self.xc = 0.0
@@ -555,7 +554,6 @@ class Mems_ESQ_SolidCyl:
             xcent=self.xc,
             ycent=self.yc,
             voltage=self.V_left,
-            condid=self.id,
         )
         l_box_in = wp.Box(
             xsize=size - 0.1 * mm,
@@ -664,7 +662,6 @@ class Mems_ESQ_SolidCyl:
                 zcent=self.zc,
                 radius=self.R,
                 length=self.lq + 4 * self.copper_zlen,
-                condid=self.id,
             )
             bot = wp.ZCylinder(
                 voltage=self.V_left,
@@ -673,7 +670,6 @@ class Mems_ESQ_SolidCyl:
                 zcent=self.zc,
                 radius=self.R,
                 length=self.lq + 4 * self.copper_zlen,
-                condid=self.id,
             )
 
             # Create left and right rods
@@ -684,7 +680,6 @@ class Mems_ESQ_SolidCyl:
                 zcent=self.zc,
                 radius=self.R,
                 length=self.lq + 4 * self.copper_zlen,
-                condid=self.id,
             )
             right = wp.ZCylinder(
                 voltage=self.V_right,
@@ -693,7 +688,6 @@ class Mems_ESQ_SolidCyl:
                 zcent=self.zc,
                 radius=self.R,
                 length=self.lq + 4 * self.copper_zlen,
-                condid=self.id,
             )
 
             conductor = top + bot + left + right
@@ -727,7 +721,6 @@ class Mems_ESQ_SolidCyl:
                 zcent=self.zc,
                 radius=self.R,
                 length=self.lq + 4 * self.copper_zlen,
-                condid=self.id,
             )
             bot = wp.ZCylinder(
                 voltage=self.V_left,
@@ -736,7 +729,6 @@ class Mems_ESQ_SolidCyl:
                 zcent=self.zc,
                 radius=self.R,
                 length=self.lq + 4 * self.copper_zlen,
-                condid=self.id,
             )
 
             # Create left and right rods
@@ -747,7 +739,6 @@ class Mems_ESQ_SolidCyl:
                 zcent=self.zc,
                 radius=self.R,
                 length=self.lq + 4 * self.copper_zlen,
-                condid=self.id,
             )
             right = wp.ZCylinder(
                 voltage=self.V_right,
@@ -756,7 +747,6 @@ class Mems_ESQ_SolidCyl:
                 zcent=self.zc,
                 radius=self.R,
                 length=self.lq + 4 * self.copper_zlen,
-                condid=self.id,
             )
 
             chop_box = chop_box_out - chop_box_in
@@ -934,10 +924,9 @@ class Data_Ext:
 
 # Specify conductor characteristics
 lq = 0.696 * mm
-Vq = 0.2 * kV
+Vq = 0.05 * kV
 gap_width = 2 * mm
 Vg = 5 * kV
-Vq = 0.1 * kV
 Ng = 4
 Fcup_dist = 10 * mm
 
@@ -947,7 +936,11 @@ hrf = SC.c / freq
 period = 1.0 / freq
 emittingRadius = 0.25 * mm
 aperture = 0.55 * mm
-rf_volt = lambda time: Vg * np.cos(2.0 * np.pi * freq * time + np.pi)
+
+# TODO: the time shift was calculated by hand and added here. This should be
+#       fixed to be modular with user settings.
+# Shift to include more beam so more closely resembles continuous injection.
+rf_volt = lambda time: Vg * np.cos(twopi * freq * (time - 1.165 * period) + np.pi)
 
 # Beam Paramters
 init_E = 7.0 * keV
@@ -996,10 +989,11 @@ for i in range(Ng):
 gap_centers = np.array(gap_dist).cumsum()
 # ------------------------------------------------------------------------------
 #    Mesh setup
-# Specify mesh sizing and time stepping for simulation.
-# TODO: - set zmmin to be half a wavelength where the trakcer will be placed.
-#       The first gap should then be placed commensurate with the tracker and
-#       phaseing.
+# Specify mesh sizing and time stepping for simulation. The zmmin and zmmax
+# settings will set the length of the lab window. This window will move with
+# the trace particle. It should be long enough to encompass the beam and not
+# provide enough spacing between the sim box edges where the field solver is
+# screwy.
 # ------------------------------------------------------------------------------
 # Specify  simulation mesh
 wp.w3d.xmmax = 1.5 * mm
@@ -1007,15 +1001,13 @@ wp.w3d.xmmin = -wp.w3d.xmmax
 wp.w3d.ymmax = wp.w3d.xmmax
 wp.w3d.ymmin = -wp.w3d.ymmax
 
-framewidth = 10 * mm
-wp.w3d.zmmin = -10 * mm
-# End of simulation will be final gap + gap_width / 2 + the Fcup + some spacing
-# to ensure the boundary conditions are not interfering.
-# wp.w3d.zmmax = gap_centers[-1] + 1 * mm + Fcup_dist + 3 * mm
-wp.w3d.zmmax = 30 * mm
+# Max and min here will determine length of lab windwo.
+wp.w3d.zmmin = -18 * mm
+wp.w3d.zmmax = 38 * mm
 wp.w3d.nx = 40
 wp.w3d.ny = 40
-wp.w3d.nz = 200
+wp.w3d.nz = 250
+lab_center = (wp.w3d.zmmax + wp.w3d.zmmin) / 2.0
 dz = (wp.w3d.zmmax - wp.w3d.zmmin) / wp.w3d.nz
 
 # Set boundary conditions
@@ -1049,6 +1041,10 @@ wp.derivqty()
 wp.top.dt = 0.7 * dz / beam.vbeam
 inj_dz = beam.vbeam * wp.top.dt
 
+# Set z-location of injection. This uses the phase shift ot ensure rf resonance
+# with the trace particle
+wp.top.zinject = -9 * mm
+
 # Create injection scheme. A uniform cylinder will be injected with each time
 # step.
 def injection():
@@ -1066,8 +1062,8 @@ def injection():
     beam.add_uniform_cylinder(
         np=Np_inject,
         rmax=emittingRadius,
-        zmin=0.0,
-        zmax=inj_dz,
+        zmin=wp.top.zinject[0],
+        zmax=wp.top.zinject[0] + inj_dz,
         vthx=vth / 4,
         vthy=vth / 4,
         vthz=vth / 4,
@@ -1078,7 +1074,7 @@ def injection():
 wp.installuserinjection(injection)
 
 # ------------------------------------------------------------------------------
-#    History Setup and Initial generation
+#    History Setup and Conductor generation
 # Tell Warp what histories to save and when (in units of iterations) to do it.
 # There are also some controls for the solver.
 # ------------------------------------------------------------------------------
@@ -1089,7 +1085,8 @@ set_lhistories()
 # Set the z-windows to calculate moment date at select windows relative to the
 # beam frame. top.zwindows[:,0] always includes the who longitudinal extent
 # and should not be changed.
-wp.top.zwindows[:, 1] = [-1 * mm, 1 * mm]
+zwin_length = beam.vbeam * period
+wp.top.zwindows[:, 1] = [lab_center - zwin_length / 2, lab_center + zwin_length / 2]
 
 # Set up lab window for collecting whole beam diagnostics such as current and
 # RMS values. Also set the diagnostic for collecting individual particle data
@@ -1116,7 +1113,6 @@ g2 = GridCrossingDiags(
 )
 
 # Set up fieldsolver
-wp.w3d.l4symtry = False
 solver = wp.MRBlock3D()
 solver.ldosolve = True  # Enable self-fields.
 wp.registersolver(solver)
@@ -1134,12 +1130,12 @@ x, y, z = wp.w3d.xmesh, wp.w3d.ymesh, wp.w3d.zmesh
 # generate is called.
 tracked_ions = wp.Species(type=wp.Argon, charge_state=1, name="Track", color=wp.red)
 tracker = TraceParticle(
-    js=tracked_ions.js, x=0.0, y=0.0, z=0.0, vx=0.0, vy=0.0, vz=beam.vbeam
+    js=tracked_ions.js, x=0.0, y=0.0, z=wp.top.zinject[0], vx=0.0, vy=0.0, vz=beam.vbeam
 )
 
 # For unknown reasons, the tracer cannt be placed arbitrarily in the injection
-# scheme. Thus, it is created early on, disabled, then renabled at the desire
-# point in injection (after half-period of inejction).
+# scheme. Thus, it is created early on, disabled, then renabled at the desired
+# point in injection.
 tracker.disable()
 
 # Recalculate fields and conductor information every time step. Needed for
@@ -1150,6 +1146,11 @@ for i, pa in enumerate(gap_centers):
     print(f"Unit {i} placed at {pa}")
 
 conductors = []
+
+# Create matching section consisting of four quadrupoles
+start_match = wp.top.zinject + 1.5 * mm
+match_pos = np.array([-7.1525, -3.9575, -0.7625, 2.4325,]) * mm
+
 for i, pos in enumerate(gap_centers):
     zl = pos - 1 * mm
     zr = pos + 1 * mm
@@ -1162,6 +1163,15 @@ for i, pos in enumerate(gap_centers):
 
     conductors.append(this_lcond)
     conductors.append(this_rcond)
+
+for i, pos in enumerate(match_pos):
+    this_zc = pos
+    if i % 2 == 0:
+        this_Vq = -Vq
+
+    this_ESQ = Mems_ESQ_SolidCyl(this_zc, this_Vq, -this_Vq, chop=True)
+    this_ESQ.set_geometry(rp=aperture, R=0.68 * aperture, lq=lq)
+    conductors.append(this_ESQ.generate())
 
 for cond in conductors:
     wp.installconductors(cond)
@@ -1225,7 +1235,7 @@ def plotbeam(lplt_tracker=False):
         filled=1,
         condcolor="black",
         titles=0,
-        contours=60,
+        contours=80,
         comp="z",
         plotselfe=1,
         cmin=-1.25 * Vg / gap_width,
@@ -1233,49 +1243,40 @@ def plotbeam(lplt_tracker=False):
     )
     wp.ptitles("Ez, Ar+(Blue) and Tracker (Red)", "z (m)", "x (m)")
     wp.ppzx(titles=0, color=wp.blue, msize=1)
+
+    # plot magenta lines to mark the zwindow range
+    yy = np.linspace(wp.w3d.xmmin, wp.w3d.xmmax, 10)
+    xxl = np.ones(yy.shape[0]) * lab_center + wp.top.zbeam - zwin_length / 2.0
+    xxr = np.ones(yy.shape[0]) * lab_center + wp.top.zbeam + zwin_length / 2.0
+    wp.plg(yy, xxl, color="magenta")
+    wp.plg(yy, xxr, color="magenta")
+
     if lplt_tracker:
         wp.plp(tracker.getx()[-1], tracker.getz()[-1], color=wp.red, msize=3)
 
 
-# Inject particles for a half-period, then inject the tracker particle and
-# continue injection for another half-period.
-while wp.top.time < 0.5 * period:
-    wp.window(2)
-    plotbeam()
-    wp.fma()
+# Inject particles for a full-period, then inject the tracker particle and
+# continue injection till the tracker particle is at grid center.
+while wp.top.time < 1 * period:
+    if wp.top.it % 10 == 0:
+        wp.window(2)
+        plotbeam()
+        wp.fma()
 
-    wp.window(3)
-    beam.ppxy(color=wp.blue, msize=1, titlet="Particles Ar+(Blue) and N2+(Red) in XY")
-    wp.limits(x.min(), x.max(), y.min(), y.max())
-    wp.plg(Y, X, type="dash")
-    wp.titlet = "Particles Ar+(Blue) and N2+(Red) in XY"
-    wp.fma()
+        wp.window(3)
+        beam.ppxy(
+            color=wp.blue, msize=1, titlet="Particles Ar+(Blue) and N2+(Red) in XY"
+        )
+        wp.limits(x.min(), x.max(), y.min(), y.max())
+        wp.plg(Y, X, type="dash")
+        wp.titlet = "Particles Ar+(Blue) and N2+(Red) in XY"
+        wp.fma()
 
     wp.step(1)
 
 # Turn on tracker
 tracker.enable()
 
-# Continue injection for another half-period
-while wp.top.time < 1.0 * period:
-    wp.window(2)
-    plotbeam(lplt_tracker=True)
-    wp.fma()
-    wp.fma()
-
-    wp.window(3)
-    beam.ppxy(color=wp.blue, msize=2, titlet="Particles Ar+(Blue) and N2+(Red) in XY")
-    wp.limits(x.min(), x.max(), y.min(), y.max())
-    wp.plg(Y, X, type="dash")
-    wp.titlet = "Particles Ar+(Blue) and N2+(Red) in XY"
-    wp.fma()
-
-    wp.step(1)
-
-# Turn off injection and then advance particles for 2 period later than current
-# time of tracker particle.
-wp.top.inject = 0
-wp.uninstalluserinjection(injection)
 # Wait for tracker to get to the center of the cell and then start moving frame
 while tracker.getz()[-1] < 0.5 * (wp.w3d.zmmax + wp.w3d.zmmin):
     if wp.top.it % 5 == 0:
@@ -1294,10 +1295,14 @@ while tracker.getz()[-1] < 0.5 * (wp.w3d.zmmax + wp.w3d.zmmin):
 
     wp.step(1)
 
+# Turn off injection once grid starts moving
+wp.top.inject = 0
+wp.uninstalluserinjection(injection)
+
 for i in range(Ng - 2):
-    wp.top.vbeamfrm = tracker.getvz()[-1]
     wp.top.dt = 0.7 * dz / tracker.getvz()[-1]
     while tracker.getz()[-1] < gap_centers[i + 2]:
+        wp.top.vbeamfrm = tracker.getvz()[-1]
         if wp.top.it % 5 == 0:
             wp.window(2)
             plotbeam(lplt_tracker=True)
