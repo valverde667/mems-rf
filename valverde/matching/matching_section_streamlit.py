@@ -22,7 +22,7 @@ mrad = 1e-3
 rad = np.pi
 
 # Grab parameter dictionary
-param_dict = parameters.main()
+param_dict = parameters.param_dict
 
 # Set up streamlit
 st.title("Parameter Variation for Matching Section")
