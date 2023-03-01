@@ -913,6 +913,42 @@ class Data_Ext:
         # Loop through lab windows and export plots to pdf.
 
 
+def calc_zESQ(zgaps, zFcup, d=2.0 * mm, lq=0.695 * mm):
+    """Function to calculate ESQ doublet positions with separation d and voltage Vq
+
+    The ESQs will be arranged as a doublet with edge-to-edge separation distance
+    given by d. The current lattice configuration dictates that an ESQ can be
+    inserted in the field-free region in the second gap (after every two RF
+    gaps). The last ESQ doublet is placed in between the Fcup and edge ESQ edge.
+
+    The voltage can be given as a float value in which case all ESQs have the
+    same voltage with alternating sign. Or, an array of voltages can be given
+    specifying the voltage for each ESQ.
+    """
+    Ng = len(zgaps)
+    # Loop through the gap positions and place ESQs. The RF gaps will always come
+    # pairs and the field free region comes after the second ESQ or every odd
+    # element in hte zgaps list.
+    esq_pos = []
+    for i in range(Ng - 2):
+        if i % 2 != 0:
+            # Calculate the center of the field free region.
+            zc = (zgaps[i] + zgaps[i + 1]) / 2.0
+            z1 = zc - d / 2.0 - lq / 2.0
+            z2 = zc + d / 2.0 + lq / 2.0
+            esq_pos.append(z1)
+            esq_pos.append(z2)
+
+    # Do the final position between the last gap and the Fcup
+    zc = (zgaps[-1] + zFcup) / 2.0
+    z1 = zc - d / 2.0 - lq / 2.0
+    z2 = zc + d / 2.0 + lq / 2.0
+    esq_pos.append(z1)
+    esq_pos.append(z2)
+
+    return np.array(esq_pos)
+
+
 # ------------------------------------------------------------------------------
 #    Script inputs
 # Parameter inputs for running the script. Initially were set as command line
@@ -1170,8 +1206,9 @@ for i, pos in enumerate(match_pos):
         this_Vq = -Vq
 
     this_ESQ = Mems_ESQ_SolidCyl(this_zc, this_Vq, -this_Vq, chop=True)
-    this_ESQ.set_geometry(rp=aperture, R=0.68 * aperture, lq=lq)
-    conductors.append(this_ESQ.generate())
+    this_ESQ.set_geometry(rp=aperture, R=1.3 * aperture, lq=lq)
+    this_cond = this_ESQ.generate()
+    conductors.append(this_cond)
 
 for cond in conductors:
     wp.installconductors(cond)
@@ -1186,21 +1223,27 @@ Fcup = wp.Box(
     zsize=5.0 * dz,
     zcent=zdiagns[-1].getzz() + 2 * mm,
 )
+
+# Calculate ESQ center positions and then install.
+esq_pos = calc_zESQ(gap_centers, gap_centers[-1] + Fcup_dist, lq=lq)
+
+# Loop through ESQ positions and place ESQs with alternating bias
+Vq_list = np.ones(shape=len(esq_pos))
+Vq_list[::1] *= -Vq  # Alternate signs in list
+for i, pos in enumerate(esq_pos):
+    this_ESQ = Mems_ESQ_SolidCyl(pos, Vq_list[i], -Vq_list[i], chop=True)
+    this_ESQ.set_geometry(rp=aperture, R=0.68 * aperture, lq=lq)
+    this_cond = this_ESQ.generate()
+    conductors.append(this_cond)
+
+
+for cond in conductors:
+    wp.installconductors(cond)
+
+
 scraper = wp.ParticleScraper(aperture_wall, lcollectlpdata=True)
 scraper.registerconductors(conductors)
 scraper.registerconductors(Fcup)
-
-# TODO: Create ESQ installation scheme.
-# Create and install ESQs
-# lESQ = Mems_ESQ_SolidCyl(15.5 * mm, "1", Vq, -Vq, chop=True)
-# lESQ.set_geometry(rp=aperture, R=0.68 * aperture, lq=lq)
-
-# rESQ = Mems_ESQ_SolidCyl(19.5 * mm, "2", -Vq, Vq, chop=True)
-# rESQ.set_geometry(rp=aperture, R=0.68 * aperture, lq=lq)
-
-# wp.installconductor(lESQ.generate())
-# wp.installconductor(rESQ.generate())
-
 # Recalculate the fields
 wp.fieldsol(-1)
 
