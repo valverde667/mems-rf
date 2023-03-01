@@ -54,7 +54,7 @@ V1 = st.sidebar.number_input(
     format="%.2e",
 )
 V2 = st.sidebar.number_input(
-    "Voltage on Second ESQ V1 [V]",
+    "Voltage on Second ESQ V2 [V]",
     min_value=-0.6 * kV,
     max_value=0.6 * kV,
     value=-0.5 * kV,
@@ -62,7 +62,7 @@ V2 = st.sidebar.number_input(
     format="%.2e",
 )
 V3 = st.sidebar.number_input(
-    "Voltage on Third ESQ V1 [V]",
+    "Voltage on Third ESQ V3 [V]",
     min_value=-0.6 * kV,
     max_value=0.6 * kV,
     value=-0.512 * kV,
@@ -70,7 +70,7 @@ V3 = st.sidebar.number_input(
     format="%.2e",
 )
 V4 = st.sidebar.number_input(
-    "Voltage on Fourth ESQ V1 [V]",
+    "Voltage on Fourth ESQ V4 [V]",
     min_value=-0.6 * kV,
     max_value=0.6 * kV,
     value=0.359 * kV,
@@ -78,7 +78,7 @@ V4 = st.sidebar.number_input(
     format="%.2e",
 )
 V5 = st.sidebar.number_input(
-    "Voltage on Fifth ESQ V1 [V]",
+    "Voltage on Fifth ESQ V5 [V]",
     min_value=-0.6 * kV,
     max_value=0.6 * kV,
     value=0.352 * kV,
@@ -86,7 +86,7 @@ V5 = st.sidebar.number_input(
     format="%.2e",
 )
 V6 = st.sidebar.number_input(
-    "Voltage on Sixth ESQ V1 [V]",
+    "Voltage on Sixth ESQ V6 [V]",
     min_value=-0.6 * kV,
     max_value=0.6 * kV,
     value=-0.136 * kV,
