@@ -7,19 +7,29 @@ envelope equation will be plotted in this matching region."""
 
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import streamlit as st
 import pdb
-
-import warp as wp
 
 import parameters
 from solver import hard_edge_kappa, solve_KV, matching_section
 
+mpl.rcParams["xtick.direction"] = "in"
+mpl.rcParams["xtick.minor.visible"] = True
+mpl.rcParams["xtick.top"] = True
+mpl.rcParams["xtick.minor.top"] = True
+mpl.rcParams["ytick.direction"] = "in"
+mpl.rcParams["ytick.minor.visible"] = True
+mpl.rcParams["ytick.right"] = True
+mpl.rcParams["ytick.major.right"] = True
+mpl.rcParams["ytick.minor.right"] = True
+
 # Define useful constants
-mm = wp.mm
-kV = wp.kV
+mm = 1e-3
+kV = 1e3
 mrad = 1e-3
 rad = np.pi
+aperture = 0.55 * mm
 
 # Grab parameter dictionary
 param_dict = parameters.param_dict
@@ -163,3 +173,15 @@ for n in range(1, len(soln_matrix)):
     # Use updated v to update u
     ux[n] = vx[n] * ds + ux[n - 1]
     uy[n] = vy[n] * ds + uy[n - 1]
+
+
+# Plot results
+fig, ax = plt.subplots()
+ax.set_xlabel("z (mm)")
+ax.set_ylabel("x,y (mm)")
+ax.plot(s_solve / mm, ux / mm, c="k", label=r"$r_x$")
+ax.plot(s_solve / mm, uy / mm, c="b", label=r"$r_y$")
+ax.axhline(y=aperture / mm, ls="--", lw=1, c="r", label="Aperture")
+ax.legend()
+
+st.pyplot(fig)
