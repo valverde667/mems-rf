@@ -93,7 +93,13 @@ def setup_lattice(lq, d, Vq, Nq, G=G_hardedge, res=res):
     return (z, gradz)
 
 
-z, gradz = setup_lattice(lq, d, Vq, Nq)
+user_input = True
+if user_input:
+    grad_array = np.load("matching_section_gradient.npy", allow_pickle=True)
+    z_array = np.load("matching_section_z.npy", allow_pickle=True)
+    z, gradz = np.hstack(z_array), np.hstack(grad_array)
+else:
+    z, gradz = setup_lattice(lq, d, Vq, Nq)
 
 
 # Beam specifications
@@ -114,8 +120,7 @@ wp.derivqty()
 
 # Solve KV equations
 dz = z[1] - z[0]
-Bp = beta(init_E, mass_eV) * beam.mass * SC.c / wp.echarge
-kappa = gradz / beam.vbeam / Bp
+kappa = wp.echarge * gradz / 2.0 / init_E / wp.jperev
 ux_initial, uy_initial = rsource, rsource
 vx_initial, vy_initial = div_angle, div_angle
 
