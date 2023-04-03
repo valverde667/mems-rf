@@ -31,8 +31,8 @@ uA = 1e-6
 # System and Geometry settings
 lq = 0.695 * mm
 d = 2.0 * mm
-Vq = -0.6 * kV
-Nq = 6
+Vq = 0.6 * kV
+Nq = 4
 rp = 0.55 * mm
 rsource = 0.25 * mm
 G_hardedge = 2 * Vq / pow(rp, 2)
@@ -93,13 +93,128 @@ def setup_lattice(lq, d, Vq, Nq, G=G_hardedge, res=res):
     return (z, gradz)
 
 
+class Lattice:
+    def __init__(self):
+        self.zmin = 0.0
+        self.zmax = None
+        self.centers = None
+        self.Np = None
+        self.dz = None
+        self.z = None
+        self.grad = None
+
+        self.params = {"lq": None, "Vq": None, "rp": None, "Gstar": None, "Gmax": None}
+
+    def calc_Vset(self, Gmax):
+        """Calculate the necessary voltage to generate the max gradient used"""
+
+        Vset = 1.557857e-10 * Gmax
+        return Vset
+
+    def hard_edge(self, lq, d, Vq, Nq, rp, res=10 * um):
+        """Create a hard-edge model for the ESQs.
+        The ESQ centers will be placed at centers and kappa calculated."""
+
+        Lp = lq * Nq + d * (Nq + 1)
+        self.Np = int(Lp / res)
+        self.z = np.linspace(0.0, Lp, self.Np)
+        self.zmax = self.z.max()
+
+        self.Np = int((self.zmax - self.zmin) / res)
+        self.z = np.linspace(self.zmin, self.zmax, self.Np)
+        self.grad = np.zeros(self.z.shape[0])
+        Gstar = abs(2.0 * Vq / pow(rp, 2))
+
+        # Find indices of lq centers and mask from center - lq/2 to center + lq/2
+        masks = []
+        self.centers = np.zeros(Nq)
+        for i in range(Nq):
+            this_zc = (i + 1) * d + i * lq + lq / 2
+            this_mask = (self.z >= this_zc - lq / 2) & (self.z <= this_zc + lq / 2)
+            masks.append(this_mask)
+            self.centers[i] = this_zc
+
+        for i, mask in enumerate(masks):
+            if i % 2 == 0:
+                this_g = -Gstar
+            else:
+                this_g = Gstar
+
+            self.grad[mask] = this_g
+
+        # Update the paramters dictionary with values used.
+        updated_params = [lq, Vq, rp, Gstar, None]
+
+        for key, value in zip(self.params.keys(), updated_params):
+            self.params[key] = value
+
+        cent0 = zext / 2.0
+        self.centers = np.array([cent0 * i for i in range(Nq + 1)])
+
+    def user_input(self, file_string, Nq, scales, lq=0.695 * mm):
+        """Create Nq matching section from extracted gradient.
+
+        An isolated gradient is read in from the file_string = (path-s, path-grad)
+        and loaded onto the mesh. The length of the ESQ should be provided and
+        the separation distance calculated from the z-mesh provided by
+        subtracting lq and then diving the resulting mesh length in half:
+        i.e. d = (zmax - zmin - lq) / 2.
+        Each ESQ is then placed at then placed with 2d interspacing:
+            d-lq-2d-lq-2d-...-lq-d
+        """
+
+        zext, grad = np.load(file_string[0]), np.load(file_string[1])
+        dz = zext[1] - zext[0]
+        if zext.min() < -1e-9:
+            # Shift z array to start at z=0
+            zext += abs(zext.min())
+            zext[0] = 0.0
+
+        # Initialize the first arrays quadrupole with corresponding mesh.
+        # Calculate the set voltage needed to create the scaled gradient and
+        # record.
+        Vset = np.zeros(Nq)
+        self.z = zext.copy()
+        self.grad = grad.copy() * scales[0]
+        Gmax = grad.max()
+        Vset = np.array([self.calc_Vset(Gmax * scale) * kV for scale in scales])
+
+        # Loop through remaining number of quadrupoles after the first and build
+        # up the corresponding mesh and gradient.
+        for i in range(1, Nq):
+            this_z = zext.copy() + self.z[-1] + dz
+            this_grad = grad.copy() * scales[i]
+            self.z = np.hstack((self.z, this_z))
+            self.grad = np.hstack((self.grad, this_grad))
+
+        # Update the paramters dictionary with values used.
+        updated_params = [lq, Vset, None, None, grad.max()]
+
+        for key, value in zip(self.params.keys(), updated_params):
+            self.params[key] = value
+
+
 user_input = True
 if user_input:
-    grad_array = np.load("matching_section_gradient.npy", allow_pickle=True)
-    z_array = np.load("matching_section_z.npy", allow_pickle=True)
-    z, gradz = np.hstack(z_array), np.hstack(grad_array)
+    lattice = Lattice()
+    file_names = ("iso_zgrad.npy", "iso_esq_grad.npy")
+    scales = []
+    for i in range(Nq):
+        if i % 2 == 0:
+            scales.append(1.0)
+        else:
+            scales.append(-1.0)
+
+    scales = np.array(scales)
+    scales *= (0.4, 0.5, 0.3, 0.2)
+
+    lattice.user_input(file_names, Nq, scales=scales)
+    z, gradz = lattice.z, lattice.grad
+
 else:
-    z, gradz = setup_lattice(lq, d, Vq, Nq)
+    lattice = Lattice()
+    lattice.hard_edge(lq, d, Vq, Nq, rp)
+    z, gradz = lattice.z, lattice.grad
 
 
 # Beam specifications
@@ -155,7 +270,7 @@ for n in range(1, len(soln_matrix)):
 # Plot results
 fig, ax = plt.subplots()
 ax.set_xlabel("z (mm)")
-ax.set_ylabel("x,y (mm)")
+ax.set_ylabel(r"$r_x,\,r_y$ (mm)")
 ax.plot(z / mm, ux / mm, c="k", label=r"$r_x$")
 ax.plot(z / mm, uy / mm, c="b", label=r"$r_y$")
 ax.axhline(y=rp / mm, ls="--", lw=1, c="r", label="Aperture")
