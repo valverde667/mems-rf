@@ -28,8 +28,8 @@ inj_current = 10 * uA
 inj_temperature = 0.1  # eV
 inj_radius = 0.25 * mm
 aperture_rad = 0.55 * mm
-inj_xprime = 5 * mrad
-inj_yprime = -5 * mrad
+inj_xprime = 3.78 * mrad
+inj_yprime = -3.78 * mrad
 dext = 11 * mm
 
 # ------------------------------------------------------------------------------
