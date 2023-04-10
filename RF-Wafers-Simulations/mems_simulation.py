@@ -913,13 +913,15 @@ class Data_Ext:
         # Loop through lab windows and export plots to pdf.
 
 
-def calc_zESQ(zgaps, zFcup, d=2.0 * mm, lq=0.695 * mm):
+def calc_zESQ(zgaps, zFcup, d=3.0 * mm, lq=0.695 * mm):
     """Function to calculate ESQ doublet positions with separation d and voltage Vq
 
     The ESQs will be arranged as a doublet with edge-to-edge separation distance
     given by d. The current lattice configuration dictates that an ESQ can be
     inserted in the field-free region in the second gap (after every two RF
     gaps). The last ESQ doublet is placed in between the Fcup and edge ESQ edge.
+    Note that in order for the ESQs to a length d of fringe field between one anotther
+    the inter-spacing must be 2*d.
 
     The voltage can be given as a float value in which case all ESQs have the
     same voltage with alternating sign. Or, an array of voltages can be given
@@ -934,15 +936,15 @@ def calc_zESQ(zgaps, zFcup, d=2.0 * mm, lq=0.695 * mm):
         if i % 2 != 0:
             # Calculate the center of the field free region.
             zc = (zgaps[i] + zgaps[i + 1]) / 2.0
-            z1 = zc - d / 2.0 - lq / 2.0
-            z2 = zc + d / 2.0 + lq / 2.0
+            z1 = zc - d - lq / 2.0
+            z2 = zc + d + lq / 2.0
             esq_pos.append(z1)
             esq_pos.append(z2)
 
     # Do the final position between the last gap and the Fcup
     zc = (zgaps[-1] + zFcup) / 2.0
-    z1 = zc - d / 2.0 - lq / 2.0
-    z2 = zc + d / 2.0 + lq / 2.0
+    z1 = zc - d - lq / 2.0
+    z2 = zc + d + lq / 2.0
     esq_pos.append(z1)
     esq_pos.append(z2)
 
