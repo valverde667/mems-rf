@@ -970,6 +970,7 @@ def calc_zmatch_sect(lq, d, Nq=4):
 
 # Specify conductor characteristics
 lq = 0.696 * mm
+esq_space = 3.0 * mm
 Vq = 0.05 * kV
 gap_width = 2 * mm
 Vg = 5 * kV
@@ -1029,6 +1030,8 @@ for i in range(Ng):
     E_s += dsgn_Egain
 
 gap_centers = np.array(gap_dist).cumsum()
+match_centers = calc_zmatch_sect(lq, esq_space, Nq=4)
+match_centers -= match_centers.max() + lq / 2 + esq_space
 # ------------------------------------------------------------------------------
 #    Mesh setup
 # Specify mesh sizing and time stepping for simulation. The zmmin and zmmax
@@ -1044,8 +1047,8 @@ wp.w3d.ymmax = wp.w3d.xmmax
 wp.w3d.ymmin = -wp.w3d.ymmax
 
 # Max and min here will determine length of lab window.
-wp.w3d.zmmin = -18 * mm
-wp.w3d.zmmax = 38 * mm
+wp.w3d.zmmin = match_centers.min() - lq / 2.0 - esq_space
+wp.w3d.zmmax = gap_centers[0] - gap_width
 wp.w3d.nx = 40
 wp.w3d.ny = 40
 wp.w3d.nz = 250
@@ -1088,7 +1091,7 @@ beam.pgroup.sw[0] = pweight
 
 # Set z-location of injection. This uses the phase shift to ensure rf resonance
 # with the trace particle
-wp.top.zinject = -9 * mm
+wp.top.zinject = wp.w3d.zmmin + 1e-3 * mm
 
 # Create injection scheme. A uniform cylinder will be injected with each time
 # step.
@@ -1151,12 +1154,12 @@ for i in range(Ng - 1):
 ilws.append(wp.addlabwindow(gap_centers[-1] + Fcup_dist))
 zdiagns.append(ZCrossingParticles(zz=gap_centers[-1] + Fcup_dist, laccumulate=1))
 
-g1 = GridCrossingDiags(zmmin=0.0, zmmax=wp.w3d.zmmax - 5 * mm, lmoving_frame=True)
-g2 = GridCrossingDiags(
-    zmmin=zdiagns[-1].getzz() - 10 * dz,
-    zmmax=zdiagns[-1].getzz() - 5 * dz,
-    starttime=385 * ns,
-)
+# g1 = GridCrossingDiags(zmmin=0.0, zmmax=wp.w3d.zmmax - 5 * mm, lmoving_frame=True)
+# g2 = GridCrossingDiags(
+#     zmmin=zdiagns[-1].getzz() - 10 * dz,
+#     zmmax=zdiagns[-1].getzz() - 5 * dz,
+#     starttime=385 * ns,
+# )
 
 # Set up fieldsolver
 solver = wp.MRBlock3D()
@@ -1208,11 +1211,8 @@ for i, pos in enumerate(gap_centers):
     conductors.append(this_lcond)
     conductors.append(this_rcond)
 
-# Create matching section consisting of four quadrupoles
-# TODO: Devise better placement scheme rather than hardcode.
-start_match = wp.top.zinject + 1.5 * mm
-match_pos = np.array([-7.1525, -3.9575, -0.7625, 2.4325,]) * mm
-for i, pos in enumerate(match_pos):
+# Create matching section consisting of four quadrupoles.
+for i, pos in enumerate(match_centers):
     this_zc = pos
     if i % 2 == 0:
         this_Vq = -Vq
