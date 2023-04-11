@@ -1249,12 +1249,6 @@ scraper.registerconductors(Fcup)
 # Recalculate the fields
 wp.fieldsol(-1)
 
-# Make a circle to show the beam pipe on warp plots in xy.
-R = 0.5 * mm  # beam radius
-t = np.linspace(0, 2 * np.pi, 100)
-X = R * np.sin(t)
-Y = R * np.cos(t)
-
 # Create cgm windows for plotting
 wp.winon(winnum=2, suffix="pzx", xon=False)
 wp.winon(winnum=3, suffix="pxy", xon=False)
@@ -1308,15 +1302,6 @@ while wp.top.time < 1 * period:
         plotbeam()
         wp.fma()
 
-        wp.window(3)
-        beam.ppxy(
-            color=wp.blue, msize=1, titlet="Particles Ar+(Blue) and N2+(Red) in XY"
-        )
-        wp.limits(x.min(), x.max(), y.min(), y.max())
-        wp.plg(Y, X, type="dash")
-        wp.titlet = "Particles Ar+(Blue) and N2+(Red) in XY"
-        wp.fma()
-
     wp.step(1)
 
 # Turn on tracker
@@ -1327,15 +1312,6 @@ while tracker.getz()[-1] < 0.5 * (wp.w3d.zmmax + wp.w3d.zmmin):
     if wp.top.it % 5 == 0:
         wp.window(2)
         plotbeam(lplt_tracker=True)
-        wp.fma()
-
-        wp.window(3)
-        beam.ppxy(
-            color=wp.blue, msize=1, titlet="Particles Ar+(Blue) and N2+(Red) in XY"
-        )
-        wp.limits(x.min(), x.max(), y.min(), y.max())
-        wp.plg(Y, X, type="dash")
-        wp.titlet = "Particles Ar+(Blue) and N2+(Red) in XY"
         wp.fma()
 
     wp.step(1)
@@ -1353,15 +1329,6 @@ for i in range(Ng - 2):
             plotbeam(lplt_tracker=True)
             wp.fma()
 
-            wp.window(3)
-            beam.ppxy(
-                color=wp.blue, msize=1, titlet="Particles Ar+(Blue) and N2+(Red) in XY"
-            )
-            wp.limits(x.min(), x.max(), y.min(), y.max())
-            wp.plg(Y, X, type="dash")
-            wp.titlet = "Particles Ar+(Blue) and N2+(Red) in XY"
-            wp.fma()
-
         wp.step(1)
 
 wp.top.vbeamfrm = tracker.getvz()[-1]
@@ -1370,15 +1337,6 @@ while tracker.getz()[-1] < zdiagns[-1].getzz():
     if wp.top.it % 5 == 0:
         wp.window(2)
         plotbeam(lplt_tracker=True)
-        wp.fma()
-
-        wp.window(3)
-        beam.ppxy(
-            color=wp.blue, msize=1, titlet="Particles Ar+(Blue) and N2+(Red) in XY"
-        )
-        wp.limits(x.min(), x.max(), y.min(), y.max())
-        wp.plg(Y, X, type="dash")
-        wp.titlet = "Particles Ar+(Blue) and N2+(Red) in XY"
         wp.fma()
 
     wp.step(1)
@@ -1390,15 +1348,6 @@ while wp.top.time < final_time:
     if wp.top.it % 5 == 0:
         wp.window(2)
         plotbeam(lplt_tracker=True)
-        wp.fma()
-
-        wp.window(3)
-        beam.ppxy(
-            color=wp.blue, msize=1, titlet="Particles Ar+(Blue) and N2+(Red) in XY"
-        )
-        wp.limits(x.min(), x.max(), y.min(), y.max())
-        wp.plg(Y, X, type="dash")
-        wp.titlet = "Particles Ar+(Blue) and N2+(Red) in XY"
         wp.fma()
 
     wp.step(1)
