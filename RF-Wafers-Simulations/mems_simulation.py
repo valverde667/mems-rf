@@ -951,6 +951,16 @@ def calc_zESQ(zgaps, zFcup, d=3.0 * mm, lq=0.695 * mm):
     return np.array(esq_pos)
 
 
+def calc_zmatch_sect(lq, d, Nq=4):
+    """Calculate the z-centers to place quadrupoles"""
+    zcents = np.empty(Nq)
+    for i in range(Nq):
+        this_zcent = d + 2 * i * d + lq * i + lq / 2
+        zcents[i] = this_zcent
+
+    return zcents
+
+
 # ------------------------------------------------------------------------------
 #    Script inputs
 # Parameter inputs for running the script. Initially were set as command line
