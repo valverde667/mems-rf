@@ -961,6 +961,15 @@ def calc_zmatch_sect(lq, d, Nq=4):
     return zcents
 
 
+def calc_phase_shift(phi_s, freq, distance, energy, mass):
+    """Calculate the phase shift needed to maintain RF resonance"""
+
+    term1 = phi_s - np.pi
+    term2 = twopi * freq * distance / beta(energy, mass) / SC.c
+
+    return term1 - term2
+
+
 # ------------------------------------------------------------------------------
 #    Script inputs
 # Parameter inputs for running the script. Initially were set as command line
@@ -970,11 +979,16 @@ def calc_zmatch_sect(lq, d, Nq=4):
 
 # Specify conductor characteristics
 lq = 0.696 * mm
-esq_space = 3.0 * mm
 Vq = 0.05 * kV
 gap_width = 2 * mm
 Vg = 5 * kV
-Ng = 4
+Ng = 2
+
+# Match section Parameters
+esq_space = 3.0 * mm
+Vq_match = 0.2 * kV
+Nq_match = 4
+
 Fcup_dist = 10 * mm
 
 # Operating parameters
@@ -983,11 +997,6 @@ hrf = SC.c / freq
 period = 1.0 / freq
 emittingRadius = 0.25 * mm
 aperture = 0.55 * mm
-
-# TODO: the time shift was calculated by hand and added here. This should be
-#       fixed to be modular with user settings.
-# Shift to include more beam so more closely resembles continuous injection.
-rf_volt = lambda time: Vg * np.cos(twopi * freq * (time - 1.165 * period) + np.pi)
 
 # Beam Paramters
 init_E = 7.0 * keV
@@ -1030,8 +1039,19 @@ for i in range(Ng):
     E_s += dsgn_Egain
 
 gap_centers = np.array(gap_dist).cumsum()
-match_centers = calc_zmatch_sect(lq, esq_space, Nq=4)
+match_centers = calc_zmatch_sect(lq, esq_space, Nq=Nq_match)
 match_centers -= match_centers.max() + lq / 2 + esq_space
+
+# Calculate phase shift needed to be in resonance
+phase_shift = calc_phase_shift(
+    phi_s[0],
+    freq,
+    gap_centers[0] - wp.top.zinject[0],
+    init_E,
+    beam.mass * pow(SC.c, 2) / wp.jperev,
+)
+rf_volt = lambda time: Vg * np.cos(twopi * freq * time + phase_shift)
+
 # ------------------------------------------------------------------------------
 #    Mesh setup
 # Specify mesh sizing and time stepping for simulation. The zmmin and zmmax
@@ -1145,6 +1165,13 @@ zdiagns = []
 ilws.append(wp.addlabwindow(2.0 * dz))  # Initial lab window
 zdiagns.append(ZCrossingParticles(zz=2.0 * dz, laccumulate=1))
 
+# Loop through quad centers in matching section and place diagnostics at center
+# point between quads.
+for i in range(Nq_match - 1):
+    zloc = (match_centers[i + 1] + match_centers[i]) / 2.0
+    ilws.append(wp.addlabwindow(zloc))
+    zdiagns.append(ZCrossingParticles(zz=zloc, laccumulate=1))
+
 # Loop through gap_centers and place diagnostics at center point between gaps.
 for i in range(Ng - 1):
     zloc = (gap_centers[i + 1] + gap_centers[i]) / 2.0
@@ -1153,13 +1180,6 @@ for i in range(Ng - 1):
 
 ilws.append(wp.addlabwindow(gap_centers[-1] + Fcup_dist))
 zdiagns.append(ZCrossingParticles(zz=gap_centers[-1] + Fcup_dist, laccumulate=1))
-
-# g1 = GridCrossingDiags(zmmin=0.0, zmmax=wp.w3d.zmmax - 5 * mm, lmoving_frame=True)
-# g2 = GridCrossingDiags(
-#     zmmin=zdiagns[-1].getzz() - 10 * dz,
-#     zmmax=zdiagns[-1].getzz() - 5 * dz,
-#     starttime=385 * ns,
-# )
 
 # Set up fieldsolver
 solver = wp.MRBlock3D()
