@@ -2,6 +2,7 @@
 # lattice creations.
 
 import numpy as np
+import itertools
 import scipy.constants as SC
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -22,6 +23,7 @@ mpl.rcParams["ytick.minor.right"] = True
 
 # Define useful constants
 mm = 1e-3
+mrad = 1e-3
 um = 1e-6
 kV = 1e3
 mrad = 1e-3
@@ -45,6 +47,13 @@ init_E = 7 * keV
 init_I = 10 * uA
 div_angle = 3.78 * mrad * 0.0
 Tb = 0.1  # eV
+
+
+def create_combinations(s1, s2, s3, s4):
+    """Utility function for creating combinations of the array elements in s1-s4.
+    """
+    combinations = np.array(list(itertools.product(s1, s2, s3, s4)))
+    return Vsets
 
 
 def beta(E, mass, q=1, nonrel=True):
@@ -194,6 +203,52 @@ class Lattice:
             self.params[key] = value
 
 
+def solver(solve_matrix, dz, kappa, emit, Q):
+    """Solve KV-envelope equations with Euler-cromer method.
+
+    The solve_matrix input will be an Nx4 matrix where N is the number of steps
+    to take in the solve and the four columns are the transverse position and
+    angle in x and y. The solver will take a step dz and evaluate the equations
+    with a fixed emittance and perveance Q. Kappa is assumed to be an array.
+    """
+
+    ux, uy = solve_matrix[:, 0], solve_matrix[:, 1]
+    vx, vy = solve_matrix[:, 2], solve_matrix[:, 3]
+
+    for n in range(1, solve_matrix.shape[0]):
+        # Evaluate term present in both equations
+        term = 2 * Q / (ux[n - 1] + uy[n - 1])
+
+        # Evaluate terms for x and y
+        term1x = pow(emit, 2) / pow(ux[n - 1], 3) + kappa[n - 1] * ux[n - 1]
+        term1y = pow(emit, 2) / pow(uy[n - 1], 3) - kappa[n - 1] * uy[n - 1]
+
+        # Update v_x and v_y first.
+        vx[n] = (term + term1x) * dz + vx[n - 1]
+        vy[n] = (term + term1y) * dz + vy[n - 1]
+
+        # Use updated v to update u
+        ux[n] = vx[n] * dz + ux[n - 1]
+        uy[n] = vy[n] * dz + uy[n - 1]
+
+    return solve_matrix
+
+
+# Beam specifications
+beam = wp.Species(type=wp.Argon, charge_state=1)
+mass_eV = beam.mass * pow(SC.c, 2) / wp.jperev
+beam.ekin = init_E
+beam.ibeam = init_I
+beam.a0 = rsource
+beam.b0 = rsource
+beam.ap0 = 0.0
+beam.bp0 = 0.0
+beam.ibeam = init_I
+beam.vbeam = 0.0
+beam.ekin = init_E
+vth = np.sqrt(Tb * wp.jperev / beam.mass)
+wp.derivqty()
+
 user_input = True
 if user_input:
     lattice = Lattice()
@@ -201,12 +256,12 @@ if user_input:
     scales = []
     for i in range(Nq):
         if i % 2 == 0:
-            scales.append(1.0)
-        else:
             scales.append(-1.0)
+        else:
+            scales.append(1.0)
 
     scales = np.array(scales)
-    scales *= (0.4, 0.5, 0.3, 0.2)
+    scales *= (0.15, 0.2, 0.10, 0.20)
 
     lattice.user_input(file_names, Nq, scales=scales)
     z, gradz = lattice.z, lattice.grad
@@ -217,61 +272,51 @@ else:
     z, gradz = lattice.z, lattice.grad
 
 
-# Beam specifications
-beam = wp.Species(type=wp.Argon, charge_state=1)
-mass_eV = beam.mass * pow(SC.c, 2) / wp.jperev
-beam.ekin = init_E
-beam.ibeam = init_I
-beam.a0 = rsource
-beam.b0 = rsource
-beam.ap0 = div_angle
-beam.bp0 = div_angle
-beam.ibeam = init_I
-beam.vbeam = 0.0
-beam.ekin = init_E
-vth = np.sqrt(Tb * wp.jperev / beam.mass)
-wp.derivqty()
-
-
 # Solve KV equations
 dz = z[1] - z[0]
 kappa = wp.echarge * gradz / 2.0 / init_E / wp.jperev
 ux_initial, uy_initial = rsource, rsource
 vx_initial, vy_initial = div_angle, div_angle
 
-
 soln_matrix = np.zeros(shape=(len(z), 4))
 soln_matrix[0, :] = ux_initial, uy_initial, vx_initial, vy_initial
 
-# Grab position and angle arrays from matrix
-ux = soln_matrix[:, 0]
-uy = soln_matrix[:, 1]
-vx = soln_matrix[:, 2]
-vy = soln_matrix[:, 3]
+solver(soln_matrix, dz, kappa, emit, Q)
+solutions = soln_matrix[-1, :]
 
-# Main loop to update equation. Loop through matrix and update entries.
-for n in range(1, len(soln_matrix)):
-    # Evaluate term present in both equations
-    term = 2 * Q / (ux[n - 1] + uy[n - 1])
+ux, uy = soln_matrix[:, 0], soln_matrix[:, 1]
+vx, vy = soln_matrix[:, 2], soln_matrix[:, 3]
 
-    # Evaluate terms for x and y
-    term1x = pow(emit, 2) / pow(ux[n - 1], 3) - kappa[n - 1] * ux[n - 1]
-    term1y = pow(emit, 2) / pow(uy[n - 1], 3) + kappa[n - 1] * uy[n - 1]
-
-    # Update v_x and v_y first.
-    vx[n] = (term + term1x) * dz + vx[n - 1]
-    vy[n] = (term + term1y) * dz + vy[n - 1]
-
-    # Use updated v to update u
-    ux[n] = vx[n] * dz + ux[n - 1]
-    uy[n] = vy[n] * dz + uy[n - 1]
+uxf, uyf = ux[-1], uy[-1]
+vxf, vyf = vx[-1], vy[-1]
 
 
-# Plot results
 fig, ax = plt.subplots()
-ax.set_xlabel("z (mm)")
-ax.set_ylabel(r"$r_x,\,r_y$ (mm)")
-ax.plot(z / mm, ux / mm, c="k", label=r"$r_x$")
-ax.plot(z / mm, uy / mm, c="b", label=r"$r_y$")
-ax.axhline(y=rp / mm, ls="--", lw=1, c="r", label="Aperture")
+ax.set_xlabel("s (mm)")
+ax.set_ylabel(r"$\kappa (s)\, (\mathrm{m}^{-2})$")
+plt.plot(z / mm, kappa)
+plt.show()
+
+fig, ax = plt.subplots()
+ax.set_title(r"Envelope Solutions for $r_x$ and $r_y$")
+ax.set_xlabel("s (mm)")
+ax.set_ylabel("Transverse Position (mm)")
+ax.plot(z / mm, ux / mm, label=r"$r_x(s)$")
+ax.plot(z / mm, uy / mm, label=r"$r_y(s)$")
 ax.legend()
+
+fig, ax = plt.subplots()
+ax.set_title(r"Envelope Solutions for $rp_x$ and $rp_y$")
+ax.set_xlabel("s (mm)")
+ax.set_ylabel("Transverse Angle (mrad)")
+ax.plot(z / mm, vx / mm, label=r"$rp_x(s)$")
+ax.plot(z / mm, vy / mm, label=r"$rp_y(s)$")
+ax.legend()
+
+plt.show()
+print(f"Final (rx, ry) mm: {uxf/mm:.4f}, {uyf/mm:.4f}")
+print(f"Final (rpx, rpy) mrad: {vxf/mrad:.4f}, {vyf/mrad:.4f}")
+
+
+data = np.vstack((ux, uy, vx, vy, z))
+np.save("matching_solver_data", data)
