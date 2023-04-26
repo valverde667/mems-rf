@@ -177,10 +177,9 @@ class Mems_ESQ_SolidCyl:
         done.
     """
 
-    def __init__(self, zc, id, V_left, V_right, xc=0.0, yc=0.0, chop=False):
+    def __init__(self, zc, V_left, V_right, xc=0.0, yc=0.0, chop=False):
 
         self.zc = zc
-        self.id = id
         self.V_left = V_left
         self.V_right = V_right
         self.xc = 0.0
@@ -239,7 +238,6 @@ class Mems_ESQ_SolidCyl:
             xcent=self.xc,
             ycent=self.yc,
             voltage=self.V_left,
-            condid=self.id,
         )
         l_box_in = wp.Box(
             xsize=size - 0.1 * mm,
@@ -348,7 +346,6 @@ class Mems_ESQ_SolidCyl:
                 zcent=self.zc,
                 radius=self.R,
                 length=self.lq + 4 * self.copper_zlen,
-                condid=self.id,
             )
             bot = wp.ZCylinder(
                 voltage=self.V_left,
@@ -357,7 +354,6 @@ class Mems_ESQ_SolidCyl:
                 zcent=self.zc,
                 radius=self.R,
                 length=self.lq + 4 * self.copper_zlen,
-                condid=self.id,
             )
 
             # Create left and right rods
@@ -368,7 +364,6 @@ class Mems_ESQ_SolidCyl:
                 zcent=self.zc,
                 radius=self.R,
                 length=self.lq + 4 * self.copper_zlen,
-                condid=self.id,
             )
             right = wp.ZCylinder(
                 voltage=self.V_right,
@@ -377,7 +372,6 @@ class Mems_ESQ_SolidCyl:
                 zcent=self.zc,
                 radius=self.R,
                 length=self.lq + 4 * self.copper_zlen,
-                condid=self.id,
             )
 
             conductor = top + bot + left + right
@@ -411,7 +405,6 @@ class Mems_ESQ_SolidCyl:
                 zcent=self.zc,
                 radius=self.R,
                 length=self.lq + 4 * self.copper_zlen,
-                condid=self.id,
             )
             bot = wp.ZCylinder(
                 voltage=self.V_left,
@@ -420,7 +413,6 @@ class Mems_ESQ_SolidCyl:
                 zcent=self.zc,
                 radius=self.R,
                 length=self.lq + 4 * self.copper_zlen,
-                condid=self.id,
             )
 
             # Create left and right rods
@@ -431,7 +423,6 @@ class Mems_ESQ_SolidCyl:
                 zcent=self.zc,
                 radius=self.R,
                 length=self.lq + 4 * self.copper_zlen,
-                condid=self.id,
             )
             right = wp.ZCylinder(
                 voltage=self.V_right,
@@ -440,7 +431,6 @@ class Mems_ESQ_SolidCyl:
                 zcent=self.zc,
                 radius=self.R,
                 length=self.lq + 4 * self.copper_zlen,
-                condid=self.id,
             )
 
             chop_box = chop_box_out - chop_box_in
@@ -513,7 +503,7 @@ if __name__ == "__main__":
     solver = wp.MRBlock3D()
     wp.registersolver(solver)
 
-    ESQ = Mems_ESQ_SolidCyl(0.0, "1", 0.1 * kV, -0.1 * kV, chop=True)
+    ESQ = Mems_ESQ_SolidCyl(0.0, 0.1 * kV, -0.1 * kV, chop=True)
     ESQ.set_geometry(rp=aperture, R=0.68 * aperture, lq=ESQ_length)
     wp.installconductor(ESQ.generate())
     wp.generate()
