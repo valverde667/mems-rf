@@ -32,7 +32,7 @@ uA = 1e-6
 
 # System and Geometry settings
 lq = 0.695 * mm
-d = 2.0 * mm
+d = 3.0 * mm
 Vq = 0.6 * kV
 Nq = 4
 rp = 0.55 * mm
@@ -120,11 +120,11 @@ class Lattice:
         Vset = 1.557857e-10 * Gmax
         return Vset
 
-    def hard_edge(self, lq, d, Vq, Nq, rp, res=10 * um):
+    def hard_edge(self, lq, d, Vq, Nq, rp, scales, max_grad=2e9, res=10 * um):
         """Create a hard-edge model for the ESQs.
         The ESQ centers will be placed at centers and kappa calculated."""
 
-        Lp = lq * Nq + d * (Nq + 1)
+        Lp = 2 * d * Nq + 4 * lq
         self.Np = int(Lp / res)
         self.z = np.linspace(0.0, Lp, self.Np)
         self.zmax = self.z.max()
@@ -132,33 +132,29 @@ class Lattice:
         self.Np = int((self.zmax - self.zmin) / res)
         self.z = np.linspace(self.zmin, self.zmax, self.Np)
         self.grad = np.zeros(self.z.shape[0])
-        Gstar = abs(2.0 * Vq / pow(rp, 2))
+
+        Gstar = max_grad
+        Vset = np.empty(Nq)
 
         # Find indices of lq centers and mask from center - lq/2 to center + lq/2
         masks = []
         self.centers = np.zeros(Nq)
         for i in range(Nq):
-            this_zc = (i + 1) * d + i * lq + lq / 2
+            this_zc = d + 2 * i * d + lq * i + lq / 2
             this_mask = (self.z >= this_zc - lq / 2) & (self.z <= this_zc + lq / 2)
             masks.append(this_mask)
             self.centers[i] = this_zc
 
         for i, mask in enumerate(masks):
-            if i % 2 == 0:
-                this_g = -Gstar
-            else:
-                this_g = Gstar
-
+            this_g = Gstar * scales[i]
             self.grad[mask] = this_g
+            Vset[i] = self.calc_Vset(this_g)
 
         # Update the paramters dictionary with values used.
-        updated_params = [lq, Vq, rp, Gstar, None]
+        updated_params = [lq, Vset, rp, Gstar, None]
 
         for key, value in zip(self.params.keys(), updated_params):
             self.params[key] = value
-
-        cent0 = zext / 2.0
-        self.centers = np.array([cent0 * i for i in range(Nq + 1)])
 
     def user_input(self, file_string, Nq, scales, lq=0.695 * mm):
         """Create Nq matching section from extracted gradient.
@@ -249,7 +245,7 @@ beam.ekin = init_E
 vth = np.sqrt(Tb * wp.jperev / beam.mass)
 wp.derivqty()
 
-user_input = True
+user_input = False
 if user_input:
     lattice = Lattice()
     file_names = ("iso_zgrad.npy", "iso_esq_grad.npy")
@@ -267,8 +263,18 @@ if user_input:
     z, gradz = lattice.z, lattice.grad
 
 else:
+    scales = []
+    for i in range(Nq):
+        if i % 2 == 0:
+            scales.append(-1.0)
+        else:
+            scales.append(1.0)
+
+    scales = np.array(scales)
+    scales *= (0.15, 0.2, 0.10, 0.20)
+
     lattice = Lattice()
-    lattice.hard_edge(lq, d, Vq, Nq, rp)
+    lattice.hard_edge(lq, d, Vq, Nq, rp, scales, max_grad=2566538624.836261)
     z, gradz = lattice.z, lattice.grad
 
 
@@ -319,4 +325,7 @@ print(f"Final (rpx, rpy) mrad: {vxf/mrad:.4f}, {vyf/mrad:.4f}")
 
 
 data = np.vstack((ux, uy, vx, vy, z))
-np.save("matching_solver_data", data)
+if user_input:
+    np.save("matching_solver_data", data)
+else:
+    np.save("matching_solver_data_hardedge", data)
