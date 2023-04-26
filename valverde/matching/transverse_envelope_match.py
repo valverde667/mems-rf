@@ -32,6 +32,7 @@ uA = 1e-6
 
 # System and Geometry settings
 lq = 0.695 * mm
+lq_eff = 1.306 * mm
 d = 3.0 * mm
 Vq = 0.6 * kV
 Nq = 4
@@ -120,9 +121,10 @@ class Lattice:
         Vset = 1.557857e-10 * Gmax
         return Vset
 
-    def hard_edge(self, lq, d, Vq, Nq, rp, scales, max_grad=2e9, res=10 * um):
+    def hard_edge(self, lq, lq_eff, d, Vq, Nq, rp, scales, max_grad=2e9, res=10 * um):
         """Create a hard-edge model for the ESQs.
-        The ESQ centers will be placed at centers and kappa calculated."""
+        The ESQ centers will be placed at centers and kappa calculated. Each
+        ESQ is given"""
 
         Lp = 2 * d * Nq + 4 * lq
         self.Np = int(Lp / res)
@@ -141,7 +143,9 @@ class Lattice:
         self.centers = np.zeros(Nq)
         for i in range(Nq):
             this_zc = d + 2 * i * d + lq * i + lq / 2
-            this_mask = (self.z >= this_zc - lq / 2) & (self.z <= this_zc + lq / 2)
+            this_mask = (self.z >= this_zc - lq_eff / 2) & (
+                self.z <= this_zc + lq_eff / 2
+            )
             masks.append(this_mask)
             self.centers[i] = this_zc
 
@@ -274,7 +278,7 @@ else:
     scales *= (0.15, 0.2, 0.10, 0.20)
 
     lattice = Lattice()
-    lattice.hard_edge(lq, d, Vq, Nq, rp, scales, max_grad=2566538624.836261)
+    lattice.hard_edge(lq, lq_eff, d, Vq, Nq, rp, scales, max_grad=2566538624.836261)
     z, gradz = lattice.z, lattice.grad
 
 
@@ -317,6 +321,14 @@ ax.set_xlabel("s (mm)")
 ax.set_ylabel("Transverse Angle (mrad)")
 ax.plot(z / mm, vx / mm, label=r"$rp_x(s)$")
 ax.plot(z / mm, vy / mm, label=r"$rp_y(s)$")
+ax.legend()
+
+fig, ax = plt.subplots()
+plt.plot(data[0, :] / mm, data[1, :], c="b", label="Extracted")
+plt.plot(data_he[0, :] / mm, data_he[1, :], c="g", alpha=0.5, label="Hard-Edge")
+ax.axhline(y=0, c="k", lw=0.5)
+ax.set_xlabel("z (mm)")
+ax.set_ylabel(r"$\kappa(z)\, (\mathrm{m}^{-2})$")
 ax.legend()
 
 plt.show()
