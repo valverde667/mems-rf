@@ -21,6 +21,11 @@ mpl.rcParams["ytick.right"] = True
 mpl.rcParams["ytick.major.right"] = True
 mpl.rcParams["ytick.minor.right"] = True
 
+# ------------------------------------------------------------------------------
+#    Useful constants and Parameter initialization
+# Define useful constants such as units. Initialize various paramters for the
+# system/simulation.
+# ------------------------------------------------------------------------------
 # Define useful constants
 mm = 1e-3
 mrad = 1e-3
@@ -49,7 +54,25 @@ init_I = 10 * uA
 div_angle = 3.78 * mrad * 0.0
 Tb = 0.1  # eV
 
+# Beam specifications
+beam = wp.Species(type=wp.Argon, charge_state=1)
+mass_eV = beam.mass * pow(SC.c, 2) / wp.jperev
+beam.ekin = init_E
+beam.ibeam = init_I
+beam.a0 = rsource
+beam.b0 = rsource
+beam.ap0 = 0.0
+beam.bp0 = 0.0
+beam.ibeam = init_I
+beam.vbeam = 0.0
+beam.ekin = init_E
+vth = np.sqrt(Tb * wp.jperev / beam.mass)
+wp.derivqty()
 
+# ------------------------------------------------------------------------------
+#    Function and Class definitions
+# Various functions and classes used in the script are defined here.
+# ------------------------------------------------------------------------------
 def create_combinations(s1, s2, s3, s4):
     """Utility function for creating combinations of the array elements in s1-s4.
     """
@@ -201,26 +224,27 @@ def solver(solve_matrix, dz, kappa, emit, Q):
     return solve_matrix
 
 
-# Beam specifications
-beam = wp.Species(type=wp.Argon, charge_state=1)
-mass_eV = beam.mass * pow(SC.c, 2) / wp.jperev
-beam.ekin = init_E
-beam.ibeam = init_I
-beam.a0 = rsource
-beam.b0 = rsource
-beam.ap0 = 0.0
-beam.bp0 = 0.0
-beam.ibeam = init_I
-beam.vbeam = 0.0
-beam.ekin = init_E
-vth = np.sqrt(Tb * wp.jperev / beam.mass)
-wp.derivqty()
-
+# ------------------------------------------------------------------------------
+#    Lattice Setup and Solver
+# The lattice is generated that will be used to solve the KV-envelope equations.
+# The two options are available for setting up the lattice:
+#   1) The user-input options will use the extracted gradient for the desired
+#   matching section simulated in a separate script. Both the gradient and the
+#   simulated mesh is extracted.
+#   2) If the user-input option is set to False then the hard edge model is used.
+#   The hard edge model will place the ESQs using the physical length of the ESQ
+#   but the effective length will be used to place the gradient on the mesh.
+# Once the lattice is created all the data is stored in the Lattice class and then
+# used for the solver. Lastly, the gradients are scaled by to simulate different
+# voltage settings.
+# ------------------------------------------------------------------------------
 user_input = False
 if user_input:
+    # Instantiate the class and use the extracted fields to create the mesh.
     lattice = Lattice()
     file_names = ("iso_zgrad.npy", "iso_esq_grad.npy")
     scales = []
+    # Scale the voltages and make the scales focus-defocus-focus-defocus
     for i in range(Nq):
         if i % 2 == 0:
             scales.append(-1.0)
@@ -245,6 +269,8 @@ else:
     scales *= (0.15, 0.2, 0.10, 0.20)
 
     lattice = Lattice()
+    # Create the hard edge equivalent. The max gradient is hardcoded and
+    # corresponds to the gradient in a quadrupole with Vq=400 V.
     lattice.hard_edge(lq, lq_eff, d, Vq, Nq, rp, scales, max_grad=2566538624.836261)
     z, gradz = lattice.z, lattice.grad
 
@@ -268,6 +294,10 @@ uxf, uyf = ux[-1], uy[-1]
 vxf, vyf = vx[-1], vy[-1]
 
 
+# ------------------------------------------------------------------------------
+#    Plot and Save
+# Plot various quanities and save the data.
+# ------------------------------------------------------------------------------
 fig, ax = plt.subplots()
 ax.set_xlabel("s (mm)")
 ax.set_ylabel(r"$\kappa (s)\, (\mathrm{m}^{-2})$")
