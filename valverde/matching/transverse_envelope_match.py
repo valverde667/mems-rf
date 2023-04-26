@@ -70,39 +70,6 @@ def beta(E, mass, q=1, nonrel=True):
     return beta
 
 
-def setup_lattice(lq, d, Vq, Nq, G=G_hardedge, res=res):
-    """Build hard-edge field gradient
-
-    Function will setup mesh with hard edge gradient ESQ. The quads will have
-    length lq and be seperated by a distance d. The lattice will be symmetric about
-    0 and will be OFODO where O is the drift length d."""
-
-    # Calculate length of lattice period.
-    Lp = lq * Nq + d * (Nq + 1)
-    Nz = int(Lp / res)
-    z = np.linspace(0.0, Lp, Nz)
-
-    # Find indices of lq centers and mask from center - lq/2 to center + lq/2
-    masks = []
-    for i in range(Nq):
-        this_zc = (i + 1) * d + i * lq + lq / 2
-        this_mask = (z >= this_zc - lq / 2) & (z <= this_zc + lq / 2)
-        masks.append(this_mask)
-
-    # Create gradient array
-    gradz = np.zeros(z.shape[0])
-    for i, mask in enumerate(masks):
-        if i % 2 == 0:
-            gradz[mask] = -G
-        else:
-            gradz[mask] = G
-
-    # Shift z array to be symmetric
-    z -= Lp / 2.0
-
-    return (z, gradz)
-
-
 class Lattice:
     def __init__(self):
         self.zmin = 0.0
