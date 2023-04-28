@@ -293,6 +293,11 @@ vx, vy = soln_matrix[:, 2], soln_matrix[:, 3]
 uxf, uyf = ux[-1], uy[-1]
 vxf, vyf = vx[-1], vy[-1]
 
+data = np.vstack((ux, uy, vx, vy, z))
+if user_input:
+    np.save("matching_solver_data", data)
+else:
+    np.save("matching_solver_data_hardedge", data)
 
 # ------------------------------------------------------------------------------
 #    Plot and Save
@@ -331,10 +336,3 @@ ax.legend()
 plt.show()
 print(f"Final (rx, ry) mm: {uxf/mm:.4f}, {uyf/mm:.4f}")
 print(f"Final (rpx, rpy) mrad: {vxf/mrad:.4f}, {vyf/mrad:.4f}")
-
-
-data = np.vstack((ux, uy, vx, vy, z))
-if user_input:
-    np.save("matching_solver_data", data)
-else:
-    np.save("matching_solver_data_hardedge", data)
