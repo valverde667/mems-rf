@@ -45,7 +45,7 @@ else:
 if inputs.voltage != False:
     voltage = inputs.voltage
 else:
-    voltage = 428.0
+    voltage = 400.0
 
 from imports import *
 from esq_geo import Mems_ESQ_SolidCyl
@@ -469,6 +469,24 @@ def interp2d_area(x_interp, y_interp, xmesh, ymesh, grid_data):
     return interp_data
 
 
+def calc_zmatch_sect(lq, d, Nq=4):
+    """Calculate the z-centers to place quadrupoles"""
+    zcents = np.empty(Nq)
+    for i in range(Nq):
+        this_zcent = d + 2 * i * d + lq * i + lq / 2
+        zcents[i] = this_zcent
+
+    return zcents
+
+
+# ------------------------------------------------------------------------------
+#                    Beam Settings
+# Beam specifications that are useful for calculating quantities like kappa
+# ------------------------------------------------------------------------------
+beam = wp.Species(type=wp.Argon, charge_state=+1)
+mass = beam.mass
+beam.ekin = 7e3
+
 # ------------------------------------------------------------------------------
 #                    Logical Flags
 # Logical flags for controlling various routines within the script. All flags
@@ -483,7 +501,7 @@ l_multple_barplots = False
 # ------------------------------------------------------------------------------
 #                     Create and load mesh and conductors
 # ------------------------------------------------------------------------------
-# Set paraemeeters for conductors
+# Set parameters for conductors
 separation = 0 * mm
 Nesq = 1
 
@@ -495,6 +513,10 @@ ESQ_length = aperture * scale_Lesq
 xycent = aperture + pole_rad
 walllength = 0.1 * mm
 wallzcent = ESQ_length + 1.0 * mm + walllength / 2
+
+Nq = 4
+d = 3 * mm
+quad_zcs = calc_zmatch_sect(ESQ_length, d, Nq=Nq)
 
 # Creat mesh using conductor geometries (above) to keep resolution consistent
 wp.w3d.xmmax = 1.5 * mm
@@ -508,9 +530,12 @@ wp.w3d.ymmin = wp.w3d.xmmin
 wp.w3d.ny = wp.w3d.nx
 
 # Calculate nz to get about designed dz
-wp.w3d.zmmax = 3 * mm
-wp.w3d.zmmin = -wp.w3d.zmmax
-design_dz = 20 * um
+
+# wp.w3d.zmmax = 3.3475 * mm
+# wp.w3d.zmmin = -wp.w3d.zmmax
+wp.w3d.zmmin = quad_zcs[0] - ESQ_length / 2 - d
+wp.w3d.zmmax = quad_zcs[-1] + ESQ_length / 2 + d
+design_dz = 65 * um
 calc_nz = (wp.w3d.zmmax - wp.w3d.zmmin) / design_dz
 wp.w3d.nz = int(calc_nz)
 
@@ -523,13 +548,17 @@ solver = wp.MRBlock3D()
 wp.registersolver(solver)
 
 # Create Quadrupole
-leftquad = Mems_ESQ_SolidCyl(0.0, "1", voltage, -voltage, chop=True)
-leftquad.set_geometry(rp=aperture, R=pole_rad, lq=ESQ_length)
-wp.installconductor(leftquad.generate())
+for i, zcs in enumerate(quad_zcs):
+    if i % 2 == 0:
+        this_volt = voltage
+    else:
+        this_volt = -voltage
 
+    this_quad = Mems_ESQ_SolidCyl(zcs, this_volt, -this_volt, chop=True)
+    this_quad.set_geometry(rp=aperture, R=pole_rad, lq=ESQ_length)
+    wp.installconductor(this_quad.generate())
 
 wp.generate()
-
 # ------------------------------------------------------------------------------
 #                     Calculate effective length
 # ------------------------------------------------------------------------------
@@ -548,10 +577,35 @@ Ez = wp.getselfe(comp="z")
 Emag = wp.getselfe(comp="E")
 gradex = Ex[xzeroindex + 1, yzeroindex, :] / wp.w3d.dx
 
+# iparts = [0]
+# c = [(quad_zcs[i]/ mm + quad_zcs[i+1]/mm) / 2 for i in range(len(quad_zcs) - 1)]
+# for cc in c:
+#     iparts.append(np.argmin(abs(cc-z/mm)))
+# iparts.append(len(z) -1)
+
+# grad_array = []
+# z_array = []
+# for i in range(len(iparts)-1):
+#     grad_array.append(gradex[iparts[i]:iparts[i+1]+1])
+#     z_array.append(z[iparts[i]:iparts[i+1]+1])
+
+# fig, ax = plt.subplots()
+# colors = ['k', 'b', 'g', 'm']
+# for i in range(len(colors)):
+#     ax.plot(z_array[i]/mm, grad_array[i], c=colors[i])
+
+# grad_array = np.array(grad_array)
+# z_array = np.array(z_array)
+# np.save("matching_section_gradient", grad_array)
+np.save("gradient", gradex)
+np.save("z", z)
+
 # Plot and calculate effective length
 dEdx = abs(gradex[:])
 ell = efflength(dEdx, wp.w3d.dz)
 print("Effective Length = ", ell / mm)
+kappa = wp.echarge * gradex / 2 / beam.ekin / wp.jperev
+stop
 # ------------------------------------------------------------------------------
 #                          Multipole Analysis
 # This section will do the multipole analysis.
@@ -1103,3 +1157,18 @@ if l_multple_barplots:
     plt.tight_layout()
     plt.savefig(savepath + "zoomed_multipole_coeffs.pdf", dpi=400)
     plt.show()
+
+
+if interp:
+    # Find index of closest two points
+    dists = np.sqrt(pow(a6 - interp_val, 2))
+    nearest_inds = dists.argsort()[:2]
+    yvals = a6[nearest_inds]
+    xvals = rod_fracs[nearest_inds]
+
+    s = pd.Series([xvals[0], np.nan, xvals[1]], index=[yvals[0], interp_val, yvals[1]])
+    interp_data = s.interpolate(method="index")
+    val = interp_data.iloc[1]
+
+    ax.axvline(x=val, c="k", lw=1, ls="--", label=fr"$R/r_p$ = {val:.3f}")
+    ax.legend()
