@@ -2,6 +2,7 @@
 # lattice creations.
 
 import numpy as np
+import scipy.optimize as sciopt
 import itertools
 import scipy.constants as SC
 import matplotlib.pyplot as plt
@@ -74,8 +75,7 @@ wp.derivqty()
 # Various functions and classes used in the script are defined here.
 # ------------------------------------------------------------------------------
 def create_combinations(s1, s2, s3, s4):
-    """Utility function for creating combinations of the array elements in s1-s4.
-    """
+    """Utility function for creating combinations of the array elements in s1-s4."""
     combinations = np.array(list(itertools.product(s1, s2, s3, s4)))
     return Vsets
 
@@ -238,7 +238,7 @@ def solver(solve_matrix, dz, kappa, emit, Q):
 # used for the solver. Lastly, the gradients are scaled by to simulate different
 # voltage settings.
 # ------------------------------------------------------------------------------
-user_input = False
+user_input = True
 if user_input:
     # Instantiate the class and use the extracted fields to create the mesh.
     lattice = Lattice()
@@ -274,7 +274,6 @@ else:
     lattice.hard_edge(lq, lq_eff, d, Vq, Nq, rp, scales, max_grad=2566538624.836261)
     z, gradz = lattice.z, lattice.grad
 
-
 # Solve KV equations
 dz = z[1] - z[0]
 kappa = wp.echarge * gradz / 2.0 / init_E / wp.jperev
@@ -300,6 +299,81 @@ else:
     np.save("matching_solver_data_hardedge", data)
 
 # ------------------------------------------------------------------------------
+#    Optimizer
+# Find a solution for the four quadrupole voltages to shape the beam. The final
+# coordinates rx,ry, rxp, ryp are to meet the target coordinate to match the
+# acceleration lattice.
+# ------------------------------------------------------------------------------
+# class Optimizer(Lattice):
+#     def __init__(self, initial_conds, guess, target, norms, filenames):
+#         super().__init__()
+#         self.Nq = Nq
+#         self.initial_conds = initial_conds
+#         self.guess = guess
+#         self.target = target
+#         self.cost_norms = norms
+#         self.filenames = filenames
+#         self.sol = None
+#         self.optimum = None
+#
+#     def calc_cost(self, data, target, norm):
+#         """Calculate cost function
+#
+#         The cost here is the mean-squared-error (MSE) which takes two vectors.
+#         The data vector contains the points from simulation. The target variables
+#         are what we seek to find. The scales are used to normalize the coordinate
+#         and angle vectors.
+#         """
+#
+#         cost = pow((data - target) * norm, 2)
+#         return np.sum(cost)
+#
+#     def func_to_optimize(self, V_scales):
+#         """"""
+#         # Solve KV equations for lattice design and input Voltage scales
+#         self.user_input(self.filenames, self.Nq, scales=V_scales)
+#         z, gradz = lattice.z, lattice.grad
+#
+#         # Solve KV equations
+#         dz = z[1] - z[0]
+#         kappa = wp.echarge * gradz / 2.0 / init_E / wp.jperev
+#
+#         soln_matrix = np.zeros(shape=(len(z), 4))
+#         soln_matrix[0, :] = self.initial_conds
+#
+#         solver(soln_matrix, dz, kappa, emit, Q)
+#         self.sol = soln_matrix[-1, :]
+#
+#         cost = self.calc_cost(self.sol, self.target, self.cost_norms)
+#         print(f"Cost: {cost:3f}")
+#
+#         return cost
+#
+#     def minimize_cost(self):
+#         res = sciopt.minimize(
+#             self.func_to_optimize,
+#             self.guess,
+#             method="nelder-mead",
+#             options={
+#                 "xatol": 1e-8,
+#                 "maxiter": 60,
+#                 "disp": True,
+#                 "adaptive": True,
+#             },
+#         )
+#         self.optimum = res
+#
+# x0 = np.array([rsource, rsource, div_angle, div_angle])
+# guess = scales
+# target = np.array([0.15 * mm, 0.28 * mm, 0.847 * mrad, -11.146 * mrad])
+# rp_norm = 1 / 24 * mrad
+# norms = np.array([1.0 / rp, 1.0 / rp, rp_norm, rp_norm])
+#
+# opt = Optimizer(x0, guess, target, norms, file_names)
+# opt.minimize_cost()
+
+stop
+# ------------------------------------------------------------------------------
 #    Plot and Save
 # Plot various quanities and save the data.
 # ------------------------------------------------------------------------------
@@ -310,7 +384,7 @@ data_he = np.load("matching_solver_data_hardedge.npy")
 fig, ax = plt.subplots()
 ax.set_xlabel("s (mm)")
 ax.set_ylabel(r"$\kappa (z)/\hat{\kappa}$")
-plt.plot(z / mm, kappa)
+plt.plot(z / mm, kappa / k0)
 plt.show()
 
 fig, ax = plt.subplots()
