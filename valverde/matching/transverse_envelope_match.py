@@ -303,9 +303,13 @@ else:
 #    Plot and Save
 # Plot various quanities and save the data.
 # ------------------------------------------------------------------------------
+k0 = 2 * 500 / 7e3 / pow(0.55e-3, 2)
+kappa_he = np.load("kappa_he.npy")
+data_he = np.load("matching_solver_data_hardedge.npy")
+
 fig, ax = plt.subplots()
 ax.set_xlabel("s (mm)")
-ax.set_ylabel(r"$\kappa (s)\, (\mathrm{m}^{-2})$")
+ax.set_ylabel(r"$\kappa (z)/\hat{\kappa}$")
 plt.plot(z / mm, kappa)
 plt.show()
 
@@ -326,11 +330,12 @@ ax.plot(z / mm, vy / mm, label=r"$rp_y(s)$")
 ax.legend()
 
 fig, ax = plt.subplots()
-plt.plot(data[0, :] / mm, data[1, :], c="b", label="Extracted")
-plt.plot(data_he[0, :] / mm, data_he[1, :], c="g", alpha=0.5, label="Hard-Edge")
+plt.plot(data[-1, :] / mm, kappa / k0, c="b", label="Extracted")
+plt.plot(data_he[-1, :] / mm, kappa_he / k0, c="g", alpha=0.5, label="Hard-Edge")
 ax.axhline(y=0, c="k", lw=0.5)
 ax.set_xlabel("z (mm)")
-ax.set_ylabel(r"$\kappa(z)\, (\mathrm{m}^{-2})$")
+ax.set_ylabel(r"$\kappa(z)/\hat{\kappa}$")
+plt.savefig("/Users/nickvalverde/Desktop/kappa_lattice.svg")
 ax.legend()
 
 plt.show()
