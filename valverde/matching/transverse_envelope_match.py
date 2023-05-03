@@ -391,7 +391,8 @@ print(f"Fraction Errors: {errors}")
 #    Plot and Save
 # Plot various quanities and save the data.
 # ------------------------------------------------------------------------------
-k0 = 2 * 500 / 7e3 / pow(0.55e-3, 2)
+k0 = 2 * 0.5 * kV
+k0 = k0 / 7 / kV / pow(rp, 2)
 kappa_he = np.load("kappa_he.npy")
 data_he = np.load("matching_solver_data_hardedge.npy")
 
