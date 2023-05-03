@@ -304,73 +304,69 @@ else:
 # coordinates rx,ry, rxp, ryp are to meet the target coordinate to match the
 # acceleration lattice.
 # ------------------------------------------------------------------------------
-# class Optimizer(Lattice):
-#     def __init__(self, initial_conds, guess, target, norms, filenames):
-#         super().__init__()
-#         self.Nq = Nq
-#         self.initial_conds = initial_conds
-#         self.guess = guess
-#         self.target = target
-#         self.cost_norms = norms
-#         self.filenames = filenames
-#         self.sol = None
-#         self.optimum = None
-#
-#     def calc_cost(self, data, target, norm):
-#         """Calculate cost function
-#
-#         The cost here is the mean-squared-error (MSE) which takes two vectors.
-#         The data vector contains the points from simulation. The target variables
-#         are what we seek to find. The scales are used to normalize the coordinate
-#         and angle vectors.
-#         """
-#
-#         cost = pow((data - target) * norm, 2)
-#         return np.sum(cost)
-#
-#     def func_to_optimize(self, V_scales):
-#         """"""
-#         # Solve KV equations for lattice design and input Voltage scales
-#         self.user_input(self.filenames, self.Nq, scales=V_scales)
-#         z, gradz = self.z, self.grad
-#
-#         # Solve KV equations
-#         dz = z[1] - z[0]
-#         kappa = wp.echarge * gradz / 2.0 / init_E / wp.jperev
-#
-#         soln_matrix = np.zeros(shape=(len(z), 4))
-#         soln_matrix[0, :] = self.initial_conds
-#
-#         solver(soln_matrix, dz, kappa, emit, Q)
-#         self.sol = soln_matrix[-1, :]
-#
-#         cost = self.calc_cost(self.sol, self.target, self.cost_norms)
-#         print(f"Cost: {cost:3f}")
-#
-#         return cost
-#
-#     def minimize_cost(self):
-#         res = sciopt.minimize(
-#             self.func_to_optimize,
-#             self.guess,
-#             method="nelder-mead",
-#             options={
-#                 "xatol": 1e-8,
-#                 "maxiter": 60,
-#                 "disp": True,
-#                 "adaptive": True,
-#             },
-#         )
-#         self.optimum = res
-#
-# x0 = np.array([rsource, rsource, div_angle, div_angle])
-# guess = np.array([-0.3135, 0.4592, -0.1879, -0.3422])
-# target = np.array([0.15 * mm, 0.28 * mm, 0.847 * mrad, -11.146 * mrad])
-# rp_norm = 1 / 21 / mrad
-# norms = np.array([1.0 / rp, 1.0 / rp, rp_norm, rp_norm])
+class Optimizer(Lattice):
+    def __init__(self, initial_conds, guess, target, norms, filenames):
+        super().__init__()
+        self.Nq = Nq
+        self.initial_conds = initial_conds
+        self.guess = guess
+        self.target = target
+        self.cost_norms = norms
+        self.filenames = filenames
+        self.sol = None
+        self.optimum = None
 
-# opt = Optimizer(x0, guess, target, norms, file_names)
-# opt.minimize_cost()
+    def calc_cost(self, data, target, norm):
+        """Calculate cost function
+
+        The cost here is the mean-squared-error (MSE) which takes two vectors.
+        The data vector contains the points from simulation. The target variables
+        are what we seek to find. The scales are used to normalize the coordinate
+        and angle vectors.
+        """
+
+        cost = pow((data - target) * norm, 2)
+        return np.sum(cost)
+
+    def func_to_optimize(self, V_scales):
+        """"""
+        # Solve KV equations for lattice design and input Voltage scales
+        self.user_input(self.filenames, self.Nq, scales=V_scales)
+        z, gradz = self.z, self.grad
+
+        # Solve KV equations
+        dz = z[1] - z[0]
+        kappa = wp.echarge * gradz / 2.0 / init_E / wp.jperev
+
+        soln_matrix = np.zeros(shape=(len(z), 4))
+        soln_matrix[0, :] = self.initial_conds
+
+        solver(soln_matrix, dz, kappa, emit, Q)
+        self.sol = soln_matrix[-1, :]
+
+        cost = self.calc_cost(self.sol, self.target, self.cost_norms)
+        print(f"Cost: {cost:3f}")
+
+        return cost
+
+    def minimize_cost(self):
+        res = sciopt.minimize(
+            self.func_to_optimize,
+            self.guess,
+            method="nelder-mead",
+            options={"xatol": 1e-8, "maxiter": 60, "disp": True, "adaptive": True,},
+        )
+        self.optimum = res
+
+
+x0 = np.array([rsource, rsource, div_angle, div_angle])
+guess = np.array([-0.3135, 0.4592, -0.1879, -0.3422])
+target = np.array([0.15 * mm, 0.28 * mm, 0.847 * mrad, -11.146 * mrad])
+rp_norm = 1 / 21 / mrad
+norms = np.array([1.0 / rp, 1.0 / rp, rp_norm, rp_norm])
+
+opt = Optimizer(x0, guess, target, norms, file_names)
+opt.minimize_cost()
 
 # ------------------------------------------------------------------------------
 #    Plot and Save
