@@ -332,7 +332,7 @@ else:
 #         """"""
 #         # Solve KV equations for lattice design and input Voltage scales
 #         self.user_input(self.filenames, self.Nq, scales=V_scales)
-#         z, gradz = lattice.z, lattice.grad
+#         z, gradz = self.z, self.grad
 #
 #         # Solve KV equations
 #         dz = z[1] - z[0]
@@ -364,15 +364,14 @@ else:
 #         self.optimum = res
 #
 # x0 = np.array([rsource, rsource, div_angle, div_angle])
-# guess = scales
+# guess = np.array([-0.3135, 0.4592, -0.1879, -0.3422])
 # target = np.array([0.15 * mm, 0.28 * mm, 0.847 * mrad, -11.146 * mrad])
-# rp_norm = 1 / 24 * mrad
+# rp_norm = 1 / 21 / mrad
 # norms = np.array([1.0 / rp, 1.0 / rp, rp_norm, rp_norm])
-#
+
 # opt = Optimizer(x0, guess, target, norms, file_names)
 # opt.minimize_cost()
 
-stop
 # ------------------------------------------------------------------------------
 #    Plot and Save
 # Plot various quanities and save the data.
