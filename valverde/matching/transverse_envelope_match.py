@@ -315,21 +315,30 @@ class Optimizer(Lattice):
         self.filenames = filenames
         self.sol = None
         self.optimum = None
+        self.cost_hist = []
 
     def calc_cost(self, data, target, norm):
         """Calculate cost function
 
         The cost here is the mean-squared-error (MSE) which takes two vectors.
-        The data vector contains the points from simulation. The target variables
-        are what we seek to find. The scales are used to normalize the coordinate
-        and angle vectors.
+        The data vector containing the coordinates extracted from simulation and
+        the target variables are we are seeking. The scales are used to
+        normalize the coordinate and angle vectors so that they are of similar
+        scale.
         """
-
         cost = pow((data - target) * norm, 2)
         return np.sum(cost)
 
     def func_to_optimize(self, V_scales):
-        """"""
+        """Single input function to min/maximize
+
+        Most optimizers take in a function with a single input that is the
+        parameters to optimize for. The voltage scales are used here that
+        scale the focusing strength. The gradient is then created from the
+        lattice class and the KV-envelope equation solved for.
+        The final coordinates are then extracted and the MSE is computed for
+        the cost function."""
+
         # Solve KV equations for lattice design and input Voltage scales
         self.user_input(self.filenames, self.Nq, scales=V_scales)
         z, gradz = self.z, self.grad
@@ -337,36 +346,46 @@ class Optimizer(Lattice):
         # Solve KV equations
         dz = z[1] - z[0]
         kappa = wp.echarge * gradz / 2.0 / init_E / wp.jperev
-
         soln_matrix = np.zeros(shape=(len(z), 4))
         soln_matrix[0, :] = self.initial_conds
-
         solver(soln_matrix, dz, kappa, emit, Q)
+
+        # Store solution
         self.sol = soln_matrix[-1, :]
 
+        # Compute cost and save to history
         cost = self.calc_cost(self.sol, self.target, self.cost_norms)
-        print(f"Cost: {cost:3f}")
+        self.cost_hist.append(cost)
 
         return cost
 
-    def minimize_cost(self):
+    def minimize_cost(self, max_iter=200):
+        """Function that will run optimizer and output results
+
+        This function contains the actual optimizer that will be used. Currently
+        it is a prepackaged optimizer from the Scipy library. There are numerous
+        options for the optimizer and this function can be modified to include
+        options in the arguments."""
+
         res = sciopt.minimize(
             self.func_to_optimize,
             self.guess,
             method="nelder-mead",
-            options={"xatol": 1e-8, "maxiter": 60, "disp": True, "adaptive": True,},
+            options={"xatol": 1e-8, "maxiter": max_iter, "disp": True},
         )
         self.optimum = res
 
 
 x0 = np.array([rsource, rsource, div_angle, div_angle])
-guess = np.array([-0.3135, 0.4592, -0.1879, -0.3422])
+guess = scales
 target = np.array([0.15 * mm, 0.28 * mm, 0.847 * mrad, -11.146 * mrad])
-rp_norm = 1 / 21 / mrad
-norms = np.array([1.0 / rp, 1.0 / rp, rp_norm, rp_norm])
+rp_norm = 21 * mrad
+norms = np.array([1 / rp, 1 / rp, 1 / rp_norm, 1 / rp_norm])
 
 opt = Optimizer(x0, guess, target, norms, file_names)
-opt.minimize_cost()
+opt.minimize_cost(max_iter=300)
+errors = abs((target - solutions) / target)
+print(f"Fraction Errors: {errors}")
 
 # ------------------------------------------------------------------------------
 #    Plot and Save
