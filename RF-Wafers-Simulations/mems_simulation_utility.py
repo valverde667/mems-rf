@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.constants as SC
+import os
 import warp as wp
 
 # useful constants
@@ -7,6 +8,7 @@ mm = 1e-3
 um = 1e-6
 kV = 1e3
 keV = 1e3
+uA = 1e-6
 twopi = 2 * np.pi
 
 
