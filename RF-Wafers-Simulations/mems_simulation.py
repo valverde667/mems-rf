@@ -130,13 +130,12 @@ def set_lhistories():
 # arguments. Setting to a designated section for better organization and
 # overview. Eventually this will be stripped and turn into an input file.
 # ------------------------------------------------------------------------------
-
 # Specify conductor characteristics
 lq = 0.696 * mm
 Vq = 0.05 * kV
 gap_width = 2 * mm
 Vg = 5 * kV
-Ng = 2
+Ng = 4
 
 # Match section Parameters
 esq_space = 3.0 * mm
@@ -151,6 +150,12 @@ hrf = SC.c / freq
 period = 1.0 / freq
 emittingRadius = 0.25 * mm
 aperture = 0.55 * mm
+
+# Lattice Controls
+do_matching_section = False
+do_focusing_quads = False
+moving_frame = True
+moving_win_size = 13.5 * mm
 
 # Beam Paramters
 init_E = 7.0 * keV
@@ -194,8 +199,10 @@ for i in range(Ng):
     E_s += dsgn_Egain
 
 gap_centers = np.array(gap_dist).cumsum()
-match_centers = mems_utils.calc_zmatch_sect(lq, esq_space, Nq=Nq_match)
-match_centers -= match_centers.max() + lq / 2 + esq_space
+
+if do_matching_section:
+    match_centers = mems_utils.calc_zmatch_sect(lq, esq_space, Nq=Nq_match)
+    match_centers -= match_centers.max() + lq / 2 + esq_space
 
 # Calculate phase shift needed to be in resonance
 phase_shift = mems_utils.calc_phase_shift(
@@ -221,9 +228,24 @@ wp.w3d.xmmin = -wp.w3d.xmmax
 wp.w3d.ymmax = wp.w3d.xmmax
 wp.w3d.ymmin = -wp.w3d.ymmax
 
-# Max and min here will determine length of lab window.
-wp.w3d.zmmin = (match_centers[0] - lq / 2.0 - esq_space) * 0
-wp.w3d.zmmax = gap_centers[0] + gap_width / 2.0
+# If the frame is moving then the min and max will need to be the length of the
+# moving window. If the frame isn't moving, then the grid will need to encapsulate
+# the simulation lattice.
+if moving_frame:
+    if do_matching_section:
+        wp.w3d.zmmin = match_centers[0] - lq / 2.0 - esq_space
+        wp.w3d.zmmax = 2.0 * moving_win_size + wp.w3d.zmmin
+    else:
+        wp.w3d.zmmin = -1 * mm
+        wp.w3d.zmmax = wp.w3d.zmmin + moving_win_size
+else:
+    if do_matching_section:
+        wp.w3d.zmmin = match_centers[0] - lq / 2.0 - esq_space
+        wp.w3d.zmmax = gap_centers[0] + gap_wdith / 2.0 + Fcup_dist
+    else:
+        wp.w3d.zmmin = -1 * mm
+        wp.w3d.zmmax = gap_centers[0] + gap_width / 2.0 + Fcup_dist
+
 wp.w3d.nx = 75
 wp.w3d.ny = 75
 wp.w3d.nz = 300
@@ -322,10 +344,11 @@ zdiagns.append(ZCrossingParticles(zz=2.0 * dz, laccumulate=1))
 
 # Loop through quad centers in matching section and place diagnostics at center
 # point between quads.
-for i in range(Nq_match - 1):
-    zloc = (match_centers[i + 1] + match_centers[i]) / 2.0
-    ilws.append(wp.addlabwindow(zloc))
-    zdiagns.append(ZCrossingParticles(zz=zloc, laccumulate=1))
+if do_matching_section:
+    for i in range(Nq_match - 1):
+        zloc = (match_centers[i + 1] + match_centers[i]) / 2.0
+        ilws.append(wp.addlabwindow(zloc))
+        zdiagns.append(ZCrossingParticles(zz=zloc, laccumulate=1))
 
 # Loop through gap_centers and place diagnostics at center point between gaps.
 for i in range(Ng - 1):
@@ -388,14 +411,15 @@ for i, pos in enumerate(gap_centers):
 
 # Create matching section consisting of four quadrupoles.
 Vq_match = np.array([97.3053476, -150.58980624, -32.01017919, 142.00741896])
-for i, pos in enumerate(match_centers):
-    this_zc = pos
-    this_Vq = Vq_match[i]
+if do_matching_section:
+    for i, pos in enumerate(match_centers):
+        this_zc = pos
+        this_Vq = Vq_match[i]
 
-    this_ESQ = mems_utils.Mems_ESQ_SolidCyl(this_zc, this_Vq, -this_Vq, chop=True)
-    this_ESQ.set_geometry(rp=aperture, R=1.3 * aperture, lq=lq)
-    this_cond = this_ESQ.generate()
-    # conductors.append(this_cond)
+        this_ESQ = mems_utils.Mems_ESQ_SolidCyl(this_zc, this_Vq, -this_Vq, chop=True)
+        this_ESQ.set_geometry(rp=aperture, R=1.3 * aperture, lq=lq)
+        this_cond = this_ESQ.generate()
+        conductors.append(this_cond)
 
 # Create and intialize the scraper that will collect lost particle data.
 aperture_wall = wp.ZCylinderOut(
@@ -408,17 +432,18 @@ Fcup = wp.Box(
     zcent=zdiagns[-1].getzz() + 2 * mm,
 )
 
-# Calculate ESQ center positions and then install.
-esq_pos = mems_utils.calc_zESQ(gap_centers, gap_centers[-1] + Fcup_dist, lq=lq)
+if do_focusing_quads:
+    # Calculate ESQ center positions and then install.
+    esq_pos = mems_utils.calc_zESQ(gap_centers, gap_centers[-1] + Fcup_dist, lq=lq)
 
-# Loop through ESQ positions and place ESQs with alternating bias
-Vq_list = np.ones(shape=len(esq_pos))
-Vq_list[::1] *= -Vq  # Alternate signs in list
-for i, pos in enumerate(esq_pos):
-    this_ESQ = mems_utils.Mems_ESQ_SolidCyl(pos, Vq_list[i], -Vq_list[i], chop=True)
-    this_ESQ.set_geometry(rp=aperture, R=0.68 * aperture, lq=lq)
-    this_cond = this_ESQ.generate()
-    conductors.append(this_cond)
+    # Loop through ESQ positions and place ESQs with alternating bias
+    Vq_list = np.ones(shape=len(esq_pos))
+    Vq_list[::1] *= -Vq  # Alternate signs in list
+    for i, pos in enumerate(esq_pos):
+        this_ESQ = mems_utils.Mems_ESQ_SolidCyl(pos, Vq_list[i], -Vq_list[i], chop=True)
+        this_ESQ.set_geometry(rp=aperture, R=0.68 * aperture, lq=lq)
+        this_cond = this_ESQ.generate()
+        conductors.append(this_cond)
 
 
 for cond in conductors:
