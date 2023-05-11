@@ -6,6 +6,8 @@ import warp as wp
 # useful constants
 mm = 1e-3
 um = 1e-6
+ns = 1e-9
+mrad = 1e-3
 kV = 1e3
 keV = 1e3
 uA = 1e-6
