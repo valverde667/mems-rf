@@ -135,14 +135,15 @@ lq = 0.696 * mm
 Vq = 0.05 * kV
 gap_width = 2 * mm
 Vg = 5 * kV
-Ng = 4
+Ng = 8
+Fcup_dist = 10 * mm
+
 
 # Match section Parameters
-esq_space = 3.0 * mm
+esq_space = 2.0 * mm
 Vq_match = 0.2 * kV
 Nq_match = 4
 
-Fcup_dist = 10 * mm
 
 # Operating parameters
 freq = 13.6 * MHz
@@ -166,8 +167,7 @@ init_I = 10 * uA
 Np_injected = 0  # initialize injection counter
 Np_max = int(1e5)
 
-# Sepcify the design phase.
-dsgn_phase = -np.pi / 3.0
+dsgn_phase = -np.pi / 2.0
 
 # Specify Species and ion type
 beam = wp.Species(type=wp.Argon, charge_state=1, name="Ar+", color=wp.blue)
@@ -199,6 +199,7 @@ for i in range(Ng):
     E_s += dsgn_Egain
 
 gap_centers = np.array(gap_dist).cumsum()
+
 
 if do_matching_section:
     match_centers = mems_utils.calc_zmatch_sect(lq, esq_space, Nq=Nq_match)
@@ -289,7 +290,10 @@ beam.pgroup.sw[0] = pweight
 
 # Set z-location of injection. This uses the phase shift to ensure rf resonance
 # with the trace particle
-wp.top.zinject = wp.w3d.zmmin + 2.0 * dz
+if do_matching_section:
+    wp.top.zinject = wp.w3d.zmmin + 2 * dz
+else:
+    wp.top.zinject = 0.0
 
 # Create injection scheme. A uniform cylinder will be injected with each time
 # step.
@@ -314,6 +318,8 @@ def injection():
         vthy=vth,
         vthz=vth,
         vzmean=beam.vbeam,
+        vxmean=div_angle * beam.vbeam,
+        vymean=div_angle * beam.vbeam,
     )
 
 
@@ -496,6 +502,7 @@ def plotbeam(lplt_tracker=False):
     xxr = np.ones(yy.shape[0]) * lab_center + wp.top.zbeam + zwin_length / 2.0
     wp.plg(yy, xxl, color="magenta")
     wp.plg(yy, xxr, color="magenta")
+    print(f"# ------- Tracker At: {tracker.getz()[-1]/mm:.3f} (mm)")
 
     if lplt_tracker:
         wp.plp(tracker.getx()[-1], tracker.getz()[-1], color=wp.red, msize=3)
