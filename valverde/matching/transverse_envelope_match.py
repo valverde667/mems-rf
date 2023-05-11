@@ -52,7 +52,7 @@ Q = 6.986e-5
 emit = 1.336 * mm * mrad
 init_E = 7 * keV
 init_I = 10 * uA
-div_angle = 3.78 * mrad * 0.0
+div_angle = 3.78 * mrad
 Tb = 0.1  # eV
 
 # Beam specifications
@@ -297,6 +297,7 @@ if user_input:
     np.save("matching_solver_data", data)
 else:
     np.save("matching_solver_data_hardedge", data)
+    np.save("kappa_he", kappa)
 
 # ------------------------------------------------------------------------------
 #    Optimizer
@@ -376,16 +377,18 @@ class Optimizer(Lattice):
         self.optimum = res
 
 
-x0 = np.array([rsource, rsource, div_angle, div_angle])
-guess = scales
-target = np.array([0.15 * mm, 0.28 * mm, 0.847 * mrad, -11.146 * mrad])
-rp_norm = 21 * mrad
-norms = np.array([1 / rp, 1 / rp, 1 / rp_norm, 1 / rp_norm])
+find_voltages = False
+if find_voltages:
+    x0 = np.array([rsource, rsource, div_angle, div_angle])
+    guess = scales
+    target = np.array([0.15 * mm, 0.28 * mm, 0.847 * mrad, -11.146 * mrad])
+    rp_norm = 21 * mrad
+    norms = np.array([1 / rp, 1 / rp, 1 / rp_norm, 1 / rp_norm])
 
-opt = Optimizer(x0, guess, target, norms, file_names)
-opt.minimize_cost(max_iter=300)
-errors = abs((target - solutions) / target)
-print(f"Fraction Errors: {errors}")
+    opt = Optimizer(x0, guess, target, norms, file_names)
+    opt.minimize_cost(max_iter=300)
+    errors = abs((target - solutions) / target)
+    print(f"Fraction Errors: {errors}")
 
 # ------------------------------------------------------------------------------
 #    Plot and Save
