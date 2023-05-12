@@ -503,7 +503,8 @@ def plotbeam(lplt_tracker=False):
     xxr = np.ones(yy.shape[0]) * lab_center + wp.top.zbeam + zwin_length / 2.0
     wp.plg(yy, xxl, color="magenta")
     wp.plg(yy, xxr, color="magenta")
-    print(f"# ------- Tracker At: {tracker.getz()[-1]/mm:.3f} (mm)")
+    print(f"# ------- Tracker x: {tracker.getx()[-1]/mm:.3f} (mm)")
+    print(f"# ------- Tracker z: {tracker.getz()[-1]/mm:.3f} (mm)")
 
     if lplt_tracker:
         wp.plp(tracker.getx()[-1], tracker.getz()[-1], color=wp.red, msize=3)
