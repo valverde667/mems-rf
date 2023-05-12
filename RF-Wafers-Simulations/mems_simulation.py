@@ -381,7 +381,7 @@ x, y, z = wp.w3d.xmesh, wp.w3d.ymesh, wp.w3d.zmesh
 
 # Add tracker beam that will record full history. This must be set after
 # generate is called.
-tracked_ions = wp.Species(type=wp.Argon, charge_state=1, name="Track", color=wp.red)
+tracked_ions = wp.Species(type=wp.Argon, charge_state=0, name="Track", color=wp.red)
 tracker = TraceParticle(
     js=tracked_ions.js, x=0.0, y=0.0, z=wp.top.zinject[0], vx=0.0, vy=0.0, vz=beam.vbeam
 )
