@@ -318,8 +318,9 @@ def injection():
         vthy=vth,
         vthz=vth,
         vzmean=beam.vbeam,
-        vxmean=div_angle * beam.vbeam,
-        vymean=div_angle * beam.vbeam,
+        vxmean=0.0,
+        vymean=0.0,
+        vrmax=beam.vbeam * div_angle,
     )
 
 
@@ -510,13 +511,13 @@ def plotbeam(lplt_tracker=False):
 
 # Inject particles for a full-period, then inject the tracker particle and
 # continue injection till the tracker particle is at grid center.
-# while wp.top.time < 1 * period:
-#     if wp.top.it % 10 == 0:
-#         wp.window(2)
-#         plotbeam()
-#         wp.fma()
+while wp.top.time < 1 * period:
+    if wp.top.it % 10 == 0:
+        wp.window(2)
+        plotbeam()
+        wp.fma()
 
-#     wp.step(1)
+    wp.step(1)
 
 # Turn on tracker
 tracker.enable()
