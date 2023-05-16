@@ -138,7 +138,7 @@ def set_lhistories():
 # ------------------------------------------------------------------------------
 # Specify conductor characteristics
 lq = 0.696 * mm
-Vq = 0.05 * kV
+Vq = 0.2 * kV
 gap_width = 2 * mm
 Vg = 5 * kV
 Ng = 2
@@ -146,8 +146,8 @@ Fcup_dist = 10 * mm
 
 # Match section Parameters
 esq_space = 2.0 * mm
-Vq_match = 0.2 * kV
-Nq_match = 4
+Vq_match = np.array([-122.4192, 203.9838, -191.2107, 107.0136])  # Volts
+Nq_match = len(Vq_match)
 
 # Operating parameters
 freq = 13.6 * MHz
@@ -438,7 +438,6 @@ for i, pos in enumerate(gap_centers):
     conductors.append(this_rcond)
 
 # Create matching section consisting of four quadrupoles.
-Vq_match = np.array([-122.4192, 203.9838, -191.2107, 107.0136])
 if do_matching_section:
     for i, pos in enumerate(match_centers):
         this_zc = pos
