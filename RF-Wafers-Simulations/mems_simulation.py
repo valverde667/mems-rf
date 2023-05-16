@@ -91,6 +91,12 @@ thisrunID = warpoptions.options.name
 # ------------------------------------------------------------------------------
 
 
+def reset_tracker(particle_object, index, xpos):
+    """Manually reset the tracker object index value to xpos"""
+    tracker.spx[0].data()[index] = xpos
+    tracker.spy[0].data()[index] = xpos
+
+
 def set_lhistories():
     """Utility function to set all the history flags wanted for sim.
 
@@ -135,15 +141,13 @@ lq = 0.696 * mm
 Vq = 0.05 * kV
 gap_width = 2 * mm
 Vg = 5 * kV
-Ng = 8
+Ng = 2
 Fcup_dist = 10 * mm
-
 
 # Match section Parameters
 esq_space = 2.0 * mm
 Vq_match = 0.2 * kV
 Nq_match = 4
-
 
 # Operating parameters
 freq = 13.6 * MHz
@@ -171,6 +175,7 @@ dsgn_phase = -np.pi / 2.0
 
 # Specify Species and ion type
 beam = wp.Species(type=wp.Argon, charge_state=1, name="Ar+", color=wp.blue)
+tracked_ions = wp.Species(type=wp.Argon, charge_state=0, name="Track", color=wp.red)
 mass_eV = beam.mass * pow(SC.c, 2) / wp.jperev
 # ------------------------------------------------------------------------------
 #     Gap Centers
@@ -182,8 +187,8 @@ mass_eV = beam.mass * pow(SC.c, 2) / wp.jperev
 # ensure proper particle-particle interactions at the head of the beam.
 # ------------------------------------------------------------------------------
 # Design phases are specified with the max field corresponding to phi_s=0.
-phi_s = np.ones(Ng) * dsgn_phase * 0
-phi_s[1:] = np.linspace(-np.pi / 3, -0.0, Ng - 1) * 0
+phi_s = np.ones(Ng) * dsgn_phase
+# phi_s[1:] = np.linspace(-np.pi / 3, -0.0, Ng - 1)
 gap_dist = np.zeros(Ng)
 E_s = init_E
 for i in range(Ng):
@@ -247,8 +252,8 @@ else:
         wp.w3d.zmmin = -1 * mm
         wp.w3d.zmmax = gap_centers[0] + gap_width / 2.0 + Fcup_dist
 
-wp.w3d.nx = 75
-wp.w3d.ny = 75
+wp.w3d.nx = 100
+wp.w3d.ny = 100
 wp.w3d.nz = 300
 lab_center = (wp.w3d.zmmax + wp.w3d.zmmin) / 2.0
 dz = (wp.w3d.zmmax - wp.w3d.zmmin) / wp.w3d.nz
@@ -286,7 +291,8 @@ inj_dz = beam.vbeam * wp.top.dt
 # Calculate and set the weight of particle
 Np_inject = int(Np_max / (period / wp.top.dt))
 pweight = wp.top.dt * init_I / beam.charge / Np_inject
-beam.pgroup.sw[0] = pweight
+beam.pgroup.sw[beam.js] = pweight
+tracked_ions.pgroup.sw[tracked_ions.js] = 0
 
 # Set z-location of injection. This uses the phase shift to ensure rf resonance
 # with the trace particle
@@ -294,6 +300,16 @@ if do_matching_section:
     wp.top.zinject = wp.w3d.zmmin + 2 * dz
 else:
     wp.top.zinject = 0.0
+
+# Calculate phase shift needed to be in resonance
+phase_shift = mems_utils.calc_phase_shift(
+    phi_s[0],
+    freq,
+    gap_centers[0] - wp.top.zinject[0],
+    init_E,
+    beam.mass * pow(SC.c, 2) / wp.jperev,
+)
+rf_volt = lambda time: Vg * np.cos(twopi * freq * time + phase_shift)
 
 # Create injection scheme. A uniform cylinder will be injected with each time
 # step.
@@ -382,9 +398,14 @@ x, y, z = wp.w3d.xmesh, wp.w3d.ymesh, wp.w3d.zmesh
 
 # Add tracker beam that will record full history. This must be set after
 # generate is called.
-tracked_ions = wp.Species(type=wp.Argon, charge_state=0, name="Track", color=wp.red)
 tracker = TraceParticle(
-    js=tracked_ions.js, x=0.0, y=0.0, z=wp.top.zinject[0], vx=0.0, vy=0.0, vz=beam.vbeam
+    js=tracked_ions.js,
+    x=0.0 * mm,
+    y=0.0,
+    z=wp.top.zinject[0],
+    vx=0.0,
+    vy=0.0,
+    vz=beam.vbeam,
 )
 
 # For unknown reasons, the tracer cannot be placed arbitrarily in the injection
@@ -397,7 +418,7 @@ tracker.disable()
 solver.gridmode = 0
 
 for i, pa in enumerate(gap_centers):
-    print(f"Unit {i} placed at {pa}")
+    print(f"RF Gap Center {i+1} placed at {pa/mm:3f} (mm)")
 
 # Create list of conductors to hold the created gaps and ESQs
 conductors = []
@@ -417,7 +438,7 @@ for i, pos in enumerate(gap_centers):
     conductors.append(this_rcond)
 
 # Create matching section consisting of four quadrupoles.
-Vq_match = np.array([97.3053476, -150.58980624, -32.01017919, 142.00741896])
+Vq_match = np.array([-122.4192, 203.9838, -191.2107, 107.0136])
 if do_matching_section:
     for i, pos in enumerate(match_centers):
         this_zc = pos
@@ -441,7 +462,9 @@ Fcup = wp.Box(
 
 if do_focusing_quads:
     # Calculate ESQ center positions and then install.
-    esq_pos = mems_utils.calc_zESQ(gap_centers, gap_centers[-1] + Fcup_dist, lq=lq)
+    esq_pos = mems_utils.calc_zESQ(
+        gap_centers, gap_centers[-1] + Fcup_dist, d=esq_space, lq=lq
+    )
 
     # Loop through ESQ positions and place ESQs with alternating bias
     Vq_list = np.ones(shape=len(esq_pos))
@@ -503,7 +526,8 @@ def plotbeam(lplt_tracker=False):
     xxr = np.ones(yy.shape[0]) * lab_center + wp.top.zbeam + zwin_length / 2.0
     wp.plg(yy, xxl, color="magenta")
     wp.plg(yy, xxr, color="magenta")
-    print(f"# ------- Tracker x: {tracker.getx()[-1]/mm:.3f} (mm)")
+
+    print(f"# ------- Tracker x: {tracker.getx()[-1]/mm:.4f} (mm)")
     print(f"# ------- Tracker z: {tracker.getz()[-1]/mm:.3f} (mm)")
 
     if lplt_tracker:
@@ -512,7 +536,7 @@ def plotbeam(lplt_tracker=False):
 
 # Inject particles for a full-period, then inject the tracker particle and
 # continue injection till the tracker particle is at grid center.
-while wp.top.time < 1 * period:
+while wp.top.time < 1.0 * period:
     if wp.top.it % 10 == 0:
         wp.window(2)
         plotbeam()
@@ -525,6 +549,7 @@ tracker.enable()
 
 # Wait for tracker to get to the center of the cell and then start moving frame
 while tracker.getz()[-1] < lab_center:
+    reset_tracker(tracker, int(len(tracker.getx()) - 1), 0.0)
     if wp.top.it % 5 == 0:
         wp.window(2)
         plotbeam(lplt_tracker=True)
@@ -549,8 +574,9 @@ wp.uninstalluserinjection(injection)
 
 wp.top.vbeamfrm = tracker.getvz()[-1]
 # wp.top.dt = 0.7 * dz / tracker.getvz()[-1]
-while tracker.getz()[-1] < zdiagns[-1].getzz():
+while tracker.getz()[-1] < Fcup.zcent - Fcup.zsize:
     wp.top.vbeamfrm = tracker.getvz()[-1]
+    reset_tracker(tracker, int(len(tracker.getx()) - 1), 0.0)
     if wp.top.it % 5 == 0:
         wp.window(2)
         plotbeam(lplt_tracker=True)
@@ -559,9 +585,10 @@ while tracker.getz()[-1] < zdiagns[-1].getzz():
     wp.step(1)
 
 tracker_fin_time = tracker.gett()[-1]
-final_time = tracker_fin_time + 0.25 * period
+final_time = tracker_fin_time + 1 * period
 wp.top.vbeamfrm = 0.0
 while wp.top.time < final_time:
+    reset_tracker(tracker, int(len(tracker.getx()) - 1), 0.0)
     if wp.top.it % 5 == 0:
         wp.window(2)
         plotbeam(lplt_tracker=True)
