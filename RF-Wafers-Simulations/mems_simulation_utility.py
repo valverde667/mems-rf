@@ -4,6 +4,7 @@ import os
 import warp as wp
 
 # useful constants
+cm = 1e-2
 mm = 1e-3
 um = 1e-6
 ns = 1e-9
