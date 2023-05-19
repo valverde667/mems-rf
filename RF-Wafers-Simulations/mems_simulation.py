@@ -6,15 +6,6 @@
 # also used to center a z-window that will calculate beam moments within a fixed
 # range in z.
 
-import warpoptions
-
-#   special cgm name - for mass output / scripting
-warpoptions.parser.add_argument("--name", dest="name", type=str, default="multions")
-
-#   special cgm path - for mass output / scripting
-warpoptions.parser.add_argument("--path", dest="path", type=str, default="")
-
-# --Python packages
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -24,10 +15,14 @@ import scipy.constants as SC
 import time
 import datetime
 import os
-
 import pdb
 
 import mems_simulation_utility as mems_utils
+
+import warp as wp
+from warp.particles.extpart import ZCrossingParticles
+from warp.particles.singleparticle import TraceParticle
+from warp.diagnostics.gridcrossingdiags import GridCrossingDiags
 
 mpl.rcParams["xtick.direction"] = "in"
 mpl.rcParams["xtick.minor.visible"] = True
@@ -40,16 +35,13 @@ mpl.rcParams["ytick.major.right"] = True
 mpl.rcParams["ytick.minor.right"] = True
 mpl.rcParams["figure.max_open_warning"] = 60
 
-# --Import third-party packages
-import warp as wp
-from warp.particles.extpart import ZCrossingParticles
-from warp.particles.singleparticle import TraceParticle
-from warp.diagnostics.gridcrossingdiags import GridCrossingDiags
+wp.setup()
 
 start_time = time.time()
 
 # Define useful constants
 mrad = 1e-3
+cm = 1e-2
 mm = 1e-3
 um = 1e-6
 nm = 1e-9
@@ -62,26 +54,6 @@ ns = 1e-9
 MHz = 1e6
 uA = 1e-6
 twopi = 2.0 * np.pi
-
-# Utility definitions
-name = warpoptions.options.name
-
-# --- where to store the outputfiles
-cgm_name = name
-step1path = "."
-# step1path = os.getcwd()
-
-# overwrite if path is given by command
-if warpoptions.options.path != "":
-    step1path = warpoptions.options.path
-
-wp.setup(prefix=f"{step1path}/{cgm_name}")  # , cgmlog= 0)
-
-### read / write functionality #ToDo: move into helper file
-basepath = warpoptions.options.path
-if basepath == "":
-    basepath = f"{step1path}/"
-thisrunID = warpoptions.options.name
 
 # ------------------------------------------------------------------------------
 #    Functions and Classes
@@ -188,7 +160,6 @@ mass_eV = beam.mass * pow(SC.c, 2) / wp.jperev
 # ------------------------------------------------------------------------------
 # Design phases are specified with the max field corresponding to phi_s=0.
 phi_s = np.ones(Ng) * dsgn_phase
-# phi_s[1:] = np.linspace(-np.pi / 3, -0.0, Ng - 1)
 gap_dist = np.zeros(Ng)
 E_s = init_E
 for i in range(Ng):
@@ -660,6 +631,7 @@ with PdfPages(path + "/Ehists.pdf") as pdf:
     for i in range(len(zdiagns)):
         this_E = 0.5 * beam.mass * pow(zdiagns[i].getvz(), 2) / wp.jperev
         this_t = zdiagns[i].gett()
+        this_ts = tracker.gett()[np.argmin(abs(zdiagns[i].getzz() - tracker.getz()))]
 
         fig, ax = plt.subplots(ncols=2)
         Eax, tax = ax[0], ax[1]
@@ -686,13 +658,69 @@ with PdfPages(path + "/Ehists.pdf") as pdf:
             edgecolor="black",
             lw="1",
         )
-        tax.set_xlabel("Time (ns)")
+        tax.set_xlabel(f"Time (ns), Tracker time = {this_ts/ns:.2f} (ns)")
         tax.set_ylabel("Fraction of Particles")
         tax.set_title(f"z={zdiagns[i].getzz()/mm:.2f} (mm)")
 
         plt.tight_layout()
         pdf.savefig()
         plt.close()
+
+# Write data in output file
+output_file_path = os.path.join(path, "output.txt")
+with open(output_file_path, "w") as file:
+    file.write("#----- Injected Beam" + "\n")
+    file.write(f"{'Ion:':<30} {beam.type.name}" + "\n")
+    file.write(f"{'Number of Injected:':<30} {Np_injected:.0e}" + "\n")
+    file.write(f"{'Injection Energy:':<30} {init_E/keV:.2f} [keV]" + "\n")
+    file.write(
+        f"{'Injected Average Current Iavg:':<30} {init_I/uA:.4e} [micro-Amps]" + "\n"
+    )
+    file.write(f"{'Predicted Final Design Energy:':<30} {E_s/keV:.2f} [keV]" + "\n")
+
+    file.write("#----- Acceleration Lattice" + "\n")
+    file.write(f"Matching Section: {do_matching_section}" + "\n")
+    if do_matching_section:
+        file.write(
+            f"Matching Section Voltages: {np.array2string(Vq_match/kV, precision=4)}"
+            + "\n"
+        )
+    file.write(f"Focusing Quads: {do_focusing_quads}" + "\n")
+    if do_focusing_quads:
+        file.write(f"Matching Section Voltages: {Vq/kV:.3f}" + "\n")
+
+    file.write(f"{'Number of Gaps':<30} {int(Ng)}" + "\n")
+    file.write(
+        f"{'Fcup Distance (from final plate):':<30} {Fcup_dist/mm:.2f} [mm]" + "\n"
+    )
+    file.write(
+        f"{'Gap Centers:':<30} {np.array2string(gap_centers/cm, precision=4)} [cm]"
+        + "\n"
+    )
+    file.write(
+        f"{'Gap Distances:':<30} {np.array2string(np.diff(gap_centers/cm), precision=4)} [cm]"
+        + "\n"
+    )
+    file.write(f"{'System Length:':<30} {Fcup.zcent/cm:.3f} [cm]" + "\n")
+    file.write(f"{'Gap Voltage:':<30} {Vg/kV:.2f} [kV]" + "\n")
+    file.write(f"{'Gap Width:':<30} {gap_width/mm:.2f} [mm]" + "\n")
+    file.write(f"{'RF Frequency:':<30} {freq/MHz:.2f} [MHz]" + "\n")
+    file.write(f"{'RF Wavelength:':<30} {SC.c/freq:.2f} [m]" + "\n")
+    file.write(
+        f"{'Sync Phi:':<30} {np.array2string(phi_s*180/np.pi,precision=3)} [deg]" + "\n"
+    )
+
+    file.write("#----- Numerical Parameters")
+    file.write(f"{'Time step:':<30} {wp.top.dt:>.4e} [s]" + "\n")
+    file.write(f"{'z Grid spacing:':<30} {dz:>.4e} [m]" + "\n")
+    file.write(f"{'x Grid spacing:':<30} {wp.w3d.dx:>.4e} [m]" + "\n")
+    file.write(f"{'y Grid spacing:':<30} {wp.w3d.dx:>.4e} [m]" + "\n")
+
+    # file.write("#----- End Outputs")
+    # file.write(f"{'Time step:':<30} {wp.top.dt:>.4e} [s]" + "\n")
+    # file.write(f"{'z Grid spacing:':<30} {dz:>.4e} [m]" + "\n")
+    # file.write(f"{'x Grid spacing:':<30} {wp.w3d.dx:>.4e} [m]" + "\n")
+    # file.write(f"{'y Grid spacing:':<30} {wp.w3d.dx:>.4e} [m]" + "\n")
 
 
 # Loop through lab windows and plot onto pdf.
@@ -917,3 +945,20 @@ with PdfPages(path + "/" + "win-histories" + ".pdf") as pdf:
     )
     pdf.savefig()
     plt.close()
+
+
+# def save_data():
+#     ind = int(len(zdiagns) - 1)
+#
+#     this_I = wp.top.currlw[: wp.top.ilabwn[ind, 0], ind, 0]
+#     this_t = wp.top.timelw[: wp.top.ilabwn[ind, 0], ind, 0]
+#
+#     zselect = np.where(beam.getz(lost=1) > zdiagns[ind].getzz() - 5 * dz)[0]
+#     this_vz = beam.getvz(lost=1)[zselect]
+#
+#     np.save("runC_I", this_I)
+#     np.save("runC_time", this_t)
+#     np.save("runC_vz", this_vz)
+#     np.save("runC_tracker_t", tracker.gett())
+#     np.save("runC_tracker_z", tracker.getz())
+#     np.save("runC_tracker_vz", tracker.getvz())
