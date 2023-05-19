@@ -377,7 +377,7 @@ class Optimizer(Lattice):
         self.optimum = res
 
 
-find_voltages = False
+find_voltages = True
 if find_voltages:
     x0 = np.array([rsource, rsource, div_angle, div_angle])
     guess = scales
@@ -396,29 +396,37 @@ if find_voltages:
 # ------------------------------------------------------------------------------
 k0 = 2 * 0.5 * kV
 k0 = k0 / 7 / kV / pow(rp, 2)
+Fsc = 2 * Q / (ux + uy)
+Femitx = pow(emit, 2) / pow(ux, 3)
+Femity = pow(emit, 2) / pow(uy, 3)
 kappa_he = np.load("kappa_he.npy")
 data_he = np.load("matching_solver_data_hardedge.npy")
 
 fig, ax = plt.subplots()
-ax.set_xlabel("s (mm)")
+ax.set_xlabel("z (mm)")
 ax.set_ylabel(r"$\kappa (z)/\hat{\kappa}$")
 plt.plot(z / mm, kappa / k0)
+ax.axhline(y=0, c="k", lw=0.5)
 plt.show()
 
 fig, ax = plt.subplots()
 ax.set_title(r"Envelope Solutions for $r_x$ and $r_y$")
-ax.set_xlabel("s (mm)")
+ax.set_xlabel("z (mm)")
 ax.set_ylabel("Transverse Position (mm)")
-ax.plot(z / mm, ux / mm, label=r"$r_x(s)$")
-ax.plot(z / mm, uy / mm, label=r"$r_y(s)$")
+ax.plot(z / mm, ux / mm, label=r"$r_x(s)$", c="k")
+ax.plot(z / mm, uy / mm, label=r"$r_y(s)$", c="b")
+ax.scatter(z[-1] / mm, target[0] / mm, marker="*", c="k", s=90, alpha=0.6)
+ax.scatter(z[-1] / mm, target[1] / mm, marker="*", c="b", s=90, alpha=0.6)
 ax.legend()
 
 fig, ax = plt.subplots()
 ax.set_title(r"Envelope Solutions for $rp_x$ and $rp_y$")
-ax.set_xlabel("s (mm)")
+ax.set_xlabel("z (mm)")
 ax.set_ylabel("Transverse Angle (mrad)")
-ax.plot(z / mm, vx / mm, label=r"$rp_x(s)$")
-ax.plot(z / mm, vy / mm, label=r"$rp_y(s)$")
+ax.plot(z / mm, vx / mm, label=r"$rp_x(s)$", c="k")
+ax.plot(z / mm, vy / mm, label=r"$rp_y(s)$", c="b")
+ax.scatter(z[-1] / mm, target[2] / mrad, marker="*", c="k", s=90, alpha=0.6)
+ax.scatter(z[-1] / mm, target[3] / mrad, marker="*", c="b", s=90, alpha=0.6)
 ax.legend()
 
 fig, ax = plt.subplots()
@@ -430,6 +438,23 @@ ax.set_ylabel(r"$\kappa(z)/\hat{\kappa}$")
 plt.savefig("/Users/nickvalverde/Desktop/kappa_lattice.svg")
 ax.legend()
 
+fig, ax = plt.subplots()
+ax.plot(z / mm, 2 * Q / (ux + uy), c="r", label=r"$F_\mathrm{SC}$")
+ax.plot(z / mm, pow(emit, 2) / pow(ux, 3), c="k", label=r"$F_\mathrm{emit-x}$")
+ax.plot(z / mm, pow(emit, 2) / pow(uy, 3), c="b", label=r"$F_\mathrm{emit-y}$")
+ax.set_ylabel("Defocusing Term Strength (1/m)")
+ax.legend()
+
+Fig, ax = plt.subplots()
+ax.plot(z / mm, Fsc / Femitx, c="k", label=r"$F_\mathrm{sc} / F_\mathrm{x-emit}$")
+ax.plot(z / mm, Fsc / Femity, c="b", label=r"$F_\mathrm{sc} / F_\mathrm{y-emit}$")
+ax.set_xlabel("z (mm)")
+ax.set_ylabel("Ratio of Defocusing Terms")
+ax.legend()
+
+
 plt.show()
+
+
 print(f"Final (rx, ry) mm: {uxf/mm:.4f}, {uyf/mm:.4f}")
 print(f"Final (rpx, rpy) mrad: {vxf/mrad:.4f}, {vyf/mrad:.4f}")
