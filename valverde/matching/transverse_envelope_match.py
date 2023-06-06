@@ -7,7 +7,6 @@ import itertools
 import scipy.constants as SC
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-import streamlit as st
 import pdb
 
 import warp as wp
@@ -70,6 +69,7 @@ beam.ekin = init_E
 vth = np.sqrt(Tb * wp.jperev / beam.mass)
 wp.derivqty()
 
+
 # ------------------------------------------------------------------------------
 #    Function and Class definitions
 # Various functions and classes used in the script are defined here.
@@ -102,6 +102,7 @@ class Lattice:
         self.dz = None
         self.z = None
         self.grad = None
+        self.gap_centers = None
 
         self.params = {"lq": None, "Vq": None, "rp": None, "Gstar": None, "Gmax": None}
 
@@ -111,7 +112,14 @@ class Lattice:
         Vset = 1.557857e-10 * Gmax
         return Vset
 
-    def hard_edge(self, lq, lq_eff, d, Vq, Nq, rp, scales, max_grad=2e9, res=10 * um):
+    def calc_Gmax(self, Volt):
+        """Calculate max gradient needed to give desired voltage"""
+        Gmax = Volt / 1.557857e-10
+        return Gmax
+
+    def hard_edge_match(
+        self, lq, lq_eff, d, Vq, Nq, rp, scales, max_grad=2e9, res=10 * um
+    ):
         """Create a hard-edge model for the ESQs.
         The ESQ centers will be placed at centers and kappa calculated. Each
         ESQ is given"""
@@ -150,7 +158,7 @@ class Lattice:
         for key, value in zip(self.params.keys(), updated_params):
             self.params[key] = value
 
-    def user_input(self, file_string, Nq, scales, lq=0.695 * mm):
+    def user_input_match(self, file_string, Nq, scales, lq=0.695 * mm):
         """Create Nq matching section from extracted gradient.
 
         An isolated gradient is read in from the file_string = (path-s, path-grad)
@@ -188,7 +196,81 @@ class Lattice:
 
         # Update the paramters dictionary with values used.
         updated_params = [lq, Vset, None, None, grad.max()]
+        for key, value in zip(self.params.keys(), updated_params):
+            self.params[key] = value
 
+    def accel_lattice(
+        self,
+        gap_centers,
+        file_string,
+        scales,
+        d,
+        Lp,
+        Nq=2,
+        lq=0.695 * mm,
+        g=2 * mm,
+        res=0.5e-3,
+    ):
+        """Create the acceleration secttion of the lattice.
+
+        At the moment, the acceleration portion only uses thin lens kicks.
+        Thus, the gap centers are merlely used for ESQ placement. A field-free
+        region exists after every unit (a unit is two RF wafers).
+        A lattice period is comprised of one RF-unit starting at the RF acceelration
+        plate (g/2 from the gap center) and extends to the beginning of the
+        second acceleration plate.
+
+        Note: this assumes one lattice period and only works for 2 ESQs.
+        """
+
+        iso_zgrad, iso_esq_grad = np.load(file_string[0]), np.load(file_string[1])
+        zesq_extent = iso_zgrad[-1] - iso_zgrad[0]
+        Gmax = np.max(iso_esq_grad)
+        dz = iso_zgrad[1] - iso_zgrad[0]
+
+        # Scale the two ESQs
+        l_esq_grad = iso_esq_grad.copy() * scales[0]
+        r_esq_grad = iso_esq_grad.copy() * scales[1]
+
+        # Calculate the spacing required for the ESQs and for the space the
+        # ESQs occupy.
+        esq_spacing = 2 * (lq + d)
+        remaining_space = Lp - esq_spacing - (gap_centers[-1] + g / 2)
+
+        # Build the arrays. The arrays need to be built in tandem for the
+        # gradient and positioning. The first z array is for the points leading
+        # up to the ESQ locations. Here the gradient is zero.
+        # Then, the spacing and gradient need to be incorporated for the isolated
+        # gradients. These are first created in isolation as appendages and then
+        # stacked with the existing z-array.
+        z = np.arange(0, gap_centers[-1] + g / 2 + remaining_space / 2, res)
+        grad = np.zeros(len(z))
+
+        z_append = iso_zgrad + (z.max() - iso_zgrad.min()) + res
+        z = np.hstack((z, z_append))
+        grad = np.hstack((grad, l_esq_grad))
+
+        z_append = np.arange(z[-1] + res, esq_spacing, res)
+        grad_append = np.zeros(len(z_append))
+
+        z = np.hstack((z, z_append))
+        grad = np.hstack((grad, grad_append))
+
+        z_append = iso_zgrad + (z.max() - iso_zgrad.min()) + res
+        z = np.hstack((z, z_append))
+        grad = np.hstack((grad, r_esq_grad))
+
+        z_append = np.arange(z[-1] + res, Lp, res)
+        grad_append = np.zeros(len(z_append))
+        z = np.hstack((z, z_append))
+        grad = np.hstack((grad, grad_append))
+
+        self.z = z
+        self.grad = grad
+        Vset = np.array([self.calc_Vset(Gmax * scale) * kV for scale in scales])
+
+        # Update the paramters dictionary with values used.
+        updated_params = [lq, Vset, None, None, None]
         for key, value in zip(self.params.keys(), updated_params):
             self.params[key] = value
 
@@ -254,7 +336,7 @@ if user_input:
     scales = np.array(scales)
     scales *= (0.15, 0.2, 0.10, 0.20)
 
-    lattice.user_input(file_names, Nq, scales=scales)
+    lattice.user_input_match(file_names, Nq, scales=scales)
     z, gradz = lattice.z, lattice.grad
 
 else:
@@ -271,7 +353,9 @@ else:
     lattice = Lattice()
     # Create the hard edge equivalent. The max gradient is hardcoded and
     # corresponds to the gradient in a quadrupole with Vq=400 V.
-    lattice.hard_edge(lq, lq_eff, d, Vq, Nq, rp, scales, max_grad=2566538624.836261)
+    lattice.hard_edge_match(
+        lq, lq_eff, d, Vq, Nq, rp, scales, max_grad=2566538624.836261
+    )
     z, gradz = lattice.z, lattice.grad
 
 # Solve KV equations
@@ -298,6 +382,7 @@ if user_input:
 else:
     np.save("matching_solver_data_hardedge", data)
     np.save("kappa_he", kappa)
+
 
 # ------------------------------------------------------------------------------
 #    Optimizer
