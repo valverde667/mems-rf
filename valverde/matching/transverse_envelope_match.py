@@ -39,6 +39,7 @@ uA = 1e-6
 lq = 0.695 * mm
 lq_eff = 1.306 * mm
 d = 3.0 * mm
+g = 2 * mm
 Vq = 0.6 * kV
 Nq = 4
 rp = 0.55 * mm
@@ -77,7 +78,7 @@ wp.derivqty()
 def create_combinations(s1, s2, s3, s4):
     """Utility function for creating combinations of the array elements in s1-s4."""
     combinations = np.array(list(itertools.product(s1, s2, s3, s4)))
-    return Vsets
+    return combinations
 
 
 def beta(E, mass, q=1, nonrel=True):
@@ -204,12 +205,11 @@ class Lattice:
         gap_centers,
         file_string,
         scales,
-        d,
         Lp,
         Nq=2,
         lq=0.695 * mm,
         g=2 * mm,
-        res=0.5e-3,
+        res=25e-6,
     ):
         """Create the acceleration secttion of the lattice.
 
@@ -223,59 +223,48 @@ class Lattice:
         Note: this assumes one lattice period and only works for 2 ESQs.
         """
 
-        iso_zgrad, iso_esq_grad = np.load(file_string[0]), np.load(file_string[1])
-        zesq_extent = iso_zgrad[-1] - iso_zgrad[0]
-        Gmax = np.max(iso_esq_grad)
-        dz = iso_zgrad[1] - iso_zgrad[0]
+        iso_z, iso_grad = np.load(file_string[0]), np.load(file_string[1])
+        zesq_extent = iso_z[-1] - iso_z[0]
+        Gmax = np.max(iso_grad)
+        g1, g2, g3 = gap_centers[:-1]
+        Lp = g3 - g2 - g
 
-        # Scale the two ESQs
-        l_esq_grad = iso_esq_grad.copy() * scales[0]
-        r_esq_grad = iso_esq_grad.copy() * scales[1]
+        # Scale the two ESQs in place
+        index = np.argmin(abs(iso_z))
+        l_esq_grad = iso_grad[: index + 1]
+        r_esq_grad = iso_grad[index + 1 :]
+        l_esq_grad *= scales[0]
+        r_esq_grad *= scales[1]
+        Vsets = np.zeros(Nq)
+        for i, s in enumerate(scales):
+            if i % 2 == 0:
+                Vsets[i] = self.calc_Vset(s * Gmax)
+            else:
+                Vsets[i] = -self.calc_Vset(s * Gmax)
 
-        # Calculate the spacing required for the ESQs and for the space the
-        # ESQs occupy.
-        esq_spacing = 2 * (lq + d)
-        remaining_space = Lp - esq_spacing - (gap_centers[-1] + g / 2)
-
-        # Build the arrays. The arrays need to be built in tandem for the
-        # gradient and positioning. The first z array is for the points leading
-        # up to the ESQ locations. Here the gradient is zero.
-        # Then, the spacing and gradient need to be incorporated for the isolated
-        # gradients. These are first created in isolation as appendages and then
-        # stacked with the existing z-array.
-        z = np.arange(0, gap_centers[-1] + g / 2 + remaining_space / 2, res)
+        start = g1 + g / 2
+        stop = 0
+        interval = start - stop
+        nsteps = int(interval / res)
+        z = np.linspace(0, gap_centers[1] + g / 2, nsteps, endpoint=True)
         grad = np.zeros(len(z))
 
-        z_append = iso_zgrad + (z.max() - iso_zgrad.min()) + res
-        z = np.hstack((z, z_append))
-        grad = np.hstack((grad, l_esq_grad))
-
-        z_append = np.arange(z[-1] + res, esq_spacing, res)
-        grad_append = np.zeros(len(z_append))
-
-        z = np.hstack((z, z_append))
-        grad = np.hstack((grad, grad_append))
-
-        z_append = iso_zgrad + (z.max() - iso_zgrad.min()) + res
-        z = np.hstack((z, z_append))
-        grad = np.hstack((grad, r_esq_grad))
-
-        z_append = np.arange(z[-1] + res, Lp, res)
-        grad_append = np.zeros(len(z_append))
-        z = np.hstack((z, z_append))
-        grad = np.hstack((grad, grad_append))
+        # Attach field region
+        zfield = iso_z.copy()
+        zfield += z[-1] + res + iso_z.max()
+        z = np.hstack((z, zfield))
+        grad = np.hstack((grad, iso_grad))
 
         self.z = z
         self.grad = grad
-        Vset = np.array([self.calc_Vset(Gmax * scale) * kV for scale in scales])
 
         # Update the paramters dictionary with values used.
-        updated_params = [lq, Vset, None, None, None]
+        updated_params = [lq, Vsets, None, None, Gmax]
         for key, value in zip(self.params.keys(), updated_params):
             self.params[key] = value
 
 
-def solver(solve_matrix, dz, kappa, emit, Q):
+def solver(solve_matrix, dz, kappa, emit, Q, acceleration=False, gap_index=None):
     """Solve KV-envelope equations with Euler-cromer method.
 
     The solve_matrix input will be an Nx4 matrix where N is the number of steps
@@ -320,6 +309,16 @@ def solver(solve_matrix, dz, kappa, emit, Q):
 # used for the solver. Lastly, the gradients are scaled by to simulate different
 # voltage settings.
 # ------------------------------------------------------------------------------
+lattice = Lattice()
+file_names = ("iso_zgrad.npy", "iso_esq_grad.npy")
+gap_centers = np.array([0.00676049, 0.01632127, 0.02803078, 0.04155177])
+Lp = gap_centers[2] - g / 2
+# pdb.set_trace()
+lattice.accel_lattice(gap_centers, file_names, np.array([0.5, 0.5]), Lp=Lp)
+accel_grad = lattice.grad
+accel_z = lattice.z
+plt.plot(accel_z / mm, accel_grad)
+stop
 user_input = True
 if user_input:
     # Instantiate the class and use the extracted fields to create the mesh.
