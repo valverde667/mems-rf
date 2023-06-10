@@ -264,7 +264,7 @@ class Lattice:
             self.params[key] = value
 
 
-def solver(solve_matrix, dz, kappa, emit, Q, acceleration=False, gap_index=None):
+def solver(solve_matrix, dz, kappa, emit, Q):
     """Solve KV-envelope equations with Euler-cromer method.
 
     The solve_matrix input will be an Nx4 matrix where N is the number of steps
@@ -277,6 +277,113 @@ def solver(solve_matrix, dz, kappa, emit, Q, acceleration=False, gap_index=None)
     vx, vy = solve_matrix[:, 2], solve_matrix[:, 3]
 
     for n in range(1, solve_matrix.shape[0]):
+        # Evaluate term present in both equations
+        term = 2 * Q / (ux[n - 1] + uy[n - 1])
+
+        # Evaluate terms for x and y
+        term1x = pow(emit, 2) / pow(ux[n - 1], 3) + kappa[n - 1] * ux[n - 1]
+        term1y = pow(emit, 2) / pow(uy[n - 1], 3) - kappa[n - 1] * uy[n - 1]
+
+        # Update v_x and v_y first.
+        vx[n] = (term + term1x) * dz + vx[n - 1]
+        vy[n] = (term + term1y) * dz + vy[n - 1]
+
+        # Use updated v to update u
+        ux[n] = vx[n] * dz + ux[n - 1]
+        uy[n] = vy[n] * dz + uy[n - 1]
+
+    return solve_matrix
+
+
+def calc_energy_gain(Vg, phi_s):
+    return Vg * np.cos(phi_s)
+
+
+def solver_with_accel(
+    solve_matrix, dz, kappa, emit, Q, zmesh, gap_centers, Vg=7e3, phi_s=0.0, E=7e3
+):
+    """Solve KV-envelope equations with Euler-cromer method and acceleration kicks.
+
+    The solve_matrix input will be an Nx4 matrix where N is the number of steps
+    to take in the solve and the four columns are the transverse position and
+    angle in x and y. The solver will take a step dz and evaluate the equations
+    with a fixed emittance and perveance Q. Kappa is assumed to be an array.
+
+    To incorporate acceleration, the zmesh and gap centers are provided. At the
+    gap center a kick is applied to the angle in x and y. Additionally, the
+    Q and emittance are adjusted following the scaling relationships for
+    increased energy.
+    """
+
+    ux, uy = solve_matrix[:, 0], solve_matrix[:, 1]
+    vx, vy = solve_matrix[:, 2], solve_matrix[:, 3]
+    current_energy = E
+
+    # Partition solve loop into chunks dealing with each part in the lattice.
+    # First chunk is start-gap1. Then gap1-gap2 and gap2-Lp.
+    gap1_ind = np.argmin(abs(gap_centers[0] - zmesh))
+    gap2_ind = np.argmin(abs(gap_centers[1] - zmesh))
+
+    # Do the first part of the advancement.
+    for n in range(1, gap1_ind + 1):
+        # Evaluate term present in both equations
+        term = 2 * Q / (ux[n - 1] + uy[n - 1])
+
+        # Evaluate terms for x and y
+        term1x = pow(emit, 2) / pow(ux[n - 1], 3) + kappa[n - 1] * ux[n - 1]
+        term1y = pow(emit, 2) / pow(uy[n - 1], 3) - kappa[n - 1] * uy[n - 1]
+
+        # Update v_x and v_y first.
+        vx[n] = (term + term1x) * dz + vx[n - 1]
+        vy[n] = (term + term1y) * dz + vy[n - 1]
+
+        # Use updated v to update u
+        ux[n] = vx[n] * dz + ux[n - 1]
+        uy[n] = vy[n] * dz + uy[n - 1]
+
+    # save counter for next loop. Update angles, Q and emittance
+    current_ind = n
+    dE = calc_energy_gain(Vg, phi_s)
+    rx_kick = vx[-1] / (1 + np.sqrt(dE / current_energy))
+    ry_kick = vy[-1] / (1 + np.sqrt(dE / current_energy))
+    Q = Q / pow(1 + dE / current_energy, 3.0 / 2.0)
+    emit = emit / np.sqrt(1 + dE / current_energy)
+
+    # update values
+    current_energy += dE
+    vx[current_ind] = rx_kick
+    vy[current_ind] = ry_kick
+
+    for n in range(current_ind + 1, gap2_ind + 1):
+        # Evaluate term present in both equations
+        term = 2 * Q / (ux[n - 1] + uy[n - 1])
+
+        # Evaluate terms for x and y
+        term1x = pow(emit, 2) / pow(ux[n - 1], 3) + kappa[n - 1] * ux[n - 1]
+        term1y = pow(emit, 2) / pow(uy[n - 1], 3) - kappa[n - 1] * uy[n - 1]
+
+        # Update v_x and v_y first.
+        vx[n] = (term + term1x) * dz + vx[n - 1]
+        vy[n] = (term + term1y) * dz + vy[n - 1]
+
+        # Use updated v to update u
+        ux[n] = vx[n] * dz + ux[n - 1]
+        uy[n] = vy[n] * dz + uy[n - 1]
+
+    # save counter for next loop. Update angles, Q and emittance
+    current_ind = n
+    dE = calc_energy_gain(Vg, phi_s)
+    rx_kick = vx[-1] / (1 + np.sqrt(dE / current_energy))
+    ry_kick = vy[-1] / (1 + np.sqrt(dE / current_energy))
+    Q = Q / pow(1 + dE / current_energy, 3.0 / 2.0)
+    emit = emit / np.sqrt(1 + dE / current_energy)
+
+    # update values
+    current_energy += dE
+    vx[current_ind] = rx_kick
+    vy[current_ind] = ry_kick
+
+    for n in range(current_ind + 1, solve_matrix.shape[0]):
         # Evaluate term present in both equations
         term = 2 * Q / (ux[n - 1] + uy[n - 1])
 
@@ -309,16 +416,6 @@ def solver(solve_matrix, dz, kappa, emit, Q, acceleration=False, gap_index=None)
 # used for the solver. Lastly, the gradients are scaled by to simulate different
 # voltage settings.
 # ------------------------------------------------------------------------------
-lattice = Lattice()
-file_names = ("iso_zgrad.npy", "iso_esq_grad.npy")
-gap_centers = np.array([0.00676049, 0.01632127, 0.02803078, 0.04155177])
-Lp = gap_centers[2] - g / 2
-# pdb.set_trace()
-lattice.accel_lattice(gap_centers, file_names, np.array([0.5, 0.5]), Lp=Lp)
-accel_grad = lattice.grad
-accel_z = lattice.z
-plt.plot(accel_z / mm, accel_grad)
-stop
 user_input = True
 if user_input:
     # Instantiate the class and use the extracted fields to create the mesh.
@@ -367,6 +464,7 @@ soln_matrix = np.zeros(shape=(len(z), 4))
 soln_matrix[0, :] = ux_initial, uy_initial, vx_initial, vy_initial
 
 solver(soln_matrix, dz, kappa, emit, Q)
+# solver_with_accel(soln_matrix, dz, kappa, emit, Q, z, gap_centers, Vg=1*kV)
 solutions = soln_matrix[-1, :]
 
 ux, uy = soln_matrix[:, 0], soln_matrix[:, 1]
@@ -425,7 +523,7 @@ class Optimizer(Lattice):
         the cost function."""
 
         # Solve KV equations for lattice design and input Voltage scales
-        self.user_input(self.filenames, self.Nq, scales=V_scales)
+        self.user_input_match(self.filenames, self.Nq, scales=V_scales)
         z, gradz = self.z, self.grad
 
         # Solve KV equations
@@ -461,7 +559,7 @@ class Optimizer(Lattice):
         self.optimum = res
 
 
-find_voltages = True
+find_voltages = False
 if find_voltages:
     x0 = np.array([rsource, rsource, div_angle, div_angle])
     guess = scales
