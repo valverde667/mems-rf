@@ -611,7 +611,7 @@ class Optimizer(Lattice):
 
         return cost
 
-    def minimize_cost(self, max_iter=200):
+    def minimize_cost(self, function, max_iter=200):
         """Function that will run optimizer and output results
 
         This function contains the actual optimizer that will be used. Currently
@@ -620,7 +620,7 @@ class Optimizer(Lattice):
         options in the arguments."""
 
         res = sciopt.minimize(
-            self.func_to_optimize,
+            function,
             self.guess,
             method="nelder-mead",
             options={"xatol": 1e-8, "maxiter": max_iter, "disp": True},
@@ -644,7 +644,7 @@ if find_voltages:
         "E": E_s,
     }
     opt = Optimizer(x0, guess, target, norms, file_names, parameters)
-    opt.minimize_cost(max_iter=300)
+    opt.minimize_cost(opt.func_to_optimize, max_iter=300)
     errors = abs((target - solutions) / target)
     print(f"Fraction Errors: {errors}")
 
