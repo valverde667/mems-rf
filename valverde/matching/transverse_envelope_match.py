@@ -34,8 +34,14 @@ kV = 1e3
 mrad = 1e-3
 keV = 1e3
 uA = 1e-6
+MHz = 1e6
+twopi = np.pi * 2
 
 # System and Geometry settings
+Vg = 7 * kV
+Ng = 4
+phi_s = np.ones(Ng) * 0
+f = 13.6 * MHz
 lq = 0.695 * mm
 lq_eff = 1.306 * mm
 d = 3.0 * mm
@@ -50,7 +56,7 @@ res = 10 * um
 # Beam Settings
 Q = 6.986e-5
 emit = 1.336 * mm * mrad
-init_E = 7 * keV
+E_s = 7 * keV
 init_I = 10 * uA
 div_angle = 3.78 * mrad
 Tb = 0.1  # eV
@@ -58,7 +64,7 @@ Tb = 0.1  # eV
 # Beam specifications
 beam = wp.Species(type=wp.Argon, charge_state=1)
 mass_eV = beam.mass * pow(SC.c, 2) / wp.jperev
-beam.ekin = init_E
+beam.ekin = E_s
 beam.ibeam = init_I
 beam.a0 = rsource
 beam.b0 = rsource
@@ -66,7 +72,7 @@ beam.ap0 = 0.0
 beam.bp0 = 0.0
 beam.ibeam = init_I
 beam.vbeam = 0.0
-beam.ekin = init_E
+beam.ekin = E_s
 vth = np.sqrt(Tb * wp.jperev / beam.mass)
 wp.derivqty()
 
@@ -94,6 +100,22 @@ def beta(E, mass, q=1, nonrel=True):
     return beta
 
 
+def calc_gap_centers(E_s, mass, phi_s, dsgn_freq, dsgn_gap_volt):
+    gap_dist = np.zeros(len(phi_s))
+    for i in range(Ng):
+        this_beta = beta(E_s, mass)
+        this_cent = this_beta * SC.c / 2 / dsgn_freq
+        cent_offset = (phi_s[i] - phi_s[i - 1]) * this_beta * SC.c / dsgn_freq / twopi
+        if i < 1:
+            gap_dist[i] = (phi_s[i] + np.pi) * this_beta * SC.c / twopi / dsgn_freq
+        else:
+            gap_dist[i] = this_cent + cent_offset
+
+        dsgn_Egain = dsgn_gap_volt * np.cos(phi_s[i])
+        E_s += dsgn_Egain
+    return np.array(gap_dist).cumsum()
+
+
 class Lattice:
     def __init__(self):
         self.zmin = 0.0
@@ -105,7 +127,13 @@ class Lattice:
         self.grad = None
         self.gap_centers = None
 
-        self.params = {"lq": None, "Vq": None, "rp": None, "Gstar": None, "Gmax": None}
+        self.lattice_params = {
+            "lq": None,
+            "Vq": None,
+            "rp": None,
+            "Gstar": None,
+            "Gmax": None,
+        }
 
     def calc_Vset(self, Gmax):
         """Calculate the necessary voltage to generate the max gradient used"""
@@ -156,8 +184,8 @@ class Lattice:
         # Update the paramters dictionary with values used.
         updated_params = [lq, Vset, rp, Gstar, None]
 
-        for key, value in zip(self.params.keys(), updated_params):
-            self.params[key] = value
+        for key, value in zip(self.lattice_params.keys(), updated_params):
+            self.lattice_params[key] = value
 
     def user_input_match(self, file_string, Nq, scales, lq=0.695 * mm):
         """Create Nq matching section from extracted gradient.
@@ -197,8 +225,8 @@ class Lattice:
 
         # Update the paramters dictionary with values used.
         updated_params = [lq, Vset, None, None, grad.max()]
-        for key, value in zip(self.params.keys(), updated_params):
-            self.params[key] = value
+        for key, value in zip(self.lattice_params.keys(), updated_params):
+            self.lattice_params[key] = value
 
     def accel_lattice(
         self,
@@ -260,8 +288,8 @@ class Lattice:
 
         # Update the paramters dictionary with values used.
         updated_params = [lq, Vsets, None, None, Gmax]
-        for key, value in zip(self.params.keys(), updated_params):
-            self.params[key] = value
+        for key, value in zip(self.lattice_params.keys(), updated_params):
+            self.lattice_params[key] = value
 
 
 def solver(solve_matrix, dz, kappa, emit, Q):
@@ -416,6 +444,7 @@ def solver_with_accel(
 # used for the solver. Lastly, the gradients are scaled by to simulate different
 # voltage settings.
 # ------------------------------------------------------------------------------
+gap_centers = calc_gap_centers(E_s, mass_eV, phi_s, f, Vg)
 user_input = True
 if user_input:
     # Instantiate the class and use the extracted fields to create the mesh.
@@ -456,7 +485,7 @@ else:
 
 # Solve KV equations
 dz = z[1] - z[0]
-kappa = wp.echarge * gradz / 2.0 / init_E / wp.jperev
+kappa = wp.echarge * gradz / 2.0 / E_s / wp.jperev
 ux_initial, uy_initial = rsource, rsource
 vx_initial, vy_initial = div_angle, div_angle
 
@@ -488,7 +517,7 @@ else:
 # acceleration lattice.
 # ------------------------------------------------------------------------------
 class Optimizer(Lattice):
-    def __init__(self, initial_conds, guess, target, norms, filenames):
+    def __init__(self, initial_conds, guess, target, norms, filenames, parameters):
         super().__init__()
         self.Nq = Nq
         self.initial_conds = initial_conds
@@ -496,6 +525,7 @@ class Optimizer(Lattice):
         self.target = target
         self.cost_norms = norms
         self.filenames = filenames
+        self.parameters = parameters
         self.sol = None
         self.optimum = None
         self.cost_hist = []
@@ -525,13 +555,52 @@ class Optimizer(Lattice):
         # Solve KV equations for lattice design and input Voltage scales
         self.user_input_match(self.filenames, self.Nq, scales=V_scales)
         z, gradz = self.z, self.grad
+        emit, Q = self.parameters["emit"], self.parameters["Q"]
 
         # Solve KV equations
         dz = z[1] - z[0]
-        kappa = wp.echarge * gradz / 2.0 / init_E / wp.jperev
+        kappa = wp.echarge * gradz / 2.0 / E_s / wp.jperev
         soln_matrix = np.zeros(shape=(len(z), 4))
         soln_matrix[0, :] = self.initial_conds
         solver(soln_matrix, dz, kappa, emit, Q)
+
+        # Store solution
+        self.sol = soln_matrix[-1, :]
+
+        # Compute cost and save to history
+        cost = self.calc_cost(self.sol, self.target, self.cost_norms)
+        self.cost_hist.append(cost)
+
+        return cost
+
+    def func_to_optimize_accel(self, V_scales):
+        """Single input function to min/maximize
+
+        Most optimizers take in a function with a single input that is the
+        parameters to optimize for. The voltage scales are used here that
+        scale the focusing strength. The gradient is then created from the
+        lattice class and the KV-envelope equation solved for.
+        The final coordinates are then extracted and the MSE is computed for
+        the cost function."""
+
+        # unpack the acceleration  paramters
+
+        # Solve KV equations for lattice design and input Voltage scales
+        self.accel_lattice(self.filenames, self.Nq, scales=V_scales)
+        z, gradz = self.z, self.grad
+        emit = self.parameters["emit"]
+        Q = self.parameters["Q"]
+        gap_centers = self.parameters["gap centers"]
+        Vg = self.parameters["Vg"]
+        phi_s = self.parameters["phi_s"]
+        E = self.parameters["E"]
+
+        # Solve KV equations
+        dz = z[1] - z[0]
+        kappa = wp.echarge * gradz / 2.0 / E_s / wp.jperev
+        soln_matrix = np.zeros(shape=(len(z), 4))
+        soln_matrix[0, :] = self.initial_conds
+        solver_with_accel(soln_matrix, dz, kappa, emit, Q, gap_centers, Vg, phi_s, E)
 
         # Store solution
         self.sol = soln_matrix[-1, :]
@@ -559,15 +628,22 @@ class Optimizer(Lattice):
         self.optimum = res
 
 
-find_voltages = False
+find_voltages = True
 if find_voltages:
     x0 = np.array([rsource, rsource, div_angle, div_angle])
     guess = scales
     target = np.array([0.15 * mm, 0.28 * mm, 0.847 * mrad, -11.146 * mrad])
     rp_norm = 21 * mrad
     norms = np.array([1 / rp, 1 / rp, 1 / rp_norm, 1 / rp_norm])
-
-    opt = Optimizer(x0, guess, target, norms, file_names)
+    parameters = {
+        "emit": emit,
+        "Q": Q,
+        "gap centers": gap_centers,
+        "Vg": Vg,
+        "phi_s": phi_s,
+        "E": E_s,
+    }
+    opt = Optimizer(x0, guess, target, norms, file_names, parameters)
     opt.minimize_cost(max_iter=300)
     errors = abs((target - solutions) / target)
     print(f"Fraction Errors: {errors}")
