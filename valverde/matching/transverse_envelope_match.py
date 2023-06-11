@@ -371,7 +371,7 @@ def solver_with_accel(
 
     # save counter for next loop. Update angles, Q and emittance
     current_ind = n
-    dE = calc_energy_gain(Vg, phi_s)
+    dE = calc_energy_gain(Vg, phi_s[0])
     rx_kick = vx[-1] / (1 + np.sqrt(dE / current_energy))
     ry_kick = vy[-1] / (1 + np.sqrt(dE / current_energy))
     Q = Q / pow(1 + dE / current_energy, 3.0 / 2.0)
@@ -400,7 +400,7 @@ def solver_with_accel(
 
     # save counter for next loop. Update angles, Q and emittance
     current_ind = n
-    dE = calc_energy_gain(Vg, phi_s)
+    dE = calc_energy_gain(Vg, phi_s[1])
     rx_kick = vx[-1] / (1 + np.sqrt(dE / current_energy))
     ry_kick = vy[-1] / (1 + np.sqrt(dE / current_energy))
     Q = Q / pow(1 + dE / current_energy, 3.0 / 2.0)
@@ -445,6 +445,7 @@ def solver_with_accel(
 # voltage settings.
 # ------------------------------------------------------------------------------
 gap_centers = calc_gap_centers(E_s, mass_eV, phi_s, f, Vg)
+Lp = gap_centers[2] - g / 2
 user_input = True
 if user_input:
     # Instantiate the class and use the extracted fields to create the mesh.
@@ -584,23 +585,24 @@ class Optimizer(Lattice):
         the cost function."""
 
         # unpack the acceleration  paramters
-
-        # Solve KV equations for lattice design and input Voltage scales
-        self.accel_lattice(self.filenames, self.Nq, scales=V_scales)
-        z, gradz = self.z, self.grad
         emit = self.parameters["emit"]
         Q = self.parameters["Q"]
         gap_centers = self.parameters["gap centers"]
+        Lp = self.parameters["Lp"]
         Vg = self.parameters["Vg"]
         phi_s = self.parameters["phi_s"]
         E = self.parameters["E"]
+
+        # Solve KV equations for lattice design and input Voltage scales
+        self.accel_lattice(gap_centers, self.filenames, V_scales, Lp)
+        z, gradz = self.z, self.grad
 
         # Solve KV equations
         dz = z[1] - z[0]
         kappa = wp.echarge * gradz / 2.0 / E_s / wp.jperev
         soln_matrix = np.zeros(shape=(len(z), 4))
         soln_matrix[0, :] = self.initial_conds
-        solver_with_accel(soln_matrix, dz, kappa, emit, Q, gap_centers, Vg, phi_s, E)
+        solver_with_accel(soln_matrix, dz, kappa, emit, Q, z, gap_centers, Vg, phi_s, E)
 
         # Store solution
         self.sol = soln_matrix[-1, :]
@@ -632,14 +634,16 @@ find_voltages = True
 if find_voltages:
     x0 = np.array([rsource, rsource, div_angle, div_angle])
     guess = scales
+    guess_accel = [0.2, 0.2]
     target = np.array([0.15 * mm, 0.28 * mm, 0.847 * mrad, -11.146 * mrad])
-    rp_norm = 21 * mrad
+    rp_norm = 27 * mrad
     norms = np.array([1 / rp, 1 / rp, 1 / rp_norm, 1 / rp_norm])
     parameters = {
         "emit": emit,
         "Q": Q,
         "gap centers": gap_centers,
         "Vg": Vg,
+        "Lp": Lp,
         "phi_s": phi_s,
         "E": E_s,
     }
