@@ -5,6 +5,11 @@
 
 import numpy as np
 import scipy.constants as SC
+import scipy.optimize as sciopt
+import itertools
+
+import warp as wp
+
 
 # Define useful constants
 mm = 1e-3
@@ -47,6 +52,7 @@ def beta(E, mass, q=1, nonrel=True):
 
 def calc_gap_centers(E_s, mass, phi_s, dsgn_freq, dsgn_gap_volt):
     gap_dist = np.zeros(len(phi_s))
+    Ng = len(phi_s)
     for i in range(Ng):
         this_beta = beta(E_s, mass)
         this_cent = this_beta * SC.c / 2 / dsgn_freq
@@ -373,3 +379,124 @@ def solver_with_accel(
         uy[n] = vy[n] * dz + uy[n - 1]
 
     return solve_matrix
+
+
+# ------------------------------------------------------------------------------
+#    Optimizer
+# Find a solution for the four quadrupole voltages to shape the beam. The final
+# coordinates rx,ry, rxp, ryp are to meet the target coordinate to match the
+# acceleration lattice.
+# ------------------------------------------------------------------------------
+class Optimizer(Lattice):
+    def __init__(self, initial_conds, guess, target, norms, filenames, parameters):
+        super().__init__()
+        self.initial_conds = initial_conds
+        self.guess = guess
+        self.target = target
+        self.cost_norms = norms
+        self.filenames = filenames
+        self.parameters = parameters
+        self.sol = None
+        self.optimum = None
+        self.cost_hist = []
+
+    def calc_cost(self, data, target, norm):
+        """Calculate cost function
+
+        The cost here is the mean-squared-error (MSE) which takes two vectors.
+        The data vector containing the coordinates extracted from simulation and
+        the target variables are we are seeking. The scales are used to
+        normalize the coordinate and angle vectors so that they are of similar
+        scale.
+        """
+        cost = pow((data - target) * norm, 2)
+        return np.sum(cost)
+
+    def func_to_optimize(self, V_scales):
+        """Single input function to min/maximize
+
+        Most optimizers take in a function with a single input that is the
+        parameters to optimize for. The voltage scales are used here that
+        scale the focusing strength. The gradient is then created from the
+        lattice class and the KV-envelope equation solved for.
+        The final coordinates are then extracted and the MSE is computed for
+        the cost function."""
+
+        # Instantiate lattice and unpack/calculate parameters
+        self.user_input_match(self.filenames, self.parameters["Nq"], scales=V_scales)
+        z, gradz = self.z, self.grad
+        emit, Q = self.parameters["emit"], self.parameters["Q"]
+        E_s = self.parameters["E"]
+        dz = z[1] - z[0]
+        kappa = wp.echarge * gradz / 2.0 / E_s / wp.jperev
+
+        # Solve KV equations
+        soln_matrix = np.zeros(shape=(len(z), 4))
+        soln_matrix[0, :] = self.initial_conds
+        solver(soln_matrix, dz, kappa, emit, Q)
+
+        # Store solution
+        self.sol = soln_matrix[-1, :]
+
+        # Compute cost and save to history
+        cost = self.calc_cost(self.sol, self.target, self.cost_norms)
+        self.cost_hist.append(cost)
+
+        return cost
+
+    def func_to_optimize_accel(self, V_scales):
+        """Single input function to min/maximize
+
+        Most optimizers take in a function with a single input that is the
+        parameters to optimize for. The voltage scales are used here that
+        scale the focusing strength. The gradient is then created from the
+        lattice class and the KV-envelope equation solved for.
+        The final coordinates are then extracted and the MSE is computed for
+        the cost function."""
+
+        # Unpack/calculate parameters
+        emit = self.parameters["emit"]
+        Q = self.parameters["Q"]
+        gap_centers = self.parameters["gap centers"]
+        Lp = self.parameters["Lp"]
+        Vg = self.parameters["Vg"]
+        phi_s = self.parameters["phi_s"]
+        E_s = self.parameters["E"]
+
+        # Instantiate lattice and calculate the rest of the parameters
+        self.accel_lattice(gap_centers, self.filenames, V_scales, Lp)
+        z, gradz = self.z, self.grad
+        dz = z[1] - z[0]
+        kappa = wp.echarge * gradz / 2.0 / E_s / wp.jperev
+
+        # Solve KV equations
+        soln_matrix = np.zeros(shape=(len(z), 4))
+        soln_matrix[0, :] = self.initial_conds
+        solver_with_accel(
+            soln_matrix, dz, kappa, emit, Q, z, gap_centers, Vg, phi_s, E_s
+        )
+
+        # Store solution
+        self.sol = soln_matrix[-1, :]
+
+        # Compute cost and save to history
+        cost = self.calc_cost(self.sol, self.target, self.cost_norms)
+        self.cost_hist.append(cost)
+
+        return cost
+
+    def minimize_cost(self, function, max_iter=200):
+        """Function that will run optimizer and output results
+
+        This function contains the actual optimizer that will be used. Currently
+        it is a prepackaged optimizer from the Scipy library. There are numerous
+        options for the optimizer and this function can be modified to include
+        options in the arguments."""
+
+        res = sciopt.minimize(
+            function,
+            self.guess,
+            method="nelder-mead",
+            options={"xatol": 1e-8, "maxiter": max_iter, "disp": True},
+        )
+        self.optimum = res
