@@ -64,7 +64,8 @@ lq_eff = 1.306 * mm
 d = 3.0 * mm
 g = 2 * mm
 Vq = 0.6 * kV
-Nq = 4
+match_Nq = 4
+accel_Nq = 2
 rp = 0.55 * mm
 rsource = 0.25 * mm
 G_hardedge = 2 * Vq / pow(rp, 2)
@@ -89,6 +90,8 @@ Lp = gap_centers[2] - g / 2
 
 do_matching_section = True
 do_accel_section = True
+do_matching_section_optimization = True
+do_accel_section_optimization = True
 
 # ------------------------------------------------------------------------------
 #    Lattice Setup
@@ -117,7 +120,7 @@ if do_matching_section:
         # Instantiate the class and use the extracted fields to create the mesh.
         match_lattice = util.Lattice()
         match_file_names = ("iso_zgrad.npy", "iso_esq_grad.npy")
-        match_lattice.user_input_match(match_file_names, Nq, scales=match_scales)
+        match_lattice.user_input_match(match_file_names, match_Nq, scales=match_scales)
         match_z, match_grad = match_lattice.z, match_lattice.grad
 
     else:
@@ -125,26 +128,14 @@ if do_matching_section:
         # Create the hard edge equivalent. The max gradient is hardcoded and
         # corresponds to the gradient in a quadrupole with Vq=400 V.
         match_lattice.hard_edge_match(
-            lq, lq_eff, d, Vq, Nq, rp, match_scales, max_grad=2566538624.836261
+            lq, lq_eff, d, Vq, match_Nq, rp, match_scales, max_grad=2566538624.836261
         )
         match_z, match_grad = match_lattice.z, match_lattice.grad
 
-if do_accel_section:
-    accel_scales = np.array([-0.1, -0.1])
-    accel_fnames = ("accel_zmesh.npy", "accel_esq_grad.npy")
-    accel_lattice = util.Lattice()
-    accel_lattice.acceleration_lattice(gap_centers, accel_fnames, accel_scales, Lp)
-    accel_z, accel_grad = accel_lattice.z, accel_lattice.grad
-    accel_dz = accel_z[1] - accel_z[0]
-
-
-# ------------------------------------------------------------------------------
-#    Solve the KV equations
-# ------------------------------------------------------------------------------
-if do_matching_section:
     match_dz = match_z[1] - match_z[0]
     match_kappa = wp.echarge * match_grad / 2.0 / match_E_s / wp.jperev
 
+    # Solve KV equations for the lattice
     match_soln_matrix = np.zeros(shape=(len(match_z), 4))
     match_soln_matrix[0, :] = np.array(
         [rsource, rsource, match_div_angle, match_div_angle]
@@ -165,10 +156,43 @@ if do_matching_section:
         np.save("matching_solver_data_hardedge", match_data)
         np.save("kappa_he", match_kappa)
 
+    # Optimize for the voltage settings.
+    if do_matching_section_optimization:
+        match_x0 = np.array([rsource, rsource, match_div_angle, match_div_angle])
+        match_target = np.array([0.15 * mm, 0.28 * mm, 0.847 * mrad, -11.146 * mrad])
+        match_rp_norm = 27 * mrad
+        match_norms = np.array([1 / rp, 1 / rp, 1 / match_rp_norm, 1 / match_rp_norm])
+        match_parameters = {
+            "emit": match_emit,
+            "Q": match_Q,
+            "E": match_E_s,
+            "Nq": match_Nq,
+        }
+        match_guess = match_scales
+
+        match_opt = util.Optimizer(
+            match_x0,
+            match_guess,
+            match_target,
+            match_norms,
+            match_file_names,
+            match_parameters,
+        )
+        match_opt.minimize_cost(match_opt.func_to_optimize, max_iter=300)
+
 if do_accel_section:
-    accel_x0 = np.array([0.27954 * mm, 0.34075 * mm, 1.8497 * mrad, -6.8141 * mrad])
+    # accel_scales = np.array([-0.1, -0.1])
+    accel_scales = np.array([-0.09365804, -0.10522027])
+    accel_fnames = ("accel_zmesh.npy", "accel_esq_grad.npy")
+    accel_lattice = util.Lattice()
+    accel_lattice.acceleration_lattice(gap_centers, accel_fnames, accel_scales, Lp)
+    accel_z, accel_grad = accel_lattice.z, accel_lattice.grad
+    accel_dz = accel_z[1] - accel_z[0]
+
+    accel_x0 = np.array([0.20 * mm, 0.2 * mm, 1.5 * mrad, -1.5 * mrad])
     accel_kappa = wp.echarge * accel_grad / 2.0 / accel_E_s / wp.jperev
 
+    # Solve KV equations for the lattice
     accel_soln_matrix = np.zeros(shape=(len(accel_z), 4))
     accel_soln_matrix[0, :] = accel_x0
     util.solver_with_accel(
@@ -196,40 +220,41 @@ if do_accel_section:
     np.save("acceleration_z", accel_z)
     np.save("acceleration_kappa", accel_kappa)
 
+    if do_accel_section_optimization:
+        # Use coordinate vector to match from mathematica script
+        accel_target = accel_x0
+        guess_accel = accel_scales
+        accel_rp_norm = 15 * mrad
+        accel_norms = np.array([1 / rp, 1 / rp, 1 / accel_rp_norm, 1 / accel_rp_norm])
+        accel_parameters = {
+            "emit": accel_emit,
+            "Q": accel_Q,
+            "gap centers": gap_centers,
+            "Vg": Vg,
+            "Lp": Lp,
+            "phi_s": phi_s,
+            "E": accel_E_s,
+        }
+        accel_opt = util.Optimizer(
+            accel_x0,
+            guess_accel,
+            accel_target,
+            accel_norms,
+            accel_fnames,
+            accel_parameters,
+        )
+        accel_opt.minimize_cost(accel_opt.func_to_optimize_accel, max_iter=300)
 
-find_voltages = True
-if find_voltages:
-    x0 = np.array([rsource, rsource, div_angle, div_angle])
-    guess = scales
-    guess_accel = [0.2, 0.2]
-    target = np.array([0.15 * mm, 0.28 * mm, 0.847 * mrad, -11.146 * mrad])
-    rp_norm = 27 * mrad
-    norms = np.array([1 / rp, 1 / rp, 1 / rp_norm, 1 / rp_norm])
-    parameters = {
-        "emit": emit,
-        "Q": Q,
-        "gap centers": gap_centers,
-        "Vg": Vg,
-        "Lp": Lp,
-        "phi_s": phi_s,
-        "E": E_s,
-        "Nq": Nq,
-    }
-    opt = util.Optimizer(x0, guess, target, norms, file_names, parameters)
-    opt.minimize_cost(opt.func_to_optimize, max_iter=300)
-    errors = abs((target - solutions) / target)
-    print(f"Fraction Errors: {errors}")
-
+stop
 # ------------------------------------------------------------------------------
 #    Plot and Save
 # Plot various quanities and save the data.
 # ------------------------------------------------------------------------------
-stop
-k0 = 2 * 0.5 * kV
+kappa_break = 1 * kV / match_E_s / pow(rp, 2)
 Fsc = 2 * Q / (ux + uy)
 Femitx = pow(emit, 2) / pow(ux, 3)
 Femity = pow(emit, 2) / pow(uy, 3)
-kappa_he = np.load("kappa_he.npy")
+kappa_he = np.load("matching_kappa_he.npy")
 data_he = np.load("matching_solver_data_hardedge.npy")
 
 fig, ax = plt.subplots()
@@ -293,15 +318,7 @@ print(f"Final (rpx, rpy) mrad: {vxf/mrad:.4f}, {vyf/mrad:.4f}")
 #    Acceleration Treatment
 # Additional section to do acceleration matching
 # ------------------------------------------------------------------------------
-accel_fnames = ("accel_zmesh.npy", "accel_esq_grad.npy")
-accel_scales = np.array([0.25, 0.25])
-accel_scales = np.array([-0.08961465, -0.12368815])
-lattice_with_accel = util.Lattice()
-lattice_with_accel.accel_lattice(gap_centers, accel_fnames, accel_scales, Lp)
-accel_z, accel_grad = lattice_with_accel.z, lattice_with_accel.grad
-accel_dz = accel_z[1] - accel_z[0]
-accel_kappa = wp.echarge * accel_grad / 2.0 / E_s / wp.jperev
-
+accel_k0 = 1 * kV / accel_E_s / pow(rp, 2)
 fig, ax = plt.subplots()
 ax.set_title(r"Initial (Non-optimized) $\kappa(z)$ ")
 ax.set_xlabel("z (mm)")
@@ -310,44 +327,12 @@ plt.plot(accel_z / mm, accel_kappa / k0)
 ax.axhline(y=0, c="k", lw=0.5)
 plt.show()
 
-# Plot the kv-solver
-accel_x0 = np.array([0.27954 * mm, 0.34075 * mm, 1.8497 * mrad, -6.8141 * mrad])
-accel_target = accel_x0.copy()
-
-ux_initial, uy_initial = accel_x0[:2]
-vx_initial, vy_initial = accel_x0[2:]
-
-accel_soln_matrix = np.zeros(shape=(len(accel_z), 4))
-accel_soln_matrix[0, :] = ux_initial, uy_initial, vx_initial, vy_initial
-
-util.solver_with_accel(
-    accel_soln_matrix,
-    accel_dz,
-    accel_kappa,
-    emit,
-    Q,
-    accel_z,
-    gap_centers,
-    Vg=Vg,
-    phi_s=phi_s,
-    E=E_s,
-)
-# solver_with_accel(soln_matrix, dz, kappa, emit, Q, z, gap_centers, Vg=1*kV)
-accel_solutions = accel_soln_matrix[-1, :]
-
-ux, uy = accel_soln_matrix[:, 0], accel_soln_matrix[:, 1]
-vx, vy = accel_soln_matrix[:, 2], accel_soln_matrix[:, 3]
-
-uxf, uyf = ux[-1], uy[-1]
-vxf, vyf = vx[-1], vy[-1]
-
-
 fig, ax = plt.subplots()
 ax.set_title(r"Envelope Solutions for $r_x$ and $r_y$ with accel.")
 ax.set_xlabel("z (mm)")
 ax.set_ylabel("Transverse Position (mm)")
-ax.plot(accel_z / mm, ux / mm, label=r"$r_x(s)$", c="k")
-ax.plot(accel_z / mm, uy / mm, label=r"$r_y(s)$", c="b")
+ax.plot(accel_z / mm, accel_ux / mm, label=r"$r_x(s)$", c="k")
+ax.plot(accel_z / mm, accel_uy / mm, label=r"$r_y(s)$", c="b")
 ax.scatter(accel_z[-1] / mm, accel_target[0] / mm, marker="*", c="k", s=90, alpha=0.6)
 ax.scatter(accel_z[-1] / mm, accel_target[1] / mm, marker="*", c="b", s=90, alpha=0.6)
 ax.legend()
@@ -356,28 +341,8 @@ fig, ax = plt.subplots()
 ax.set_title(r"Envelope Solutions for $rp_x$ and $rp_y$ with accel.")
 ax.set_xlabel("z (mm)")
 ax.set_ylabel("Transverse Angle (mrad)")
-ax.plot(accel_z / mm, vx / mm, label=r"$rp_x(s)$", c="k")
-ax.plot(accel_z / mm, vy / mm, label=r"$rp_y(s)$", c="b")
+ax.plot(accel_z / mm, accel_vx / mm, label=r"$rp_x(s)$", c="k")
+ax.plot(accel_z / mm, accel_vy / mm, label=r"$rp_y(s)$", c="b")
 ax.scatter(accel_z[-1] / mm, accel_target[2] / mrad, marker="*", c="k", s=90, alpha=0.6)
 ax.scatter(accel_z[-1] / mm, accel_target[3] / mrad, marker="*", c="b", s=90, alpha=0.6)
 ax.legend()
-
-# Use coordinate vector to match from mathematica script
-guess_accel = accel_scales
-rp_norm = 15 * mrad
-norms = np.array([1 / rp, 1 / rp, 1 / rp_norm, 1 / rp_norm])
-parameters = {
-    "emit": emit,
-    "Q": Q,
-    "gap centers": gap_centers,
-    "Vg": Vg,
-    "Lp": Lp,
-    "phi_s": phi_s,
-    "E": E_s,
-}
-opt = util.Optimizer(
-    accel_x0, guess_accel, accel_target, norms, accel_fnames, parameters
-)
-opt.minimize_cost(opt.func_to_optimize_accel, max_iter=300)
-errors = abs((target - solutions) / target)
-print(f"Fraction Errors: {errors}")
