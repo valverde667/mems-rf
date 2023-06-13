@@ -39,7 +39,22 @@ uA = 1e-6
 MHz = 1e6
 twopi = np.pi * 2
 
+# The following parameters are used for the KV-solver. However, different
+# values may want to be used with the matching section and acceleration
+# section
+match_Q = 6.986e-5
+accel_Q = match_Q
+match_emit = 1.336 * mm * mrad
+accel_emit = match_emit
+match_E_s = 7 * keV
+accel_E_s = match_E_s
+match_init_I = 10 * uA
+accel_init_I = match_init_I
+match_div_angle = 3.78 * mrad
+accel_div_angle = match_div_angle
+
 # System and Geometry settings
+T_b = 0.1  # eV
 Vg = 7 * kV
 Ng = 4
 phi_s = np.ones(Ng) * 0
@@ -55,31 +70,21 @@ rsource = 0.25 * mm
 G_hardedge = 2 * Vq / pow(rp, 2)
 res = 10 * um
 
-# Beam Settings
-Q = 6.986e-5
-emit = 1.336 * mm * mrad
-E_s = 7 * keV
-init_I = 10 * uA
-div_angle = 3.78 * mrad
-Tb = 0.1  # eV
-
 # Beam specifications
 beam = wp.Species(type=wp.Argon, charge_state=1)
 mass_eV = beam.mass * pow(SC.c, 2) / wp.jperev
-beam.ekin = E_s
-beam.ibeam = init_I
+beam.ekin = match_E_s
+beam.ibeam = match_init_I
 beam.a0 = rsource
 beam.b0 = rsource
 beam.ap0 = 0.0
 beam.bp0 = 0.0
-beam.ibeam = init_I
 beam.vbeam = 0.0
-beam.ekin = E_s
-vth = np.sqrt(Tb * wp.jperev / beam.mass)
+vth = np.sqrt(T_b * wp.jperev / beam.mass)
 wp.derivqty()
 
 # Calculate Parameters
-gap_centers = util.calc_gap_centers(E_s, mass_eV, phi_s, f, Vg)
+gap_centers = util.calc_gap_centers(accel_E_s, mass_eV, phi_s, f, Vg)
 Lp = gap_centers[2] - g / 2
 
 do_matching_section = True
@@ -106,7 +111,7 @@ do_accel_section = True
 # ------------------------------------------------------------------------------
 if do_matching_section:
     user_input = True
-    match_scales = np.array([0.15, 0.2, 0.10, 0.20])
+    match_scales = np.array([-0.15, 0.2, -0.10, 0.20])
 
     if user_input:
         # Instantiate the class and use the extracted fields to create the mesh.
@@ -130,33 +135,66 @@ if do_accel_section:
     accel_lattice = util.Lattice()
     accel_lattice.acceleration_lattice(gap_centers, accel_fnames, accel_scales, Lp)
     accel_z, accel_grad = accel_lattice.z, accel_lattice.grad
+    accel_dz = accel_z[1] - accel_z[0]
 
 
-# Solve KV equations
-dz = z[1] - z[0]
-kappa = wp.echarge * gradz / 2.0 / E_s / wp.jperev
-ux_initial, uy_initial = rsource, rsource
-vx_initial, vy_initial = div_angle, div_angle
+# ------------------------------------------------------------------------------
+#    Solve the KV equations
+# ------------------------------------------------------------------------------
+if do_matching_section:
+    match_dz = match_z[1] - match_z[0]
+    match_kappa = wp.echarge * match_grad / 2.0 / match_E_s / wp.jperev
 
-soln_matrix = np.zeros(shape=(len(z), 4))
-soln_matrix[0, :] = ux_initial, uy_initial, vx_initial, vy_initial
+    match_soln_matrix = np.zeros(shape=(len(match_z), 4))
+    match_soln_matrix[0, :] = np.array(
+        [rsource, rsource, match_div_angle, match_div_angle]
+    )
+    util.solver(match_soln_matrix, match_dz, match_kappa, match_emit, match_Q)
 
-util.solver(soln_matrix, dz, kappa, emit, Q)
-# solver_with_accel(soln_matrix, dz, kappa, emit, Q, z, gap_centers, Vg=1*kV)
-solutions = soln_matrix[-1, :]
+    # Unpack solution arrays and save to data file.
+    match_solutions = match_soln_matrix[-1, :]
+    match_ux, match_uy = match_soln_matrix[:, 0], match_soln_matrix[:, 1]
+    match_vx, match_vy = match_soln_matrix[:, 2], match_soln_matrix[:, 3]
+    match_uxf, match_uyf = match_ux[-1], match_uy[-1]
+    match_vxf, match_vyf = match_vx[-1], match_vy[-1]
+    match_data = np.vstack((match_ux, match_uy, match_vx, match_vy, match_z))
 
-ux, uy = soln_matrix[:, 0], soln_matrix[:, 1]
-vx, vy = soln_matrix[:, 2], soln_matrix[:, 3]
+    if user_input:
+        np.save("matching_solver_data", match_data)
+    else:
+        np.save("matching_solver_data_hardedge", match_data)
+        np.save("kappa_he", match_kappa)
 
-uxf, uyf = ux[-1], uy[-1]
-vxf, vyf = vx[-1], vy[-1]
+if do_accel_section:
+    accel_x0 = np.array([0.27954 * mm, 0.34075 * mm, 1.8497 * mrad, -6.8141 * mrad])
+    accel_kappa = wp.echarge * accel_grad / 2.0 / accel_E_s / wp.jperev
 
-data = np.vstack((ux, uy, vx, vy, z))
-if user_input:
-    np.save("matching_solver_data", data)
-else:
-    np.save("matching_solver_data_hardedge", data)
-    np.save("kappa_he", kappa)
+    accel_soln_matrix = np.zeros(shape=(len(accel_z), 4))
+    accel_soln_matrix[0, :] = accel_x0
+    util.solver_with_accel(
+        accel_soln_matrix,
+        accel_dz,
+        accel_kappa,
+        accel_emit,
+        accel_Q,
+        accel_z,
+        gap_centers,
+        Vg=Vg,
+        phi_s=phi_s,
+        E=accel_E_s,
+    )
+
+    # Unpack solution arrays and save to data file.
+    accel_solutions = accel_soln_matrix[-1, :]
+    accel_ux, accel_uy = accel_soln_matrix[:, 0], accel_soln_matrix[:, 1]
+    accel_vx, accel_vy = accel_soln_matrix[:, 2], accel_soln_matrix[:, 3]
+    accel_uxf, accel_uyf = accel_ux[-1], accel_uy[-1]
+    accel_vxf, accel_vyf = accel_vx[-1], accel_vy[-1]
+    accel_data = np.vstack((accel_ux, accel_uy, accel_vx, accel_vy, accel_z))
+
+    np.save("acceleration_solver_data", accel_data)
+    np.save("acceleration_z", accel_z)
+    np.save("acceleration_kappa", accel_kappa)
 
 
 find_voltages = True
@@ -186,8 +224,8 @@ if find_voltages:
 #    Plot and Save
 # Plot various quanities and save the data.
 # ------------------------------------------------------------------------------
+stop
 k0 = 2 * 0.5 * kV
-k0 = k0 / 7 / kV / pow(rp, 2)
 Fsc = 2 * Q / (ux + uy)
 Femitx = pow(emit, 2) / pow(ux, 3)
 Femity = pow(emit, 2) / pow(uy, 3)
