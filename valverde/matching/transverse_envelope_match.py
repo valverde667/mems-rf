@@ -78,6 +78,13 @@ beam.ekin = E_s
 vth = np.sqrt(Tb * wp.jperev / beam.mass)
 wp.derivqty()
 
+# Calculate Parameters
+gap_centers = util.calc_gap_centers(E_s, mass_eV, phi_s, f, Vg)
+Lp = gap_centers[2] - g / 2
+
+do_matching_section = True
+do_accel_section = True
+
 # ------------------------------------------------------------------------------
 #    Lattice Setup and Solver
 # The lattice is generated that will be used to solve the KV-envelope equations.
@@ -92,46 +99,33 @@ wp.derivqty()
 # used for the solver. Lastly, the gradients are scaled by to simulate different
 # voltage settings.
 # ------------------------------------------------------------------------------
-gap_centers = util.calc_gap_centers(E_s, mass_eV, phi_s, f, Vg)
-Lp = gap_centers[2] - g / 2
-user_input = True
-if user_input:
-    # Instantiate the class and use the extracted fields to create the mesh.
-    lattice = util.Lattice()
-    file_names = ("iso_zgrad.npy", "iso_esq_grad.npy")
-    scales = []
-    # Scale the voltages and make the scales focus-defocus-focus-defocus
-    for i in range(Nq):
-        if i % 2 == 0:
-            scales.append(-1.0)
-        else:
-            scales.append(1.0)
+if do_matching_section:
+    user_input = True
+    match_scales = np.array([0.15, 0.2, 0.10, 0.20])
 
-    scales = np.array(scales)
-    scales *= (0.15, 0.2, 0.10, 0.20)
-    scales = np.array([0.46240597, -1.09299698, 0.69792102, 0.19377574])
+    if user_input:
+        # Instantiate the class and use the extracted fields to create the mesh.
+        match_lattice = util.Lattice()
+        match_file_names = ("iso_zgrad.npy", "iso_esq_grad.npy")
+        match_lattice.user_input_match(match_file_names, Nq, scales=match_scales)
+        match_z, match_grad = match_lattice.z, match_lattice.grad
 
-    lattice.user_input_match(file_names, Nq, scales=scales)
-    z, gradz = lattice.z, lattice.grad
+    else:
+        match_lattice = util.Lattice()
+        # Create the hard edge equivalent. The max gradient is hardcoded and
+        # corresponds to the gradient in a quadrupole with Vq=400 V.
+        match_lattice.hard_edge_match(
+            lq, lq_eff, d, Vq, Nq, rp, match_scales, max_grad=2566538624.836261
+        )
+        match_z, match_grad = match_lattice.z, match_lattice.grad
 
-else:
-    scales = []
-    for i in range(Nq):
-        if i % 2 == 0:
-            scales.append(-1.0)
-        else:
-            scales.append(1.0)
+if do_accel_section:
+    accel_scales = np.array([-0.08961465, -0.12368815])
+    accel_fnames = ("accel_zmesh.npy", "accel_esq_grad.npy")
+    accel_lattice = util.Lattice()
+    accel_lattice.acceleration_lattice(gap_centers, accel_fnames, accel_scales, Lp)
+    accel_z, accel_grad = accel_lattice.z, accel_lattice.grad
 
-    scales = np.array(scales)
-    scales *= (0.15, 0.2, 0.10, 0.20)
-
-    lattice = util.Lattice()
-    # Create the hard edge equivalent. The max gradient is hardcoded and
-    # corresponds to the gradient in a quadrupole with Vq=400 V.
-    lattice.hard_edge_match(
-        lq, lq_eff, d, Vq, Nq, rp, scales, max_grad=2566538624.836261
-    )
-    z, gradz = lattice.z, lattice.grad
 
 # Solve KV equations
 dz = z[1] - z[0]
