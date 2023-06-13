@@ -461,6 +461,7 @@ if user_input:
 
     scales = np.array(scales)
     scales *= (0.15, 0.2, 0.10, 0.20)
+    scales = np.array([0.46240597, -1.09299698, 0.69792102, 0.19377574])
 
     lattice.user_input_match(file_names, Nq, scales=scales)
     z, gradz = lattice.z, lattice.grad
@@ -720,3 +721,94 @@ plt.show()
 
 print(f"Final (rx, ry) mm: {uxf/mm:.4f}, {uyf/mm:.4f}")
 print(f"Final (rpx, rpy) mrad: {vxf/mrad:.4f}, {vyf/mrad:.4f}")
+
+# ------------------------------------------------------------------------------
+#    Acceleration Treatment
+# Additional section to do acceleration matching
+# ------------------------------------------------------------------------------
+accel_fnames = ("accel_zmesh.npy", "accel_esq_grad.npy")
+accel_scales = np.array([0.25, 0.25])
+accel_scales = np.array([-0.08961465, -0.12368815])
+lattice_with_accel = Lattice()
+lattice_with_accel.accel_lattice(gap_centers, accel_fnames, accel_scales, Lp)
+accel_z, accel_grad = lattice_with_accel.z, lattice_with_accel.grad
+accel_dz = accel_z[1] - accel_z[0]
+accel_kappa = wp.echarge * accel_grad / 2.0 / E_s / wp.jperev
+
+fig, ax = plt.subplots()
+ax.set_title(r"Initial (Non-optimized) $\kappa(z)$ ")
+ax.set_xlabel("z (mm)")
+ax.set_ylabel(r"$\kappa (z)/\hat{\kappa}$")
+plt.plot(accel_z / mm, accel_kappa / k0)
+ax.axhline(y=0, c="k", lw=0.5)
+plt.show()
+
+# Plot the kv-solver
+accel_x0 = np.array([0.27954 * mm, 0.34075 * mm, 1.8497 * mrad, -6.8141 * mrad])
+accel_target = accel_x0.copy()
+
+ux_initial, uy_initial = accel_x0[:2]
+vx_initial, vy_initial = accel_x0[2:]
+
+accel_soln_matrix = np.zeros(shape=(len(accel_z), 4))
+accel_soln_matrix[0, :] = ux_initial, uy_initial, vx_initial, vy_initial
+
+solver_with_accel(
+    accel_soln_matrix,
+    accel_dz,
+    accel_kappa,
+    emit,
+    Q,
+    accel_z,
+    gap_centers,
+    Vg=Vg,
+    phi_s=phi_s,
+    E=E_s,
+)
+# solver_with_accel(soln_matrix, dz, kappa, emit, Q, z, gap_centers, Vg=1*kV)
+accel_solutions = accel_soln_matrix[-1, :]
+
+ux, uy = accel_soln_matrix[:, 0], accel_soln_matrix[:, 1]
+vx, vy = accel_soln_matrix[:, 2], accel_soln_matrix[:, 3]
+
+uxf, uyf = ux[-1], uy[-1]
+vxf, vyf = vx[-1], vy[-1]
+
+
+fig, ax = plt.subplots()
+ax.set_title(r"Envelope Solutions for $r_x$ and $r_y$ with accel.")
+ax.set_xlabel("z (mm)")
+ax.set_ylabel("Transverse Position (mm)")
+ax.plot(accel_z / mm, ux / mm, label=r"$r_x(s)$", c="k")
+ax.plot(accel_z / mm, uy / mm, label=r"$r_y(s)$", c="b")
+ax.scatter(accel_z[-1] / mm, accel_target[0] / mm, marker="*", c="k", s=90, alpha=0.6)
+ax.scatter(accel_z[-1] / mm, accel_target[1] / mm, marker="*", c="b", s=90, alpha=0.6)
+ax.legend()
+
+fig, ax = plt.subplots()
+ax.set_title(r"Envelope Solutions for $rp_x$ and $rp_y$ with accel.")
+ax.set_xlabel("z (mm)")
+ax.set_ylabel("Transverse Angle (mrad)")
+ax.plot(accel_z / mm, vx / mm, label=r"$rp_x(s)$", c="k")
+ax.plot(accel_z / mm, vy / mm, label=r"$rp_y(s)$", c="b")
+ax.scatter(accel_z[-1] / mm, accel_target[2] / mrad, marker="*", c="k", s=90, alpha=0.6)
+ax.scatter(accel_z[-1] / mm, accel_target[3] / mrad, marker="*", c="b", s=90, alpha=0.6)
+ax.legend()
+
+# Use coordinate vector to match from mathematica script
+guess_accel = accel_scales
+rp_norm = 15 * mrad
+norms = np.array([1 / rp, 1 / rp, 1 / rp_norm, 1 / rp_norm])
+parameters = {
+    "emit": emit,
+    "Q": Q,
+    "gap centers": gap_centers,
+    "Vg": Vg,
+    "Lp": Lp,
+    "phi_s": phi_s,
+    "E": E_s,
+}
+opt = Optimizer(accel_x0, guess_accel, accel_target, norms, accel_fnames, parameters)
+opt.minimize_cost(opt.func_to_optimize_accel, max_iter=300)
+errors = abs((target - solutions) / target)
+print(f"Fraction Errors: {errors}")
