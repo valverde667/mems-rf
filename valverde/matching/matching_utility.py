@@ -179,7 +179,7 @@ class Lattice:
         for key, value in zip(self.lattice_params.keys(), updated_params):
             self.lattice_params[key] = value
 
-    def accel_lattice(
+    def acceleration_lattice(
         self,
         gap_centers,
         file_string,
