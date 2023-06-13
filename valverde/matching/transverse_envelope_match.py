@@ -86,8 +86,9 @@ do_matching_section = True
 do_accel_section = True
 
 # ------------------------------------------------------------------------------
-#    Lattice Setup and Solver
+#    Lattice Setup
 # The lattice is generated that will be used to solve the KV-envelope equations.
+# -- Matching Section
 # The two options are available for setting up the lattice:
 #   1) The user-input options will use the extracted gradient for the desired
 #   matching section simulated in a separate script. Both the gradient and the
@@ -95,6 +96,10 @@ do_accel_section = True
 #   2) If the user-input option is set to False then the hard edge model is used.
 #   The hard edge model will place the ESQs using the physical length of the ESQ
 #   but the effective length will be used to place the gradient on the mesh.
+# -- Acceleration section
+# This only takes a user input at the moment. I do not think it is worthwhile
+# adding a hard-edge in.
+
 # Once the lattice is created all the data is stored in the Lattice class and then
 # used for the solver. Lastly, the gradients are scaled by to simulate different
 # voltage settings.
@@ -120,7 +125,7 @@ if do_matching_section:
         match_z, match_grad = match_lattice.z, match_lattice.grad
 
 if do_accel_section:
-    accel_scales = np.array([-0.08961465, -0.12368815])
+    accel_scales = np.array([-0.1, -0.1])
     accel_fnames = ("accel_zmesh.npy", "accel_esq_grad.npy")
     accel_lattice = util.Lattice()
     accel_lattice.acceleration_lattice(gap_centers, accel_fnames, accel_scales, Lp)
