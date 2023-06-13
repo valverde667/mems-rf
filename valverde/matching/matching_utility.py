@@ -464,7 +464,7 @@ class Optimizer(Lattice):
         E_s = self.parameters["E"]
 
         # Instantiate lattice and calculate the rest of the parameters
-        self.accel_lattice(gap_centers, self.filenames, V_scales, Lp)
+        self.acceleration_lattice(gap_centers, self.filenames, V_scales, Lp)
         z, gradz = self.z, self.grad
         dz = z[1] - z[0]
         kappa = wp.echarge * gradz / 2.0 / E_s / wp.jperev
