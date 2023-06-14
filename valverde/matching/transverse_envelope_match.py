@@ -189,7 +189,7 @@ if do_accel_section:
     accel_z, accel_grad = accel_lattice.z, accel_lattice.grad
     accel_dz = accel_z[1] - accel_z[0]
 
-    accel_x0 = np.array([0.35 * mm, 0.20 * mm, 11.5 * mrad, -17.41 * mrad])
+    accel_x0 = np.array([0.25 * mm, 0.31 * mm, 1.5 * mrad, -7.4 * mrad])
     accel_kappa = wp.echarge * accel_grad / 2.0 / accel_E_s / wp.jperev
 
     # Solve KV equations for the lattice
@@ -203,9 +203,9 @@ if do_accel_section:
         accel_Q,
         accel_z,
         gap_centers,
-        Vg=Vg,
-        phi_s=phi_s,
-        E=accel_E_s,
+        Vg,
+        phi_s,
+        accel_E_s,
     )
 
     # Unpack solution arrays and save to data file.
@@ -246,6 +246,7 @@ if do_accel_section:
         accel_opt.optimize_acceleration = True
         accel_opt.z = accel_z
         accel_opt.grad = accel_grad
+
         accel_opt.minimize_cost(accel_opt.func_to_optimize_acceleration, max_iter=300)
 
 # ------------------------------------------------------------------------------
