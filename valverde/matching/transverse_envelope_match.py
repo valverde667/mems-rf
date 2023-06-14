@@ -114,7 +114,7 @@ do_accel_section_optimization = True
 # ------------------------------------------------------------------------------
 if do_matching_section:
     user_input = True
-    match_scales = np.array([-0.15, 0.2, -0.10, 0.20])
+    match_scales = np.array([-0.6606901, 1.09060576, -0.97491688, 0.53503874])
 
     if user_input:
         # Instantiate the class and use the extracted fields to create the mesh.
@@ -178,18 +178,18 @@ if do_matching_section:
             match_file_names,
             match_parameters,
         )
-        match_opt.minimize_cost(match_opt.func_to_optimize, max_iter=300)
+        match_opt.optimize_matching = True
+        match_opt.minimize_cost(match_opt.func_to_optimize_matching, max_iter=300)
 
 if do_accel_section:
-    # accel_scales = np.array([-0.1, -0.1])
-    accel_scales = np.array([-0.09365804, -0.10522027])
+    accel_scales = np.array([0.75, 0.75])
     accel_fnames = ("accel_zmesh.npy", "accel_esq_grad.npy")
     accel_lattice = util.Lattice()
     accel_lattice.acceleration_lattice(gap_centers, accel_fnames, accel_scales, Lp)
     accel_z, accel_grad = accel_lattice.z, accel_lattice.grad
     accel_dz = accel_z[1] - accel_z[0]
 
-    accel_x0 = np.array([0.20 * mm, 0.2 * mm, 1.5 * mrad, -1.5 * mrad])
+    accel_x0 = np.array([0.35 * mm, 0.20 * mm, 11.5 * mrad, -17.41 * mrad])
     accel_kappa = wp.echarge * accel_grad / 2.0 / accel_E_s / wp.jperev
 
     # Solve KV equations for the lattice
@@ -222,8 +222,8 @@ if do_accel_section:
 
     if do_accel_section_optimization:
         # Use coordinate vector to match from mathematica script
-        accel_target = accel_x0
-        guess_accel = accel_scales
+        accel_guess = accel_x0
+        accel_target = accel_guess.copy()
         accel_rp_norm = 15 * mrad
         accel_norms = np.array([1 / rp, 1 / rp, 1 / accel_rp_norm, 1 / accel_rp_norm])
         accel_parameters = {
@@ -236,31 +236,33 @@ if do_accel_section:
             "E": accel_E_s,
         }
         accel_opt = util.Optimizer(
-            accel_x0,
-            guess_accel,
+            accel_guess,
+            accel_scales,
             accel_target,
             accel_norms,
             accel_fnames,
             accel_parameters,
         )
-        accel_opt.minimize_cost(accel_opt.func_to_optimize_accel, max_iter=300)
+        accel_opt.optimize_acceleration = True
+        accel_opt.z = accel_z
+        accel_opt.grad = accel_grad
+        accel_opt.minimize_cost(accel_opt.func_to_optimize_acceleration, max_iter=300)
 
-stop
 # ------------------------------------------------------------------------------
 #    Plot and Save
 # Plot various quanities and save the data.
 # ------------------------------------------------------------------------------
-kappa_break = 1 * kV / match_E_s / pow(rp, 2)
-Fsc = 2 * Q / (ux + uy)
-Femitx = pow(emit, 2) / pow(ux, 3)
-Femity = pow(emit, 2) / pow(uy, 3)
-kappa_he = np.load("matching_kappa_he.npy")
-data_he = np.load("matching_solver_data_hardedge.npy")
+match_k0 = 1 * kV / match_E_s / pow(rp, 2)
+Fsc = 2 * match_Q / (match_ux + match_uy)
+Femitx = pow(match_emit, 2) / pow(match_ux, 3)
+Femity = pow(match_emit, 2) / pow(match_uy, 3)
+# match_kappa_he = np.load("matching_kappa_he.npy")
+# match_data_he = np.load("matching_solver_data_hardedge.npy")
 
 fig, ax = plt.subplots()
 ax.set_xlabel("z (mm)")
 ax.set_ylabel(r"$\kappa (z)/\hat{\kappa}$")
-plt.plot(z / mm, kappa / k0)
+plt.plot(match_z / mm, match_kappa / match_k0)
 ax.axhline(y=0, c="k", lw=0.5)
 plt.show()
 
@@ -268,51 +270,55 @@ fig, ax = plt.subplots()
 ax.set_title(r"Envelope Solutions for $r_x$ and $r_y$")
 ax.set_xlabel("z (mm)")
 ax.set_ylabel("Transverse Position (mm)")
-ax.plot(z / mm, ux / mm, label=r"$r_x(s)$", c="k")
-ax.plot(z / mm, uy / mm, label=r"$r_y(s)$", c="b")
-ax.scatter(z[-1] / mm, target[0] / mm, marker="*", c="k", s=90, alpha=0.6)
-ax.scatter(z[-1] / mm, target[1] / mm, marker="*", c="b", s=90, alpha=0.6)
+ax.plot(match_z / mm, match_ux / mm, label=r"$r_x(s)$", c="k")
+ax.plot(match_z / mm, match_uy / mm, label=r"$r_y(s)$", c="b")
+ax.scatter(match_z[-1] / mm, match_target[0] / mm, marker="*", c="k", s=90, alpha=0.6)
+ax.scatter(match_z[-1] / mm, match_target[1] / mm, marker="*", c="b", s=90, alpha=0.6)
 ax.legend()
 
 fig, ax = plt.subplots()
 ax.set_title(r"Envelope Solutions for $rp_x$ and $rp_y$")
 ax.set_xlabel("z (mm)")
 ax.set_ylabel("Transverse Angle (mrad)")
-ax.plot(z / mm, vx / mm, label=r"$rp_x(s)$", c="k")
-ax.plot(z / mm, vy / mm, label=r"$rp_y(s)$", c="b")
-ax.scatter(z[-1] / mm, target[2] / mrad, marker="*", c="k", s=90, alpha=0.6)
-ax.scatter(z[-1] / mm, target[3] / mrad, marker="*", c="b", s=90, alpha=0.6)
+ax.plot(match_z / mm, match_vx / mm, label=r"$rp_x(s)$", c="k")
+ax.plot(match_z / mm, match_vy / mm, label=r"$rp_y(s)$", c="b")
+ax.scatter(match_z[-1] / mm, match_target[2] / mrad, marker="*", c="k", s=90, alpha=0.6)
+ax.scatter(match_z[-1] / mm, match_target[3] / mrad, marker="*", c="b", s=90, alpha=0.6)
 ax.legend()
 
 fig, ax = plt.subplots()
-plt.plot(data[-1, :] / mm, kappa / k0, c="b", label="Extracted")
-plt.plot(data_he[-1, :] / mm, kappa_he / k0, c="g", alpha=0.5, label="Hard-Edge")
-ax.axhline(y=0, c="k", lw=0.5)
-ax.set_xlabel("z (mm)")
-ax.set_ylabel(r"$\kappa(z)/\hat{\kappa}$")
-plt.savefig("/Users/nickvalverde/Desktop/kappa_lattice.svg")
-ax.legend()
-
-fig, ax = plt.subplots()
-ax.plot(z / mm, 2 * Q / (ux + uy), c="r", label=r"$F_\mathrm{SC}$")
-ax.plot(z / mm, pow(emit, 2) / pow(ux, 3), c="k", label=r"$F_\mathrm{emit-x}$")
-ax.plot(z / mm, pow(emit, 2) / pow(uy, 3), c="b", label=r"$F_\mathrm{emit-y}$")
+ax.plot(
+    match_z / mm, 2 * match_Q / (match_ux + match_uy), c="r", label=r"$F_\mathrm{SC}$"
+)
+ax.plot(
+    match_z / mm,
+    pow(match_emit, 2) / pow(match_ux, 3),
+    c="k",
+    label=r"$F_\mathrm{emit-x}$",
+)
+ax.plot(
+    match_z / mm,
+    pow(match_emit, 2) / pow(match_uy, 3),
+    c="b",
+    label=r"$F_\mathrm{emit-y}$",
+)
 ax.set_ylabel("Defocusing Term Strength (1/m)")
 ax.legend()
 
 Fig, ax = plt.subplots()
-ax.plot(z / mm, Fsc / Femitx, c="k", label=r"$F_\mathrm{sc} / F_\mathrm{x-emit}$")
-ax.plot(z / mm, Fsc / Femity, c="b", label=r"$F_\mathrm{sc} / F_\mathrm{y-emit}$")
+ax.plot(match_z / mm, Fsc / Femitx, c="k", label=r"$F_\mathrm{sc} / F_\mathrm{x-emit}$")
+ax.plot(match_z / mm, Fsc / Femity, c="b", label=r"$F_\mathrm{sc} / F_\mathrm{y-emit}$")
 ax.set_xlabel("z (mm)")
 ax.set_ylabel("Ratio of Defocusing Terms")
 ax.legend()
 
-
 plt.show()
 
 
-print(f"Final (rx, ry) mm: {uxf/mm:.4f}, {uyf/mm:.4f}")
-print(f"Final (rpx, rpy) mrad: {vxf/mrad:.4f}, {vyf/mrad:.4f}")
+print(f"Matching Section Final (rx, ry) mm: {match_uxf/mm:.4f}, {match_uyf/mm:.4f}")
+print(
+    f"Matching Section Final (rpx, rpy) mrad: {match_vxf/mrad:.4f}, {match_vyf/mrad:.4f}"
+)
 
 # ------------------------------------------------------------------------------
 #    Acceleration Treatment
@@ -323,7 +329,7 @@ fig, ax = plt.subplots()
 ax.set_title(r"Initial (Non-optimized) $\kappa(z)$ ")
 ax.set_xlabel("z (mm)")
 ax.set_ylabel(r"$\kappa (z)/\hat{\kappa}$")
-plt.plot(accel_z / mm, accel_kappa / k0)
+plt.plot(accel_z / mm, accel_kappa / accel_k0)
 ax.axhline(y=0, c="k", lw=0.5)
 plt.show()
 
@@ -346,3 +352,9 @@ ax.plot(accel_z / mm, accel_vy / mm, label=r"$rp_y(s)$", c="b")
 ax.scatter(accel_z[-1] / mm, accel_target[2] / mrad, marker="*", c="k", s=90, alpha=0.6)
 ax.scatter(accel_z[-1] / mm, accel_target[3] / mrad, marker="*", c="b", s=90, alpha=0.6)
 ax.legend()
+
+
+print(f"Accel. Section Final (rx, ry) mm: {accel_uxf/mm:.4f}, {accel_uyf/mm:.4f}")
+print(
+    f"Accel. Section Final (rpx, rpy) mrad: {accel_vxf/mrad:.4f}, {accel_vyf/mrad:.4f}"
+)
