@@ -279,7 +279,7 @@ def calc_energy_gain(Vg, phi_s):
 
 
 def solver_with_accel(
-    solve_matrix, dz, kappa, emit, Q, zmesh, gap_centers, Vg=7e3, phi_s=0.0, E=7e3
+    solve_matrix, dz, kappa, emit, Q, zmesh, gap_centers, Vg, phi_s, E
 ):
     """Solve KV-envelope equations with Euler-cromer method and acceleration kicks.
 
@@ -323,8 +323,8 @@ def solver_with_accel(
     # save counter for next loop. Update angles, Q and emittance
     current_ind = n
     dE = calc_energy_gain(Vg, phi_s[0])
-    rx_kick = vx[-1] / (1 + np.sqrt(dE / current_energy))
-    ry_kick = vy[-1] / (1 + np.sqrt(dE / current_energy))
+    rx_kick = vx[n - 1] / (1 + np.sqrt(dE / current_energy))
+    ry_kick = vy[n - 1] / (1 + np.sqrt(dE / current_energy))
     Q = Q / pow(1 + dE / current_energy, 3.0 / 2.0)
     emit = emit / np.sqrt(1 + dE / current_energy)
 
@@ -352,8 +352,8 @@ def solver_with_accel(
     # save counter for next loop. Update angles, Q and emittance
     current_ind = n
     dE = calc_energy_gain(Vg, phi_s[1])
-    rx_kick = vx[-1] / (1 + np.sqrt(dE / current_energy))
-    ry_kick = vy[-1] / (1 + np.sqrt(dE / current_energy))
+    rx_kick = vx[n - 1] / (1 + np.sqrt(dE / current_energy))
+    ry_kick = vy[n - 1] / (1 + np.sqrt(dE / current_energy))
     Q = Q / pow(1 + dE / current_energy, 3.0 / 2.0)
     emit = emit / np.sqrt(1 + dE / current_energy)
 
