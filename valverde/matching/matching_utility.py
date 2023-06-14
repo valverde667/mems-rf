@@ -388,14 +388,18 @@ def solver_with_accel(
 # acceleration lattice.
 # ------------------------------------------------------------------------------
 class Optimizer(Lattice):
-    def __init__(self, initial_conds, guess, target, norms, filenames, parameters):
+    def __init__(self, initial_conds, scales, target, norms, filenames, parameters):
         super().__init__()
         self.initial_conds = initial_conds
-        self.guess = guess
+        self.scales = scales
         self.target = target
         self.cost_norms = norms
         self.filenames = filenames
         self.parameters = parameters
+        self.z = None
+        self.grad = None
+        self.optimize_matching = False
+        self.optimize_acceleration = False
         self.sol = None
         self.optimum = None
         self.cost_hist = []
@@ -405,22 +409,26 @@ class Optimizer(Lattice):
 
         The cost here is the mean-squared-error (MSE) which takes two vectors.
         The data vector containing the coordinates extracted from simulation and
-        the target variables are we are seeking. The scales are used to
+        the target variables we are seeking. The norm is used to
         normalize the coordinate and angle vectors so that they are of similar
-        scale.
+        magnitude.
         """
         cost = pow((data - target) * norm, 2)
         return np.sum(cost)
 
-    def func_to_optimize(self, V_scales):
+    def func_to_optimize_matching(self, V_scales):
         """Single input function to min/maximize
 
-        Most optimizers take in a function with a single input that is the
+        Most optimizers take in a function with a single input that are the
         parameters to optimize for. The voltage scales are used here that
         scale the focusing strength. The gradient is then created from the
         lattice class and the KV-envelope equation solved for.
         The final coordinates are then extracted and the MSE is computed for
-        the cost function."""
+        the cost function.
+        A cost function of zero would be mean that for the given input parameters
+        (initial conditions, Q, emittance) the optimizer found the required
+        voltage settings on the quadrupole to shape the envelop into the final
+        conditions."""
 
         # Instantiate lattice and unpack/calculate parameters
         self.user_input_match(self.filenames, self.parameters["Nq"], scales=V_scales)
@@ -444,15 +452,17 @@ class Optimizer(Lattice):
 
         return cost
 
-    def func_to_optimize_accel(self, V_scales):
+    def func_to_optimize_acceleration(self, coordinates):
         """Single input function to min/maximize
 
         Most optimizers take in a function with a single input that is the
-        parameters to optimize for. The voltage scales are used here that
-        scale the focusing strength. The gradient is then created from the
-        lattice class and the KV-envelope equation solved for.
-        The final coordinates are then extracted and the MSE is computed for
-        the cost function."""
+        parameters to optimize for. Here, the desired coordinates are the input
+        values compared to the voltage scales for the matching section.
+        A 0 cost function here would be mean that for fixed voltages, and
+        starting parameters, the initial coordinates and final coordinates are
+        equal creating a matched condition. In other words, the initial
+        positions and angles were found such that the final position and angle are
+        equal to initial."""
 
         # Unpack/calculate parameters
         emit = self.parameters["emit"]
@@ -464,14 +474,13 @@ class Optimizer(Lattice):
         E_s = self.parameters["E"]
 
         # Instantiate lattice and calculate the rest of the parameters
-        self.acceleration_lattice(gap_centers, self.filenames, V_scales, Lp)
-        z, gradz = self.z, self.grad
+        z, grad = self.z, self.grad
         dz = z[1] - z[0]
-        kappa = wp.echarge * gradz / 2.0 / E_s / wp.jperev
+        kappa = wp.echarge * grad / 2.0 / E_s / wp.jperev
 
         # Solve KV equations
         soln_matrix = np.zeros(shape=(len(z), 4))
-        soln_matrix[0, :] = self.initial_conds
+        soln_matrix[0, :] = coordinates
         solver_with_accel(
             soln_matrix, dz, kappa, emit, Q, z, gap_centers, Vg, phi_s, E_s
         )
@@ -493,10 +502,30 @@ class Optimizer(Lattice):
         options for the optimizer and this function can be modified to include
         options in the arguments."""
 
-        res = sciopt.minimize(
-            function,
-            self.guess,
-            method="nelder-mead",
-            options={"xatol": 1e-8, "maxiter": max_iter, "disp": True},
+        if self.optimize_matching:
+            print("--Optimizing for the matching section")
+            res = sciopt.minimize(
+                function,
+                self.scales,
+                method="nelder-mead",
+                options={"xatol": 1e-8, "maxiter": max_iter, "disp": True},
+            )
+            self.optimum = res
+
+            return print("--Optimization completed")
+
+        if self.optimize_acceleration:
+            print("--Optimizing for the acceleration lattice")
+            res = sciopt.minimize(
+                function,
+                self.initial_conds,
+                method="nelder-mead",
+                options={"xatol": 1e-8, "maxiter": max_iter, "disp": True},
+            )
+            self.optimum = res
+
+            return print("--Optimization completed")
+
+        return print(
+            "Neither matching section or acceleration weere chosen to optimize"
         )
-        self.optimum = res
