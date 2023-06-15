@@ -88,9 +88,9 @@ wp.derivqty()
 gap_centers = util.calc_gap_centers(accel_E_s, mass_eV, phi_s, f, Vg)
 Lp = gap_centers[2] - g / 2
 
-do_matching_section = True
+do_matching_section = False
 do_accel_section = True
-do_matching_section_optimization = True
+do_matching_section_optimization = False
 do_accel_section_optimization = True
 
 # ------------------------------------------------------------------------------
@@ -140,7 +140,7 @@ if do_matching_section:
     match_soln_matrix[0, :] = np.array(
         [rsource, rsource, match_div_angle, match_div_angle]
     )
-    util.solver(match_soln_matrix, match_dz, match_kappa, match_emit, match_Q)
+    util.solver(match_soln_matrix, match_z, match_kappa, match_emit, match_Q)
 
     # Unpack solution arrays and save to data file.
     match_solutions = match_soln_matrix[-1, :]
@@ -185,7 +185,9 @@ if do_accel_section:
     accel_scales = np.array([0.75, 0.75])
     accel_fnames = ("accel_zmesh.npy", "accel_esq_grad.npy")
     accel_lattice = util.Lattice()
-    accel_lattice.acceleration_lattice(gap_centers, accel_fnames, accel_scales, Lp)
+    accel_lattice.acceleration_lattice(
+        gap_centers, accel_fnames, accel_scales, Lp, res=15 * um
+    )
     accel_z, accel_grad = accel_lattice.z, accel_lattice.grad
     accel_dz = accel_z[1] - accel_z[0]
 
@@ -197,7 +199,7 @@ if do_accel_section:
     accel_soln_matrix[0, :] = accel_x0
     util.solver_with_accel(
         accel_soln_matrix,
-        accel_dz,
+        accel_z,
         accel_kappa,
         accel_emit,
         accel_Q,
@@ -219,12 +221,13 @@ if do_accel_section:
     np.save("acceleration_solver_data", accel_data)
     np.save("acceleration_z", accel_z)
     np.save("acceleration_kappa", accel_kappa)
+    accel_target = accel_x0.copy()
 
     if do_accel_section_optimization:
         # Use coordinate vector to match from mathematica script
         accel_guess = accel_x0
         accel_target = accel_guess.copy()
-        accel_rp_norm = 15 * mrad
+        accel_rp_norm = 25 * mrad
         accel_norms = np.array([1 / rp, 1 / rp, 1 / accel_rp_norm, 1 / accel_rp_norm])
         accel_parameters = {
             "emit": accel_emit,
@@ -253,109 +256,124 @@ if do_accel_section:
 #    Plot and Save
 # Plot various quanities and save the data.
 # ------------------------------------------------------------------------------
-match_k0 = 1 * kV / match_E_s / pow(rp, 2)
-Fsc = 2 * match_Q / (match_ux + match_uy)
-Femitx = pow(match_emit, 2) / pow(match_ux, 3)
-Femity = pow(match_emit, 2) / pow(match_uy, 3)
-# match_kappa_he = np.load("matching_kappa_he.npy")
-# match_data_he = np.load("matching_solver_data_hardedge.npy")
+if do_matching_section:
+    match_k0 = 1 * kV / match_E_s / pow(rp, 2)
+    Fsc = 2 * match_Q / (match_ux + match_uy)
+    Femitx = pow(match_emit, 2) / pow(match_ux, 3)
+    Femity = pow(match_emit, 2) / pow(match_uy, 3)
+    # match_kappa_he = np.load("matching_kappa_he.npy")
+    # match_data_he = np.load("matching_solver_data_hardedge.npy")
 
-fig, ax = plt.subplots()
-ax.set_xlabel("z (mm)")
-ax.set_ylabel(r"$\kappa (z)/\hat{\kappa}$")
-plt.plot(match_z / mm, match_kappa / match_k0)
-ax.axhline(y=0, c="k", lw=0.5)
-plt.show()
+    fig, ax = plt.subplots()
+    ax.set_xlabel("z (mm)")
+    ax.set_ylabel(r"$\kappa (z)/\hat{\kappa}$")
+    plt.plot(match_z / mm, match_kappa / match_k0)
+    ax.axhline(y=0, c="k", lw=0.5)
+    plt.show()
 
-fig, ax = plt.subplots()
-ax.set_title(r"Envelope Solutions for $r_x$ and $r_y$")
-ax.set_xlabel("z (mm)")
-ax.set_ylabel("Transverse Position (mm)")
-ax.plot(match_z / mm, match_ux / mm, label=r"$r_x(s)$", c="k")
-ax.plot(match_z / mm, match_uy / mm, label=r"$r_y(s)$", c="b")
-ax.scatter(match_z[-1] / mm, match_target[0] / mm, marker="*", c="k", s=90, alpha=0.6)
-ax.scatter(match_z[-1] / mm, match_target[1] / mm, marker="*", c="b", s=90, alpha=0.6)
-ax.legend()
+    fig, ax = plt.subplots()
+    ax.set_title(r"Envelope Solutions for $r_x$ and $r_y$")
+    ax.set_xlabel("z (mm)")
+    ax.set_ylabel("Transverse Position (mm)")
+    ax.plot(match_z / mm, match_ux / mm, label=r"$r_x(s)$", c="k")
+    ax.plot(match_z / mm, match_uy / mm, label=r"$r_y(s)$", c="b")
+    ax.scatter(
+        match_z[-1] / mm, match_target[0] / mm, marker="*", c="k", s=90, alpha=0.6
+    )
+    ax.scatter(
+        match_z[-1] / mm, match_target[1] / mm, marker="*", c="b", s=90, alpha=0.6
+    )
+    ax.legend()
 
-fig, ax = plt.subplots()
-ax.set_title(r"Envelope Solutions for $rp_x$ and $rp_y$")
-ax.set_xlabel("z (mm)")
-ax.set_ylabel("Transverse Angle (mrad)")
-ax.plot(match_z / mm, match_vx / mm, label=r"$rp_x(s)$", c="k")
-ax.plot(match_z / mm, match_vy / mm, label=r"$rp_y(s)$", c="b")
-ax.scatter(match_z[-1] / mm, match_target[2] / mrad, marker="*", c="k", s=90, alpha=0.6)
-ax.scatter(match_z[-1] / mm, match_target[3] / mrad, marker="*", c="b", s=90, alpha=0.6)
-ax.legend()
+    fig, ax = plt.subplots()
+    ax.set_title(r"Envelope Solutions for $rp_x$ and $rp_y$")
+    ax.set_xlabel("z (mm)")
+    ax.set_ylabel("Transverse Angle (mrad)")
+    ax.plot(match_z / mm, match_vx / mm, label=r"$rp_x(s)$", c="k")
+    ax.plot(match_z / mm, match_vy / mm, label=r"$rp_y(s)$", c="b")
+    ax.scatter(
+        match_z[-1] / mm, match_target[2] / mrad, marker="*", c="k", s=90, alpha=0.6
+    )
+    ax.scatter(
+        match_z[-1] / mm, match_target[3] / mrad, marker="*", c="b", s=90, alpha=0.6
+    )
+    ax.legend()
 
-fig, ax = plt.subplots()
-ax.plot(
-    match_z / mm, 2 * match_Q / (match_ux + match_uy), c="r", label=r"$F_\mathrm{SC}$"
-)
-ax.plot(
-    match_z / mm,
-    pow(match_emit, 2) / pow(match_ux, 3),
-    c="k",
-    label=r"$F_\mathrm{emit-x}$",
-)
-ax.plot(
-    match_z / mm,
-    pow(match_emit, 2) / pow(match_uy, 3),
-    c="b",
-    label=r"$F_\mathrm{emit-y}$",
-)
-ax.set_ylabel("Defocusing Term Strength (1/m)")
-ax.legend()
+    fig, ax = plt.subplots()
+    ax.plot(
+        match_z / mm,
+        2 * match_Q / (match_ux + match_uy),
+        c="r",
+        label=r"$F_\mathrm{SC}$",
+    )
+    ax.plot(
+        match_z / mm,
+        pow(match_emit, 2) / pow(match_ux, 3),
+        c="k",
+        label=r"$F_\mathrm{emit-x}$",
+    )
+    ax.plot(
+        match_z / mm,
+        pow(match_emit, 2) / pow(match_uy, 3),
+        c="b",
+        label=r"$F_\mathrm{emit-y}$",
+    )
+    ax.set_ylabel("Defocusing Term Strength (1/m)")
+    ax.legend()
 
-Fig, ax = plt.subplots()
-ax.plot(match_z / mm, Fsc / Femitx, c="k", label=r"$F_\mathrm{sc} / F_\mathrm{x-emit}$")
-ax.plot(match_z / mm, Fsc / Femity, c="b", label=r"$F_\mathrm{sc} / F_\mathrm{y-emit}$")
-ax.set_xlabel("z (mm)")
-ax.set_ylabel("Ratio of Defocusing Terms")
-ax.legend()
+    Fig, ax = plt.subplots()
+    ax.plot(
+        match_z / mm, Fsc / Femitx, c="k", label=r"$F_\mathrm{sc} / F_\mathrm{x-emit}$"
+    )
+    ax.plot(
+        match_z / mm, Fsc / Femity, c="b", label=r"$F_\mathrm{sc} / F_\mathrm{y-emit}$"
+    )
+    ax.set_xlabel("z (mm)")
+    ax.set_ylabel("Ratio of Defocusing Terms")
+    ax.legend()
 
-plt.show()
+    plt.show()
 
-
-print(f"Matching Section Final (rx, ry) mm: {match_uxf/mm:.4f}, {match_uyf/mm:.4f}")
-print(
-    f"Matching Section Final (rpx, rpy) mrad: {match_vxf/mrad:.4f}, {match_vyf/mrad:.4f}"
-)
+    print(f"Matching Section Final (rx, ry) mm: {match_uxf/mm:.4f}, {match_uyf/mm:.4f}")
+    print(
+        f"Matching Section Final (rpx, rpy) mrad: {match_vxf/mrad:.4f}, {match_vyf/mrad:.4f}"
+    )
 
 # ------------------------------------------------------------------------------
 #    Acceleration Treatment
 # Additional section to do acceleration matching
 # ------------------------------------------------------------------------------
-accel_k0 = 1 * kV / accel_E_s / pow(rp, 2)
-fig, ax = plt.subplots()
-ax.set_title(r"Initial (Non-optimized) $\kappa(z)$ ")
-ax.set_xlabel("z (mm)")
-ax.set_ylabel(r"$\kappa (z)/\hat{\kappa}$")
-plt.plot(accel_z / mm, accel_kappa / accel_k0)
-ax.axhline(y=0, c="k", lw=0.5)
-plt.show()
+if do_accel_section:
+    accel_k0 = 1 * kV / accel_E_s / pow(rp, 2)
+    fig, ax = plt.subplots()
+    ax.set_title(r"Initial (Non-optimized) $\kappa(z)$ ")
+    ax.set_xlabel("z (mm)")
+    ax.set_ylabel(r"$\kappa (z)/\hat{\kappa}$")
+    plt.plot(accel_z / mm, accel_kappa / accel_k0)
+    ax.axhline(y=0, c="k", lw=0.5)
+    plt.show()
 
-fig, ax = plt.subplots()
-ax.set_title(r"Envelope Solutions for $r_x$ and $r_y$ with accel.")
-ax.set_xlabel("z (mm)")
-ax.set_ylabel("Transverse Position (mm)")
-ax.plot(accel_z / mm, accel_ux / mm, label=r"$r_x(s)$", c="k")
-ax.plot(accel_z / mm, accel_uy / mm, label=r"$r_y(s)$", c="b")
-ax.scatter(accel_z[-1] / mm, accel_target[0] / mm, marker="*", c="k", s=90, alpha=0.6)
-ax.scatter(accel_z[-1] / mm, accel_target[1] / mm, marker="*", c="b", s=90, alpha=0.6)
-ax.legend()
+    fig, ax = plt.subplots()
+    ax.set_title(r"Envelope Solutions for $r_x$ and $r_y$ with accel.")
+    ax.set_xlabel("z (mm)")
+    ax.set_ylabel("Transverse Position (mm)")
+    ax.plot(accel_z / mm, accel_ux / mm, label=r"$r_x(s)$", c="k")
+    ax.plot(accel_z / mm, accel_uy / mm, label=r"$r_y(s)$", c="b")
+    ax.scatter(accel_z[-1] / mm, accel_target[0] / mm, marker="*", c="k", s=90)
+    ax.scatter(accel_z[-1] / mm, accel_target[1] / mm, marker="*", c="b", s=90)
+    ax.legend()
 
-fig, ax = plt.subplots()
-ax.set_title(r"Envelope Solutions for $rp_x$ and $rp_y$ with accel.")
-ax.set_xlabel("z (mm)")
-ax.set_ylabel("Transverse Angle (mrad)")
-ax.plot(accel_z / mm, accel_vx / mm, label=r"$rp_x(s)$", c="k")
-ax.plot(accel_z / mm, accel_vy / mm, label=r"$rp_y(s)$", c="b")
-ax.scatter(accel_z[-1] / mm, accel_target[2] / mrad, marker="*", c="k", s=90, alpha=0.6)
-ax.scatter(accel_z[-1] / mm, accel_target[3] / mrad, marker="*", c="b", s=90, alpha=0.6)
-ax.legend()
+    fig, ax = plt.subplots()
+    ax.set_title(r"Envelope Solutions for $rp_x$ and $rp_y$ with accel.")
+    ax.set_xlabel("z (mm)")
+    ax.set_ylabel("Transverse Angle (mrad)")
+    ax.plot(accel_z / mm, accel_vx / mm, label=r"$rp_x(s)$", c="k")
+    ax.plot(accel_z / mm, accel_vy / mm, label=r"$rp_y(s)$", c="b")
+    ax.scatter(accel_z[-1] / mm, accel_target[2] / mrad, marker="*", c="k", s=90)
+    ax.scatter(accel_z[-1] / mm, accel_target[3] / mrad, marker="*", c="b", s=90)
+    ax.legend()
 
-
-print(f"Accel. Section Final (rx, ry) mm: {accel_uxf/mm:.4f}, {accel_uyf/mm:.4f}")
-print(
-    f"Accel. Section Final (rpx, rpy) mrad: {accel_vxf/mrad:.4f}, {accel_vyf/mrad:.4f}"
-)
+    print(f"Accel. Section Final (rx, ry) mm: {accel_uxf/mm:.4f}, {accel_uyf/mm:.4f}")
+    print(
+        f"Accel. Section Final (rpx, rpy) mrad: {accel_vxf/mrad:.4f}, {accel_vyf/mrad:.4f}"
+    )
