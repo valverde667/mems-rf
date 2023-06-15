@@ -7,6 +7,7 @@ import numpy as np
 import scipy.constants as SC
 import scipy.optimize as sciopt
 import itertools
+import pdb
 
 import warp as wp
 
@@ -98,7 +99,7 @@ class Lattice:
         return Gmax
 
     def hard_edge_match(
-        self, lq, lq_eff, d, Vq, Nq, rp, scales, max_grad=2e9, res=10 * um
+        self, lq, lq_eff, d, Vq, Nq, rp, scales, max_grad=2e9, res=25 * um
     ):
         """Create a hard-edge model for the ESQs.
         The ESQ centers will be placed at centers and kappa calculated. Each
@@ -243,7 +244,7 @@ class Lattice:
             self.lattice_params[key] = value
 
 
-def solver(solve_matrix, dz, kappa, emit, Q):
+def solver(solve_matrix, z, kappa, emit, Q):
     """Solve KV-envelope equations with Euler-cromer method.
 
     The solve_matrix input will be an Nx4 matrix where N is the number of steps
@@ -256,6 +257,7 @@ def solver(solve_matrix, dz, kappa, emit, Q):
     vx, vy = solve_matrix[:, 2], solve_matrix[:, 3]
 
     for n in range(1, solve_matrix.shape[0]):
+        this_dz = z[n] - z[n - 1]
         # Evaluate term present in both equations
         term = 2 * Q / (ux[n - 1] + uy[n - 1])
 
@@ -264,12 +266,12 @@ def solver(solve_matrix, dz, kappa, emit, Q):
         term1y = pow(emit, 2) / pow(uy[n - 1], 3) - kappa[n - 1] * uy[n - 1]
 
         # Update v_x and v_y first.
-        vx[n] = (term + term1x) * dz + vx[n - 1]
-        vy[n] = (term + term1y) * dz + vy[n - 1]
+        vx[n] = (term + term1x) * this_dz + vx[n - 1]
+        vy[n] = (term + term1y) * this_dz + vy[n - 1]
 
         # Use updated v to update u
-        ux[n] = vx[n] * dz + ux[n - 1]
-        uy[n] = vy[n] * dz + uy[n - 1]
+        ux[n] = vx[n] * this_dz + ux[n - 1]
+        uy[n] = vy[n] * this_dz + uy[n - 1]
 
     return solve_matrix
 
@@ -279,7 +281,7 @@ def calc_energy_gain(Vg, phi_s):
 
 
 def solver_with_accel(
-    solve_matrix, dz, kappa, emit, Q, zmesh, gap_centers, Vg, phi_s, E
+    solve_matrix, z, kappa, emit, Q, zmesh, gap_centers, Vg, phi_s, E
 ):
     """Solve KV-envelope equations with Euler-cromer method and acceleration kicks.
 
@@ -305,6 +307,7 @@ def solver_with_accel(
 
     # Do the first part of the advancement.
     for n in range(1, gap1_ind + 1):
+        this_dz = z[n] - z[n - 1]
         # Evaluate term present in both equations
         term = 2 * Q / (ux[n - 1] + uy[n - 1])
 
@@ -313,18 +316,18 @@ def solver_with_accel(
         term1y = pow(emit, 2) / pow(uy[n - 1], 3) - kappa[n - 1] * uy[n - 1]
 
         # Update v_x and v_y first.
-        vx[n] = (term + term1x) * dz + vx[n - 1]
-        vy[n] = (term + term1y) * dz + vy[n - 1]
+        vx[n] = (term + term1x) * this_dz + vx[n - 1]
+        vy[n] = (term + term1y) * this_dz + vy[n - 1]
 
         # Use updated v to update u
-        ux[n] = vx[n] * dz + ux[n - 1]
-        uy[n] = vy[n] * dz + uy[n - 1]
+        ux[n] = vx[n] * this_dz + ux[n - 1]
+        uy[n] = vy[n] * this_dz + uy[n - 1]
 
     # save counter for next loop. Update angles, Q and emittance
     current_ind = n
     dE = calc_energy_gain(Vg, phi_s[0])
-    rx_kick = vx[n - 1] / (1 + np.sqrt(dE / current_energy))
-    ry_kick = vy[n - 1] / (1 + np.sqrt(dE / current_energy))
+    rx_kick = vx[current_ind - 1] / (1 + np.sqrt(dE / current_energy))
+    ry_kick = vy[current_ind - 1] / (1 + np.sqrt(dE / current_energy))
     Q = Q / pow(1 + dE / current_energy, 3.0 / 2.0)
     emit = emit / np.sqrt(1 + dE / current_energy)
 
@@ -334,6 +337,7 @@ def solver_with_accel(
     vy[current_ind] = ry_kick
 
     for n in range(current_ind + 1, gap2_ind + 1):
+        this_dz = z[n] - z[n - 1]
         # Evaluate term present in both equations
         term = 2 * Q / (ux[n - 1] + uy[n - 1])
 
@@ -342,18 +346,18 @@ def solver_with_accel(
         term1y = pow(emit, 2) / pow(uy[n - 1], 3) - kappa[n - 1] * uy[n - 1]
 
         # Update v_x and v_y first.
-        vx[n] = (term + term1x) * dz + vx[n - 1]
-        vy[n] = (term + term1y) * dz + vy[n - 1]
+        vx[n] = (term + term1x) * this_dz + vx[n - 1]
+        vy[n] = (term + term1y) * this_dz + vy[n - 1]
 
         # Use updated v to update u
-        ux[n] = vx[n] * dz + ux[n - 1]
-        uy[n] = vy[n] * dz + uy[n - 1]
+        ux[n] = vx[n] * this_dz + ux[n - 1]
+        uy[n] = vy[n] * this_dz + uy[n - 1]
 
     # save counter for next loop. Update angles, Q and emittance
     current_ind = n
     dE = calc_energy_gain(Vg, phi_s[1])
-    rx_kick = vx[n - 1] / (1 + np.sqrt(dE / current_energy))
-    ry_kick = vy[n - 1] / (1 + np.sqrt(dE / current_energy))
+    rx_kick = vx[current_ind - 1] / (1 + np.sqrt(dE / current_energy))
+    ry_kick = vy[current_ind - 1] / (1 + np.sqrt(dE / current_energy))
     Q = Q / pow(1 + dE / current_energy, 3.0 / 2.0)
     emit = emit / np.sqrt(1 + dE / current_energy)
 
@@ -363,6 +367,7 @@ def solver_with_accel(
     vy[current_ind] = ry_kick
 
     for n in range(current_ind + 1, solve_matrix.shape[0]):
+        this_dz = z[n] - z[n - 1]
         # Evaluate term present in both equations
         term = 2 * Q / (ux[n - 1] + uy[n - 1])
 
@@ -371,12 +376,12 @@ def solver_with_accel(
         term1y = pow(emit, 2) / pow(uy[n - 1], 3) - kappa[n - 1] * uy[n - 1]
 
         # Update v_x and v_y first.
-        vx[n] = (term + term1x) * dz + vx[n - 1]
-        vy[n] = (term + term1y) * dz + vy[n - 1]
+        vx[n] = (term + term1x) * this_dz + vx[n - 1]
+        vy[n] = (term + term1y) * this_dz + vy[n - 1]
 
         # Use updated v to update u
-        ux[n] = vx[n] * dz + ux[n - 1]
-        uy[n] = vy[n] * dz + uy[n - 1]
+        ux[n] = vx[n] * this_dz + ux[n - 1]
+        uy[n] = vy[n] * this_dz + uy[n - 1]
 
     return solve_matrix
 
@@ -441,7 +446,7 @@ class Optimizer(Lattice):
         # Solve KV equations
         soln_matrix = np.zeros(shape=(len(z), 4))
         soln_matrix[0, :] = self.initial_conds
-        solver(soln_matrix, dz, kappa, emit, Q)
+        solver(soln_matrix, z, kappa, emit, Q)
 
         # Store solution
         self.sol = soln_matrix[-1, :]
@@ -482,7 +487,7 @@ class Optimizer(Lattice):
         soln_matrix = np.zeros(shape=(len(z), 4))
         soln_matrix[0, :] = coordinates
         solver_with_accel(
-            soln_matrix, dz, kappa, emit, Q, z, gap_centers, Vg, phi_s, E_s
+            soln_matrix, z, kappa, emit, Q, z, gap_centers, Vg, phi_s, E_s
         )
 
         # Store solution
