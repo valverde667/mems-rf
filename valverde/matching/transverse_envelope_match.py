@@ -182,7 +182,7 @@ if do_matching_section:
         match_opt.minimize_cost(match_opt.func_to_optimize_matching, max_iter=300)
 
 if do_accel_section:
-    accel_scales = np.array([0.75, 0.75])
+    accel_scales = np.array([0.85, 0.85])
     accel_fnames = ("accel_zmesh.npy", "accel_esq_grad.npy")
     accel_lattice = util.Lattice()
     accel_lattice.acceleration_lattice(
@@ -191,7 +191,7 @@ if do_accel_section:
     accel_z, accel_grad = accel_lattice.z, accel_lattice.grad
     accel_dz = accel_z[1] - accel_z[0]
 
-    accel_x0 = np.array([0.25 * mm, 0.31 * mm, 1.5 * mrad, -7.4 * mrad])
+    accel_x0 = np.array([0.246 * mm, 0.314 * mm, 1.498 * mrad, -7.417 * mrad])
     accel_kappa = wp.echarge * accel_grad / 2.0 / accel_E_s / wp.jperev
 
     # Solve KV equations for the lattice
@@ -249,8 +249,12 @@ if do_accel_section:
         accel_opt.optimize_acceleration = True
         accel_opt.z = accel_z
         accel_opt.grad = accel_grad
+        # Create bounds for the coordinate position and angles
+        rbound = (0.2 * mm, 0.8 * rp)
+        rpbound = (-30 * mrad, 30 * mrad)
+        accel_opt.bounds = [rbound, rbound, rpbound, rpbound]
 
-        accel_opt.minimize_cost(accel_opt.func_to_optimize_acceleration, max_iter=300)
+        accel_opt.minimize_cost(accel_opt.func_to_optimize_acceleration, max_iter=1000)
 
 # ------------------------------------------------------------------------------
 #    Plot and Save
