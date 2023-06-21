@@ -207,7 +207,6 @@ class Lattice:
         zesq_extent = iso_z[-1] - iso_z[0]
         Gmax = np.max(iso_grad)
         g1, g2, g3 = gap_centers[:-1]
-        Lp = g3 - g2 - g
 
         # Scale the two ESQs in place
         index = np.argmin(abs(iso_z))
@@ -262,8 +261,8 @@ def solver(solve_matrix, z, kappa, emit, Q):
         term = 2 * Q / (ux[n - 1] + uy[n - 1])
 
         # Evaluate terms for x and y
-        term1x = pow(emit, 2) / pow(ux[n - 1], 3) + kappa[n - 1] * ux[n - 1]
-        term1y = pow(emit, 2) / pow(uy[n - 1], 3) - kappa[n - 1] * uy[n - 1]
+        term1x = pow(emit, 2) / pow(ux[n - 1], 3) - kappa[n - 1] * ux[n - 1]
+        term1y = pow(emit, 2) / pow(uy[n - 1], 3) + kappa[n - 1] * uy[n - 1]
 
         # Update v_x and v_y first.
         vx[n] = (term + term1x) * this_dz + vx[n - 1]
@@ -312,8 +311,8 @@ def solver_with_accel(
         term = 2 * Q / (ux[n - 1] + uy[n - 1])
 
         # Evaluate terms for x and y
-        term1x = pow(emit, 2) / pow(ux[n - 1], 3) + kappa[n - 1] * ux[n - 1]
-        term1y = pow(emit, 2) / pow(uy[n - 1], 3) - kappa[n - 1] * uy[n - 1]
+        term1x = pow(emit, 2) / pow(ux[n - 1], 3) - kappa[n - 1] * ux[n - 1]
+        term1y = pow(emit, 2) / pow(uy[n - 1], 3) + kappa[n - 1] * uy[n - 1]
 
         # Update v_x and v_y first.
         vx[n] = (term + term1x) * this_dz + vx[n - 1]
@@ -342,8 +341,8 @@ def solver_with_accel(
         term = 2 * Q / (ux[n - 1] + uy[n - 1])
 
         # Evaluate terms for x and y
-        term1x = pow(emit, 2) / pow(ux[n - 1], 3) + kappa[n - 1] * ux[n - 1]
-        term1y = pow(emit, 2) / pow(uy[n - 1], 3) - kappa[n - 1] * uy[n - 1]
+        term1x = pow(emit, 2) / pow(ux[n - 1], 3) - kappa[n - 1] * ux[n - 1]
+        term1y = pow(emit, 2) / pow(uy[n - 1], 3) + kappa[n - 1] * uy[n - 1]
 
         # Update v_x and v_y first.
         vx[n] = (term + term1x) * this_dz + vx[n - 1]
@@ -372,8 +371,8 @@ def solver_with_accel(
         term = 2 * Q / (ux[n - 1] + uy[n - 1])
 
         # Evaluate terms for x and y
-        term1x = pow(emit, 2) / pow(ux[n - 1], 3) + kappa[n - 1] * ux[n - 1]
-        term1y = pow(emit, 2) / pow(uy[n - 1], 3) - kappa[n - 1] * uy[n - 1]
+        term1x = pow(emit, 2) / pow(ux[n - 1], 3) - kappa[n - 1] * ux[n - 1]
+        term1y = pow(emit, 2) / pow(uy[n - 1], 3) + kappa[n - 1] * uy[n - 1]
 
         # Update v_x and v_y first.
         vx[n] = (term + term1x) * this_dz + vx[n - 1]
@@ -407,6 +406,7 @@ class Optimizer(Lattice):
         self.optimize_acceleration = False
         self.sol = None
         self.optimum = None
+        self.bounds = None
         self.cost_hist = []
 
     def calc_cost(self, data, target, norm):
@@ -514,6 +514,7 @@ class Optimizer(Lattice):
                 self.scales,
                 method="nelder-mead",
                 options={"xatol": 1e-8, "maxiter": max_iter, "disp": True},
+                bounds=self.bounds,
             )
             self.optimum = res
 
@@ -526,6 +527,7 @@ class Optimizer(Lattice):
                 self.initial_conds,
                 method="nelder-mead",
                 options={"xatol": 1e-8, "maxiter": max_iter, "disp": True},
+                bounds=self.bounds,
             )
             self.optimum = res
 
