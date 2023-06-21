@@ -159,7 +159,6 @@ if do_matching_section:
     # Optimize for the voltage settings.
     if do_matching_section_optimization:
         match_x0 = np.array([rsource, rsource, match_div_angle, match_div_angle])
-        match_target = np.array([0.15 * mm, 0.28 * mm, 0.847 * mrad, -11.146 * mrad])
         match_rp_norm = 27 * mrad
         match_norms = np.array([1 / rp, 1 / rp, 1 / match_rp_norm, 1 / match_rp_norm])
         match_parameters = {
@@ -197,7 +196,7 @@ if do_accel_section:
     # Solve KV equations for the lattice
     accel_soln_matrix = np.zeros(shape=(len(accel_z), 4))
     accel_soln_matrix[0, :] = accel_x0
-    util.solver_with_accel(
+    history_Q, history_emit = util.solver_with_accel(
         accel_soln_matrix,
         accel_z,
         accel_kappa,
@@ -208,6 +207,7 @@ if do_accel_section:
         Vg,
         phi_s,
         accel_E_s,
+        history=True,
     )
 
     # Unpack solution arrays and save to data file.
