@@ -196,7 +196,7 @@ if do_accel_section:
     # Solve KV equations for the lattice
     accel_soln_matrix = np.zeros(shape=(len(accel_z), 4))
     accel_soln_matrix[0, :] = accel_x0
-    history_Q, history_emit = util.solver_with_accel(
+    accel_Q, accel_emit = util.solver_with_accel(
         accel_soln_matrix,
         accel_z,
         accel_kappa,
@@ -230,8 +230,8 @@ if do_accel_section:
         accel_rp_norm = 25 * mrad
         accel_norms = np.array([1 / rp, 1 / rp, 1 / accel_rp_norm, 1 / accel_rp_norm])
         accel_parameters = {
-            "emit": accel_emit,
-            "Q": accel_Q,
+            "emit": accel_emit[0],
+            "Q": accel_Q[0],
             "gap centers": gap_centers,
             "Vg": Vg,
             "Lp": Lp,
@@ -348,7 +348,11 @@ if do_matching_section:
 # Additional section to do acceleration matching
 # ------------------------------------------------------------------------------
 if do_accel_section:
+    accel_Fsc = 2 * accel_Q / (accel_ux + accel_uy)
+    accel_Femitx = pow(accel_emit, 2) / pow(accel_ux, 3)
+    accel_Femity = pow(accel_emit, 2) / pow(accel_uy, 3)
     accel_k0 = 1 * kV / accel_E_s / pow(rp, 2)
+
     fig, ax = plt.subplots()
     ax.set_title(r"Initial (Non-optimized) $\kappa(z)$ ")
     ax.set_xlabel("z (mm)")
@@ -376,6 +380,47 @@ if do_accel_section:
     ax.scatter(accel_z[-1] / mm, accel_target[2] / mrad, marker="*", c="k", s=90)
     ax.scatter(accel_z[-1] / mm, accel_target[3] / mrad, marker="*", c="b", s=90)
     ax.legend()
+
+    fig, ax = plt.subplots()
+    ax.plot(
+        accel_z / mm,
+        2 * accel_Q / (accel_ux + accel_uy),
+        c="r",
+        label=r"$F_\mathrm{SC}$",
+    )
+    ax.plot(
+        accel_z / mm,
+        pow(accel_emit, 2) / pow(accel_ux, 3),
+        c="k",
+        label=r"$F_\mathrm{emit-x}$",
+    )
+    ax.plot(
+        accel_z / mm,
+        pow(accel_emit, 2) / pow(accel_uy, 3),
+        c="b",
+        label=r"$F_\mathrm{emit-y}$",
+    )
+    ax.set_ylabel("Defocusing Term Strength (1/m)")
+    ax.legend()
+
+    Fig, ax = plt.subplots()
+    ax.plot(
+        accel_z / mm,
+        accel_Fsc / accel_Femitx,
+        c="k",
+        label=r"$F_\mathrm{sc} / F_\mathrm{x-emit}$",
+    )
+    ax.plot(
+        accel_z / mm,
+        accel_Fsc / accel_Femity,
+        c="b",
+        label=r"$F_\mathrm{sc} / F_\mathrm{y-emit}$",
+    )
+    ax.set_xlabel("z (mm)")
+    ax.set_ylabel("Ratio of Defocusing Terms")
+    ax.legend()
+
+    plt.show()
 
     print(f"Accel. Section Final (rx, ry) mm: {accel_uxf/mm:.4f}, {accel_uyf/mm:.4f}")
     print(
