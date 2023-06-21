@@ -272,7 +272,7 @@ def solver(solve_matrix, z, kappa, emit, Q):
         ux[n] = vx[n] * this_dz + ux[n - 1]
         uy[n] = vy[n] * this_dz + uy[n - 1]
 
-    return solve_matrix
+    return True
 
 
 def calc_energy_gain(Vg, phi_s):
@@ -280,7 +280,17 @@ def calc_energy_gain(Vg, phi_s):
 
 
 def solver_with_accel(
-    solve_matrix, z, kappa, emit, Q, zmesh, gap_centers, Vg, phi_s, E
+    solve_matrix,
+    z,
+    kappa,
+    emit,
+    Q,
+    zmesh,
+    gap_centers,
+    Vg,
+    phi_s,
+    E,
+    history=False,
 ):
     """Solve KV-envelope equations with Euler-cromer method and acceleration kicks.
 
@@ -304,8 +314,15 @@ def solver_with_accel(
     gap1_ind = np.argmin(abs(gap_centers[0] - zmesh))
     gap2_ind = np.argmin(abs(gap_centers[1] - zmesh))
 
+    # Initialize history arrays for Q and emittance
+    history_Q = [Q]
+    history_emit = [emit]
+
     # Do the first part of the advancement.
     for n in range(1, gap1_ind + 1):
+        history_Q.append(Q)
+        history_emit.append(emit)
+
         this_dz = z[n] - z[n - 1]
         # Evaluate term present in both equations
         term = 2 * Q / (ux[n - 1] + uy[n - 1])
@@ -336,6 +353,9 @@ def solver_with_accel(
     vy[current_ind] = ry_kick
 
     for n in range(current_ind + 1, gap2_ind + 1):
+        history_Q.append(Q)
+        history_emit.append(emit)
+
         this_dz = z[n] - z[n - 1]
         # Evaluate term present in both equations
         term = 2 * Q / (ux[n - 1] + uy[n - 1])
@@ -366,6 +386,9 @@ def solver_with_accel(
     vy[current_ind] = ry_kick
 
     for n in range(current_ind + 1, solve_matrix.shape[0]):
+        history_Q.append(Q)
+        history_emit.append(emit)
+
         this_dz = z[n] - z[n - 1]
         # Evaluate term present in both equations
         term = 2 * Q / (ux[n - 1] + uy[n - 1])
@@ -382,7 +405,13 @@ def solver_with_accel(
         ux[n] = vx[n] * this_dz + ux[n - 1]
         uy[n] = vy[n] * this_dz + uy[n - 1]
 
-    return solve_matrix
+    history_Q = np.array(history_Q)
+    history_emit = np.array(history_emit)
+
+    if history:
+        return history_Q, history_emit
+    else:
+        return True
 
 
 # ------------------------------------------------------------------------------
