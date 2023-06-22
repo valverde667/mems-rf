@@ -272,7 +272,7 @@ def solver(solve_matrix, z, kappa, emit, Q):
         ux[n] = vx[n] * this_dz + ux[n - 1]
         uy[n] = vy[n] * this_dz + uy[n - 1]
 
-    return True
+    return solve_matrix
 
 
 def calc_energy_gain(Vg, phi_s):
@@ -411,7 +411,7 @@ def solver_with_accel(
     if history:
         return history_Q, history_emit
     else:
-        return True
+        return solve_matrix
 
 
 # ------------------------------------------------------------------------------
@@ -523,7 +523,7 @@ class Optimizer(Lattice):
         self.sol = soln_matrix[-1, :]
 
         # Compute cost and save to history
-        cost = self.calc_cost(self.sol, self.target, self.cost_norms)
+        cost = self.calc_cost(self.sol, coordinates, self.cost_norms)
         self.cost_hist.append(cost)
 
         return cost
