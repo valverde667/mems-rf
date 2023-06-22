@@ -115,7 +115,7 @@ do_accel_section_optimization = True
 if do_matching_section:
     user_input = True
     match_scales = np.array([-0.6606901, 1.09060576, -0.97491688, 0.53503874])
-
+    match_scales = np.array([-0.55499729, 0.63978854, 0.33993738, -0.64679942])
     if user_input:
         # Instantiate the class and use the extracted fields to create the mesh.
         match_lattice = util.Lattice()
@@ -159,6 +159,7 @@ if do_matching_section:
     # Optimize for the voltage settings.
     if do_matching_section_optimization:
         match_x0 = np.array([rsource, rsource, match_div_angle, match_div_angle])
+        match_target = np.array([0.246 * mm, 0.314 * mm, 1.498 * mrad, -7.417 * mrad])
         match_rp_norm = 27 * mrad
         match_norms = np.array([1 / rp, 1 / rp, 1 / match_rp_norm, 1 / match_rp_norm])
         match_parameters = {
@@ -191,6 +192,7 @@ if do_accel_section:
     accel_dz = accel_z[1] - accel_z[0]
 
     accel_x0 = np.array([0.246 * mm, 0.314 * mm, 1.498 * mrad, -7.417 * mrad])
+    # accel_x0 = np.array([ 0.00013862,  0.00030499, -0.00076932, -0.00877852])
     accel_kappa = wp.echarge * accel_grad / 2.0 / accel_E_s / wp.jperev
 
     # Solve KV equations for the lattice
@@ -202,7 +204,6 @@ if do_accel_section:
         accel_kappa,
         accel_emit,
         accel_Q,
-        accel_z,
         gap_centers,
         Vg,
         phi_s,
@@ -249,12 +250,7 @@ if do_accel_section:
         accel_opt.optimize_acceleration = True
         accel_opt.z = accel_z
         accel_opt.grad = accel_grad
-        # Create bounds for the coordinate position and angles
-        rbound = (0.2 * mm, 0.8 * rp)
-        rpbound = (-30 * mrad, 30 * mrad)
-        accel_opt.bounds = [rbound, rbound, rpbound, rpbound]
-
-        accel_opt.minimize_cost(accel_opt.func_to_optimize_acceleration, max_iter=1000)
+        accel_opt.minimize_cost(accel_opt.func_to_optimize_acceleration, max_iter=600)
 
 # ------------------------------------------------------------------------------
 #    Plot and Save
