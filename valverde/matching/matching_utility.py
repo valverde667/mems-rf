@@ -209,7 +209,7 @@ class Lattice:
         g1, g2, g3 = gap_centers[:-1]
 
         # Scale the two ESQs in place
-        index = np.argmin(abs(iso_z))
+        index = int(len(iso_z) / 2)
         l_esq_grad = iso_grad[: index + 1]
         r_esq_grad = iso_grad[index + 1 :]
         l_esq_grad *= scales[0]
