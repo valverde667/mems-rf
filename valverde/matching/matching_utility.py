@@ -285,7 +285,6 @@ def solver_with_accel(
     kappa,
     emit,
     Q,
-    zmesh,
     gap_centers,
     Vg,
     phi_s,
@@ -311,8 +310,8 @@ def solver_with_accel(
 
     # Partition solve loop into chunks dealing with each part in the lattice.
     # First chunk is start-gap1. Then gap1-gap2 and gap2-Lp.
-    gap1_ind = np.argmin(abs(gap_centers[0] - zmesh))
-    gap2_ind = np.argmin(abs(gap_centers[1] - zmesh))
+    gap1_ind = np.argmin(abs(gap_centers[0] - z))
+    gap2_ind = np.argmin(abs(gap_centers[1] - z))
 
     # Initialize history arrays for Q and emittance
     history_Q = [Q]
@@ -515,9 +514,7 @@ class Optimizer(Lattice):
         # Solve KV equations
         soln_matrix = np.zeros(shape=(len(z), 4))
         soln_matrix[0, :] = coordinates
-        solver_with_accel(
-            soln_matrix, z, kappa, emit, Q, z, gap_centers, Vg, phi_s, E_s
-        )
+        solver_with_accel(soln_matrix, z, kappa, emit, Q, gap_centers, Vg, phi_s, E_s)
 
         # Store solution
         self.sol = soln_matrix[-1, :]
