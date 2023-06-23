@@ -221,11 +221,11 @@ class Lattice:
             else:
                 Vsets[i] = -self.calc_Vset(s * Gmax)
 
-        start = g1 + g / 2
-        stop = 0
-        interval = start - stop
+        start = g1 - g / 2
+        stop = g2 + g / 2
+        interval = stop - start
         nsteps = int(interval / res)
-        z = np.linspace(0, gap_centers[1] + g / 2, nsteps, endpoint=True)
+        z = np.linspace(0, interval, nsteps, endpoint=True)
         grad = np.zeros(len(z))
 
         # Attach field region
