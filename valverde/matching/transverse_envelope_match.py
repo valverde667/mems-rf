@@ -86,7 +86,8 @@ wp.derivqty()
 
 # Calculate Parameters
 gap_centers = util.calc_gap_centers(accel_E_s, mass_eV, phi_s, f, Vg)
-Lp = gap_centers[2] - g / 2
+gap_centers -= gap_centers[0] - g / 2
+Lp = gap_centers[2] - gap_centers[0]
 
 do_matching_section = False
 do_accel_section = True
