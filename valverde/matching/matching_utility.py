@@ -228,11 +228,46 @@ class Lattice:
         z = np.linspace(0, interval, nsteps, endpoint=True)
         grad = np.zeros(len(z))
 
-        # Attach field region
-        zfield = iso_z.copy()
-        zfield += z[-1] + res + iso_z.max()
-        z = np.hstack((z, zfield))
-        grad = np.hstack((grad, iso_grad))
+        # Check if the gradient field provided fills the space. It could happen
+        # that the additional free space is less than the zextent of the gradient.
+        # in this case, print out a warning and use the full zmesh to complete
+        # the array. If there is more space, then the gradient field can be
+        # woven in.
+        drift_space = Lp - stop
+        if drift_space <= zesq_extent + 6 * res:
+            print(f"Fill factor: {stop/drift_space:3f}. Using zmesh provided.")
+            # Attach field region
+            zfield = iso_z.copy()
+            zfield += z[-1] + res + iso_z.max()
+            z = np.hstack((z, zfield))
+            grad = np.hstack((grad, iso_grad))
+
+        else:
+            print(f"Fill factor: {stop/drift_space:3f}. Stitching in field.")
+            # Treat left side of stitching
+            lstart = stop + res
+            lstop = lstart + drift_space / 2
+            linterval = lstop - lstart
+            lnsteps = int(linterval / res)
+
+            lz = np.linspace(lstart, lstop, lnsteps, endpoint=True)
+            lgrad = np.zeros(len(lz))
+
+            # Include z from input file
+            zfield = iso_z.copy()
+            zfield += lz[-1] + res + iso_z.max()
+
+            # Now treat right side
+            rstart = zfield[-1] + res
+            rstop = Lp
+            rinterval = rstop - rstart
+            rnsteps = int(rinterval / res)
+
+            rz = np.linspace(rstart, rstop, rnsteps, endpoint=True)
+            rgrad = np.zeros(len(rz))
+
+            z = np.hstack((z, lz, zfield, rz))
+            grad = np.hstack((grad, lgrad, iso_grad, rgrad))
 
         self.z = z
         self.grad = grad
