@@ -200,13 +200,21 @@ class Lattice:
         plate (g/2 from the gap center) and extends to the beginning of the
         second acceleration plate.
 
+        When stitching together the fields it is possible that there is not enough
+        space to fit the extent of the extracted fields (zesq_extent). In this case,
+        satisfying the lenght of the lattice period is ignored and the new lattice
+        period becomes the final gap + the zfield extent.
+        In the case there is enough room, the amount of leftover space is calculated
+        and padded on both ends of the ESQ field so that the field is centered
+        between the end plates of gap2 and gap3.
+
         Note: this assumes one lattice period and only works for 2 ESQs.
         """
 
         iso_z, iso_grad = np.load(file_string[0]), np.load(file_string[1])
         zesq_extent = iso_z[-1] - iso_z[0]
         Gmax = np.max(iso_grad)
-        g1, g2, g3 = gap_centers[:-1]
+        g1, g2, g3 = gap_centers[:3]
 
         # Scale the two ESQs in place
         index = int(len(iso_z) / 2)
