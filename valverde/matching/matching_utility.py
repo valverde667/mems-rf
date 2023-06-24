@@ -242,8 +242,9 @@ class Lattice:
         # the array. If there is more space, then the gradient field can be
         # woven in.
         drift_space = Lp - stop
-        if drift_space <= zesq_extent + 6 * res:
-            print(f"Fill factor: {stop/drift_space:3f}. Using zmesh provided.")
+        occupancy = zesq_extent / drift_space
+        if occupancy > 1:
+            print(f"Occupancy: {occupancy:.2f}. Using z-field to fill drift space.")
             # Attach field region
             zfield = iso_z.copy()
             zfield += z[-1] + res + iso_z.max()
@@ -251,31 +252,48 @@ class Lattice:
             grad = np.hstack((grad, iso_grad))
 
         else:
-            print(f"Fill factor: {stop/drift_space:3f}. Stitching in field.")
-            # Treat left side of stitching
-            lstart = stop + res
-            lstop = lstart + drift_space / 2
-            linterval = lstop - lstart
-            lnsteps = int(linterval / res)
+            # Check how much the space is filled. If it is only a few grid
+            # sizes smaller, then using provided zmesh.
+            freespace = (1 - occupancy) * drift_space
+            tolerance = 6 * res
+            if freespace < tolerance:
+                print(f"Occupancy: {occupancy:.2f}. Using z-field to fill drift space.")
+                print("Remaining space below tolerance, approximating occupancy as 1.")
+                # Attach field region
+                zfield = iso_z.copy()
+                zfield += z[-1] + res + iso_z.max()
+                z = np.hstack((z, zfield))
+                grad = np.hstack((grad, iso_grad))
 
-            lz = np.linspace(lstart, lstop, lnsteps, endpoint=True)
-            lgrad = np.zeros(len(lz))
+            else:
+                # There is sufficient free space to stiching in the field with
+                # some padding on both ends.
+                print(f"Occupancy: {occupancy:.2f}. Stitching in field.")
+                # Treat left side of stitching
+                freespace = (1 - occupancy) * drift_space
+                lstart = stop + res
+                lstop = lstart + freespace / 2
+                linterval = lstop - lstart
+                lnsteps = int(linterval / res)
 
-            # Include z from input file
-            zfield = iso_z.copy()
-            zfield += lz[-1] + res + iso_z.max()
+                lz = np.linspace(lstart, lstop, lnsteps, endpoint=True)
+                lgrad = np.zeros(len(lz))
 
-            # Now treat right side
-            rstart = zfield[-1] + res
-            rstop = Lp
-            rinterval = rstop - rstart
-            rnsteps = int(rinterval / res)
+                # Include z from input file
+                zfield = iso_z.copy()
+                zfield += lz[-1] + res + iso_z.max()
 
-            rz = np.linspace(rstart, rstop, rnsteps, endpoint=True)
-            rgrad = np.zeros(len(rz))
+                # Now treat right side
+                rstart = zfield[-1] + res
+                rstop = Lp
+                rinterval = rstop - rstart
+                rnsteps = int(rinterval / res)
 
-            z = np.hstack((z, lz, zfield, rz))
-            grad = np.hstack((grad, lgrad, iso_grad, rgrad))
+                rz = np.linspace(rstart, rstop, rnsteps, endpoint=True)
+                rgrad = np.zeros(len(rz))
+
+                z = np.hstack((z, lz, zfield, rz))
+                grad = np.hstack((grad, lgrad, iso_grad, rgrad))
 
         self.z = z
         self.grad = grad
