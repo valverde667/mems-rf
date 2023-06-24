@@ -183,17 +183,16 @@ if do_matching_section:
         match_opt.minimize_cost(match_opt.func_to_optimize_matching, max_iter=300)
 
 if do_accel_section:
-    accel_scales = np.array([0.85, 0.85])
+    accel_scales = np.array([1.0, 1.0])
     accel_fnames = ("accel_zmesh.npy", "accel_esq_grad.npy")
     accel_lattice = util.Lattice()
     accel_lattice.acceleration_lattice(
-        gap_centers, accel_fnames, accel_scales, Lp, res=15 * um
+        gap_centers, accel_fnames, accel_scales, Lp, res=5 * um
     )
     accel_z, accel_grad = accel_lattice.z, accel_lattice.grad
     accel_dz = accel_z[1] - accel_z[0]
 
-    accel_x0 = np.array([0.246 * mm, 0.314 * mm, 1.498 * mrad, -7.417 * mrad])
-    # accel_x0 = np.array([ 0.00013862,  0.00030499, -0.00076932, -0.00877852])
+    accel_x0 = np.array([0.11235 * mm, 0.28313 * mm, 1.05202 * mrad, -12.05456 * mrad])
     accel_kappa = wp.echarge * accel_grad / 2.0 / accel_E_s / wp.jperev
 
     # Solve KV equations for the lattice
