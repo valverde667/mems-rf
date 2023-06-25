@@ -186,8 +186,6 @@ class Lattice:
         file_string,
         scales,
         Lp,
-        Nq=2,
-        lq=0.695 * mm,
         g=2 * mm,
         res=25e-6,
     ):
@@ -222,7 +220,7 @@ class Lattice:
         r_esq_grad = iso_grad[index + 1 :]
         l_esq_grad *= scales[0]
         r_esq_grad *= scales[1]
-        Vsets = np.zeros(Nq)
+        Vsets = np.zeros(len(scales))
         for i, s in enumerate(scales):
             if i % 2 == 0:
                 Vsets[i] = self.calc_Vset(s * Gmax)
@@ -299,7 +297,7 @@ class Lattice:
         self.grad = grad
 
         # Update the paramters dictionary with values used.
-        updated_params = [lq, Vsets, None, None, Gmax]
+        updated_params = [None, Vsets, None, None, Gmax]
         for key, value in zip(self.lattice_params.keys(), updated_params):
             self.lattice_params[key] = value
 
