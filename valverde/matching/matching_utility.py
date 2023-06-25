@@ -407,101 +407,58 @@ def solver_with_accel(
     vx, vy = solve_matrix[:, 2], solve_matrix[:, 3]
     current_energy = E
 
-    # Partition solve loop into chunks dealing with each part in the lattice.
-    # First chunk is start-gap1. Then gap1-gap2 and gap2-Lp.
-    gap1_ind = np.argmin(abs(gap_centers[0] - z))
-    gap2_ind = np.argmin(abs(gap_centers[1] - z))
+    # Find gap index in the zmesh. The last two gaps should be ignored since
+    # the last two gaps belong to the next period.
+    gap_inds = np.array([np.argmin(abs(gc - z)) for gc in gap_centers])[:-2]
 
     # Initialize history arrays for Q and emittance
     history_Q = [Q]
     history_emit = [emit]
 
-    # Do the first part of the advancement.
-    for n in range(1, gap1_ind + 1):
+    gap_counter = 0
+    for k in range(1, z.shape[0]):
+        this_dz = z[k] - z[k - 1]
+
+        # The gap counter will increment itself and run over the number of
+        # elements in the gap index. So the if-statement needs to satisfy both
+        # conditions or else an error will occur.
+        if gap_counter < len(gap_inds) and k == gap_inds[gap_counter]:
+            # Update the angle based on
+            dE = calc_energy_gain(Vg, phi_s[gap_counter])
+            rx_kick = calc_angle_change(vx[k - 1], dE, current_energy)
+            ry_kick = calc_angle_change(vy[k - 1], dE, current_energy)
+            Q = calc_Q_change(Q, dE, current_energy)
+            emit = calc_emit_change(emit, dE, current_energy)
+
+            # update values
+            current_energy += dE
+            vx[k] = rx_kick
+            vy[k] = ry_kick
+
+            # Use updated v to update u
+            ux[k] = vx[k] * this_dz + ux[k - 1]
+            uy[k] = vy[k] * this_dz + uy[k - 1]
+
+            gap_counter += 1
+
+        else:
+            # Evaluate term present in both equations
+            term = 2 * Q / (ux[k - 1] + uy[k - 1])
+
+            # Evaluate terms for x and y
+            term1x = pow(emit, 2) / pow(ux[k - 1], 3) - kappa[k - 1] * ux[k - 1]
+            term1y = pow(emit, 2) / pow(uy[k - 1], 3) + kappa[k - 1] * uy[k - 1]
+
+            # Update v_x and v_y first.
+            vx[k] = (term + term1x) * this_dz + vx[k - 1]
+            vy[k] = (term + term1y) * this_dz + vy[k - 1]
+
+            # Use updated v to update u
+            ux[k] = vx[k] * this_dz + ux[k - 1]
+            uy[k] = vy[k] * this_dz + uy[k - 1]
+
         history_Q.append(Q)
         history_emit.append(emit)
-
-        this_dz = z[n] - z[n - 1]
-        # Evaluate term present in both equations
-        term = 2 * Q / (ux[n - 1] + uy[n - 1])
-
-        # Evaluate terms for x and y
-        term1x = pow(emit, 2) / pow(ux[n - 1], 3) - kappa[n - 1] * ux[n - 1]
-        term1y = pow(emit, 2) / pow(uy[n - 1], 3) + kappa[n - 1] * uy[n - 1]
-
-        # Update v_x and v_y first.
-        vx[n] = (term + term1x) * this_dz + vx[n - 1]
-        vy[n] = (term + term1y) * this_dz + vy[n - 1]
-
-        # Use updated v to update u
-        ux[n] = vx[n] * this_dz + ux[n - 1]
-        uy[n] = vy[n] * this_dz + uy[n - 1]
-
-    # save counter for next loop. Update angles, Q and emittance
-    current_ind = n
-    dE = calc_energy_gain(Vg, phi_s[0])
-    rx_kick = calc_angle_change(vx[current_ind - 1], dE, current_energy)
-    ry_kick = calc_angle_change(vy[current_ind - 1], dE, current_energy)
-    Q = calc_Q_change(Q, dE, current_energy)
-    emit = calc_emit_change(emit, dE, current_energy)
-
-    # update values
-    current_energy += dE
-    vx[current_ind] = rx_kick
-    vy[current_ind] = ry_kick
-
-    for n in range(current_ind + 1, gap2_ind + 1):
-        history_Q.append(Q)
-        history_emit.append(emit)
-
-        this_dz = z[n] - z[n - 1]
-        # Evaluate term present in both equations
-        term = 2 * Q / (ux[n - 1] + uy[n - 1])
-
-        # Evaluate terms for x and y
-        term1x = pow(emit, 2) / pow(ux[n - 1], 3) - kappa[n - 1] * ux[n - 1]
-        term1y = pow(emit, 2) / pow(uy[n - 1], 3) + kappa[n - 1] * uy[n - 1]
-
-        # Update v_x and v_y first.
-        vx[n] = (term + term1x) * this_dz + vx[n - 1]
-        vy[n] = (term + term1y) * this_dz + vy[n - 1]
-
-        # Use updated v to update u
-        ux[n] = vx[n] * this_dz + ux[n - 1]
-        uy[n] = vy[n] * this_dz + uy[n - 1]
-
-    # save counter for next loop. Update angles, Q and emittance
-    current_ind = n
-    dE = calc_energy_gain(Vg, phi_s[1])
-    rx_kick = calc_angle_change(vx[current_ind - 1], dE, current_energy)
-    ry_kick = calc_angle_change(vy[current_ind - 1], dE, current_energy)
-    Q = calc_Q_change(Q, dE, current_energy)
-    emit = calc_emit_change(emit, dE, current_energy)
-
-    # update values
-    current_energy += dE
-    vx[current_ind] = rx_kick
-    vy[current_ind] = ry_kick
-
-    for n in range(current_ind + 1, solve_matrix.shape[0]):
-        history_Q.append(Q)
-        history_emit.append(emit)
-
-        this_dz = z[n] - z[n - 1]
-        # Evaluate term present in both equations
-        term = 2 * Q / (ux[n - 1] + uy[n - 1])
-
-        # Evaluate terms for x and y
-        term1x = pow(emit, 2) / pow(ux[n - 1], 3) - kappa[n - 1] * ux[n - 1]
-        term1y = pow(emit, 2) / pow(uy[n - 1], 3) + kappa[n - 1] * uy[n - 1]
-
-        # Update v_x and v_y first.
-        vx[n] = (term + term1x) * this_dz + vx[n - 1]
-        vy[n] = (term + term1y) * this_dz + vy[n - 1]
-
-        # Use updated v to update u
-        ux[n] = vx[n] * this_dz + ux[n - 1]
-        uy[n] = vy[n] * this_dz + uy[n - 1]
 
     history_Q = np.array(history_Q)
     history_emit = np.array(history_emit)
@@ -509,7 +466,7 @@ def solver_with_accel(
     if history:
         return history_Q, history_emit
     else:
-        return solve_matrix
+        pass
 
 
 # ------------------------------------------------------------------------------
