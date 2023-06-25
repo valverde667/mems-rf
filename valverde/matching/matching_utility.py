@@ -340,6 +340,43 @@ def calc_energy_gain(Vg, phi_s):
     return Vg * np.cos(phi_s)
 
 
+def calc_Q_change(Q_prev, delta_E, Ebeam):
+    """Calculate Q after acceleration kick
+
+    When the beam is accelerated by a thin-lens kick, the generalized perveance
+    changes as well. The perveance before the acceleration changes by a scaling
+    factor related to the change in energy and the energy of the beam before the
+    acceleration kick.
+    """
+
+    denom = pow(1 + delta_E / Ebeam, 1.5)
+    return Q_prev / denom
+
+
+def calc_emit_change(emit_prev, delta_E, Ebeam):
+    """Calculate emmitance after acceleration kick
+
+    When the beam is accelerated by a thin-lens kick, the rms-edge emittance
+    changes as well. The emittance before the acceleration changes by a scaling
+    factor related to the change in energy and the energy of the beam before the
+    acceleration kick.
+    """
+
+    denom = np.sqrt(1 + delta_E / Ebeam)
+    return emit_prev / denom
+
+
+def calc_angle_change(rp_prev, delta_E, Ebeam):
+    """Calculate angle after acceleration kick
+
+    Calcluate the new angle based on the previous angle before the acceleration
+    and the acceleration characteristics.
+    """
+
+    denom = 1.0 + np.sqrt(delta_E / Ebeam)
+    return rp_prev / denom
+
+
 def solver_with_accel(
     solve_matrix,
     z,
@@ -402,10 +439,10 @@ def solver_with_accel(
     # save counter for next loop. Update angles, Q and emittance
     current_ind = n
     dE = calc_energy_gain(Vg, phi_s[0])
-    rx_kick = vx[current_ind - 1] / (1 + np.sqrt(dE / current_energy))
-    ry_kick = vy[current_ind - 1] / (1 + np.sqrt(dE / current_energy))
-    Q = Q / pow(1 + dE / current_energy, 3.0 / 2.0)
-    emit = emit / np.sqrt(1 + dE / current_energy)
+    rx_kick = calc_angle_change(vx[current_ind - 1], dE, current_energy)
+    ry_kick = calc_angle_change(vy[current_ind - 1], dE, current_energy)
+    Q = calc_Q_change(Q, dE, current_energy)
+    emit = calc_emit_change(emit, dE, current_energy)
 
     # update values
     current_energy += dE
@@ -435,10 +472,10 @@ def solver_with_accel(
     # save counter for next loop. Update angles, Q and emittance
     current_ind = n
     dE = calc_energy_gain(Vg, phi_s[1])
-    rx_kick = vx[current_ind - 1] / (1 + np.sqrt(dE / current_energy))
-    ry_kick = vy[current_ind - 1] / (1 + np.sqrt(dE / current_energy))
-    Q = Q / pow(1 + dE / current_energy, 3.0 / 2.0)
-    emit = emit / np.sqrt(1 + dE / current_energy)
+    rx_kick = calc_angle_change(vx[current_ind - 1], dE, current_energy)
+    ry_kick = calc_angle_change(vy[current_ind - 1], dE, current_energy)
+    Q = calc_Q_change(Q, dE, current_energy)
+    emit = calc_emit_change(emit, dE, current_energy)
 
     # update values
     current_energy += dE
