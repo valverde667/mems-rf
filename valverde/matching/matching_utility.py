@@ -214,18 +214,21 @@ class Lattice:
         g1, g2, g3 = gap_centers[:3]
         Lp = g3 - g1
 
-        # Scale the two ESQs in place
-        index = int(len(iso_z) / 2)
-        l_esq_grad = iso_grad[: index + 1]
-        r_esq_grad = iso_grad[index + 1 :]
-        l_esq_grad *= scales[0]
-        r_esq_grad *= scales[1]
+        # Record the voltage settings used.
         Vsets = np.zeros(len(scales))
         for i, s in enumerate(scales):
             if i % 2 == 0:
                 Vsets[i] = self.calc_Vset(s * Gmax)
             else:
                 Vsets[i] = -self.calc_Vset(s * Gmax)
+
+        # The left and right portion of the ESQ focusing is separated at the
+        # center of the provided array. The gradient is then scaled in place.
+        index = int(len(iso_z) / 2)
+        l_esq_grad = iso_grad[: index + 1]
+        r_esq_grad = iso_grad[index + 1 :]
+        l_esq_grad *= scales[0]
+        r_esq_grad *= scales[1]
 
         start = g1 - g / 2
         stop = g2 + g / 2
