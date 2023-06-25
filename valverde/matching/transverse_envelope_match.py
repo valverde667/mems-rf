@@ -187,7 +187,7 @@ if do_accel_section:
     accel_fnames = ("accel_zmesh.npy", "accel_esq_grad.npy")
     accel_lattice = util.Lattice()
     accel_lattice.acceleration_lattice(
-        gap_centers, accel_fnames, accel_scales, Lp, res=5 * um
+        gap_centers, accel_fnames, accel_scales, res=5 * um
     )
     accel_z, accel_grad = accel_lattice.z, accel_lattice.grad
     accel_dz = accel_z[1] - accel_z[0]
