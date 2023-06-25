@@ -185,7 +185,6 @@ class Lattice:
         gap_centers,
         file_string,
         scales,
-        Lp,
         g=2 * mm,
         res=25e-6,
     ):
@@ -213,6 +212,7 @@ class Lattice:
         zesq_extent = iso_z[-1] - iso_z[0]
         Gmax = np.max(iso_grad)
         g1, g2, g3 = gap_centers[:3]
+        Lp = g3 - g1
 
         # Scale the two ESQs in place
         index = int(len(iso_z) / 2)
