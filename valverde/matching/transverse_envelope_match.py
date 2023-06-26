@@ -183,7 +183,7 @@ if do_matching_section:
         match_opt.minimize_cost(match_opt.func_to_optimize_matching, max_iter=300)
 
 if do_accel_section:
-    accel_scales = np.array([1.0, 1.0])
+    accel_scales = 1.0
     accel_fnames = ("accel_zmesh.npy", "accel_esq_grad.npy")
     accel_lattice = util.Lattice()
     accel_lattice.gap_voltage = Vg
