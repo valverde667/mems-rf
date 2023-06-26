@@ -68,6 +68,47 @@ def calc_gap_centers(E_s, mass, phi_s, dsgn_freq, dsgn_gap_volt):
     return np.array(gap_dist).cumsum()
 
 
+def calc_energy_gain(Vg, phi_s):
+    return Vg * np.cos(phi_s)
+
+
+def calc_Q_change(Q_prev, delta_E, Ebeam):
+    """Calculate Q after acceleration kick
+
+    When the beam is accelerated by a thin-lens kick, the generalized perveance
+    changes as well. The perveance before the acceleration changes by a scaling
+    factor related to the change in energy and the energy of the beam before the
+    acceleration kick.
+    """
+
+    denom = pow(1 + delta_E / Ebeam, 1.5)
+    return Q_prev / denom
+
+
+def calc_emit_change(emit_prev, delta_E, Ebeam):
+    """Calculate emmitance after acceleration kick
+
+    When the beam is accelerated by a thin-lens kick, the rms-edge emittance
+    changes as well. The emittance before the acceleration changes by a scaling
+    factor related to the change in energy and the energy of the beam before the
+    acceleration kick.
+    """
+
+    denom = np.sqrt(1 + delta_E / Ebeam)
+    return emit_prev / denom
+
+
+def calc_angle_change(rp_prev, delta_E, Ebeam):
+    """Calculate angle after acceleration kick
+
+    Calcluate the new angle based on the previous angle before the acceleration
+    and the acceleration characteristics.
+    """
+
+    denom = 1.0 + np.sqrt(delta_E / Ebeam)
+    return rp_prev / denom
+
+
 class Lattice:
     def __init__(self):
         self.zmin = 0.0
@@ -359,47 +400,6 @@ def solver(solve_matrix, z, kappa, emit, Q):
         uy[n] = vy[n] * this_dz + uy[n - 1]
 
     return solve_matrix
-
-
-def calc_energy_gain(Vg, phi_s):
-    return Vg * np.cos(phi_s)
-
-
-def calc_Q_change(Q_prev, delta_E, Ebeam):
-    """Calculate Q after acceleration kick
-
-    When the beam is accelerated by a thin-lens kick, the generalized perveance
-    changes as well. The perveance before the acceleration changes by a scaling
-    factor related to the change in energy and the energy of the beam before the
-    acceleration kick.
-    """
-
-    denom = pow(1 + delta_E / Ebeam, 1.5)
-    return Q_prev / denom
-
-
-def calc_emit_change(emit_prev, delta_E, Ebeam):
-    """Calculate emmitance after acceleration kick
-
-    When the beam is accelerated by a thin-lens kick, the rms-edge emittance
-    changes as well. The emittance before the acceleration changes by a scaling
-    factor related to the change in energy and the energy of the beam before the
-    acceleration kick.
-    """
-
-    denom = np.sqrt(1 + delta_E / Ebeam)
-    return emit_prev / denom
-
-
-def calc_angle_change(rp_prev, delta_E, Ebeam):
-    """Calculate angle after acceleration kick
-
-    Calcluate the new angle based on the previous angle before the acceleration
-    and the acceleration characteristics.
-    """
-
-    denom = 1.0 + np.sqrt(delta_E / Ebeam)
-    return rp_prev / denom
 
 
 def solver_with_accel(
