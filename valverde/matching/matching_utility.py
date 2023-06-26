@@ -126,10 +126,8 @@ class Lattice:
         self.beam_energy = None
 
         self.lattice_params = {
-            "lq": None,
+            "zq": None,
             "Vq": None,
-            "rp": None,
-            "Gstar": None,
             "Gmax": None,
         }
 
@@ -266,9 +264,9 @@ class Lattice:
         Vsets = np.zeros(len(scales))
         for i, s in enumerate(scales):
             if i % 2 == 0:
-                Vsets[i] = self.calc_Vset(s * Gmax)
+                Vsets[i] = self.calc_Vset(s * Gmax) * kV
             else:
-                Vsets[i] = -self.calc_Vset(s * Gmax)
+                Vsets[i] = -self.calc_Vset(s * Gmax) * kV
 
         # Unpack values needed to compute kappa given the acceleration from the gaps.
         # If the voltage is given as a single float value, then create an iterable
@@ -292,12 +290,14 @@ class Lattice:
         z_arrays = []
         grad_arrays = []
         kappa_arrays = []
+        grad_maxs = []
 
         for k in range(NLp):
             # Scale the isolated gradient.
             this_iso_grad = iso_grad.copy()
             this_iso_grad[:esq_index] *= scales[2 * k]
             this_iso_grad[esq_index:] *= scales[2 * k + 1]
+            grad_maxs.append(this_iso_grad.max())
 
             gc1, gc2, gc3 = gap_centers[2 * k : 2 * k + 3]
             Lp = gc3 - gc1
@@ -396,6 +396,11 @@ class Lattice:
         self.z = z
         self.grad = grad
         self.kappa = kappa
+
+        # Update the paramters dictionary with values used.
+        updated_params = [zesq_extent, Vsets, grad_maxs]
+        for key, value in zip(self.lattice_params.keys(), updated_params):
+            self.lattice_params[key] = value
 
 
 def solver(solve_matrix, z, kappa, emit, Q):
