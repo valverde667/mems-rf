@@ -208,11 +208,10 @@ class Lattice:
         Note: this assumes one lattice period and only works for 2 ESQs.
         """
 
+        # Extract field and define the field extent and max gradient first.
         iso_z, iso_grad = np.load(file_string[0]), np.load(file_string[1])
         zesq_extent = iso_z[-1] - iso_z[0]
         Gmax = np.max(iso_grad)
-        g1, g2, g3 = gap_centers[:3]
-        Lp = g3 - g1
 
         # Record the voltage settings used.
         Vsets = np.zeros(len(scales))
@@ -222,44 +221,41 @@ class Lattice:
             else:
                 Vsets[i] = -self.calc_Vset(s * Gmax)
 
-        # The left and right portion of the ESQ focusing is separated at the
-        # center of the provided array. The gradient is then scaled in place.
         index = int(len(iso_z) / 2)
         l_esq_grad = iso_grad[: index + 1]
         r_esq_grad = iso_grad[index + 1 :]
-        l_esq_grad *= scales[0]
-        r_esq_grad *= scales[1]
 
-        start = g1 - g / 2
-        stop = g2 + g / 2
-        interval = stop - start
-        nsteps = int(interval / res)
-        z = np.linspace(0, interval, nsteps, endpoint=True)
-        grad = np.zeros(len(z))
+        # This is the main loop to build the lattice. Each period is done depending
+        # on the number of gaps provided. A period is comprised of two gaps with
+        # the third gap marking the end. Thus, for each period 3 gap centers are
+        # needed to create the proper z and grad field.
+        NLp = int((len(gap_centers) - 1) / 2)
+        counter_scales = 0
+        z_arrays = []
+        grad_arrays = []
+        kappa_arrays = []
 
-        # Check if the gradient field provided fills the space. It could happen
-        # that the additional free space is less than the zextent of the gradient.
-        # in this case, print out a warning and use the full zmesh to complete
-        # the array. If there is more space, then the gradient field can be
-        # woven in.
-        drift_space = Lp - stop
-        occupancy = zesq_extent / drift_space
-        if occupancy > 1:
-            print(f"Occupancy: {occupancy:.2f}. Using z-field to fill drift space.")
-            # Attach field region
-            zfield = iso_z.copy()
-            zfield += z[-1] + res + iso_z.max()
-            z = np.hstack((z, zfield))
-            grad = np.hstack((grad, iso_grad))
+        for k in range(NLp):
+            gc1, gc2, gc3 = gap_centers[2 * k : 2 * k + 3]
+            Lp = gc3 - gc1
+            # Make copies of the gradients and scale field
 
-        else:
-            # Check how much the space is filled. If it is only a few grid
-            # sizes smaller, then using provided zmesh.
-            freespace = (1 - occupancy) * drift_space
-            tolerance = 6 * res
-            if freespace < tolerance:
+            start = gc1 - g / 2
+            stop = gc2 + g / 2
+            interval = stop - start
+            nsteps = int(interval / res)
+            z = np.linspace(start, stop, nsteps, endpoint=True)
+            grad = np.zeros(len(z))
+
+            # Check if the gradient field provided fills the space. It could happen
+            # that the additional free space is less than the zextent of the gradient.
+            # in this case, print out a warning and use the full zmesh to complete
+            # the array. If there is more space, then the gradient field can be
+            # woven in.
+            drift_space = gc3 - gc2 - g
+            occupancy = zesq_extent / drift_space
+            if occupancy > 1:
                 print(f"Occupancy: {occupancy:.2f}. Using z-field to fill drift space.")
-                print("Remaining space below tolerance, approximating occupancy as 1.")
                 # Attach field region
                 zfield = iso_z.copy()
                 zfield += z[-1] + res + iso_z.max()
@@ -267,42 +263,70 @@ class Lattice:
                 grad = np.hstack((grad, iso_grad))
 
             else:
-                # There is sufficient free space to stiching in the field with
-                # some padding on both ends.
-                print(f"Occupancy: {occupancy:.2f}. Stitching in field.")
-                # Treat left side of stitching
+                # Check how much the space is filled. If it is only a few grid
+                # sizes smaller, then using provided zmesh.
                 freespace = (1 - occupancy) * drift_space
-                lstart = stop + res
-                lstop = lstart + freespace / 2
-                linterval = lstop - lstart
-                lnsteps = int(linterval / res)
+                tolerance = 6 * res
+                if freespace < tolerance:
+                    print(
+                        f"Occupancy: {occupancy:.2f}. Using z-field to fill drift space."
+                    )
+                    print(
+                        "Remaining space below tolerance, approximating occupancy as 1."
+                    )
+                    # Attach field region
+                    zfield = iso_z.copy()
+                    zfield += z[-1] + res + iso_z.max()
+                    z = np.hstack((z, zfield))
+                    grad = np.hstack((grad, iso_grad))
 
-                lz = np.linspace(lstart, lstop, lnsteps, endpoint=True)
-                lgrad = np.zeros(len(lz))
+                else:
+                    # There is sufficient free space to stiching in the field with
+                    # some padding on both ends.
+                    print(f"Occupancy: {occupancy:.2f}. Stitching in field.")
+                    # Treat left side of stitching
+                    freespace = (1 - occupancy) * drift_space
+                    lstart = stop + res
+                    lstop = lstart + freespace / 2
+                    linterval = lstop - lstart
+                    lnsteps = int(linterval / res)
 
-                # Include z from input file
-                zfield = iso_z.copy()
-                zfield += lz[-1] + res + iso_z.max()
+                    lz = np.linspace(lstart, lstop, lnsteps, endpoint=True)
+                    lgrad = np.zeros(len(lz))
 
-                # Now treat right side
-                rstart = zfield[-1] + res
-                rstop = Lp
-                rinterval = rstop - rstart
-                rnsteps = int(rinterval / res)
+                    # Include z from input file
+                    zfield = iso_z.copy()
+                    zfield += lz[-1] + res + iso_z.max()
 
-                rz = np.linspace(rstart, rstop, rnsteps, endpoint=True)
-                rgrad = np.zeros(len(rz))
+                    # Now treat right side
+                    rstart = zfield[-1] + res
+                    rstop = gc3 - g / 2
+                    rinterval = rstop - rstart
+                    rnsteps = int(rinterval / res)
 
-                z = np.hstack((z, lz, zfield, rz))
-                grad = np.hstack((grad, lgrad, iso_grad, rgrad))
+                    rz = np.linspace(rstart, rstop, rnsteps, endpoint=True)
+                    rgrad = np.zeros(len(rz))
+
+                    z = np.hstack((z, lz, zfield, rz))
+                    grad = np.hstack((grad, lgrad, iso_grad, rgrad))
+
+            z_arrays.append(z)
+            grad_arrays.append(grad)
+            # kappa_arrays.append(kappa)
+
+        # Flatten the arrays into a 1D array if there is one more than one
+        # lattice period. If there is not, then the data is the first element.
+        if NLp > 1:
+            z = np.hstack(z_arrays)
+            grad = np.hstack(grad_arrays)
+            # kappa = np.hstack(kappa_arrays)
+        else:
+            z = z_arrays[0]
+            grad = grad_arrays[0]
+            # kappa = kappa_arrays[0]
 
         self.z = z
         self.grad = grad
-
-        # Update the paramters dictionary with values used.
-        updated_params = [None, Vsets, None, None, Gmax]
-        for key, value in zip(self.lattice_params.keys(), updated_params):
-            self.lattice_params[key] = value
 
 
 def solver(solve_matrix, z, kappa, emit, Q):
