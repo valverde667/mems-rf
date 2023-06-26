@@ -259,6 +259,9 @@ class Lattice:
         zesq_extent = iso_z[-1] - iso_z[0]
         Gmax = np.max(iso_grad)
 
+        if isinstance(scales, int) or isinstance(scales, float):
+            scales = np.ones(len(gap_centers)) * scales
+
         # Record the voltage settings used.
         Vsets = np.zeros(len(scales))
         for i, s in enumerate(scales):
@@ -278,9 +281,7 @@ class Lattice:
         if isinstance(phi_s, float) or isinstance(phi_s, int):
             phi_s = np.ones(len(gap_centers)) * phi_s
 
-        index = int(len(iso_z) / 2)
-        l_esq_grad = iso_grad[: index + 1]
-        r_esq_grad = iso_grad[index + 1 :]
+        esq_index = int(len(iso_z) / 2)
 
         # This is the main loop to build the lattice. Each period is done depending
         # on the number of gaps provided. A period is comprised of two gaps with
@@ -293,6 +294,11 @@ class Lattice:
         kappa_arrays = []
 
         for k in range(NLp):
+            # Scale the isolated gradient.
+            this_iso_grad = iso_grad.copy()
+            this_iso_grad[:esq_index] *= scales[2 * k]
+            this_iso_grad[esq_index:] *= scales[2 * k + 1]
+
             gc1, gc2, gc3 = gap_centers[2 * k : 2 * k + 3]
             Lp = gc3 - gc1
             # Make copies of the gradients and scale field
@@ -317,7 +323,7 @@ class Lattice:
                 zfield = iso_z.copy()
                 zfield += z[-1] + res + iso_z.max()
                 z = np.hstack((z, zfield))
-                grad = np.hstack((grad, iso_grad))
+                grad = np.hstack((grad, this_iso_grad))
 
             else:
                 # Check how much the space is filled. If it is only a few grid
@@ -335,7 +341,7 @@ class Lattice:
                     zfield = iso_z.copy()
                     zfield += z[-1] + res + iso_z.max()
                     z = np.hstack((z, zfield))
-                    grad = np.hstack((grad, iso_grad))
+                    grad = np.hstack((grad, this_iso_grad))
 
                 else:
                     # There is sufficient free space to stiching in the field with
@@ -365,7 +371,7 @@ class Lattice:
                     rgrad = np.zeros(len(rz))
 
                     z = np.hstack((z, lz, zfield, rz))
-                    grad = np.hstack((grad, lgrad, iso_grad, rgrad))
+                    grad = np.hstack((grad, lgrad, this_iso_grad, rgrad))
 
             z_arrays.append(z)
             grad_arrays.append(grad)
