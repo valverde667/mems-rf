@@ -118,7 +118,12 @@ class Lattice:
         self.dz = None
         self.z = None
         self.grad = None
+        self.kappa = None
+
         self.gap_centers = None
+        self.gap_voltage = None
+        self.gap_phase = None
+        self.beam_energy = None
 
         self.lattice_params = {
             "lq": None,
@@ -262,6 +267,17 @@ class Lattice:
             else:
                 Vsets[i] = -self.calc_Vset(s * Gmax)
 
+        # Unpack values needed to compute kappa given the acceleration from the gaps.
+        # If the voltage is given as a single float value, then create an iterable
+        # of duplicate values. Same with phase.
+        Vg = self.gap_voltage
+        phi_s = self.gap_phase
+        Ebeam = self.beam_energy
+        if isinstance(Vg, float) or isinstance(Vg, int):
+            Vg = np.ones(len(gap_centers)) * Vg
+        if isinstance(phi_s, float) or isinstance(phi_s, int):
+            phi_s = np.ones(len(gap_centers)) * phi_s
+
         index = int(len(iso_z) / 2)
         l_esq_grad = iso_grad[: index + 1]
         r_esq_grad = iso_grad[index + 1 :]
@@ -353,21 +369,27 @@ class Lattice:
 
             z_arrays.append(z)
             grad_arrays.append(grad)
-            # kappa_arrays.append(kappa)
+
+            # Calculate kappa based off the energy gain
+            Ebeam += calc_energy_gain(Vg[2 * k], phi_s[2 * k])
+            Ebeam += calc_energy_gain(Vg[2 * k + 1], phi_s[2 * k + 1])
+            kappa = wp.echarge * grad.copy() / 2.0 / Ebeam / wp.jperev
+            kappa_arrays.append(kappa)
 
         # Flatten the arrays into a 1D array if there is one more than one
         # lattice period. If there is not, then the data is the first element.
         if NLp > 1:
             z = np.hstack(z_arrays)
             grad = np.hstack(grad_arrays)
-            # kappa = np.hstack(kappa_arrays)
+            kappa = np.hstack(kappa_arrays)
         else:
             z = z_arrays[0]
             grad = grad_arrays[0]
-            # kappa = kappa_arrays[0]
+            kappa = kappa_arrays[0]
 
         self.z = z
         self.grad = grad
+        self.kappa = kappa
 
 
 def solver(solve_matrix, z, kappa, emit, Q):
