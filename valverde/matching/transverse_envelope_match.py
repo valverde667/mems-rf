@@ -186,6 +186,9 @@ if do_accel_section:
     accel_scales = np.array([1.0, 1.0])
     accel_fnames = ("accel_zmesh.npy", "accel_esq_grad.npy")
     accel_lattice = util.Lattice()
+    accel_lattice.gap_voltage = Vg
+    accel_lattice.gap_phase = phi_s
+    accel_lattice.beam_energy = accel_E_s
     accel_lattice.acceleration_lattice(
         gap_centers, accel_fnames, accel_scales, res=5 * um
     )
@@ -193,7 +196,7 @@ if do_accel_section:
     accel_dz = accel_z[1] - accel_z[0]
 
     accel_x0 = np.array([0.11235 * mm, 0.28313 * mm, 1.05202 * mrad, -12.05456 * mrad])
-    accel_kappa = wp.echarge * accel_grad / 2.0 / accel_E_s / wp.jperev
+    accel_kappa = accel_lattice.kappa
 
     # Solve KV equations for the lattice
     accel_soln_matrix = np.zeros(shape=(len(accel_z), 4))
