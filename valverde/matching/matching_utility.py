@@ -542,7 +542,7 @@ class Optimizer(Lattice):
         self.filenames = filenames
         self.parameters = parameters
         self.z = None
-        self.grad = None
+        self.kappa = None
         self.optimize_matching = False
         self.optimize_acceleration = False
         self.sol = None
@@ -620,9 +620,7 @@ class Optimizer(Lattice):
         E_s = self.parameters["E"]
 
         # Instantiate lattice and calculate the rest of the parameters
-        z, grad = self.z, self.grad
-        dz = z[1] - z[0]
-        kappa = wp.echarge * grad / 2.0 / E_s / wp.jperev
+        z, kappa = self.z, self.kappa
 
         # Solve KV equations
         soln_matrix = np.zeros(shape=(len(z), 4))
