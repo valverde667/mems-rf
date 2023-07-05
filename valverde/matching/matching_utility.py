@@ -230,7 +230,7 @@ class Lattice:
         file_string,
         scales,
         g=2 * mm,
-        res=25e-6,
+        res=5e-6,
     ):
         """Create the acceleration secttion of the lattice.
 
@@ -291,6 +291,7 @@ class Lattice:
         grad_arrays = []
         kappa_arrays = []
         grad_maxs = []
+        Ebeam_array = [Ebeam]
 
         for k in range(NLp):
             # Scale the isolated gradient.
@@ -380,6 +381,7 @@ class Lattice:
             Ebeam += calc_energy_gain(Vg[2 * k], phi_s[2 * k])
             Ebeam += calc_energy_gain(Vg[2 * k + 1], phi_s[2 * k + 1])
             kappa = wp.echarge * grad.copy() / 2.0 / Ebeam / wp.jperev
+            Ebeam_array.append(Ebeam)
             kappa_arrays.append(kappa)
 
         # Flatten the arrays into a 1D array if there is one more than one
@@ -396,6 +398,7 @@ class Lattice:
         self.z = z
         self.grad = grad
         self.kappa = kappa
+        self.beam_energy = np.array(Ebeam_array)
 
         # Update the paramters dictionary with values used.
         updated_params = [zesq_extent, Vsets, grad_maxs]
@@ -650,7 +653,12 @@ class Optimizer(Lattice):
                 function,
                 self.scales,
                 method="nelder-mead",
-                options={"xatol": 1e-8, "maxiter": max_iter, "disp": True},
+                options={
+                    "xatol": 1e-10,
+                    "fatol": 1e-10,
+                    "maxiter": max_iter,
+                    "disp": True,
+                },
                 bounds=self.bounds,
             )
             self.optimum = res
@@ -663,7 +671,12 @@ class Optimizer(Lattice):
                 function,
                 self.initial_conds,
                 method="nelder-mead",
-                options={"xatol": 1e-8, "maxiter": max_iter, "disp": True},
+                options={
+                    "xatol": 1e-10,
+                    "fatol": 1e-10,
+                    "maxiter": max_iter,
+                    "disp": True,
+                },
                 bounds=self.bounds,
             )
             self.optimum = res
