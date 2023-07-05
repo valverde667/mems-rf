@@ -183,7 +183,7 @@ if do_matching_section:
         match_opt.minimize_cost(match_opt.func_to_optimize_matching, max_iter=300)
 
 if do_accel_section:
-    accel_scales = 1.0
+    accel_scales = [2.29, 2.71]
     accel_fnames = ("accel_zmesh.npy", "accel_esq_grad.npy")
     accel_lattice = util.Lattice()
     accel_lattice.gap_voltage = Vg
@@ -195,7 +195,7 @@ if do_accel_section:
     accel_z, accel_grad = accel_lattice.z, accel_lattice.grad
     accel_dz = accel_z[1] - accel_z[0]
 
-    accel_x0 = np.array([0.11235 * mm, 0.28313 * mm, 1.05202 * mrad, -12.05456 * mrad])
+    accel_x0 = np.array([0.252 * mm, 0.252 * mm, 0.6778 * mrad, -1.109 * mrad])
     accel_kappa = accel_lattice.kappa
 
     # Solve KV equations for the lattice
@@ -231,8 +231,10 @@ if do_accel_section:
         # Use coordinate vector to match from mathematica script
         accel_guess = accel_x0
         accel_target = accel_guess.copy()
-        accel_rp_norm = 25 * mrad
-        accel_norms = np.array([1 / rp, 1 / rp, 1 / accel_rp_norm, 1 / accel_rp_norm])
+        accel_rp_norm = 1 * mrad
+        accel_norms = np.array(
+            [3.0 / rp, 3.0 / rp, 1 / accel_rp_norm, 1 / accel_rp_norm]
+        )
         accel_parameters = {
             "emit": accel_emit[0],
             "Q": accel_Q[0],
@@ -252,8 +254,59 @@ if do_accel_section:
         )
         accel_opt.optimize_acceleration = True
         accel_opt.z = accel_z
-        accel_opt.grad = accel_grad
+        accel_opt.kappa = accel_kappa
         accel_opt.minimize_cost(accel_opt.func_to_optimize_acceleration, max_iter=600)
+
+        # Create matching lattice
+        accel_opt_soln_matrix = np.zeros(shape=(len(accel_z), 4))
+        accel_opt_x0 = accel_opt.optimum.x
+        accel_opt_soln_matrix[0, :] = accel_opt_x0
+        accel_opt_Q, accel_opt_emit = util.solver_with_accel(
+            accel_opt_soln_matrix,
+            accel_z,
+            accel_kappa,
+            accel_emit[0],
+            accel_Q[0],
+            gap_centers,
+            Vg,
+            phi_s,
+            accel_E_s,
+            history=True,
+        )
+        fig, ax = plt.subplots()
+        ax.plot(
+            accel_z / mm, accel_opt_soln_matrix[:, 0] / mm, label=r"$r_x(s)$", c="k"
+        )
+        ax.plot(
+            accel_z / mm, accel_opt_soln_matrix[:, 1] / mm, label=r"$r_y(s)$", c="b"
+        )
+        ax.scatter(accel_z[-1] / mm, accel_opt_x0[0] / mm, marker="*", c="k", s=90)
+        ax.scatter(accel_z[-1] / mm, accel_opt_x0[1] / mm, marker="*", c="b", s=90)
+        ax.set_xlabel("z (mm)")
+        ax.set_ylabel("Transverse Position (mm)")
+        ax.set_title("Matched Solution Found for Position")
+        ax.legend()
+
+        fig, ax = plt.subplots()
+        ax.set_title("Matched Solution Found for Angle")
+        ax.plot(
+            accel_z / mm, accel_opt_soln_matrix[:, 2] / mm, label=r"$rp_x(s)$", c="k"
+        )
+        ax.plot(
+            accel_z / mm, accel_opt_soln_matrix[:, 3] / mm, label=r"$rp_y(s)$", c="b"
+        )
+        ax.scatter(accel_z[-1] / mm, accel_opt_x0[2] / mrad, marker="*", c="k", s=90)
+        ax.scatter(accel_z[-1] / mm, accel_opt_x0[3] / mrad, marker="*", c="b", s=90)
+        ax.set_xlabel("z (mm)")
+        ax.set_ylabel("Transverse Angle (mm)")
+        ax.legend()
+
+        plt.tight_layout()
+        plt.show()
+
+        print(f"Mean rx: {np.mean(accel_opt_soln_matrix[:,0]/mm):2f}")
+        print(f"Mean rx: {np.mean(accel_opt_soln_matrix[:,1]/mm):2f}")
+
 
 # ------------------------------------------------------------------------------
 #    Plot and Save
