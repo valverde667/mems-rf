@@ -15,6 +15,7 @@ from matplotlib.animation import FuncAnimation
 import scipy.constants as SC
 import scipy.integrate as integrate
 import scipy.optimize as opt
+import seaborn as sns
 import os
 import pdb
 import time
@@ -162,7 +163,7 @@ def calc_Hamiltonian(W_s, phi_s, W, phi, f, V, m, g=2 * mm, T=1, ret_coeffs=Fals
 
 
 def calc_root_H(phi, phi_s=-np.pi / 2):
-    """"Function for finding the 0-root for the Hamiltonian.
+    """ "Function for finding the 0-root for the Hamiltonian.
 
     The non-linear Hamiltonian has roots at phi=phi_s and phi_2.
 
@@ -273,18 +274,19 @@ mass = ion.mass * pow(SC.c, 2) / wp.echarge
 # Simulation Parameters for design particle
 dsgn_phase = -np.pi / 2
 dsgn_initE = 7 * kV
-Np = int(1e5)
+Np = int(1e4)
 
 # Simulation parameters for gaps and geometries
-Ng = 2
+Ng = 8
 gap_width = 2.0 * mm
-dsgn_gap_volt = 5.0 * kV
+dsgn_gap_volt = 7.0 * kV
 real_gap_volt = dsgn_gap_volt
 dsgn_freq = 13.6 * MHz
 real_freq = dsgn_freq
 E_DC = real_gap_volt / gap_width
 h_rf = SC.c / dsgn_freq
 T_rf = 1.0 / dsgn_freq
+Tb = 0.1  # eV
 
 # Energy analyzer parameters
 Fcup_dist = 10 * mm
@@ -301,7 +303,7 @@ dsgn_omega = twopi * dsgn_freq
 
 # Fractions to mask particles in order to create a bucket for analysis.
 alpha_E = 0.00
-alpha_t = 0.15 * T_rf
+alpha_t = 0.40 * T_rf
 
 # ------------------------------------------------------------------------------
 #     Logical Flags
@@ -313,10 +315,10 @@ l_mask_with_Fraction = True
 l_mask_with_Hamiltonian = False
 l_plot_diagnostics = False
 l_plot_bucket_diagnostics = True
-l_save_all_plots_pdf = True
+l_save_all_plots_pdf = False
 l_plot_lattice = True
-l_plot_RMS = True
-l_plot_emit = True
+l_plot_RMS = False
+l_plot_emit = False
 plots_filename = "all-diagnostics.pdf"
 
 # ------------------------------------------------------------------------------
@@ -405,7 +407,6 @@ if l_use_Warp_field:
     z_patch_arrays = []
     Ez_patch_arrays = []
     for i, cent in enumerate(gap_centers):
-
         z_patch = z_iso + cent
         field_loc = np.where((z > cent - Ez_extent / 2) & (z < cent + Ez_extent / 2))
         patch_start = field_loc[0][0]
@@ -467,7 +468,7 @@ parts_pos = np.zeros(Np)
 parts_pos[:] = z.min()
 
 parts_E = np.zeros(Np)
-parts_E[:] = dsgn_initE
+parts_E[:] = np.random.normal(loc=dsgn_initE, scale=Tb, size=Np)
 
 parts_time = np.zeros(Np)
 # Initialize particles be distributed around the synchronous particle's phase
@@ -569,7 +570,6 @@ print(
 idiagn_count = 1
 i_Hdiagn_count = 0
 for i in range(1, len(z)):
-
     # Do design particle
     this_dz = z[i] - z[i - 1]
     this_vs = beta(dsgn_E[i - 1], mass) * SC.c
@@ -683,15 +683,17 @@ if l_plot_diagnostics:
         )
         ax1.set_xlabel(r"Time Deviation $\Delta t / \tau_{rf}$", fontsize="x-large")
         ax1.set_ylabel(
-            rf"Energy Deviation $\Delta W$[keV]", fontsize="x-large",
+            rf"Energy Deviation $\Delta W$[keV]",
+            fontsize="x-large",
         )
-        h = ax1.hist2d(
-            (this_t - this_ts) / T_rf,
-            (this_E - this_Es) / keV,
-            bins=[50, 50],
-            cmin=0.01,
+        sns.kdeplot(
+            x=(this_t - this_ts) / T_rf,
+            y=(this_E - this_Es) / keV,
+            fill=True,
+            levels=30,
+            ax=ax1,
+            cmap="flare",
         )
-        fig.colorbar(h[3], ax=ax1)
 
         # Plot the energy distribution at diagnostic
         Ecounts, Eedges = np.histogram(this_E, bins=100)
@@ -704,19 +706,19 @@ if l_plot_diagnostics:
             Ecounts[:] / Np,
             width=np.diff(Eedges[:] / keV),
             edgecolor="black",
-            lw="1",
+            lw=1,
         )
         ax2.set_xlabel(r"Energy [keV]", fontsize="x-large")
         ax2.set_ylabel(r"Fraction of Particles", fontsize="x-large")
-        ax2.text(
-            0.5,
-            0.99,
-            f"Transmission %: {transmission_diagnostic[i]/Np*100:.2f}%",
-            horizontalalignment="center",
-            verticalalignment="top",
-            transform=ax2.transAxes,
-            bbox=dict(boxstyle="round", fc="lightgrey", ec="k", lw=1),
-        )
+        # ax2.text(
+        #     0.5,
+        #     0.99,
+        #     f"Transmission %: {transmission_diagnostic[i]/Np*100:.2f}%",
+        #     horizontalalignment="center",
+        #     verticalalignment="top",
+        #     transform=ax2.transAxes,
+        #     bbox=dict(boxstyle="round", fc="lightgrey", ec="k", lw=1),
+        # )
 
         plt.tight_layout()
 
@@ -727,7 +729,7 @@ if l_plot_diagnostics:
             tcounts / Np,
             width=np.diff(tedges / ns),
             edgecolor="black",
-            lw="1",
+            lw=1,
         )
         ax3.set_title(
             f"Full Distribution: Longitudinal Time Distibution \n z={zloc/mm:.2f}[mm]",
@@ -817,16 +819,17 @@ if l_plot_bucket_diagnostics:
         )
         ax1.set_xlabel(r"Time Deviation $\Delta t / \tau_{rf}$")
         ax1.set_ylabel(
-            rf"Energy Deviation $\Delta W$[keV]", fontsize="x-large",
+            rf"Energy Deviation $\Delta W$[keV]",
+            fontsize="x-large",
         )
-        h = ax1.hist2d(
-            (this_t - this_ts) / T_rf,
-            (this_E - this_Es) / keV,
-            bins=[50, 50],
-            cmin=0.01,
+        sns.kdeplot(
+            x=(this_t - this_ts) / T_rf,
+            y=(this_E - this_Es) / keV,
+            fill=True,
+            levels=30,
+            ax=ax1,
+            cmap="flare",
         )
-        fig.colorbar(h[3], ax=ax1)
-        plt.tight_layout()
 
         # Plot the energy distribution at diagnostic
         Ecounts, Eedges = np.histogram(this_E, bins=50)
@@ -839,7 +842,7 @@ if l_plot_bucket_diagnostics:
             Ecounts[:] / Np,
             width=np.diff(Eedges[:] / keV),
             edgecolor="black",
-            lw="1",
+            lw=1,
         )
         ax2.text(
             0.5,
@@ -860,7 +863,7 @@ if l_plot_bucket_diagnostics:
             tcounts / Np,
             width=np.diff(tedges / ns),
             edgecolor="black",
-            lw="1",
+            lw=1,
         )
         ax3.set_title(
             f"Longitudinal Bucket Time Distribution \n z={zloc/mm:.2f}[mm]",
