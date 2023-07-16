@@ -641,33 +641,9 @@ print(f"End time: {et-st:.4f}")
 # ------------------------------------------------------------------------------
 # Plot field with gaps
 if l_plot_lattice:
-    fig, ax = plt.subplots()
-    ax.set_title("Accel. Lattice with Applied Field at t=0", fontsize="large")
-    ax.set_xlabel("z [mm]", fontsize="large")
-    ax.set_ylabel(r"$E(r=0, z)/E_{DC}$ [kV/mm]", fontsize="large")
-    ax.plot(z / mm, Ez0 / E_DC)
-    ax.axvline(gap_centers[0] / mm, c="grey", lw=1, ls="--", label="Gap Center")
-    if Ng > 1:
-        for i, cent in enumerate(gap_centers[1:]):
-            ax.axvline(cent / mm, c="grey", lw=1, ls="--")
-
-    ax.axvline(
-        (gap_centers[-1] + gap_width / 2 + Fcup_dist) / mm,
-        c="r",
-        lw=1,
-        ls="dashdot",
-        label="Fcup",
+    utils.make_lattice_plot(
+        z, Ez0, gap_centers, phi_s, dsgn_gap_volt, gap_width, Fcup_dist
     )
-    ax.legend()
-    plt.tight_layout()
-
-    fig, ax = plt.subplots()
-    ax.yaxis.grid(True)
-    ax.set_title("Synchronous Phase at Gap")
-    ax.set_xlabel(r"$N_g$")
-    ax.set_ylabel(r"$\phi_s$ [deg]")
-    ax.scatter([i + 1 for i in range(Ng)], phi_s / np.pi * 180)
-    plt.tight_layout()
 
 # Plot the phase-space, energy and time distributions
 if l_plot_diagnostics:
