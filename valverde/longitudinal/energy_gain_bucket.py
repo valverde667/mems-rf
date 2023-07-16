@@ -20,6 +20,7 @@ import os
 import pdb
 import time
 
+import energy_sim_utils as utils
 import warp as wp
 
 mpl.rcParams["xtick.direction"] = "in"
@@ -674,75 +675,17 @@ if l_plot_diagnostics:
         this_t = tdiagnostic[:, i]
         this_Es = E_sdiagnostic[i]
         this_ts = t_sdiagnostic[i]
+        dt = this_t - this_ts
 
-        # Plot phase space
-        fig = plt.figure(tight_layout=True, figsize=(14, 12))
-        gs = gridspec.GridSpec(2, 2)
-        ax1 = fig.add_subplot(gs[0, :])
-        ax2 = fig.add_subplot(gs[1, 0])
-        ax3 = fig.add_subplot(gs[1, 1])
-
-        ax1.set_title(
-            f"Full Distribution: Longitudinal Phase-Space \n z={zloc/mm:.2f}[mm]",
-            fontsize="x-large",
-        )
-        ax1.set_xlabel(r"Time Deviation $\Delta t / \tau_{rf}$", fontsize="x-large")
-        ax1.set_ylabel(
-            rf"Energy Deviation $\Delta W$[keV]",
-            fontsize="x-large",
-        )
-        sns.kdeplot(
-            x=(this_t - this_ts) / T_rf,
-            y=(this_E - this_Es) / keV,
-            fill=True,
-            levels=30,
-            ax=ax1,
-            cmap="flare",
+        g = utils.make_dist_plot(
+            dt / T_rf,
+            this_E / keV,
+            xlabel=r"Relative Time Difference $\Delta t / \tau_{rf}$",
+            ylabel=r"Kinetic Energy $E$ (keV)",
+            xref=0.0,
+            yref=this_Es / keV,
         )
 
-        # Plot the energy distribution at diagnostic
-        Ecounts, Eedges = np.histogram(this_E, bins=100)
-        ax2.set_title(
-            f"Full Distribution: Longitudinal Energy Distibution \n z={zloc/mm:.2f}[mm]",
-            fontsize="x-large",
-        )
-        ax2.bar(
-            Eedges[:-1] / keV,
-            Ecounts[:] / Np,
-            width=np.diff(Eedges[:] / keV),
-            edgecolor="black",
-            lw=1,
-        )
-        ax2.set_xlabel(r"Energy [keV]", fontsize="x-large")
-        ax2.set_ylabel(r"Fraction of Particles", fontsize="x-large")
-        # ax2.text(
-        #     0.5,
-        #     0.99,
-        #     f"Transmission %: {transmission_diagnostic[i]/Np*100:.2f}%",
-        #     horizontalalignment="center",
-        #     verticalalignment="top",
-        #     transform=ax2.transAxes,
-        #     bbox=dict(boxstyle="round", fc="lightgrey", ec="k", lw=1),
-        # )
-
-        plt.tight_layout()
-
-        # Plot the time distribution at diagnostic
-        tcounts, tedges = np.histogram(this_t - this_ts, bins=100)
-        ax3.bar(
-            tedges[:-1] / ns,
-            tcounts / Np,
-            width=np.diff(tedges / ns),
-            edgecolor="black",
-            lw=1,
-        )
-        ax3.set_title(
-            f"Full Distribution: Longitudinal Time Distibution \n z={zloc/mm:.2f}[mm]",
-            fontsize="x-large",
-        )
-        ax3.set_xlabel(r"Time Deviation $\Delta t$ [ns]", fontsize="x-large")
-        ax3.set_ylabel(r"Fraction of Particles", fontsize="x-large")
-        plt.tight_layout()
 
 # ------------------------------------------------------------------------------
 #    Bucket Analysis
@@ -811,23 +754,15 @@ if l_plot_bucket_diagnostics:
         this_t = tdiagnostic[mask, i]
         this_Es = E_sdiagnostic[i]
         this_ts = t_sdiagnostic[i]
-
         dt = this_t - this_ts
 
-        # Create a joint plot using a KDE plot for the main figure and histogram
-        # for the marginal plots.
-        g = sns.JointGrid(x=dt / T_rf, y=this_E / keV)
-        g.plot_joint(
-            sns.kdeplot,
-            fill=True,
-            levels=30,
-            cmap="flare",
-        )
-        g.plot_marginals(sns.histplot, bins=30)
-        g.refline(x=0.0, y=this_Es / keV)
-        g.set_axis_labels(
+        g = utils.make_dist_plot(
+            dt / T_rf,
+            this_E / keV,
             xlabel=r"Relative Time Difference $\Delta t / \tau_{rf}$",
-            ylabel=rf"Kinetic Energy $E$ (keV)",
+            ylabel=r"Kinetic Energy $E$ (keV)",
+            xref=0.0,
+            yref=this_Es / keV,
         )
 
 
