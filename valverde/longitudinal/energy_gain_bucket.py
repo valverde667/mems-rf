@@ -273,7 +273,7 @@ mass = ion.mass * pow(SC.c, 2) / wp.echarge
 
 # Simulation Parameters for design particle
 dsgn_phase = -np.pi / 2
-dsgn_initE = 7 * kV
+dsgn_initE = 7.0 * kV
 Np = int(1e4)
 
 # Simulation parameters for gaps and geometries
@@ -573,22 +573,26 @@ for i in range(1, len(z)):
     # Do design particle
     this_dz = z[i] - z[i - 1]
     this_vs = beta(dsgn_E[i - 1], mass) * SC.c
-    this_dt = this_dz / this_vs
-    dsgn_time[i] = dsgn_time[i - 1] + this_dt
 
+    # Evaluate the time for a half-step
+    this_dt = this_dz / this_vs / 2
+    dsgn_time[i] = dsgn_time[i - 1] + this_dt
     Egain = Ez0[i - 1] * rf_volt(dsgn_time[i], freq=real_freq) * this_dz
+
+    # Add another half-step to time for correct phasing.
+    dsgn_time[i] += this_dt
 
     dsgn_E[i] = dsgn_E[i - 1] + Egain
     dsgn_pos[i] = dsgn_pos[i - 1] + this_dz
-    dsgn_time[i] = dsgn_time[i - 1] + this_dt
 
     # Do other particles
     mask = parts_E > 0
     this_v = beta(parts_E[mask], mass) * SC.c
-    this_dt = this_dz / this_v
+    this_dt = this_dz / this_v / 2
     parts_time[mask] += this_dt
 
     Egain = Ez0[i - 1] * rf_volt(parts_time[mask], freq=real_freq) * this_dz
+    parts_time[mask] += this_dt
     parts_E[mask] += Egain
     parts_pos[mask] += this_dz
 
