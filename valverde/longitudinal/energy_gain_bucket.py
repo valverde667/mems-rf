@@ -277,7 +277,7 @@ dsgn_initE = 7.0 * kV
 Np = int(1e4)
 
 # Simulation parameters for gaps and geometries
-Ng = 8
+Ng = 1
 gap_width = 2.0 * mm
 dsgn_gap_volt = 7.0 * kV
 real_gap_volt = dsgn_gap_volt
@@ -336,6 +336,7 @@ phi_s[1:] = np.linspace(-np.pi / 3, -0.0, Ng - 1) * 0
 
 gap_dist = np.zeros(Ng)
 E_s = dsgn_initE
+Emax = Ng * dsgn_gap_volt + dsgn_initE
 for i in range(Ng):
     this_beta = beta(E_s, mass)
     this_cent = this_beta * SC.c / 2 / dsgn_freq
@@ -810,72 +811,24 @@ if l_plot_bucket_diagnostics:
         this_t = tdiagnostic[mask, i]
         this_Es = E_sdiagnostic[i]
         this_ts = t_sdiagnostic[i]
-        # Plot phase space
-        fig = plt.figure(tight_layout=True, figsize=(14, 12))
-        gs = gridspec.GridSpec(2, 2)
-        ax1 = fig.add_subplot(gs[0, :])
-        ax2 = fig.add_subplot(gs[1, 0])
-        ax3 = fig.add_subplot(gs[1, 1])
 
-        ax1.set_title(
-            f"Longitudinal Bucket Phase-Space Selection \n z={zloc/mm:.2f}[mm]",
-            fontsize="x-large",
-        )
-        ax1.set_xlabel(r"Time Deviation $\Delta t / \tau_{rf}$")
-        ax1.set_ylabel(
-            rf"Energy Deviation $\Delta W$[keV]",
-            fontsize="x-large",
-        )
-        sns.kdeplot(
-            x=(this_t - this_ts) / T_rf,
-            y=(this_E - this_Es) / keV,
+        dt = this_t - this_ts
+
+        # Create a joint plot using a KDE plot for the main figure and histogram
+        # for the marginal plots.
+        g = sns.JointGrid(x=dt / T_rf, y=this_E / keV)
+        g.plot_joint(
+            sns.kdeplot,
             fill=True,
             levels=30,
-            ax=ax1,
             cmap="flare",
         )
-
-        # Plot the energy distribution at diagnostic
-        Ecounts, Eedges = np.histogram(this_E, bins=50)
-        ax2.set_title(
-            f"Longitudinal Bucket Energy Distribution \n z={zloc/mm:.2f}[mm] ",
-            fontsize="x-large",
+        g.plot_marginals(sns.histplot, bins=30)
+        g.refline(x=0.0, y=this_Es / keV)
+        g.set_axis_labels(
+            xlabel=r"Relative Time Difference $\Delta t / \tau_{rf}$",
+            ylabel=rf"Kinetic Energy $E$ (keV)",
         )
-        ax2.bar(
-            Eedges[:-1] / keV,
-            Ecounts[:] / Np,
-            width=np.diff(Eedges[:] / keV),
-            edgecolor="black",
-            lw=1,
-        )
-        ax2.text(
-            0.5,
-            0.99,
-            f"%Particles in Bucket %: {percent_parts:.2f}%",
-            horizontalalignment="center",
-            verticalalignment="top",
-            transform=ax2.transAxes,
-            bbox=dict(boxstyle="round", fc="lightgrey", ec="k", lw=1),
-        )
-        ax2.set_xlabel(r"Energy [keV]", fontsize="x-large")
-        ax2.set_ylabel(r"Fraction of Particles", fontsize="x-large")
-        plt.tight_layout()
-
-        tcounts, tedges = np.histogram((this_t - this_ts), bins=50)
-        ax3.bar(
-            tedges[:-1] / ns,
-            tcounts / Np,
-            width=np.diff(tedges / ns),
-            edgecolor="black",
-            lw=1,
-        )
-        ax3.set_title(
-            f"Longitudinal Bucket Time Distribution \n z={zloc/mm:.2f}[mm]",
-            fontsize="x-large",
-        )
-        ax3.set_xlabel(r"$\Delta t$ [ns]", fontsize="x-large")
-        ax3.set_ylabel(r"Fraction of Particles ", fontsize="x-large")
-        plt.tight_layout()
 
 
 # Plot design particle energy gain
