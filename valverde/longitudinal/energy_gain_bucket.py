@@ -483,17 +483,19 @@ init_time = np.linspace(-T_rf / 2, T_rf / 2, Np)
 parts_pos[:] = z.min()
 parts_time[:] = init_time
 
-# Create diagnostic locations.
+# Create arrays holding the zlocations of diagnostics and their respective index
+# in the z-array
 zdiagnostics = [z.min()]
+idiagnostics = [0]
 for loc in gap_centers:
     zdiagnostics.append(loc)
-zdiagnostics.append(z.max())
-zdiagnostics = np.array(zdiagnostics)
+    this_ind = np.argmin(abs(z - loc))
+    idiagnostics.append(this_ind)
 
-idiagnostic = np.zeros(len(zdiagnostics), dtype=int)
-for i, zloc in enumerate(zdiagnostics):
-    ind = np.argmin(abs(z - zloc))
-    idiagnostic[i] = ind
+zdiagnostics.append(z.max())
+idiagnostics.append(len(z) - 1)
+zdiagnostics = np.array(zdiagnostics)
+idiagnostics = np.array(idiagnostics, dtype=int)
 
 # Initialize diagnostic arrays. Find locations on mesh and use indexes to
 # data from histories.
@@ -599,7 +601,7 @@ for i in range(1, len(z)):
     parts_pos[mask] += this_dz
 
     # Check diagnostic point
-    if i == idiagnostic[idiagn_count]:
+    if i == idiagnostics[idiagn_count]:
         E_sdiagnostic[idiagn_count] = dsgn_E[i]
         t_sdiagnostic[idiagn_count] = dsgn_time[i]
         Ediagnostic[:, idiagn_count] = parts_E[:]
@@ -797,7 +799,7 @@ emit_bucket = np.zeros(zdiagnostics.shape[-1])
 
 for i in range(zdiagnostics.shape[-1]):
     # Calculate and plot mean RMS spread for energy and time
-    ind = idiagnostic[i]
+    ind = idiagnostics[i]
     ts = dsgn_time[ind]
     Es = dsgn_E[ind]
     t = tdiagnostic[:, i]
