@@ -579,12 +579,10 @@ for i in range(1, len(z)):
     this_vs = beta(dsgn_E[i - 1], mass) * SC.c
 
     # Evaluate the time for a half-step
-    this_dt = this_dz / this_vs / 2
+    this_dt = this_dz / this_vs
+    dts[i] = this_dt
     dsgn_time[i] = dsgn_time[i - 1] + this_dt
-    Egain = Ez0[i - 1] * rf_volt(dsgn_time[i], freq=real_freq) * this_dz
-
-    # Add another half-step to time for correct phasing.
-    dsgn_time[i] += this_dt
+    Egain = Ez0[i] * rf_volt(dsgn_time[i], freq=real_freq) * this_dz
 
     dsgn_E[i] = dsgn_E[i - 1] + Egain
     dsgn_pos[i] = dsgn_pos[i - 1] + this_dz
@@ -592,11 +590,10 @@ for i in range(1, len(z)):
     # Do other particles
     mask = parts_E > 0
     this_v = beta(parts_E[mask], mass) * SC.c
-    this_dt = this_dz / this_v / 2
+    this_dt = this_dz / this_v
     parts_time[mask] += this_dt
 
     Egain = Ez0[i - 1] * rf_volt(parts_time[mask], freq=real_freq) * this_dz
-    parts_time[mask] += this_dt
     parts_E[mask] += Egain
     parts_pos[mask] += this_dz
 
