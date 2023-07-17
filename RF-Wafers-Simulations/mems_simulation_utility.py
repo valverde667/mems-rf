@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.constants as SC
 import os
+from matplotlib.backends.backend_pdf import PdfPages
 import warp as wp
 
 # useful constants
@@ -13,6 +14,7 @@ kV = 1e3
 keV = 1e3
 uA = 1e-6
 twopi = 2 * np.pi
+Ar_mass_eV = 37.21132474
 
 
 def beta(E, mass, q=1, nonrel=True):
@@ -71,7 +73,6 @@ def create_wafer(
         xcent=xcent,
         ycent=ycent,
         voltage=voltage,
-        condid=box_out.condid,
     )
     box = box_out - box_in
 
@@ -83,7 +84,6 @@ def create_wafer(
         xcent=xcent,
         ycent=ycent,
         voltage=voltage,
-        condid=box.condid,
     )
 
     # Create prongs. This is done using four box conductors and shifting
@@ -96,7 +96,6 @@ def create_wafer(
         xcent=xcent,
         ycent=ycent + (cell_width / 2 + ravg) / 2,
         voltage=voltage,
-        condid=box.condid,
     )
     bot_prong = wp.Box(
         xsize=prong_width,
@@ -106,7 +105,6 @@ def create_wafer(
         xcent=xcent,
         ycent=ycent - (cell_width / 2 + ravg) / 2,
         voltage=voltage,
-        condid=box.condid,
     )
     rside_prong = wp.Box(
         xsize=cell_width / 2 - ravg,
@@ -116,7 +114,6 @@ def create_wafer(
         xcent=xcent + (cell_width / 2 + ravg) / 2,
         ycent=ycent,
         voltage=voltage,
-        condid=box.condid,
     )
     lside_prong = wp.Box(
         xsize=cell_width / 2 - ravg,
@@ -126,7 +123,6 @@ def create_wafer(
         xcent=xcent - (cell_width / 2 + ravg) / 2,
         ycent=ycent,
         voltage=voltage,
-        condid=box.condid,
     )
 
     # Add together
@@ -385,7 +381,6 @@ class Mems_ESQ_SolidCyl:
     """
 
     def __init__(self, zc, V_left, V_right, xc=0.0, yc=0.0, chop=False):
-
         self.zc = zc
         self.V_left = V_left
         self.V_right = V_right
@@ -544,7 +539,6 @@ class Mems_ESQ_SolidCyl:
         # assert 2. * pow(self.R + self.rp, 2) > 4. * pow(self.R, 2), "Rods touching."
 
         if self.chop == False:
-
             # Create top and bottom rods
             top = wp.ZCylinder(
                 voltage=self.V_left,
@@ -584,7 +578,6 @@ class Mems_ESQ_SolidCyl:
             conductor = top + bot + left + right
 
         else:
-
             l_zc = self.zc - self.lq / 2.0 - self.copper_zlen
             r_zc = self.zc + self.lq / 2.0 + self.copper_zlen
             # Chop the rounds and then recenter to adjust for chop
@@ -854,10 +847,79 @@ def calc_zmatch_sect(lq, d, Nq=4):
     return zcents
 
 
-def calc_phase_shift(phi_s, freq, distance, energy, mass):
+def calc_phase_shift(freq, distance, vbeam):
     """Calculate the phase shift needed to maintain RF resonance"""
+    phase = twopi * freq * distance / vbeam
 
-    term1 = phi_s - np.pi
-    term2 = twopi * freq * distance / beta(energy, mass) / SC.c
+    return phase
 
-    return term1 - term2
+
+def zdiagnostics(
+    diagnostic_list,
+    trace_particle,
+    mass,
+    file_path,
+    file_name="Zcross_diagnostics.pdf",
+    mask_E=None,
+    mask_t=None,
+    mask_rperp=None,
+    mask_vperp=None,
+):
+    """Loop through z-diagnostics and compute/plot various metrics
+
+    The function takes in a list of diagnostic objects that are assumed to be
+    the ZCrossingParticles objects defined in Warp.
+    For each diagnostic a windowing a selection can be done to grab particles
+    based on energy, time, position, etc.
+    Masking is done relative to design or trace particle. The masks are assumed
+    to be symmetric and a fraction of the design particle. Thus, the maskE will
+    selected particles with mask = (-mask_E, +mask_E).
+
+    """
+
+    # Initialize pdf to save plots to
+    pdf = PdfPages(f"{file_name}")
+
+    # Begin looping through diagnostics
+    for i, diag in enumerate(diagnostic_list):
+        masks = []
+        # Finder tracker index to grab tracker values at this locations
+        tracker_ind = np.argmin(abs(tracker.getz() - diag.getzz()))
+
+        # Convert the vz values to energy
+        this_E = mass * pow(diagn.getvz() / SC.c, 2) / 2.0
+        this_Es = mass * pow(tracker.getvz()[tracker_ind] / SC.c, 2) / 2.0
+
+        # Work through mask options. Make a mask for each then combine at end.
+        if mask_E:
+            this_mask_E = abs(this_E - this_Es) < mask_E
+            masks.append(this_mask_E)
+
+        if mask_t:
+            this_mask_t = abs(diag.gett() - tracker.gett()[tracker_ind]) < mask_t
+            masks.append(this_mask_t)
+
+        if mask_rperp:
+            this_rperp = np.sqrt(pow(diagn.getx(), 2) + pow(diagn.gety(), 2))
+            this_mask_rperp = this_rperp < mask_r_perp
+            masks.append(this_mask_rperp)
+
+        if mask_vperp:
+            this_vperp = np.sqrt(pow(diagn.getvx(), 2) + pow(diagn.getvy(), 2))
+            this_mask_vperp = this_vperp < mask_vperp
+            masks.append(this_mask_vperp)
+
+        # Combine all masks if any were created. If not, create a mask of all true
+        if len(masks) > 0:
+            mask = np.logical_and.reduce(masks)
+        else:
+            mask = np.full(len(this_E), True, dtype=bool)
+
+        # Grab masked particle coordinates
+        this_x = diag.getx()[mask]
+        this_y = diag.gety()[mask]
+        this_z = diag.getz()[mask]
+        this_vx = diag.getvx()[mask]
+        this_vy = diag.getvy()[mask]
+        this_vz = diag.getvz()[mask]
+        this_E = 0.5 * mass * pow(diagn.getvz() / SC.c, 2)
