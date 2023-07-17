@@ -142,6 +142,7 @@ emit = 1.336 * mm * mrad
 init_I = 10 * uA
 Np_injected = 0  # initialize injection counter
 Np_max = int(1e5)
+beam_length = None
 
 dsgn_phase = -np.pi / 2.0
 
@@ -181,16 +182,6 @@ if do_matching_section:
     match_centers = mems_utils.calc_zmatch_sect(lq, esq_space, Nq=Nq_match)
     match_centers -= match_centers.max() + lq / 2 + esq_space
 
-# Calculate phase shift needed to be in resonance
-phase_shift = mems_utils.calc_phase_shift(
-    phi_s[0],
-    freq,
-    gap_centers[0] - wp.top.zinject[0],
-    init_E,
-    beam.mass * pow(SC.c, 2) / wp.jperev,
-)
-rf_volt = lambda time: Vg * np.cos(twopi * freq * time + phase_shift)
-
 # ------------------------------------------------------------------------------
 #    Mesh setup
 # Specify mesh sizing and time stepping for simulation. The zmmin and zmmax
@@ -218,14 +209,14 @@ if moving_frame:
 else:
     if do_matching_section:
         wp.w3d.zmmin = match_centers[0] - lq / 2.0 - esq_space
-        wp.w3d.zmmax = gap_centers[0] + gap_wdith / 2.0 + Fcup_dist
+        wp.w3d.zmmax = gap_centers[0] + gap_width / 2.0 + Fcup_dist
     else:
         wp.w3d.zmmin = -1 * mm
         wp.w3d.zmmax = gap_centers[0] + gap_width / 2.0 + Fcup_dist
 
-wp.w3d.nx = 100
-wp.w3d.ny = 100
-wp.w3d.nz = 300
+wp.w3d.nx = 50
+wp.w3d.ny = 50
+wp.w3d.nz = 200
 lab_center = (wp.w3d.zmmax + wp.w3d.zmmin) / 2.0
 dz = (wp.w3d.zmmax - wp.w3d.zmmin) / wp.w3d.nz
 
@@ -274,13 +265,16 @@ else:
 
 # Calculate phase shift needed to be in resonance
 phase_shift = mems_utils.calc_phase_shift(
-    phi_s[0],
     freq,
-    gap_centers[0] - wp.top.zinject[0],
-    init_E,
-    beam.mass * pow(SC.c, 2) / wp.jperev,
+    abs(wp.top.zinject[0]),
+    beam.vbeam,
 )
-rf_volt = lambda time: Vg * np.cos(twopi * freq * time + phase_shift)
+if beam_length != None:
+    phase_shift += mems_utils.calc_phase_shift(
+        freq, beam_length * beam.vbeam / 2, beam.vbeam
+    )
+rf_volt = lambda time: Vg * np.cos(twopi * freq * time - phase_shift)
+
 
 # Create injection scheme. A uniform cylinder will be injected with each time
 # step.
@@ -471,8 +465,9 @@ wp.winon(winnum=3, suffix="pxy", xon=False)
 # TODO: Devise better injection and advancment scheme rather than multiple for-loops.
 # ------------------------------------------------------------------------------
 
+
 # Def plotting routine to be called in stepping
-def plotbeam(lplt_tracker=False):
+def plotbeam(lplt_tracker=True):
     """Plot particles, conductors, and Ez contours as particles advance."""
     wp.pfzx(
         plotsg=0,
@@ -506,30 +501,58 @@ def plotbeam(lplt_tracker=False):
 
 # Inject particles for a full-period, then inject the tracker particle and
 # continue injection till the tracker particle is at grid center.
-while wp.top.time < 1.0 * period:
-    if wp.top.it % 10 == 0:
-        wp.window(2)
-        plotbeam()
-        wp.fma()
-
-    wp.step(1)
-
-# Turn on tracker
-tracker.enable()
-
-# Wait for tracker to get to the center of the cell and then start moving frame
-while tracker.getz()[-1] < lab_center:
-    reset_tracker(tracker, int(len(tracker.getx()) - 1), 0.0)
-    if wp.top.it % 5 == 0:
+if beam_length != None:
+    while wp.top.time <= beam_length / 2:
         wp.window(2)
         plotbeam(lplt_tracker=True)
         wp.fma()
+        wp.step()
 
-    wp.step(1)
+    tracker.enable()
 
-# Turn off injection once grid starts moving
-wp.top.inject = 0
-wp.uninstalluserinjection(injection)
+    while wp.top.time <= beam_length:
+        wp.window(2)
+        plotbeam(lplt_tracker=True)
+        wp.fma()
+        wp.step()
+
+    wp.top.inject = 0
+    wp.uninstalluserinjection(injection)
+
+    # Wait for tracker to get to the center of the cell and then start moving frame
+    while tracker.getz()[-1] < lab_center:
+        reset_tracker(tracker, int(len(tracker.getx()) - 1), 0.0)
+        if wp.top.it % 5 == 0:
+            wp.window(2)
+            plotbeam(lplt_tracker=True)
+            wp.fma()
+
+        wp.step(1)
+
+else:
+    while wp.top.time < 1.0 * period:
+        if wp.top.it % 10 == 0:
+            wp.window(2)
+            plotbeam()
+            wp.fma()
+
+        wp.step(1)
+
+    tracker.enable()
+
+    # Wait for tracker to get to the center of the cell and then start moving frame
+    while tracker.getz()[-1] < lab_center:
+        reset_tracker(tracker, int(len(tracker.getx()) - 1), 0.0)
+        if wp.top.it % 5 == 0:
+            wp.window(2)
+            plotbeam(lplt_tracker=True)
+            wp.fma()
+
+        wp.step(1)
+
+    # Turn off injection once grid starts moving
+    wp.top.inject = 0
+    wp.uninstalluserinjection(injection)
 
 # for i in range(Ng - 2):
 #     # wp.top.dt = 0.7 * dz / tracker.getvz()[-1]
@@ -752,6 +775,7 @@ for key in Data.data_lw_keys:
             plt.tight_layout()
             pdf.savefig()
             plt.close()
+
 
 # Create history plots for selected moments
 def plot_hist(xvals, yvals, xlabel, ylabel, scalex, scaley, xmark=None):
