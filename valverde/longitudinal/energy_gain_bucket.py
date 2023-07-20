@@ -359,7 +359,7 @@ gap_centers = np.array(gap_dist).cumsum()
 #    - Create logic switch for mesh refinement.
 # ------------------------------------------------------------------------------
 # Specify a mesh resolution
-mesh_res = 100 * um
+mesh_res = 10 * um
 zmin = 0
 zmax = gap_centers[-1] + gap_width / 2 + Fcup_dist
 Nz = int((zmax - zmin) / mesh_res)
@@ -394,12 +394,12 @@ if l_use_flattop_field:
 
 if l_use_Warp_field:
     # load isolated field
-    z_iso = np.load("z_isolated_5kV_2mm_10um.npy")
-    Ez_iso = np.load("Ez_isolated_5kV_2mm_10um.npy")
+    z_iso = np.load("z_isolated_7kV_2mm_26um.npy")
+    Ez_iso = abs(np.load("Ez_isolated_7kV_2mm_26um.npy"))
 
-    # Compute the scale factor in case the voltage setting is changed
-    scale = real_gap_volt / gap_width / Ez_iso.max()
-    Ez_iso *= scale
+    # TODO: Find correct scale
+    # scale = real_gap_volt / gap_width / Ez_iso.max()
+    # Ez_iso *= scale
 
     # Find extent of field
     Ez_extent = z_iso[-1] - z_iso[0]
@@ -414,9 +414,9 @@ if l_use_Warp_field:
         patch_start = field_loc[0][0]
         patch_end = field_loc[0][-1]
 
-        z_left = z[: patch_start + 1]
+        z_left = z[:patch_start]
         z_right = z[patch_end:]
-        Ez0_left = Ez0[: patch_start + 1]
+        Ez0_left = Ez0[:patch_start]
         Ez0_right = Ez0[patch_end:]
 
         # Check for overlap between patched area and zmesh. If there is, remove
@@ -580,7 +580,6 @@ for i in range(1, len(z)):
 
     # Evaluate the time for a half-step
     this_dt = this_dz / this_vs
-    dts[i] = this_dt
     dsgn_time[i] = dsgn_time[i - 1] + this_dt
     Egain = Ez0[i] * rf_volt(dsgn_time[i], freq=real_freq) * this_dz
 
@@ -735,9 +734,15 @@ if l_plot_bucket_diagnostics:
             dt / T_rf,
             this_E / keV,
             xlabel=r"Relative Time Difference $\Delta t / \tau_{rf}$",
-            ylabel=r"Kinetic Energy $E$ (keV)",
+            ylabel=r"Relative Energy Difference $\Delta {E}$ (keV)",
+            auto_clip=True,
             xref=0.0,
             yref=this_Es / keV,
+            levels=15,
+            bins=40,
+            weight=1 / Np,
+            dx_bin=0.015,
+            dy_bin=0.5,
         )
 
 
