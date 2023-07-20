@@ -31,12 +31,16 @@ def make_dist_plot(
     ydata,
     xlabel="",
     ylabel="",
+    auto_clip=True,
     xclip=(None, None),
     yclip=(None, None),
     levels=30,
     bins=50,
     xref=None,
     yref=None,
+    weight=None,
+    dx_bin=None,
+    dy_bin=None,
 ):
     """Quick Function to make a joint plot for the distribution of x and y data.
 
@@ -44,12 +48,38 @@ def make_dist_plot(
     histograms of the xdata and ydata on the margins.
 
     """
+    if auto_clip:
+        cut = 0
     with sns.axes_style("darkgrid"):
-        g = sns.JointGrid(x=xdata, y=ydata)
-        g.plot_joint(
-            sns.kdeplot, fill=True, levels=levels, cmap="flare", clip=(xclip, yclip)
+        g = sns.JointGrid(x=xdata, y=ydata, marginal_ticks=True, height=6, ratio=2)
+        if auto_clip:
+            g.plot_joint(sns.kdeplot, levels=levels, cmap="flare", cut=0)
+        else:
+            g.plot_joint(
+                sns.kdeplot, fill=True, levels=levels, cmap="flare", clip=(xclip, yclip)
+            )
+        sns.histplot(
+            x=xdata,
+            bins=bins,
+            edgecolor="k",
+            lw=0.5,
+            alpha=0.7,
+            stat="count",
+            weights=weight,
+            binwidth=dx_bin,
+            ax=g.ax_marg_x,
         )
-        g.plot_marginals(sns.histplot, bins=30, edgecolor="k", lw=0.5, alpha=0.7)
+        sns.histplot(
+            y=ydata,
+            bins=bins,
+            edgecolor="k",
+            lw=0.5,
+            alpha=0.7,
+            stat="count",
+            weights=weight,
+            binwidth=dy_bin,
+            ax=g.ax_marg_y,
+        )
         if xref != None:
             g.refline(x=xref)
         if yref != None:
@@ -59,6 +89,8 @@ def make_dist_plot(
             xlabel=r"Relative Time Difference $\Delta t / \tau_{rf}$",
             ylabel=rf"Kinetic Energy $E$ (keV)",
         )
+        g.ax_marg_x.label_outer = r"Counts/$N_p$"
+        g.ax_marg_y.label_outer = r"Counts/$N_p$"
 
     return g
 
