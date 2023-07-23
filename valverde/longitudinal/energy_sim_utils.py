@@ -53,7 +53,7 @@ def make_dist_plot(
     with sns.axes_style("darkgrid"):
         g = sns.JointGrid(x=xdata, y=ydata, marginal_ticks=True, height=6, ratio=2)
         if auto_clip:
-            g.plot_joint(sns.kdeplot, levels=levels, cmap="flare", cut=0)
+            g.plot_joint(sns.kdeplot, levels=levels, fill=True, cmap="flare", cut=0)
         else:
             g.plot_joint(
                 sns.kdeplot, fill=True, levels=levels, cmap="flare", clip=(xclip, yclip)
@@ -87,10 +87,10 @@ def make_dist_plot(
 
         g.set_axis_labels(
             xlabel=r"Relative Time Difference $\Delta t / \tau_{rf}$",
-            ylabel=rf"Kinetic Energy $E$ (keV)",
+            ylabel=rf"Kinetic Energy $\mathcal{{E}}$ (keV)",
         )
-        g.ax_marg_x.label_outer = r"Counts/$N_p$"
-        g.ax_marg_y.label_outer = r"Counts/$N_p$"
+        g.ax_marg_x.set_ylabel(r"Counts/$N_p$")
+        g.ax_marg_y.set_xlabel(r"Counts/$N_p$")
 
     return g
 
