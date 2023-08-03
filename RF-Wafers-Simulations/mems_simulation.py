@@ -112,8 +112,8 @@ def set_lhistories():
 lq = 0.696 * mm
 Vq = 0.2 * kV
 gap_width = 2 * mm
-Vg = 5 * kV
-Ng = 2
+Vg = 7 * kV
+Ng = 4
 Fcup_dist = 10 * mm
 
 # Match section Parameters
@@ -129,8 +129,8 @@ emittingRadius = 0.25 * mm
 aperture = 0.55 * mm
 
 # Lattice Controls
-do_matching_section = False
-do_focusing_quads = False
+do_matching_section = True
+do_focusing_quads = True
 moving_frame = True
 moving_win_size = 13.5 * mm
 
@@ -160,7 +160,7 @@ mass_eV = beam.mass * pow(SC.c, 2) / wp.jperev
 # ensure proper particle-particle interactions at the head of the beam.
 # ------------------------------------------------------------------------------
 # Design phases are specified with the max field corresponding to phi_s=0.
-phi_s = np.ones(Ng) * dsgn_phase
+phi_s = np.ones(Ng) * dsgn_phase * 0
 gap_dist = np.zeros(Ng)
 E_s = init_E
 for i in range(Ng):
@@ -247,7 +247,7 @@ wp.top.inject = 1
 wp.top.ibeam_s = init_I
 wp.top.ekin_s = init_E
 wp.derivqty()
-wp.top.dt = 0.7 * dz / beam.vbeam
+wp.top.dt = 0.7 * dz / beam.vbeam  # CF conditions
 inj_dz = beam.vbeam * wp.top.dt
 
 # Calculate and set the weight of particle
@@ -486,11 +486,11 @@ def plotbeam(lplt_tracker=True):
     wp.ppzx(titles=0, color=wp.blue, msize=1)
 
     # plot magenta lines to mark the zwindow range
-    yy = np.linspace(wp.w3d.xmmin, wp.w3d.xmmax, 10)
-    xxl = np.ones(yy.shape[0]) * lab_center + wp.top.zbeam - zwin_length / 2.0
-    xxr = np.ones(yy.shape[0]) * lab_center + wp.top.zbeam + zwin_length / 2.0
-    wp.plg(yy, xxl, color="magenta")
-    wp.plg(yy, xxr, color="magenta")
+    # yy = np.linspace(wp.w3d.xmmin, wp.w3d.xmmax, 10)
+    # xxl = np.ones(yy.shape[0]) * lab_center + wp.top.zbeam - zwin_length / 2.0
+    # xxr = np.ones(yy.shape[0]) * lab_center + wp.top.zbeam + zwin_length / 2.0
+    # wp.plg(yy, xxl, color="magenta")
+    # wp.plg(yy, xxr, color="magenta")
 
     print(f"# ------- Tracker x: {tracker.getx()[-1]/mm:.4f} (mm)")
     print(f"# ------- Tracker z: {tracker.getz()[-1]/mm:.3f} (mm)")
