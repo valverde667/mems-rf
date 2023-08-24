@@ -109,6 +109,92 @@ def calc_angle_change(rp_prev, delta_E, Ebeam):
     return rp_prev / denom
 
 
+def prepare_quad_inputs(quad_center, quad_info, Vq):
+    """Helper function to package the inputs so they can be fed into Lattice class.
+
+    The inputs for building the lattice take in the quad and gap data as a
+    tuple contatining lists ([centers], [z-extents], [field data]) where the
+    centers are where the field is to be centered on the mesh, the zextents is the
+    length of the field, and the field data the extracted field or hard edge value.
+
+    This function assumes that the same field structure, i.e., same z-extents
+    will be used for each gap center provided. The fields themselves will be scaled
+    appropriately to match the given voltages Vq and Vg.
+
+    Parameters
+    ----------
+    quad_centers: list or array
+        Location on z-mesh of where the field is to be placed (centered).
+
+    quad_info: tuple
+        A tuple containing the ([zdata], [field data]) of the quadrupole gradient.
+        The zdata is expected to be centered on z=0 due to the Warp extraction.
+        The data will be shifted so that the center is coincident with the given
+        center.
+
+    Vq: list or array
+        Desired voltages for the quadrupole. Each gradient corresponds to a given
+        voltage for the ESQ design. This scaling was found external to this script
+        and used here. The field is normalized by the max and then scaled up to match
+        the gradient produced by the given voltage.
+    """
+
+    # The only manipulations that need to happen are the voltage
+    # scaling. Once this is done, package into a tuple.
+    zgrad, grad = quad_info
+    z_data = []
+    grad_data = []
+    for i in range(len(quad_centers)):
+        z_data.append(zgrad + quad_centers[i])
+        grad_data.append(grad.copy() * Vq[i] / 1.562e-7)
+
+    qinfo = (quad_centers, z_data, grad_data)
+    return qinfo
+
+
+def prepare_gap_inputs(gap_centers, gap_info, Vg):
+    """Helper function to package the inputs so they can be fed into Lattice class.
+
+    The inputs for building the lattice take in the gap data as a
+    tuple contatining lists ([centers], [z-extents], [field data]) where the
+    centers are where the field is to be centered on the mesh, the zextents is the
+    length of the field, and the field data the extracted field or hard edge value.
+
+    This function assumes that the same field structure, i.e., same z-extents
+    will be used for each gap center provided. The fields themselves will be scaled
+    appropriately to match the given voltages Vq and Vg.
+
+    Parameters
+    ----------
+    gap_centers: list or array
+        Location on z-mesh of where the field is to be placed (centered).
+
+    gap_info: tuple
+        A tuple containing the ([zdata], [field data]) of the gap electric field.
+        The zdata is expected to be centered on z=0 due to the Warp extraction.
+        The data will be shifted so that the center is coincident with the given
+        center.
+
+    Vg: list or array
+        Desired voltages for the gap. Each electric field provile corresponds to a given
+        voltage for the gap design. This scaling was found external to this script
+        and used here. The field is normalized by the max and then scaled up to match
+        the field produced by the given voltage.
+    """
+
+    # The only manipulations that need to happen are the voltage scaling.
+    # Once this is done, package into a tuple.
+    zgap, Ez = gap_info
+    z_data = []
+    Ez_data = []
+    for i in range(len(gap_centers)):
+        z_data.append(zgap + gap_centers[i])
+        Ez_data.append(Ez * 657.3317 * Vg[i])
+
+    ginfo = (gap_centers, z_data, Ez_data)
+    return ginfo
+
+
 class Lattice:
     def __init__(self):
         self.zmin = 0.0
