@@ -113,441 +113,495 @@ class Lattice:
     def __init__(self):
         self.zmin = 0.0
         self.zmax = None
-        self.centers = None
-        self.Np = None
-        self.dz = None
         self.z = None
-        self.grad = None
-        self.kappa = None
+        self.dz = None
 
+        self.Ng = None
         self.gap_centers = None
-        self.gap_voltage = None
-        self.gap_phase = None
+        self.gap_field_data = None
+        self.dz_gap = None
+
+        self.Nq = None
+        self.quad_centers = None
+        self.quad_field_data = None
+        self.dz_quad = None
+
+        self.kappa_quad = None
+        self.kappa_gap = None
+
         self.beam_energy = None
+        self.dbeam_energy = None
+        self.ddbeam_energy = None
 
-        self.lattice_params = {
-            "zq": None,
-            "Vq": None,
-            "Gmax": None,
-        }
+    def build_lattice(self, zstart, zend, scheme, quad_info, gap_info, res):
+        """Function to build lattice given the scheme and length Lp
 
-    def calc_Vset(self, Gmax):
-        """Calculate the necessary voltage to generate the max gradient used"""
+        This function will build the 1D mesh to be used for integration. The scheme
+        is given by a string with q for quad and g for gap. The goal is to return
+        three arrays. One will be the zmesh for the lattice, another will be the quadrupole
+        data, and lastly the gap data. All arrays should have the same size.
+        The quad and gap data will undoubtedly have different sizes and presents a challenge
+        to build three commensurate arrays.
+        To do this, an overall mesh if first created with from zstart to zend with
+        the given res on the mesh for dz. Then, the quad and gap info are used to find
+        the centers and extents of the conductor objects within the z-array. The z-data
+        for each conductor is then stitched into the zmesh while simultaneously
+        stitching in the field data in the commensurate field arrays. The scheme is
+        used to determine when zeros need to be added to the other conductor array
+        in order to maintain sizing.
 
-        Vset = 1.557857e-10 * Gmax
-        return Vset
+        Parameters
+        ----------
+        zstart: float
+            Start of z array.
 
-    def calc_Gmax(self, Volt):
-        """Calculate max gradient needed to give desired voltage"""
-        Gmax = Volt / 1.557857e-10
-        return Gmax
+        zend: float
+            End of z array.
 
-    def hard_edge_match(
-        self, lq, lq_eff, d, Vq, Nq, rp, scales, max_grad=2e9, res=25 * um
-    ):
-        """Create a hard-edge model for the ESQs.
-        The ESQ centers will be placed at centers and kappa calculated. Each
-        ESQ is given"""
+        scheme: string
+            Contains the scheme of the lattice. For example, to have an acceleration
+            gap, quad, quad, gap would be 'g-q-q-g'. The separator '-' is needed. Order
+            does not matter but for the sake of clarity should be preserved in asecending
+            z-center in the lattice.
 
-        Lp = 2 * d * Nq + 4 * lq
-        self.Np = int(Lp / res)
-        self.z = np.linspace(0.0, Lp, self.Np)
-        self.zmax = self.z.max()
+        quad_info: tuple containing lists
+            A tuple of information containing:
+                ([z-centers], [zextents of extracted field], [array of field data]).
+            The field data is centered on the z-center and extends for [zc-zextent/2, zc+zextent/2].
+            The inputs in the tuple have to be lists even if it is one element.
+            If no quad data is to be provided, input None.
 
-        self.Np = int((self.zmax - self.zmin) / res)
-        self.z = np.linspace(self.zmin, self.zmax, self.Np)
-        self.grad = np.zeros(self.z.shape[0])
+        gap_info: tuple
+            A tuple of information for the acceleration gap. See quad_info parameter.
 
-        Gstar = max_grad
-        Vset = np.empty(Nq)
-
-        # Find indices of lq centers and mask from center - lq/2 to center + lq/2
-        masks = []
-        self.centers = np.zeros(Nq)
-        for i in range(Nq):
-            this_zc = d + 2 * i * d + lq * i + lq / 2
-            this_mask = (self.z >= this_zc - lq_eff / 2) & (
-                self.z <= this_zc + lq_eff / 2
-            )
-            masks.append(this_mask)
-            self.centers[i] = this_zc
-
-        for i, mask in enumerate(masks):
-            this_g = Gstar * scales[i]
-            self.grad[mask] = this_g
-            Vset[i] = self.calc_Vset(this_g)
-
-        # Update the paramters dictionary with values used.
-        updated_params = [lq, Vset, rp, Gstar, None]
-
-        for key, value in zip(self.lattice_params.keys(), updated_params):
-            self.lattice_params[key] = value
-
-    def user_input_match(self, file_string, Nq, scales, lq=0.695 * mm):
-        """Create Nq matching section from extracted gradient.
-
-        An isolated gradient is read in from the file_string = (path-s, path-grad)
-        and loaded onto the mesh. The length of the ESQ should be provided and
-        the separation distance calculated from the z-mesh provided by
-        subtracting lq and then diving the resulting mesh length in half:
-        i.e. d = (zmax - zmin - lq) / 2.
-        Each ESQ is then placed at then placed with 2d interspacing:
-            d-lq-2d-lq-2d-...-lq-d
+        res: float
+            Overall resolution to use. Most of the array might be empty space and this
+            parameter can be used to lower computational cost for the zero entries.
         """
+        Lp = zend - zstart
+        Nz = int(Lp / res)
+        z = np.linspace(zstart, zend, Nz)
 
-        zext, grad = np.load(file_string[0]), np.load(file_string[1])
-        dz = zext[1] - zext[0]
-        if zext.min() < -1e-9:
-            # Shift z array to start at z=0
-            zext += abs(zext.min())
-            zext[0] = 0.0
+        # Intialize counters to correctly index data
+        q_counter = 0
+        g_counter = 0
 
-        # Initialize the first arrays quadrupole with corresponding mesh.
-        # Calculate the set voltage needed to create the scaled gradient and
-        # record.
-        Vset = np.zeros(Nq)
-        self.z = zext.copy()
-        self.grad = grad.copy() * scales[0]
-        Gmax = grad.max()
-        Vset = np.array([self.calc_Vset(Gmax * scale) * kV for scale in scales])
+        # Initial field arrays where the data will be stitched in to.
+        quad_data = np.zeros(len(z))
+        gap_data = np.zeros(len(z))
 
-        # Loop through remaining number of quadrupoles after the first and build
-        # up the corresponding mesh and gradient.
-        for i in range(1, Nq):
-            this_z = zext.copy() + self.z[-1] + dz
-            this_grad = grad.copy() * scales[i]
-            self.z = np.hstack((self.z, this_z))
-            self.grad = np.hstack((self.grad, this_grad))
+        # Separate the strings in the conductors. Loop through the elements and then
+        # build arrays based on the scheme.
+        conductors = scheme.split("-")
 
-        # Update the paramters dictionary with values used.
-        updated_params = [lq, Vset, None, None, grad.max()]
-        for key, value in zip(self.lattice_params.keys(), updated_params):
-            self.lattice_params[key] = value
+        quad_centers = []
+        gap_centers = []
 
-    def acceleration_lattice(
-        self,
-        gap_centers,
-        file_string,
-        scales,
-        g=2 * mm,
-        res=5e-6,
-    ):
-        """Create the acceleration secttion of the lattice.
+        for i, cond in enumerate(conductors):
+            if cond == "q":
+                z_patch = quad_info[1][q_counter]
+                this_zc = quad_info[0][q_counter]
+                this_zext = z_patch[-1] - z_patch[0]
+                this_field = quad_info[2][q_counter]
 
-        At the moment, the acceleration portion only uses thin lens kicks.
-        Thus, the gap centers are merlely used for ESQ placement. A field-free
-        region exists after every unit (a unit is two RF wafers).
-        A lattice period is comprised of one RF-unit starting at the RF acceelration
-        plate (g/2 from the gap center) and extends to the beginning of the
-        second acceleration plate.
+                # Append some data before incrementation
+                quad_centers.append(this_zc)
+                self.dz_quad = z_patch[1] - z_patch[0]
+                q_counter += 1
 
-        When stitching together the fields it is possible that there is not enough
-        space to fit the extent of the extracted fields (zesq_extent). In this case,
-        satisfying the lenght of the lattice period is ignored and the new lattice
-        period becomes the final gap + the zfield extent.
-        In the case there is enough room, the amount of leftover space is calculated
-        and padded on both ends of the ESQ field so that the field is centered
-        between the end plates of gap2 and gap3.
+                field_loc = np.where(
+                    (z > this_zc - this_zext / 2.0) & (z < this_zc + this_zext / 2.0)
+                )[0]
+                patch_start = field_loc[0]
+                patch_end = field_loc[-1]
 
-        Note: this assumes one lattice period and only works for 2 ESQs.
-        """
+                z_left = z[:patch_start]
+                z_right = z[patch_end:]
+                l_qfield = quad_data[:patch_start]
+                r_qfield = quad_data[patch_end:]
+                l_gfield = gap_data[:patch_start]
+                r_gfield = gap_data[patch_end:]
 
-        # Extract field and define the field extent and max gradient first.
-        iso_z, iso_grad = np.load(file_string[0]), np.load(file_string[1])
-        zesq_extent = iso_z[-1] - iso_z[0]
-        Gmax = np.max(iso_grad)
+                # Check for overlap between patched area and zmesh. If there is, remove
+                # overlap and stitch together the patch.
+                left_overlap = np.where((z_patch[0] - z_left) < 0)[0]
+                if len(left_overlap) != 0:
+                    z_left = np.delete(z_left, left_overlap)
+                    l_qfield = np.delete(l_qfield, left_overlap)
+                    l_gfield = np.delete(l_gfield, left_overlap)
 
-        if isinstance(scales, int) or isinstance(scales, float):
-            scales = np.ones(len(gap_centers)) * scales
+                right_overlap = np.where((z_right - z_patch[-1]) < 0)[0]
+                if len(right_overlap) != 0:
+                    z_right = np.delete(z_right, right_overlap)
+                    r_qfield = np.delete(r_qfield, right_overlap)
+                    r_gfield = np.delete(r_gfield, right_overlap)
 
-        # Record the voltage settings used.
-        Vsets = np.zeros(len(scales))
-        for i, s in enumerate(scales):
-            if i % 2 == 0:
-                Vsets[i] = self.calc_Vset(s * Gmax) * kV
-            else:
-                Vsets[i] = -self.calc_Vset(s * Gmax) * kV
+                # Stitch fields together
+                z_patched = np.concatenate((z_left, z_patch, z_right))
+                qpatched = np.concatenate((l_qfield, this_field, r_qfield))
+                gpatched = np.concatenate((l_gfield, 0 * this_field, r_gfield))
 
-        # Unpack values needed to compute kappa given the acceleration from the gaps.
-        # If the voltage is given as a single float value, then create an iterable
-        # of duplicate values. Same with phase.
-        Vg = self.gap_voltage
-        phi_s = self.gap_phase
-        Ebeam = self.beam_energy
-        if isinstance(Vg, float) or isinstance(Vg, int):
-            Vg = np.ones(len(gap_centers)) * Vg
-        if isinstance(phi_s, float) or isinstance(phi_s, int):
-            phi_s = np.ones(len(gap_centers)) * phi_s
+                # Rename previously defined meshs for continuity
+                z = z_patched
+                quad_data = qpatched
+                gap_data = gpatched
 
-        esq_index = int(len(iso_z) / 2)
+            elif cond == "g":
+                z_patch = gap_info[1][g_counter]
+                this_zc = gap_info[0][g_counter]
+                this_zext = z_patch[-1] - z_patch[0]
+                this_field = gap_info[2][g_counter]
 
-        # This is the main loop to build the lattice. Each period is done depending
-        # on the number of gaps provided. A period is comprised of two gaps with
-        # the third gap marking the end. Thus, for each period 3 gap centers are
-        # needed to create the proper z and grad field.
-        NLp = int((len(gap_centers) - 1) / 2)
-        counter_scales = 0
-        z_arrays = []
-        grad_arrays = []
-        kappa_arrays = []
-        grad_maxs = []
-        Ebeam_array = [Ebeam]
+                # Append some data before incrementation
+                gap_centers.append(this_zc)
+                self.dz_gap = z_patch[1] - z_patch[0]
+                g_counter += 1
 
-        for k in range(NLp):
-            # Scale the isolated gradient.
-            this_iso_grad = iso_grad.copy()
-            this_iso_grad[:esq_index] *= scales[2 * k]
-            this_iso_grad[esq_index:] *= scales[2 * k + 1]
-            grad_maxs.append(this_iso_grad.max())
+                field_loc = np.where(
+                    (z > this_zc - this_zext / 2.0) & (z < this_zc + this_zext / 2.0)
+                )[0]
+                patch_start = field_loc[0]
+                patch_end = field_loc[-1]
 
-            gc1, gc2, gc3 = gap_centers[2 * k : 2 * k + 3]
-            Lp = gc3 - gc1
-            # Make copies of the gradients and scale field
+                z_left = z[:patch_start]
+                z_right = z[patch_end:]
+                l_qfield = quad_data[:patch_start]
+                r_qfield = quad_data[patch_end:]
+                l_gfield = gap_data[:patch_start]
+                r_gfield = gap_data[patch_end:]
 
-            start = gc1 - g / 2
-            stop = gc2 + g / 2
-            interval = stop - start
-            nsteps = int(interval / res)
-            z = np.linspace(start, stop, nsteps, endpoint=True)
-            grad = np.zeros(len(z))
+                # Check for overlap between patched area and zmesh. If there is, remove
+                # overlap and stitch together the patch.
+                left_overlap = np.where((z_patch[0] - z_left) < 0)[0]
+                if len(left_overlap) != 0:
+                    z_left = np.delete(z_left, left_overlap)
+                    l_qfield = np.delete(l_qfield, left_overlap)
+                    l_gfield = np.delete(l_gfield, left_overlap)
 
-            # Check if the gradient field provided fills the space. It could happen
-            # that the additional free space is less than the zextent of the gradient.
-            # in this case, print out a warning and use the full zmesh to complete
-            # the array. If there is more space, then the gradient field can be
-            # woven in.
-            drift_space = gc3 - gc2 - g
-            occupancy = zesq_extent / drift_space
-            if occupancy > 1:
-                print(f"Occupancy: {occupancy:.2f}. Using z-field to fill drift space.")
-                # Attach field region
-                zfield = iso_z.copy()
-                zfield += z[-1] + res + iso_z.max()
-                z = np.hstack((z, zfield))
-                grad = np.hstack((grad, this_iso_grad))
+                right_overlap = np.where((z_right - z_patch[-1]) < 0)[0]
+                if len(right_overlap) != 0:
+                    z_right = np.delete(z_right, right_overlap)
+                    r_qfield = np.delete(r_qfield, right_overlap)
+                    r_gfield = np.delete(r_gfield, right_overlap)
+
+                # Stitch fields together
+                z_patched = np.concatenate((z_left, z_patch, z_right))
+                qpatched = np.concatenate((l_qfield, 0 * this_field, r_qfield))
+                gpatched = np.concatenate((l_gfield, this_field, r_gfield))
+
+                # Rename previously defined meshs for continuity
+                z = z_patched
+                quad_data = qpatched
+                gap_data = gpatched
 
             else:
-                # Check how much the space is filled. If it is only a few grid
-                # sizes smaller, then using provided zmesh.
-                freespace = (1 - occupancy) * drift_space
-                tolerance = 6 * res
-                if freespace < tolerance:
-                    print(
-                        f"Occupancy: {occupancy:.2f}. Using z-field to fill drift space."
-                    )
-                    print(
-                        "Remaining space below tolerance, approximating occupancy as 1."
-                    )
-                    # Attach field region
-                    zfield = iso_z.copy()
-                    zfield += z[-1] + res + iso_z.max()
-                    z = np.hstack((z, zfield))
-                    grad = np.hstack((grad, this_iso_grad))
+                print("No conductor or scheme input incorrect. Check inputs.")
 
-                else:
-                    # There is sufficient free space to stiching in the field with
-                    # some padding on both ends.
-                    print(f"Occupancy: {occupancy:.2f}. Stitching in field.")
-                    # Treat left side of stitching
-                    freespace = (1 - occupancy) * drift_space
-                    lstart = stop + res
-                    lstop = lstart + freespace / 2
-                    linterval = lstop - lstart
-                    lnsteps = int(linterval / res)
+        # Check if quadrupoles and gaps were used. If so, store some information.
+        # If not, store 0's and also create an array of zeros.
+        if q_counter > 0:
+            self.Nq = q_counter
+            self.quad_centers = quad_centers
+            self.quad_field_data = quad_data
 
-                    lz = np.linspace(lstart, lstop, lnsteps, endpoint=True)
-                    lgrad = np.zeros(len(lz))
-
-                    # Include z from input file
-                    zfield = iso_z.copy()
-                    zfield += lz[-1] + res + iso_z.max()
-
-                    # Now treat right side
-                    rstart = zfield[-1] + res
-                    rstop = gc3 - g / 2
-                    rinterval = rstop - rstart
-                    rnsteps = int(rinterval / res)
-
-                    rz = np.linspace(rstart, rstop, rnsteps, endpoint=True)
-                    rgrad = np.zeros(len(rz))
-
-                    z = np.hstack((z, lz, zfield, rz))
-                    grad = np.hstack((grad, lgrad, this_iso_grad, rgrad))
-
-            z_arrays.append(z)
-            grad_arrays.append(grad)
-
-            # Calculate kappa based off the energy gain
-            Ebeam += calc_energy_gain(Vg[2 * k], phi_s[2 * k])
-            Ebeam += calc_energy_gain(Vg[2 * k + 1], phi_s[2 * k + 1])
-            kappa = grad.copy() / 2.0 / Ebeam
-            Ebeam_array.append(Ebeam)
-            kappa_arrays.append(kappa)
-
-        # Flatten the arrays into a 1D array if there is one more than one
-        # lattice period. If there is not, then the data is the first element.
-        if NLp > 1:
-            z = np.hstack(z_arrays)
-            grad = np.hstack(grad_arrays)
-            kappa = np.hstack(kappa_arrays)
         else:
-            z = z_arrays[0]
-            grad = grad_arrays[0]
-            kappa = kappa_arrays[0]
+            self.Nq = 0
+            self.quad_centers = 0
+            self.quad_field_data = np.zeros(len(z))
+
+        if g_counter > 0:
+            self.Ng = g_counter
+            self.gap_centers = gap_centers
+            self.gap_field_data = gap_data
+
+        else:
+            self.Ng = 0
+            self.gap_centers = 0
+            self.gap_field_data = np.zeros(len(z))
 
         self.z = z
-        self.grad = grad
-        self.kappa = kappa
-        self.beam_energy = np.array(Ebeam_array)
+        self.quad_field_data = quad_data
+        self.gap_field_data = gap_data
 
-        # Update the paramters dictionary with values used.
-        updated_params = [zesq_extent, Vsets, grad_maxs]
-        for key, value in zip(self.lattice_params.keys(), updated_params):
-            self.lattice_params[key] = value
+        return print("Lattice built and data stored.")
+
+    def adv_particle(self, init_E):
+        """Advance particle through field with simple forward advance."""
+
+        z = self.z
+        dz = self.dz
+        Ez = self.gap_field_data
+        energy = np.zeros(len(z))
+        energy[0] = init_E
+
+        for n in range(1, len(z)):
+            this_dz = z[n] - z[n - 1]
+            energy[n] = energy[n - 1] + Ez[n - 1] * this_dz
+
+        self.beam_energy = energy
+
+        return print("Beam energy stored")
+
+    def calc_lattice_kappa(self):
+        """Calculate the focusing function kappa on the lattice.
+
+        There will be contributions to the kappa function from both the
+        quadruople field data (the gradient) and the acceleration gap.
+            Quad kappa: qG/2E
+            Gap kappa: -0.25 * (E''/Ei) / (1 + (E-Ei)/Ei)
+
+        """
+        E = self.beam_energy
+        init_E = E[0]
+
+        kq = 0.5 * self.quad_field_data / E
+
+        # Compute deriviatives of energy and then calculate. Note, in computing
+        # the derivatives a uniform dz is assumed. However, this is usually not
+        # the case in this procedure. However, assuming the energy changes are
+        # restricted to the gaps, then the dz in the gap can be used since
+        # anywhere else the field is zero.
+        # TODO: treat nonuniform grid spacing case.
+
+        zgap = np.argmin(abs(self.z - self.gap_centers[0]))
+        dz = self.dz_gap
+
+        dE = np.gradient(E, dz)
+        ddE = np.gradient(dE, dz)
+        self.dbeam_energy, self.ddbeam_energy = dE, ddE
+
+        kg = -0.25 * (ddE / init_E) / (1 + (E - init_E) / init_E)
+
+        self.kappa_quad = kq
+        self.kappa_gap = kg
+
+        return print("Kappa functions calculated and stored.")
 
 
-def solver(solve_matrix, z, kappa, emit, Q):
-    """Solve KV-envelope equations with Euler-cromer method.
+class Integrate_KV_equations:
+    def __init__(self, lattice_obj):
+        self.lattice = lattice_obj
 
-    The solve_matrix input will be an Nx4 matrix where N is the number of steps
-    to take in the solve and the four columns are the transverse position and
-    angle in x and y. The solver will take a step dz and evaluate the equations
-    with a fixed emittance and perveance Q. Kappa is assumed to be an array.
-    """
+        Q = None
+        emit = None
 
-    ux, uy = solve_matrix[:, 0], solve_matrix[:, 1]
-    vx, vy = solve_matrix[:, 2], solve_matrix[:, 3]
+        rx = None
+        ry = None
+        rxp = None
+        ryp = None
 
-    for n in range(1, solve_matrix.shape[0]):
-        this_dz = z[n] - z[n - 1]
-        # Evaluate term present in both equations
-        term = 2 * Q / (ux[n - 1] + uy[n - 1])
+        # Initialize statistical quantities calculated after integrating equations.
+        avg_rx = None
+        avg_ry = None
+        avg_rxp = None
+        avg_ryp = None
 
-        # Evaluate terms for x and y
-        term1x = pow(emit, 2) / pow(ux[n - 1], 3) - kappa[n - 1] * ux[n - 1]
-        term1y = pow(emit, 2) / pow(uy[n - 1], 3) + kappa[n - 1] * uy[n - 1]
+        max_rx = None
+        max_ry = None
+        max_rxp = None
+        max_ryp = None
 
-        # Update v_x and v_y first.
-        vx[n] = (term + term1x) * this_dz + vx[n - 1]
-        vy[n] = (term + term1y) * this_dz + vy[n - 1]
+        min_rx = None
+        min_ry = None
+        min_rxp = None
+        min_ryp = None
 
-        # Use updated v to update u
-        ux[n] = vx[n] * this_dz + ux[n - 1]
-        uy[n] = vy[n] * this_dz + uy[n - 1]
+        max_spread_rx = None
+        max_spread_ry = None
+        max_spread_rxp = None
+        max_spread_ryp = None
 
-    return solve_matrix
+        measure_prod = None
+        measure_sum = None
 
+    def calc_envelope_statistics(self):
+        """Calculate varous quantities from envelope solutions and store."""
 
-def solver_with_accel(
-    solve_matrix,
-    z,
-    kappa,
-    emit,
-    Q,
-    gap_centers,
-    Vg,
-    phi_s,
-    E,
-    history=False,
-):
-    """Solve KV-envelope equations with Euler-cromer method and acceleration kicks.
+        # Calculate averages over r and r'.
+        avg_rx, avg_ry = np.mean(self.rx), np.mean(self.ry)
+        avg_rxp, avg_ryp = np.mean(self.rxp), np.mean(self.ryp)
 
-    The solve_matrix input will be an Nx4 matrix where N is the number of steps
-    to take in the solve and the four columns are the transverse position and
-    angle in x and y. The solver will take a step dz and evaluate the equations
-    with a fixed emittance and perveance Q. Kappa is assumed to be an array.
+        # Grab max excursions
+        max_rx, max_ry = np.max(self.rx), np.max(self.ry)
+        max_rxp, max_ryp = np.max(self.rxp), np.max(self.ryp)
 
-    To incorporate acceleration, the zmesh and gap centers are provided. At the
-    gap center a kick is applied to the angle in x and y. Additionally, the
-    Q and emittance are adjusted following the scaling relationships for
-    increased energy.
-    """
+        # Grab min excursions
+        min_rx, min_ry = np.min(self.rx), np.min(self.ry)
+        min_rxp, min_ryp = np.min(self.rxp), np.min(self.ryp)
 
-    ux, uy = solve_matrix[:, 0], solve_matrix[:, 1]
-    vx, vy = solve_matrix[:, 2], solve_matrix[:, 3]
-    current_energy = E
+        # Calculate max spread
+        spread_rx = max_rx - min_rx
+        spread_ry = max_ry - min_ry
+        spread_rxp = max_rxp - min_rxp
+        spread_ryp = max_ryp - min_ryp
 
-    # Find gap index in the zmesh. The last two gaps should be ignored since
-    # the last two gaps belong to the next period.
-    gap_inds = np.array([np.argmin(abs(gc - z)) for gc in gap_centers])[:-2]
+        # Calculate measures
+        measure_prod = np.sqrt(np.mean(self.rx * self.ry))
+        measure_sum = (avg_rx + avg_ry) / 2.0
 
-    # Initialize history arrays for Q and emittance
-    history_Q = [Q]
-    history_emit = [emit]
+        # Store values
+        self.avg_rx = avg_rx
+        self.avg_ry = avg_ry
+        self.avg_rxp = avg_rxp
+        self.avg_ryp = avg_ryp
 
-    gap_counter = 0
-    for k in range(1, z.shape[0]):
-        this_dz = z[k] - z[k - 1]
+        self.max_rx = max_rx
+        self.max_ry = max_ry
+        self.max_rxp = max_rxp
+        self.max_ryp = max_ryp
 
-        # The gap counter will increment itself and run over the number of
-        # elements in the gap index. So the if-statement needs to satisfy both
-        # conditions or else an error will occur.
-        if gap_counter < len(gap_inds) and k == gap_inds[gap_counter]:
-            # Update the angle based on
-            dE = calc_energy_gain(Vg, phi_s[gap_counter])
-            rx_kick = calc_angle_change(vx[k - 1], dE, current_energy)
-            ry_kick = calc_angle_change(vy[k - 1], dE, current_energy)
-            Q = calc_Q_change(Q, dE, current_energy)
-            emit = calc_emit_change(emit, dE, current_energy)
+        self.min_rx = min_rx
+        self.min_ry = min_ry
+        self.min_rxp = min_rxp
+        self.min_ryp = min_ryp
 
-            # update values
-            current_energy += dE
-            vx[k] = rx_kick
-            vy[k] = ry_kick
+        self.max_spread_rx = spread_rx
+        self.max_spread_ry = spread_ry
+        self.max_spread_rxp = spread_rxp
+        self.max_spread_ryp = spread_ryp
 
-            # Use updated v to update u
-            ux[k] = vx[k] * this_dz + ux[k - 1]
-            uy[k] = vy[k] * this_dz + uy[k - 1]
+        self.measure_prod = measure_prod
+        self.measure_sum = measure_sum
 
-            gap_counter += 1
+    def output_statistics(self):
+        """Output envelope information after integrating the equations."""
+        mm = 1e-3
+        mrad = 1e-3
+        print("")
+        print("#--------- Envelope Statistics")
+        print("   Radii, rx = 2sqrt(<x**2>), rx = 2sqrt(<x**2>):")
+        print(
+            f"{'   Avg, <rx>, <ry> (mm)':<40} {self.avg_rx/mm:.4f}, {self.avg_ry/mm:.4f}"
+        )
+        print(
+            f"{'   Max, Max[rx], Max[ry] (mm)':<40} {self.max_rx/mm:.4f}, {self.max_ry/mm:.4f}"
+        )
+        print(
+            f"{'   Min, Min[rx], Min[ry] (mm)':<40} {self.min_rx/mm:.4f}, {self.min_ry/mm:.4f}"
+        )
+        print("")
+        print("   Angles, rx`, ry`:")
+        print(
+            rf"{'   Avg, <rx`>, <ry`> (mrad)':<40} {self.avg_rxp/mrad:.4f}, {self.avg_ryp/mrad:.4f}"
+        )
+        print(
+            rf"{'   Max, Max[rx`], Max[ry`] (mrad)':40} {self.max_rxp/mrad:.4f}, {self.max_ryp/mrad:.4f}"
+        )
+        print(
+            rf"{'   Min, Min[rx`], Min[ry`] (mrad)':<40} {self.min_rxp/mrad:.4f}, {self.min_ryp/mrad:.4f}"
+        )
+        print("")
+        print("   Average Radius Measures:")
+        print(f"{'   sqrt(<rx*ry>) (mm)':<40} {self.measure_prod/mm:.4f}")
+        print(f"{'   (<rx> + <ry>)/2 (mm)':<40} {self.measure_sum/mm:.4f}")
+        print("")
 
-        else:
-            # Evaluate term present in both equations
-            term = 2 * Q / (ux[k - 1] + uy[k - 1])
+    def integrate_eqns(self, init_r, init_rp, init_Q, init_emit, verbose=False):
+        """Integrate the KV equations for the given lattice class.
 
-            # Evaluate terms for x and y
-            term1x = pow(emit, 2) / pow(ux[k - 1], 3) - kappa[k - 1] * ux[k - 1]
-            term1y = pow(emit, 2) / pow(uy[k - 1], 3) + kappa[k - 1] * uy[k - 1]
+        The function uses the lattice object provided to integrate the KV
+        envelope equations. The lattice_obj will provide the essential arrays
+        and overall lattice geometry. The function also takes the initial conditions
+        needed to begin the integration which are the initial generalized
+        perveance Q and rms-edge emittance. Along with the initial positions
+        (rx, ry) and angle (rxp, ryp).
+
+        Parameters
+        ----------
+        init_r: tuple
+            Contains the initial positions (rx, ry).
+
+        init_rp: tuple
+            Contains the initial angle (rxp, ryp).
+
+        init_Q: float
+            Initial perveance.
+
+        init_emit: float
+            Inital emittance.
+
+        verbose: bool
+            If true, the various statistics of the envelope solutions will be
+            printed out.
+
+        """
+        # Grab parameters from the inherited lattice class.
+        z = self.lattice.z
+        energy = self.lattice.beam_energy
+        init_E = energy[0]
+        dE = self.lattice.dbeam_energy
+        ddE = self.lattice.ddbeam_energy
+        kq = self.lattice.kappa_quad
+        kg = self.lattice.kappa_gap
+
+        # Initialize arrays with initial conditions.
+        vx = np.zeros(len(z))
+        vy = np.zeros(len(z))
+
+        ux = np.zeros(len(z))
+        uy = np.zeros(len(z))
+
+        Q = np.zeros(len(z))
+        emit = np.zeros(len(z))
+
+        ux[0], uy[0] = init_r
+        vx[0], vy[0] = init_rp
+        Q[0], emit[0] = init_Q, init_emit
+
+        # Integrate equations
+        for n in range(1, len(z)):
+            this_dz = z[n] - z[n - 1]
+
+            denom_factor = 1 + (energy[n - 1] - init_E) / init_E
+
+            C1 = -0.5 * dE[n - 1] / denom_factor / init_E
+            C2x = -kq[n] + kg[n]
+            C2y = kq[n] + kg[n]
+            C3 = init_Q / denom_factor
+            C4 = pow(init_emit, 2) / denom_factor
+
+            vx_term = (
+                C1 * vx[n - 1]
+                + C2x * ux[n - 1]
+                + C3 / (ux[n - 1] + uy[n - 1])
+                + C4 / pow(ux[n - 1], 3)
+            )
+            vy_term = (
+                C1 * vy[n - 1]
+                + C2y * uy[n - 1]
+                + C3 / (ux[n - 1] + uy[n - 1])
+                + C4 / pow(uy[n - 1], 3)
+            )
 
             # Update v_x and v_y first.
-            vx[k] = (term + term1x) * this_dz + vx[k - 1]
-            vy[k] = (term + term1y) * this_dz + vy[k - 1]
+            vx[n] = vx[n - 1] + vx_term * this_dz
+            vy[n] = vy[n - 1] + vy_term * this_dz
 
             # Use updated v to update u
-            ux[k] = vx[k] * this_dz + ux[k - 1]
-            uy[k] = vy[k] * this_dz + uy[k - 1]
+            ux[n] = ux[n - 1] + vx[n] * this_dz
+            uy[n] = uy[n - 1] + vy[n] * this_dz
 
-        history_Q.append(Q)
-        history_emit.append(emit)
+            # Store Perveance and emittance values.
+            Q[n] = C3
+            emit[n] = np.sqrt(C4)
 
-    history_Q = np.array(history_Q)
-    history_emit = np.array(history_emit)
+        # Store values
+        self.rx, self.ry = ux, uy
+        self.rxp, self.ryp = vx, vy
 
-    if history:
-        return history_Q, history_emit
-    else:
-        pass
+        # Calculate and store statistics. If verbose option used, print out
+        # statistics.
+        self.calc_envelope_statistics()
+        if verbose == True:
+            self.output_statistics()
 
 
-# ------------------------------------------------------------------------------
-#    Optimizer
-# Find a solution for the four quadrupole voltages to shape the beam. The final
-# coordinates rx,ry, rxp, ryp are to meet the target coordinate to match the
-# acceleration lattice.
-# ------------------------------------------------------------------------------
-class Optimizer(Lattice):
-    def __init__(self, initial_conds, scales, target, norms, filenames, parameters):
-        super().__init__()
-        self.initial_conds = initial_conds
-        self.scales = scales
-        self.target = target
-        self.cost_norms = norms
-        self.filenames = filenames
-        self.parameters = parameters
-        self.z = None
-        self.kappa = None
-        self.optimize_matching = False
-        self.optimize_acceleration = False
+class Optimizer:
+    def __init__(self, kv_eqn_parameters, lattice_obj, cost_norms):
+        self.parameters = kv_eqn_parameters
+        self.lattice = lattice_obj
+        self.cost_norms = cost_norms
+
         self.sol = None
         self.optimum = None
         self.bounds = None
@@ -565,43 +619,7 @@ class Optimizer(Lattice):
         cost = pow((data - target) * norm, 2)
         return np.sum(cost)
 
-    def func_to_optimize_matching(self, V_scales):
-        """Single input function to min/maximize
-
-        Most optimizers take in a function with a single input that are the
-        parameters to optimize for. The voltage scales are used here that
-        scale the focusing strength. The gradient is then created from the
-        lattice class and the KV-envelope equation solved for.
-        The final coordinates are then extracted and the MSE is computed for
-        the cost function.
-        A cost function of zero would be mean that for the given input parameters
-        (initial conditions, Q, emittance) the optimizer found the required
-        voltage settings on the quadrupole to shape the envelop into the final
-        conditions."""
-
-        # Instantiate lattice and unpack/calculate parameters
-        self.user_input_match(self.filenames, self.parameters["Nq"], scales=V_scales)
-        z, gradz = self.z, self.grad
-        emit, Q = self.parameters["emit"], self.parameters["Q"]
-        E_s = self.parameters["E"]
-        dz = z[1] - z[0]
-        kappa = wp.echarge * gradz / 2.0 / E_s / wp.jperev
-
-        # Solve KV equations
-        soln_matrix = np.zeros(shape=(len(z), 4))
-        soln_matrix[0, :] = self.initial_conds
-        solver(soln_matrix, z, kappa, emit, Q)
-
-        # Store solution
-        self.sol = soln_matrix[-1, :]
-
-        # Compute cost and save to history
-        cost = self.calc_cost(self.sol, self.target, self.cost_norms)
-        self.cost_hist.append(cost)
-
-        return cost
-
-    def func_to_optimize_acceleration(self, coordinates):
+    def match_coordinates(self, coordinates):
         """Single input function to min/maximize
 
         Most optimizers take in a function with a single input that is the
@@ -613,25 +631,21 @@ class Optimizer(Lattice):
         positions and angles were found such that the final position and angle are
         equal to initial."""
 
-        # Unpack/calculate parameters
+        # Unpack parameters
         emit = self.parameters["emit"]
         Q = self.parameters["Q"]
-        gap_centers = self.parameters["gap centers"]
-        Lp = self.parameters["Lp"]
-        Vg = self.parameters["Vg"]
-        phi_s = self.parameters["phi_s"]
-        E_s = self.parameters["E"]
-
-        # Instantiate lattice and calculate the rest of the parameters
-        z, kappa = self.z, self.kappa
 
         # Solve KV equations
-        soln_matrix = np.zeros(shape=(len(z), 4))
-        soln_matrix[0, :] = coordinates
-        solver_with_accel(soln_matrix, z, kappa, emit, Q, gap_centers, Vg, phi_s, E_s)
+        init_rx, init_ry, init_rxp, init_ryp = coordinates
+        kv_integrator = Integrate_KV_equations(self.lattice)
+        kv_integrator.integrate_eqns(
+            (init_rx, init_ry), (init_rxp, init_ryp), Q, emit, verbose=False
+        )
 
         # Store solution
-        self.sol = soln_matrix[-1, :]
+        final_rx, final_ry = kv_integrator.rx[-1], kv_integrator.ry[-1]
+        final_rxp, final_ryp = kv_integrator.rxp[-1], kv_integrator.ryp[-1]
+        self.sol = np.array([final_rx, final_ry, final_rxp, final_ryp])
 
         # Compute cost and save to history
         cost = self.calc_cost(self.sol, coordinates, self.cost_norms)
@@ -639,7 +653,7 @@ class Optimizer(Lattice):
 
         return cost
 
-    def minimize_cost(self, function, max_iter=200):
+    def minimize_cost(self, function, init_coords, max_iter=200):
         """Function that will run optimizer and output results
 
         This function contains the actual optimizer that will be used. Currently
@@ -647,42 +661,19 @@ class Optimizer(Lattice):
         options for the optimizer and this function can be modified to include
         options in the arguments."""
 
-        if self.optimize_matching:
-            print("--Optimizing for the matching section")
-            res = sciopt.minimize(
-                function,
-                self.scales,
-                method="nelder-mead",
-                options={
-                    "xatol": 1e-10,
-                    "fatol": 1e-10,
-                    "maxiter": max_iter,
-                    "disp": True,
-                },
-                bounds=self.bounds,
-            )
-            self.optimum = res
-
-            return print("--Optimization completed")
-
-        if self.optimize_acceleration:
-            print("--Optimizing for the acceleration lattice")
-            res = sciopt.minimize(
-                function,
-                self.initial_conds,
-                method="nelder-mead",
-                options={
-                    "xatol": 1e-10,
-                    "fatol": 1e-10,
-                    "maxiter": max_iter,
-                    "disp": True,
-                },
-                bounds=self.bounds,
-            )
-            self.optimum = res
-
-            return print("--Optimization completed")
-
-        return print(
-            "Neither matching section or acceleration weere chosen to optimize"
+        print("--Finding match solution.")
+        res = sciopt.minimize(
+            function,
+            init_coords,
+            method="nelder-mead",
+            options={
+                "xatol": 1e-10,
+                "fatol": 1e-10,
+                "maxiter": max_iter,
+                "disp": True,
+            },
+            bounds=self.bounds,
         )
+        self.optimum = res
+
+        return print("--Optimization completed")
