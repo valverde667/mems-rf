@@ -380,7 +380,7 @@ class Lattice:
             # Calculate kappa based off the energy gain
             Ebeam += calc_energy_gain(Vg[2 * k], phi_s[2 * k])
             Ebeam += calc_energy_gain(Vg[2 * k + 1], phi_s[2 * k + 1])
-            kappa = wp.echarge * grad.copy() / 2.0 / Ebeam / wp.jperev
+            kappa = grad.copy() / 2.0 / Ebeam
             Ebeam_array.append(Ebeam)
             kappa_arrays.append(kappa)
 
