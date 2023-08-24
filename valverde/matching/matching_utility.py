@@ -109,6 +109,22 @@ def calc_angle_change(rp_prev, delta_E, Ebeam):
     return rp_prev / denom
 
 
+def env_radii_free_expansion(init_rx, init_rxp, emit, z):
+    """Analytic formula for KV envelope rms-radii evolution in drift space"""
+
+    c_linear = 2.0 * init_rxp / init_rx
+    linear_term = c_linear * z
+
+    c_sq = (
+        (1.0 + pow(init_rx, 2) * pow(init_rxp, 2) / pow(init_emit, 2))
+        * pow(init_emit, 2)
+        / pow(init_rx, 4)
+    )
+    sq_term = c_sq * pow(z, 2)
+
+    return init_rx * np.sqrt(1.0 + linear_term + sq_term)
+
+
 def prepare_quad_inputs(quad_center, quad_info, Vq):
     """Helper function to package the inputs so they can be fed into Lattice class.
 
