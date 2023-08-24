@@ -9,8 +9,6 @@ import scipy.optimize as sciopt
 import itertools
 import pdb
 
-import warp as wp
-
 
 # Define useful constants
 mm = 1e-3
@@ -66,6 +64,62 @@ def calc_gap_centers(E_s, mass, phi_s, dsgn_freq, dsgn_gap_volt):
         dsgn_Egain = dsgn_gap_volt * np.cos(phi_s[i])
         E_s += dsgn_Egain
     return np.array(gap_dist).cumsum()
+
+
+def calc_quad_centers(zdrift, lq, d):
+    """Calculate quad centers within a region given a quad length and desired
+    separation.
+
+    The quadrupoles will need to fit between the drift space of the acceleration
+    plates. In early lattice periods when this distance has not grown appreciably
+    there may not be enough space. The length of the ESQ whether this is the
+    physical length of physical length + fringe field might class with the plates.
+    Additionally, some separation may be desired between the quads.
+    This function will attempt to find these centers where the quads can fit and
+    output some messages if there are overlaps or not enough space.
+
+    Parameters
+    ----------
+    zdrift: float
+        Length of drift region where ESQs are to be placed.
+
+    lq: float
+        Length of quadrupole being used. Length is assumed to be the same for both
+        in a doublet structure.
+
+    d: float
+        Desired separation of quadrupoles. This separation is taken at the end
+        points. That is, if z1 the center for quad1, z2 the center for quad2,
+        and z1 < z2, then:
+            d = (z2 - lq/2) - (z1 + lq/2).
+
+    Returns
+    -------
+    : array
+        Array containing the two centers [z1, z2]
+    """
+    # Test if there is enough space for desired placement. If there is, go for it.
+    # if not, find a range and output to user.
+    ztest = 2.0 * lq + d
+    if ztest < zdrift:
+        # Calculate midpoint and then palce quads using d as a shift.
+        zmid = zdrift / 2.0
+        z1 = zmid - d / 2.0 - lq / 2.0
+        z2 = zmid + d / 2.0 + lq / 2.0
+        return np.array([z1, z2])
+    else:
+        # Calculate how much space is left.
+        overlap = abs(zdrift - ztest)
+        if overlap < d:
+            print(f"Overlap(mm): {overlap/mm:.4f}.")
+            print("Overlap is less than d. Try decreasing d.")
+        else:
+            print(f"Overlap(mm): {overlap/mm:.4f}.")
+            print("Not enough space even if d is decreased.")
+            print(
+                "Try using an overlapping field and use 'one' quad by centering",
+                "the doublet field at the midpoint of the quads.",
+            )
 
 
 def calc_energy_gain(Vg, phi_s):
@@ -125,7 +179,7 @@ def env_radii_free_expansion(init_rx, init_rxp, emit, z):
     return init_rx * np.sqrt(1.0 + linear_term + sq_term)
 
 
-def prepare_quad_inputs(quad_center, quad_info, Vq):
+def prepare_quad_inputs(quad_centers, quad_info, Vq):
     """Helper function to package the inputs so they can be fed into Lattice class.
 
     The inputs for building the lattice take in the quad and gap data as a
@@ -598,7 +652,7 @@ class Integrate_KV_equations:
         print(f"{'   (<rx> + <ry>)/2 (mm)':<40} {self.measure_sum/mm:.4f}")
         print("")
 
-    def integrate_eqns(self, init_r, init_rp, init_Q, init_emit, verbose=False):
+    def integrate_eqns(self, init_coordinates, init_Q, init_emit, verbose=False):
         """Integrate the KV equations for the given lattice class.
 
         The function uses the lattice object provided to integrate the KV
@@ -610,11 +664,8 @@ class Integrate_KV_equations:
 
         Parameters
         ----------
-        init_r: tuple
-            Contains the initial positions (rx, ry).
-
-        init_rp: tuple
-            Contains the initial angle (rxp, ryp).
+        init_coordinates: list, array, or tuple
+            Contains the initial radii and angle [rx, ry, rx', ry'].
 
         init_Q: float
             Initial perveance.
@@ -646,8 +697,7 @@ class Integrate_KV_equations:
         Q = np.zeros(len(z))
         emit = np.zeros(len(z))
 
-        ux[0], uy[0] = init_r
-        vx[0], vy[0] = init_rp
+        ux[0], uy[0], vx[0], vy[0] = init_coordinates
         Q[0], emit[0] = init_Q, init_emit
 
         # Integrate equations
