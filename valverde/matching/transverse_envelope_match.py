@@ -70,26 +70,30 @@ init_ryp = -1.795 * mrad
 g = 2.0 * mm
 phi_s = np.array([0.0, 0.0, 0, 0.0])
 freq = 13.6 * MHz
-Vg = 7 * kV * 0.0
+Vg = 7 * kV
 
 # Quad Parameters
-V1 = -50.0
-V2 = 50.0
+V1 = 219.75
+V2 = -220.5
 lq = grad_z.max() - grad_z.min()
-separation = 100 * um
+separation = 5 * um
 
 # Geometric settings for lattice
-rp = 0.55 * mm
+aperture = 0.55 * mm
 scheme = "g-g-q-q"
 gap_centers = util.calc_gap_centers(init_E, mass, phi_s, freq, Vg)
 gap_centers = gap_centers - gap_centers.min() + g / 2.0
 zstart = 0.0
 zend = gap_centers[2] - g / 2.0
-quad_centers = util.calc_quad_centers(zend - gap_centers[1] - g / 2.0, lq, separation)
+zdrift = zend - (gap_centers[1] + g / 2.0)
+quad_centers = util.calc_quad_centers(zdrift, lq, separation)
+quad_centers += gap_centers[1] + g / 2
+
+do_optimization = True
 
 # Prepare the field data using the gap and quad centers.
 quad_inputs = util.prepare_quad_inputs(quad_centers, (grad_z, grad_q), [V1, V2])
-gap_inputs = util.prepare_gap_inputs(gap_centers[:2], (gap_z, gap_Ez), [Vg, -Vg])
+gap_inputs = util.prepare_gap_inputs(gap_centers[:2], (gap_z, gap_Ez), [Vg, Vg])
 
 # ------------------------------------------------------------------------------
 #    Lattice Building and KV Integration
@@ -107,7 +111,7 @@ gap_inputs = util.prepare_gap_inputs(gap_centers[:2], (gap_z, gap_Ez), [Vg, -Vg]
 # solver called with the initial coordinates and starting Q and emittance.
 # ------------------------------------------------------------------------------
 lattice = util.Lattice()
-lattice.build_lattice(zstart, zend, scheme, quad_inputs, gap_inputs, res=1e-6)
+lattice.build_lattice(zstart, zend, scheme, quad_inputs, gap_inputs, res=20 * um)
 lattice.adv_particle(init_E)
 lattice.calc_lattice_kappa()
 
@@ -115,3 +119,60 @@ kv_solve = util.Integrate_KV_equations(lattice)
 kv_solve.integrate_eqns(
     np.array([init_rx, init_ry, init_rxp, init_ryp]), init_Q, init_emit, verbose=True
 )
+# ------------------------------------------------------------------------------
+#   Optimization
+# Here we attempt to find a matched condition for the lattice. The optimization
+# uses nelder mead, a robust searching algorithm that is easily usable through
+# scipy's library.
+# ------------------------------------------------------------------------------
+if do_optimization:
+    opt_params = {"emit": init_emit, "Q": init_Q}
+    rnorm = 1.0 / aperture
+    rp_max = 35 * mrad
+    rpnorm = 1.0 / rp_max
+    norms = np.array([rnorm, rnorm, rpnorm, rpnorm])
+    opt_norms = np.array(norms)
+    init_coords = np.array([init_rx, init_ry, init_rxp, init_ryp])
+    opt = util.Optimizer(opt_params, lattice, opt_norms)
+    opt.minimize_cost(opt.match_coordinates, init_coords, max_iter=200)
+
+
+# ------------------------------------------------------------------------------
+#   Plotting
+# Plot final solutions. If the optimization was done, the KV equations will be
+# integrated over the same lattice with the optimized solutions.
+# ------------------------------------------------------------------------------
+if do_optimization:
+    kv_solve.integrate_eqns(opt.sol, init_Q, init_emit, verbose=True)
+
+fig, ax = plt.subplots()
+ax.plot(lattice.z / mm, kv_solve.rx / mm, c="k", label=r"$r_x$")
+ax.plot(lattice.z / mm, kv_solve.ry / mm, c="b", label=r"$r_y$")
+ax.scatter(lattice.z[-1] / mm, kv_solve.rx[0] / mm, marker="*", c="k", s=90)
+ax.scatter(lattice.z[-1] / mm, kv_solve.ry[0] / mm, marker="*", c="b", s=90)
+ax.set_xlabel("z (mm)")
+ax.set_ylabel("Transverse Envelope Edge Radii (mm)")
+ax.legend()
+
+fig, ax = plt.subplots()
+ax.plot(lattice.z / mm, kv_solve.rxp / mrad, c="k", label=r"$r_x'$")
+ax.plot(lattice.z / mm, kv_solve.ryp / mrad, c="b", label=r"$r_y'$")
+ax.scatter(lattice.z[-1] / mm, kv_solve.rxp[0] / mrad, marker="*", c="k", s=90)
+ax.scatter(lattice.z[-1] / mm, kv_solve.ryp[0] / mrad, marker="*", c="b", s=90)
+ax.set_xlabel("z (mm)")
+ax.set_ylabel("Transverse Envelope Edge Angle (mrad)")
+ax.legend()
+
+fig, ax = plt.subplots()
+ax.plot(lattice.z / mm, lattice.kappa_quad + lattice.kappa_gap)
+ax.set_xlabel("z (mm)")
+ax.set_ylabel(r"Focusing Strength $\kappa(z)$ $(m^{-1})$")
+
+# Print out the percent difference in matching conditions
+drx = abs(kv_solve.rx[-1] - kv_solve.rx[0]) / kv_solve.rx[0] * 100
+dry = abs(kv_solve.ry[-1] - kv_solve.ry[0]) / kv_solve.ry[0] * 100
+drxp = abs((kv_solve.rxp[-1] - kv_solve.rxp[0]) / kv_solve.rxp[0]) * 100
+dryp = abs((kv_solve.ryp[-1] - kv_solve.ryp[0]) / kv_solve.ryp[0]) * 100
+
+print(f"{'Perecent difference Drx, Dry:':<30} {drx:.2f}, {dry:.2f}")
+print(f"{'Perecent difference Drxp, Dryp:':<30} {drxp:.2f}, {dryp:.2f}")
