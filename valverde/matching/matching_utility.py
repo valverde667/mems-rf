@@ -4,6 +4,7 @@
 # Improvement suggestions are provided in the notes below.
 
 import numpy as np
+import matplotlib.pyplot as plt
 import scipy.constants as SC
 import scipy.optimize as sciopt
 import itertools
@@ -179,7 +180,7 @@ def env_radii_free_expansion(init_rx, init_rxp, emit, z):
     return init_rx * np.sqrt(1.0 + linear_term + sq_term)
 
 
-def prepare_quad_inputs(quad_centers, quad_info, Vq):
+def prepare_quad_inputs(quad_centers, quad_info, Vq, per_lattice=False):
     """Helper function to package the inputs so they can be fed into Lattice class.
 
     The inputs for building the lattice take in the quad and gap data as a
@@ -207,16 +208,44 @@ def prepare_quad_inputs(quad_centers, quad_info, Vq):
         voltage for the ESQ design. This scaling was found external to this script
         and used here. The field is normalized by the max and then scaled up to match
         the gradient produced by the given voltage.
+
+    per_lattice: bool
+        If the quadrupoles are close enough to eachother, their fringe fields
+        well zero eachother causing the fields to be altered. This case is not
+        treated in this function and the user is recommended to extract the field
+        data from a Warp sim with both quadrupoles being modeled. In this case,
+        the option can be set and the fields will be altered by first assuming
+        the zero point is at the geometric center between the two quads and then
+        scaling the left and right of the field data.
+        Note, if this option is selected then the geometric center will be placed
+        at the provided z center.
     """
 
-    # The only manipulations that need to happen are the voltage
-    # scaling. Once this is done, package into a tuple.
+    # The manipulations that need to happen are shifting the spatial arrays by
+    # the gap centers and scaling the voltage. First, unpack the data.
     zgrad, grad = quad_info
     z_data = []
     grad_data = []
-    for i in range(len(quad_centers)):
-        z_data.append(zgrad + quad_centers[i])
-        grad_data.append(grad.copy() * Vq[i] / 1.562e-7)
+
+    if per_lattice == True:
+        # Loop through quad centers. In this case there is one center and one
+        # field array containing data for two quadrupoles that must have their
+        # respective voltages scaled.
+        for i in range(len(quad_centers)):
+            zind = np.argmin(abs(zgrad))
+            this_grad = grad.copy()
+
+            # Scale left and right sides of the field array.
+            this_grad[: zind + 1] *= Vq[i] / 1.562e-7
+            this_grad[zind + 1 :] *= Vq[i + 1] / 1.562e-7
+
+            z_data.append(zgrad + quad_centers[i])
+            grad_data.append(this_grad)
+
+    else:
+        for i in range(len(quad_centers)):
+            z_data.append(zgrad + quad_centers[i])
+            grad_data.append(grad.copy() * Vq[i] / 1.562e-7)
 
     qinfo = (quad_centers, z_data, grad_data)
     return qinfo
@@ -365,9 +394,8 @@ class Lattice:
                 self.dz_quad = z_patch[1] - z_patch[0]
                 q_counter += 1
 
-                field_loc = np.where(
-                    (z > this_zc - this_zext / 2.0) & (z < this_zc + this_zext / 2.0)
-                )[0]
+                field_loc = np.where((z > z_patch[0]) & (z < z_patch[-1]))[0]
+
                 patch_start = field_loc[0]
                 patch_end = field_loc[-1]
 
@@ -413,9 +441,7 @@ class Lattice:
                 self.dz_gap = z_patch[1] - z_patch[0]
                 g_counter += 1
 
-                field_loc = np.where(
-                    (z > this_zc - this_zext / 2.0) & (z < this_zc + this_zext / 2.0)
-                )[0]
+                field_loc = np.where((z > z_patch[0]) & (z < z_patch[-1]))[0]
                 patch_start = field_loc[0]
                 patch_end = field_loc[-1]
 
@@ -512,18 +538,13 @@ class Lattice:
 
         kq = 0.5 * self.quad_field_data / E
 
-        # Compute deriviatives of energy and then calculate. Note, in computing
-        # the derivatives a uniform dz is assumed. However, this is usually not
-        # the case in this procedure. However, assuming the energy changes are
-        # restricted to the gaps, then the dz in the gap can be used since
-        # anywhere else the field is zero.
-        # TODO: treat nonuniform grid spacing case.
-
-        zgap = np.argmin(abs(self.z - self.gap_centers[0]))
-        dz = self.dz_gap
-
-        dE = np.gradient(E, dz)
-        ddE = np.gradient(dE, dz)
+        # Compute deriviatives of energy and then calculate. Note, there can be
+        # spikes where the field is stitched in. numpy's gradient can handle
+        # uniform spacing. However, if the spacing is jagged there may be a
+        # spike that is of order .01% the max. Probablly not be an issue, but
+        # will look confusing when presenting.
+        dE = np.gradient(E, self.z)
+        ddE = np.gradient(dE, self.z)
         self.dbeam_energy, self.ddbeam_energy = dE, ddE
 
         kg = -0.25 * (ddE / init_E) / (1 + (E - init_E) / init_E)
@@ -740,6 +761,8 @@ class Integrate_KV_equations:
         # Store values
         self.rx, self.ry = ux, uy
         self.rxp, self.ryp = vx, vy
+        self.Q = Q
+        self.emit = emit
 
         # Calculate and store statistics. If verbose option used, print out
         # statistics.
@@ -788,11 +811,8 @@ class Optimizer:
         Q = self.parameters["Q"]
 
         # Solve KV equations
-        init_rx, init_ry, init_rxp, init_ryp = coordinates
         kv_integrator = Integrate_KV_equations(self.lattice)
-        kv_integrator.integrate_eqns(
-            (init_rx, init_ry), (init_rxp, init_ryp), Q, emit, verbose=False
-        )
+        kv_integrator.integrate_eqns(coordinates, Q, emit, verbose=False)
 
         # Store solution
         final_rx, final_ry = kv_integrator.rx[-1], kv_integrator.ry[-1]
@@ -805,7 +825,7 @@ class Optimizer:
 
         return cost
 
-    def minimize_cost(self, function, init_coords, max_iter=200):
+    def minimize_cost(self, function, init_coords, max_iter=120):
         """Function that will run optimizer and output results
 
         This function contains the actual optimizer that will be used. Currently
@@ -813,19 +833,17 @@ class Optimizer:
         options for the optimizer and this function can be modified to include
         options in the arguments."""
 
-        print("--Finding match solution.")
+        print("--Finding matched solution.")
         res = sciopt.minimize(
             function,
             init_coords,
             method="nelder-mead",
             options={
-                "xatol": 1e-10,
-                "fatol": 1e-10,
+                "xatol": 1e-8,
+                "fatol": 1e-8,
                 "maxiter": max_iter,
                 "disp": True,
             },
             bounds=self.bounds,
         )
         self.optimum = res
-
-        return print("--Optimization completed")
