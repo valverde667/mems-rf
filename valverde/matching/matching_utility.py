@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 import scipy.constants as SC
 import scipy.optimize as sciopt
 import itertools
+import csv
+import os
 import pdb
 
 
@@ -31,6 +33,45 @@ twopi = np.pi * 2
 #    Function and Class definitions
 # Various functions and classes used in the script are defined here.
 # ------------------------------------------------------------------------------
+def write_envelope_data(file_name, data, header=None):
+    """ "Helper function to write envelope data to csv file.
+
+    This function will check if the file_name already exists. If it does, then
+    it will write to a new row the data provided. If it doesnt, it will create
+    the file with the headers given. It may be easier to create the file in
+    advance with the headers then to write them out as an array explicitly.
+
+    Parameters
+    ----------
+    file_name: string
+        Name of csv file that the data is to be written to.
+
+    data: array:
+        Array of data. This is up to the user based on what data is meant to be
+        saved.
+
+    header: list or array of strings
+        This will be the header labels for the csv file.
+    """
+
+    csv_file = file_name
+
+    file_exists = os.path.isfile(csv_file)
+
+    with open(csv_file, mode="a", newline="") as file:
+        writer = csv.writer(file)
+
+        if not file_exists:
+            writer.writerow(header)
+
+        writer.writerow(data)
+
+    if file_exists:
+        return print(f"Data have been appended to {csv_file}.")
+    else:
+        return print(f"CSV file {csv_file} has been created with headers and data.")
+
+
 def create_combinations(s1, s2, s3, s4):
     """Utility function for creating combinations of the array elements in s1-s4."""
     combinations = np.array(list(itertools.product(s1, s2, s3, s4)))
@@ -583,10 +624,10 @@ class Integrate_KV_equations:
         min_rxp = None
         min_ryp = None
 
-        max_spread_rx = None
-        max_spread_ry = None
-        max_spread_rxp = None
-        max_spread_ryp = None
+        spread_rx = None
+        spread_ry = None
+        spread_rxp = None
+        spread_ryp = None
 
         measure_prod = None
         measure_sum = None
@@ -632,10 +673,10 @@ class Integrate_KV_equations:
         self.min_rxp = min_rxp
         self.min_ryp = min_ryp
 
-        self.max_spread_rx = spread_rx
-        self.max_spread_ry = spread_ry
-        self.max_spread_rxp = spread_rxp
-        self.max_spread_ryp = spread_ryp
+        self.spread_rx = spread_rx / avg_rx
+        self.spread_ry = spread_ry / avg_ry
+        self.spread_rxp = spread_rxp / avg_rxp
+        self.spread_ryp = spread_ryp / avg_ryp
 
         self.measure_prod = measure_prod
         self.measure_sum = measure_sum
@@ -671,6 +712,8 @@ class Integrate_KV_equations:
         print("   Average Radius Measures:")
         print(f"{'   sqrt(<rx*ry>) (mm)':<40} {self.measure_prod/mm:.4f}")
         print(f"{'   (<rx> + <ry>)/2 (mm)':<40} {self.measure_sum/mm:.4f}")
+        print(f"{'   (rx-spread)/<rx>':<40} {self.spread_rx:.4f}")
+        print(f"{'   (ry-spread)/<ry>':<40} {self.spread_ry:.4f}")
         print("")
 
     def integrate_eqns(self, init_coordinates, init_Q, init_emit, verbose=False):
@@ -730,7 +773,7 @@ class Integrate_KV_equations:
             C1 = -0.5 * dE[n - 1] / denom_factor / init_E
             C2x = -kq[n] + kg[n]
             C2y = kq[n] + kg[n]
-            C3 = init_Q / denom_factor
+            C3 = 2.0 * init_Q / denom_factor
             C4 = pow(init_emit, 2) / denom_factor
 
             vx_term = (
