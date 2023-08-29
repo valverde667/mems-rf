@@ -58,23 +58,24 @@ gap_z = np.load("normalized_iso_z.npy")
 
 # Beam parameters
 mass = 39.948 * amu * pow(sc.c, 2) / sc.elementary_charge  # eV
-init_E = 49 * keV
-init_Q = 3.772e-6
-init_emit = 0.505 * mm * mrad
-init_rx = 0.211 * mm
-init_ry = 0.353 * mm
-init_rxp = 0.627 * mrad
-init_ryp = -1.795 * mrad
+init_E = 7 * keV
+init_Q = 6.986e-5
+init_emit = 1.344 * mm * mrad
+init_rx = 0.27 * mm
+init_ry = 0.27 * mm
+init_rxp = 5 * mrad
+init_ryp = 5 * mrad
 
 # Gap parameters
 g = 2.0 * mm
-phi_s = np.array([0.0, 0.0, 0, 0.0])
+phi_s = np.array([0.0, 0.0, 0.0, 0.0]) * np.pi
 freq = 13.6 * MHz
 Vg = 7 * kV
+Vaccel = abs(np.cos(phi_s))[:2] * Vg
 
 # Quad Parameters
-V1 = 219.75
-V2 = -220.5
+V1 = 65.0
+V2 = -65.0
 lq = grad_z.max() - grad_z.min()
 separation = 5 * um
 
@@ -93,7 +94,7 @@ do_optimization = True
 
 # Prepare the field data using the gap and quad centers.
 quad_inputs = util.prepare_quad_inputs(quad_centers, (grad_z, grad_q), [V1, V2])
-gap_inputs = util.prepare_gap_inputs(gap_centers[:2], (gap_z, gap_Ez), [Vg, Vg])
+gap_inputs = util.prepare_gap_inputs(gap_centers[:2], (gap_z, gap_Ez), Vaccel)
 
 # ------------------------------------------------------------------------------
 #    Lattice Building and KV Integration
@@ -128,7 +129,7 @@ kv_solve.integrate_eqns(
 if do_optimization:
     opt_params = {"emit": init_emit, "Q": init_Q}
     rnorm = 1.0 / aperture
-    rp_max = 35 * mrad
+    rp_max = 2 * mrad
     rpnorm = 1.0 / rp_max
     norms = np.array([rnorm, rnorm, rpnorm, rpnorm])
     opt_norms = np.array(norms)
@@ -166,7 +167,7 @@ ax.legend()
 fig, ax = plt.subplots()
 ax.plot(lattice.z / mm, lattice.kappa_quad + lattice.kappa_gap)
 ax.set_xlabel("z (mm)")
-ax.set_ylabel(r"Focusing Strength $\kappa(z)$ $(m^{-1})$")
+ax.set_ylabel(r"Focusing Strength $\kappa(z)$ $(m^{-2})$")
 
 # Print out the percent difference in matching conditions
 drx = abs(kv_solve.rx[-1] - kv_solve.rx[0]) / kv_solve.rx[0] * 100
@@ -176,3 +177,43 @@ dryp = abs((kv_solve.ryp[-1] - kv_solve.ryp[0]) / kv_solve.ryp[0]) * 100
 
 print(f"{'Perecent difference Drx, Dry:':<30} {drx:.2f}, {dry:.2f}")
 print(f"{'Perecent difference Drxp, Dryp:':<30} {drxp:.2f}, {dryp:.2f}")
+
+# ------------------------------------------------------------------------------
+#    Data Saving and Export
+# Here, the data is collected into a single array and exported to the csv file.
+# It is recommended the csv file be created ahead of time to avoid having to
+# hand create the headers here if not.
+# ------------------------------------------------------------------------------
+file_name = "env_data.csv"
+
+# Create array of data. CSV file precreated with headers.
+data = np.array(
+    [
+        V1,
+        V2,
+        Vg / kV,
+        init_E / keV,
+        lattice.beam_energy[-1] / keV,
+        init_Q,
+        init_emit / mm / mrad,
+        kv_solve.rx[0] / mm,
+        kv_solve.ry[0] / mm,
+        kv_solve.rxp[0] / mrad,
+        kv_solve.ryp[0] / mrad,
+        kv_solve.avg_rx / mm,
+        kv_solve.avg_ry / mm,
+        kv_solve.avg_rxp / mrad,
+        kv_solve.avg_ryp / mrad,
+        kv_solve.max_rx / mm,
+        kv_solve.min_rx / mm,
+        kv_solve.max_ry / mm,
+        kv_solve.min_ry / mm,
+        kv_solve.max_rxp / mrad,
+        kv_solve.min_rxp / mrad,
+        kv_solve.max_ryp / mrad,
+        kv_solve.min_ryp / mrad,
+        kv_solve.spread_rx,
+        kv_solve.spread_ry,
+        zdrift / mm,
+    ]
+)
