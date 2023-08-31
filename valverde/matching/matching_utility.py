@@ -91,21 +91,80 @@ def beta(E, mass, q=1, nonrel=True):
     return beta
 
 
-def calc_gap_centers(E_s, mass, phi_s, dsgn_freq, dsgn_gap_volt):
-    gap_dist = np.zeros(len(phi_s))
-    Ng = len(phi_s)
-    for i in range(Ng):
-        this_beta = beta(E_s, mass)
-        this_cent = this_beta * SC.c / 2 / dsgn_freq
-        cent_offset = (phi_s[i] - phi_s[i - 1]) * this_beta * SC.c / dsgn_freq / twopi
-        if i < 1:
-            gap_dist[i] = (phi_s[i] + np.pi) * this_beta * SC.c / twopi / dsgn_freq
-        else:
-            gap_dist[i] = this_cent + cent_offset
+def calc_gap_centers(E_s, mass, phi_s, gap_mode, dsgn_freq, dsgn_gap_volt):
+    """Calculate Gap centers based on energy gain and phaseing.
 
-        dsgn_Egain = dsgn_gap_volt * np.cos(phi_s[i])
-        E_s += dsgn_Egain
-    return np.array(gap_dist).cumsum()
+    When the gaps are operating at the same phase then the distance is
+    beta*lambda / 2. However, if the gap phases are different then there is
+    additional distance that the particle must cover to arrive at this new phase.
+    The phasing here is assumed to rise with the field, that is:
+        phi_s[0] < phi_s[1] < ... < phi_s[n].
+    The phase-inputs are assumed to follow the convention -pi < phi_s < pi
+    wtih phi_s = 0 being the maximum input.
+
+    With this in mind, to account for the phase differences first the residual
+    distance for the field to reach the peak must be accounted, then a half cycle
+    for the field to arrive at 0 and then the phase of arrival with a rising field.
+    If extra space is needed then an additional 2pi phase can be added. This gives
+    the total 'phase of travel': pi/2 + dphi + 2npi.
+
+    Note: if the phase is the same then dphi = 0 and with no additional space,
+    n=0 and the pi/2 will lead to beta*lambda / 2.
+
+    Parameters:
+    -----------
+    E_s: float
+        Initial beam energy in units of (eV).
+
+    mass: float
+        Mass of the ion in question in unites of (eV).
+
+    phi_s: list or array
+        The synchronous phases of arrival for each gap. Assumed to be rising in
+        magnitude with the max phase being <= 0. In units of (radians).
+
+    gap_mode: list or array
+        Integer values that will give the n-value for 2npi if additional spacing is
+        needed.
+
+    dsgn_freq: float
+        Operating frequency of the gaps. Assumed constant througout.
+
+    dsgn_gap_volt: float
+        Operating voltage of gaps. Assumed constant throughout.
+
+    Returns:
+    --------
+    gap_centers: array
+        Cumulative sum of the gap distances (center-to-center) for the lattice.
+    """
+
+    # Initialize the array to hold the center-to-center gap distances
+    gap_dist = np.zeros(len(phi_s))
+
+    # Loop through synchronous phases. For the first gap there is no delta phi
+    # to calculate. Only the option for gap mode need be considered. After that
+    # the residual phase must be calculated and added to phi total.
+    for i in range(len(phi_s)):
+        this_beta = beta(E_s, mass)
+        h = SC.c / dsgn_freq
+        if i == 0:
+            phi_total = abs(phi_s[i]) + twopi * gap_mode[i]
+            gap_dist[i] = this_beta * h * abs(phi_s[i]) / twopi
+        else:
+            dphi = abs(phi_s[i]) - abs(phi_s[i - 1])
+            phi_total = np.pi / 2.0 + dphi + twopi * gap_mode[i]
+            gap_dist[i] = this_beta * h * phi_total / twopi
+
+        # Increment beam energy based on phase and gap_voltage for correct
+        # beta calculation in the next loop through.
+        E_s += dsgn_gap_volt * np.cos(phi_s[i])
+
+    # The actual distances from z=0 to place the centers is the cumulative sum
+    # of all the gaps.
+    gap_centers = gap_dist.cumsum()
+
+    return gap_centers
 
 
 def calc_quad_centers(zdrift, lq, d):
