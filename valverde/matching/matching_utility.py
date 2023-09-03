@@ -98,10 +98,6 @@ def calc_gap_centers(E_s, mass, phi_s, gap_mode, dsgn_freq, dsgn_gap_volt):
     beta*lambda / 2. However, if the gap phases are different then there is
     additional distance that the particle must cover to arrive at this new phase.
 
-    The initial phasing is assumed to start with the first gap having a minimum
-    E-field (maximally negative). If this is not desired, the offset should be
-    calculated outside this function.
-
     Parameters:
     -----------
     E_s: float
@@ -130,33 +126,28 @@ def calc_gap_centers(E_s, mass, phi_s, gap_mode, dsgn_freq, dsgn_gap_volt):
         Cumulative sum of the gap distances (center-to-center) for the lattice.
     """
 
-    # Initialize the array to hold the center-to-center gap distances. Also
-    # initialize any useful variables
+    # Initialize arrays and any useful constants.
     gap_dist = np.zeros(len(phi_s))
-    f = dsgn_freq
+    h = SC.c / dsgn_freq
 
-    # Loop through synchronous phases. The first gap is assumed to start at
-    # minimum value. After the first gap, the distance needed is calculated for
-    # the paraticle to arrive at new synchronous phase based on previous.
+    # Loop through number of gaps and assign the center-to-center distance.
+    # Update the energy at end.
     for i in range(len(phi_s)):
         this_beta = beta(E_s, mass)
-        if i == 0:
-            phi_total = np.pi / 2 + abs(phi_s[i]) + twopi * gap_mode[i]
-            gap_dist[i] = this_beta * SC.c * phi_total / twopi / f
+        this_cent = this_beta * h / 2.0
+        shift = this_beta * h * gap_mode[i]
+        cent_offset = (phi_s[i] - phi_s[i - 1]) * this_beta * h / twopi
+        if i < 1:
+            gap_dist[i] = (phi_s[i] + np.pi) * this_beta * h / twopi + shift
         else:
-            diff_phi = abs(phi_s[i]) - abs(phi_s[i - 1])
-            phi_total = np.pi + diff_phi + twopi * gap_mode[i]
-            gap_dist[i] = this_beta * SC.c * phi_total / twopi / f
+            gap_dist[i] = this_cent + cent_offset + shift
 
-        # Increment beam energy based on phase and gap_voltage for correct
-        # beta calculation in the next loop through.
-        E_s += dsgn_gap_volt * np.cos(phi_s[i])
+        dsgn_Egain = dsgn_gap_volt * np.cos(phi_s[i])
+        E_s += dsgn_Egain
 
-    # The actual distances from z=0 to place the centers is the cumulative sum
-    # of all the gaps.
-    gap_centers = gap_dist.cumsum()
-
-    return gap_centers
+    # gap locations from zero are given by cumulative sum of center-to-center
+    # distances.
+    return gap_dist.cumsum()
 
 
 def calc_quad_centers(zdrift, lq, d):
