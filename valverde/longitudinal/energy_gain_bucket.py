@@ -50,217 +50,6 @@ uA = 1e-6
 twopi = 2 * np.pi
 
 # ------------------------------------------------------------------------------
-#     Functions
-# This section creates necessary functions for the script.
-# ------------------------------------------------------------------------------
-
-
-def getindex(mesh, value, spacing):
-    """Find index in mesh for or mesh-value closest to specified value
-
-    Function finds index corresponding closest to 'value' in 'mesh'. The spacing
-    parameter should be enough for the range [value-spacing, value+spacing] to
-    encompass nearby mesh-entries .
-
-    Parameters
-    ----------
-    mesh : ndarray
-        1D array that will be used to find entry closest to value
-    value : float
-        This is the number that is searched for in mesh.
-
-    Returns
-    -------
-    index : int
-        Index for the mesh-value closest to the desired value.
-    """
-
-    # Check if value is already in mesh
-    if value in mesh:
-        index = np.where(mesh == value)[0][0]
-
-    else:
-        index = np.argmin(abs(mesh - value))
-
-    return index
-
-
-def beta(E, mass, q=1, nonrel=True):
-    """Velocity of a particle with energy E."""
-    if nonrel:
-        sign = np.sign(E)
-        beta = np.sqrt(2 * abs(E) / mass)
-        beta *= sign
-    else:
-        gamma = (E + mass) / mass
-        beta = np.sqrt(1 - 1 / gamma / gamma)
-
-    return beta
-
-
-def rf_volt(t, freq=13.6 * MHz):
-    return np.cos(2 * np.pi * freq * t)
-
-
-def calc_dipole_deflection(voltage, energy, length=50 * mm, g=11 * mm, drift=185 * mm):
-    """Calculate an ion's deflection from a dipole field"""
-
-    coeff = voltage * length / g / energy
-    deflection = coeff * (length / 2 + drift)
-
-    return deflection
-
-
-def calc_Hamiltonian(W_s, phi_s, W, phi, f, V, m, g=2 * mm, T=1, ret_coeffs=False):
-    """Calculate the Hamiltonian.
-
-    The non-linear Hamiltonian is dependent on the energy E, RF-frequency f,
-    gap voltage V, gap width g, ion mass m and transit time factor T.
-
-    Parameters
-    ----------
-    W_s : float
-        Synchronous kinetic energy
-    phi_s : float
-        Synchronous phase
-    W : float or array
-        Kinetic energy for particles.
-    phi : float or array
-        phase of particles
-    f : float
-        Frequency of RF gaps.
-    V : float
-        Voltage applied on RF gaps.
-    g : float
-        Width of acceleration gap.
-    m : float
-        Ion mass.
-    T : float
-        Transit time factor.
-    ret_coeffs : bool
-        If True, the coeffcients A and B will be returned.
-
-    Returns
-    -------
-    H : float or array
-        Hamiltonian values.
-
-    """
-
-    bs = beta(W_s, mass=m)
-    hrf = SC.c / f
-    A = twopi / hrf / pow(bs, 3)
-    B = V * T / g / m
-
-    term1 = 0.5 * A * pow((W - W_s) / m, 2)
-    term2 = B * (np.sin(phi) - phi * np.cos(phi_s))
-    H = term1 + term2
-
-    if ret_coeffs:
-        return H, (A, B)
-
-    else:
-        return H
-
-
-def calc_root_H(phi, phi_s=-np.pi / 2):
-    """ "Function for finding the 0-root for the Hamiltonian.
-
-    The non-linear Hamiltonian has roots at phi=phi_s and phi_2.
-
-    """
-    term1 = np.sin(phi) + np.sin(phi_s)
-    term2 = -np.cos(phi_s) * (phi - phi_s)
-
-    return term1 + term2
-
-
-def calc_emittance(x, y):
-    """Calculate the RMS emittance for x,y"""
-    term1 = np.mean(pow(x, 2)) * np.mean(pow(y, 2))
-    term2 = pow(np.mean(x * y), 2)
-    emit = np.sqrt(term1 - term2)
-
-    return emit
-
-
-def uniform_elliptical_load(Np, xmax, ymax, xc=0, yc=0, seed=42):
-    """Create Np particles within ellipse with axes xmax and ymax
-
-
-    Parameters:
-    -----------
-    Np : Int
-        Number of sample points
-
-    xmax : float
-        Half-width of x-axis
-
-    ymax : float
-        Half-width of y-axis
-
-    xc: float
-        Center of ellipse in x
-
-    yc: float
-        Center of ellipse in y
-
-    """
-
-    keep_x = np.zeros(Np)
-    keep_y = np.zeros(Np)
-    kept = 0
-    np.random.seed(seed)
-    while kept < Np:
-        x = np.random.uniform(xc - xmax, xc + xmax)
-        y = np.random.uniform(yc - ymax, yc + ymax)
-        coord = np.sqrt(pow((x - xc) / xmax, 2) + pow((y - yc) / ymax, 2))
-        if coord <= 1:
-            keep_x[kept] = x
-            keep_y[kept] = y
-            kept += 1
-
-    return (keep_x, keep_y)
-
-
-def uniform_box_load(Np, xlims, ylims, xc=0, yc=0, seed=42):
-    """Create Np particles within ellipse with axes xmax and ymax
-
-
-    Parameters:
-    -----------
-    Np : Int
-        Number of sample points
-
-    xlims : tuple
-        Tuple containing (xmin, xmax)
-
-    ylims : tuple
-        Tuple containing (ymin, ymax)
-
-    xc: float
-        Center of box in x
-
-    yc: float
-        Center of box in y
-
-    """
-    xmin, xmax = xlims
-    ymin, ymax = ylims
-
-    x_coords = np.zeros(Np)
-    y_coords = np.zeros(Np)
-    np.random.seed(seed)
-    for i in range(Np):
-        x = np.random.uniform(xmin, xmax)
-        y = np.random.uniform(ymin, ymax)
-        x_coords[i] = x
-        y_coords[i] = y
-
-    return (x_coords, y_coords)
-
-
-# ------------------------------------------------------------------------------
 #     Simulation Parameters
 # This section is dedicated to naming and initializing design parameters that are
 # to be used in the script. These names are maintained throughout the script and
@@ -278,7 +67,7 @@ dsgn_initE = 7.0 * kV
 Np = int(1e4)
 
 # Simulation parameters for gaps and geometries
-Ng = 1
+Ng = 4
 gap_width = 2.0 * mm
 dsgn_gap_volt = 7.0 * kV
 real_gap_volt = dsgn_gap_volt
@@ -333,24 +122,13 @@ plots_filename = "all-diagnostics.pdf"
 # be used. The first gap is always placed such that the design particle will
 # arrive at the desired phase when starting at z=0 with energy W.
 phi_s = np.ones(Ng) * dsgn_phase * 0
-phi_s[1:] = np.linspace(-np.pi / 3, -0.0, Ng - 1) * 0
-
-gap_dist = np.zeros(Ng)
+phi_s = np.array([-1 / 2, -1 / 6, -1 / 3, 0]) * np.pi
+gap_mode = np.zeros(len(phi_s))
 E_s = dsgn_initE
 Emax = Ng * dsgn_gap_volt + dsgn_initE
-for i in range(Ng):
-    this_beta = beta(E_s, mass)
-    this_cent = this_beta * SC.c / 2 / dsgn_freq
-    cent_offset = (phi_s[i] - phi_s[i - 1]) * this_beta * SC.c / dsgn_freq / twopi
-    if i < 1:
-        gap_dist[i] = (phi_s[i] + np.pi) * this_beta * SC.c / twopi / dsgn_freq
-    else:
-        gap_dist[i] = this_cent + cent_offset
-
-    dsgn_Egain = dsgn_gap_volt * np.cos(phi_s[i])
-    E_s += dsgn_Egain
-
-gap_centers = np.array(gap_dist).cumsum()
+gap_centers = utils.calc_gap_centers(
+    E_s, mass, phi_s, gap_mode, dsgn_freq, dsgn_gap_volt
+)
 # ------------------------------------------------------------------------------
 #    Mesh setup
 # Here the mesh is created with some mesh design values.
@@ -394,12 +172,11 @@ if l_use_flattop_field:
 
 if l_use_Warp_field:
     # load isolated field
-    z_iso = np.load("z_isolated_7kV_2mm_26um.npy")
-    Ez_iso = abs(np.load("Ez_isolated_7kV_2mm_26um.npy"))
+    z_iso = np.load("normalized_iso_z.npy")
+    Ez_iso = abs(np.load("normalized_iso_Ez.npy"))
 
-    # TODO: Find correct scale
-    # scale = real_gap_volt / gap_width / Ez_iso.max()
-    # Ez_iso *= scale
+    # Scale electric field to match field-magnitude of Warp with input voltage.
+    Ez_iso = Ez_iso * 657.3317 * dsgn_gap_volt
 
     # Find extent of field
     Ez_extent = z_iso[-1] - z_iso[0]
@@ -463,7 +240,7 @@ dsgn_time = np.zeros(Nz)
 
 dsgn_pos[0] = z.min()
 dsgn_E[0] = dsgn_initE
-dsgn_time[0] = z.min() / beta(dsgn_E[0], mass) / SC.c
+dsgn_time[0] = z.min() / utils.beta(dsgn_E[0], mass) / SC.c
 
 # Create particle arrays to store histories
 parts_pos = np.zeros(Np)
@@ -576,23 +353,23 @@ i_Hdiagn_count = 0
 for i in range(1, len(z)):
     # Do design particle
     this_dz = z[i] - z[i - 1]
-    this_vs = beta(dsgn_E[i - 1], mass) * SC.c
+    this_vs = utils.beta(dsgn_E[i - 1], mass) * SC.c
 
     # Evaluate the time for a half-step
     this_dt = this_dz / this_vs
     dsgn_time[i] = dsgn_time[i - 1] + this_dt
-    Egain = Ez0[i] * rf_volt(dsgn_time[i], freq=real_freq) * this_dz
+    Egain = Ez0[i] * utils.rf_volt(dsgn_time[i], freq=real_freq) * this_dz
 
     dsgn_E[i] = dsgn_E[i - 1] + Egain
     dsgn_pos[i] = dsgn_pos[i - 1] + this_dz
 
     # Do other particles
     mask = parts_E > 0
-    this_v = beta(parts_E[mask], mass) * SC.c
+    this_v = utils.beta(parts_E[mask], mass) * SC.c
     this_dt = this_dz / this_v
     parts_time[mask] += this_dt
 
-    Egain = Ez0[i - 1] * rf_volt(parts_time[mask], freq=real_freq) * this_dz
+    Egain = Ez0[i - 1] * utils.rf_volt(parts_time[mask], freq=real_freq) * this_dz
     parts_E[mask] += Egain
     parts_pos[mask] += this_dz
 
@@ -790,8 +567,8 @@ for i in range(zdiagnostics.shape[-1]):
     rms_bucket_t[i] = np.mean(np.sqrt(pow(t[mask] - ts, 2)))
 
     # Calculate RMS emittance
-    emit[i] = calc_emittance(E[maskE] - Es, t[maskE] - ts)
-    emit_bucket[i] = calc_emittance(E[mask] - Es, t[mask] - ts)
+    emit[i] = utils.calc_emittance(E[maskE] - Es, t[maskE] - ts)
+    emit_bucket[i] = utils.calc_emittance(E[mask] - Es, t[mask] - ts)
 
 
 if l_plot_RMS:
