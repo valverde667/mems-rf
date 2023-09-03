@@ -97,19 +97,10 @@ def calc_gap_centers(E_s, mass, phi_s, gap_mode, dsgn_freq, dsgn_gap_volt):
     When the gaps are operating at the same phase then the distance is
     beta*lambda / 2. However, if the gap phases are different then there is
     additional distance that the particle must cover to arrive at this new phase.
-    The phasing here is assumed to rise with the field, that is:
-        phi_s[0] < phi_s[1] < ... < phi_s[n].
-    The phase-inputs are assumed to follow the convention -pi < phi_s < pi
-    wtih phi_s = 0 being the maximum input.
 
-    With this in mind, to account for the phase differences first the residual
-    distance for the field to reach the peak must be accounted, then a half cycle
-    for the field to arrive at 0 and then the phase of arrival with a rising field.
-    If extra space is needed then an additional 2pi phase can be added. This gives
-    the total 'phase of travel': pi/2 + dphi + 2npi.
-
-    Note: if the phase is the same then dphi = 0 and with no additional space,
-    n=0 and the pi/2 will lead to beta*lambda / 2.
+    The initial phasing is assumed to start with the first gap having a minimum
+    E-field (maximally negative). If this is not desired, the offset should be
+    calculated outside this function.
 
     Parameters:
     -----------
@@ -139,22 +130,23 @@ def calc_gap_centers(E_s, mass, phi_s, gap_mode, dsgn_freq, dsgn_gap_volt):
         Cumulative sum of the gap distances (center-to-center) for the lattice.
     """
 
-    # Initialize the array to hold the center-to-center gap distances
+    # Initialize the array to hold the center-to-center gap distances. Also
+    # initialize any useful variables
     gap_dist = np.zeros(len(phi_s))
+    f = dsgn_freq
 
-    # Loop through synchronous phases. For the first gap there is no delta phi
-    # to calculate. Only the option for gap mode need be considered. After that
-    # the residual phase must be calculated and added to phi total.
+    # Loop through synchronous phases. The first gap is assumed to start at
+    # minimum value. After the first gap, the distance needed is calculated for
+    # the paraticle to arrive at new synchronous phase based on previous.
     for i in range(len(phi_s)):
         this_beta = beta(E_s, mass)
-        h = SC.c / dsgn_freq
         if i == 0:
-            phi_total = abs(phi_s[i]) + twopi * gap_mode[i]
-            gap_dist[i] = this_beta * h * abs(phi_s[i]) / twopi
+            phi_total = np.pi / 2 + abs(phi_s[i]) + twopi * gap_mode[i]
+            gap_dist[i] = this_beta * SC.c * phi_total / twopi / f
         else:
-            dphi = abs(phi_s[i]) - abs(phi_s[i - 1])
-            phi_total = np.pi / 2.0 + dphi + twopi * gap_mode[i]
-            gap_dist[i] = this_beta * h * phi_total / twopi
+            diff_phi = abs(phi_s[i]) - abs(phi_s[i - 1])
+            phi_total = np.pi + diff_phi + twopi * gap_mode[i]
+            gap_dist[i] = this_beta * SC.c * phi_total / twopi / f
 
         # Increment beam energy based on phase and gap_voltage for correct
         # beta calculation in the next loop through.
