@@ -150,7 +150,7 @@ def calc_gap_centers(E_s, mass, phi_s, gap_mode, dsgn_freq, dsgn_gap_volt):
     return gap_dist.cumsum()
 
 
-def calc_quad_centers(zdrift, lq, d):
+def calc_quad_centers(gap_centers, lq, d, g):
     """Calculate quad centers within a region given a quad length and desired
     separation.
 
@@ -164,9 +164,11 @@ def calc_quad_centers(zdrift, lq, d):
 
     Parameters
     ----------
-    zdrift: float
-        Length of drift region where ESQs are to be placed.
-
+    gap_centers: list or array
+        The lattice period contains two acceleration gaps and then a drift region
+        between gaps2 and gaps3. Within this drift region the ESQs can be placed
+        assuming sufficient space. To ensure a drift region, the list should have
+        2n+1 gaps included.
     lq: float
         Length of quadrupole being used. Length is assumed to be the same for both
         in a doublet structure.
@@ -176,34 +178,48 @@ def calc_quad_centers(zdrift, lq, d):
         points. That is, if z1 the center for quad1, z2 the center for quad2,
         and z1 < z2, then:
             d = (z2 - lq/2) - (z1 + lq/2).
+    g: float
+        Width of the gap being used.
 
     Returns
     -------
-    : array
+    quad_centers: array
         Array containing the two centers [z1, z2]
     """
-    # Test if there is enough space for desired placement. If there is, go for it.
-    # if not, find a range and output to user.
-    ztest = 2.0 * lq + d
-    if ztest < zdrift:
-        # Calculate midpoint and then palce quads using d as a shift.
-        zmid = zdrift / 2.0
-        z1 = zmid - d / 2.0 - lq / 2.0
-        z2 = zmid + d / 2.0 + lq / 2.0
-        return np.array([z1, z2])
-    else:
-        # Calculate how much space is left.
-        overlap = abs(zdrift - ztest)
-        if overlap < d:
-            print(f"Overlap(mm): {overlap/mm:.4f}.")
-            print("Overlap is less than d. Try decreasing d.")
+    quad_centers = []
+    # Loop through the lattice periods availabe in gaps. For every 3 gaps there
+    # is information for one lattice period. The third gap start plate is the start
+    # of the next lattice period (end of the current lattice period).
+    for i in range(1, len(gap_centers)):
+        if 2 * i > int(len(gap_centers) - 1):
+            return np.array(quad_centers)
         else:
-            print(f"Overlap(mm): {overlap/mm:.4f}.")
-            print("Not enough space even if d is decreased.")
-            print(
-                "Try using an overlapping field and use 'one' quad by centering",
-                "the doublet field at the midpoint of the quads.",
-            )
+            zdrift = gap_centers[2 * i] - gap_centers[2 * i - 1] - g
+            zquad = 2 * lq + d
+
+            # Test if there is enough space for desired placement.
+            # If there is, go for it. if not, find a range and output to user.
+            if zquad < zdrift:
+                # Calculate midpoint and then palce quads using d as a shift.
+                zmid = zdrift / 2.0
+                z1 = zmid - d / 2.0 - lq / 2.0
+                z2 = zmid + d / 2.0 + lq / 2.0
+                quad_centers.append(z1)
+                quad_centers.append(z2)
+            else:
+                # Calculate how much space is left.
+                overlap = abs(zdrift - ztest)
+                if overlap < d:
+                    print(f"Overlap(mm): {overlap/mm:.4f}.")
+                    print("Overlap is less than d. Try decreasing d.")
+                else:
+                    print(f"Overlap(mm): {overlap/mm:.4f}.")
+                    print("Not enough space even if d is decreased.")
+                    print(
+                        "Try using an overlapping field and use 'one' quad by centering",
+                        "the doublet field at the midpoint of the quads.",
+                    )
+                    return quad_centers
 
 
 def calc_energy_gain(Vg, phi_s):
