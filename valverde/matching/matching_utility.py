@@ -857,7 +857,7 @@ class Integrate_KV_equations:
             uy[n] = uy[n - 1] + vy[n] * this_dz
 
             # Store Perveance and emittance values.
-            Q[n] = C3
+            Q[n] = C3 / 2.0
             emit[n] = np.sqrt(C4)
 
         # Store values
