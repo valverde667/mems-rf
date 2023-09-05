@@ -61,41 +61,50 @@ mass = 39.948 * amu * pow(sc.c, 2) / sc.elementary_charge  # eV
 init_E = 7 * keV
 init_Q = 6.986e-5
 init_emit = 1.344 * mm * mrad
-init_rx = 0.27 * mm
-init_ry = 0.27 * mm
-init_rxp = 5 * mrad
-init_ryp = 5 * mrad
+init_rx = 0.25 * mm
+init_ry = 0.25 * mm
+init_rxp = 2.7 * mrad
+init_ryp = 2.7 * mrad
 
 # Gap parameters
-g = 2.0 * mm
-phi_s = np.array([0.0, 0.0, 0.0, 0.0]) * np.pi
-freq = 13.6 * MHz
-Vg = 7 * kV
-Vaccel = abs(np.cos(phi_s))[:2] * Vg
+g = gap_z.max() - gap_z.min()  # Includes fringe length and 2*mm physical spacing.
+phi_s = np.pi * np.array(
+    [
+        -1 / 2,
+        -1 / 3.0,
+        -1 / 6,
+        0,
+        0.0,
+        0.0,
+        0.0,
+    ]
+)
+gap_mode = np.zeros(len(phi_s))
+
+freq = 13.5 * MHz
+Vg = 6 * kV
+Vaccel = abs(np.cos(phi_s))[:-1] * Vg
 
 # Quad Parameters
-V1 = 65.0
-V2 = -65.0
+V1 = 0.0
+V2 = 0.0
 lq = grad_z.max() - grad_z.min()
 separation = 5 * um
 
 # Geometric settings for lattice
 aperture = 0.55 * mm
-scheme = "g-g-q-q"
-gap_centers = util.calc_gap_centers(init_E, mass, phi_s, freq, Vg)
+scheme = (len(phi_s) - 2) * "g-" + "g"
+gap_centers = util.calc_gap_centers(init_E, mass, phi_s, gap_mode, freq, Vg)
 gap_centers = gap_centers - gap_centers.min() + g / 2.0
 zstart = 0.0
-zend = gap_centers[2] - g / 2.0
+zend = gap_centers[-1] - g / 2.0
 zdrift = zend - (gap_centers[1] + g / 2.0)
-quad_centers = util.calc_quad_centers(zdrift, lq, separation)
-quad_centers += gap_centers[1] + g / 2
-
-do_optimization = True
+quad_centers = util.calc_quad_centers(gap_centers, lq, separation, g)
+do_optimization = False
 
 # Prepare the field data using the gap and quad centers.
 quad_inputs = util.prepare_quad_inputs(quad_centers, (grad_z, grad_q), [V1, V2])
-gap_inputs = util.prepare_gap_inputs(gap_centers[:2], (gap_z, gap_Ez), Vaccel)
-
+gap_inputs = util.prepare_gap_inputs(gap_centers[:-1], (gap_z, gap_Ez), Vaccel)
 # ------------------------------------------------------------------------------
 #    Lattice Building and KV Integration
 # With all the details specified above and the quad and gap inputs created using
@@ -112,7 +121,7 @@ gap_inputs = util.prepare_gap_inputs(gap_centers[:2], (gap_z, gap_Ez), Vaccel)
 # solver called with the initial coordinates and starting Q and emittance.
 # ------------------------------------------------------------------------------
 lattice = util.Lattice()
-lattice.build_lattice(zstart, zend, scheme, quad_inputs, gap_inputs, res=20 * um)
+lattice.build_lattice(zstart, zend, scheme, None, gap_inputs, res=20 * um)
 lattice.adv_particle(init_E)
 lattice.calc_lattice_kappa()
 
@@ -130,7 +139,7 @@ if do_optimization:
     opt_params = {"emit": init_emit, "Q": init_Q}
     rnorm = 1.0 / aperture
     rp_max = 2 * mrad
-    rpnorm = 1.0 / rp_max
+    rpnorm = 1.0 / 5 / mrad
     norms = np.array([rnorm, rnorm, rpnorm, rpnorm])
     opt_norms = np.array(norms)
     init_coords = np.array([init_rx, init_ry, init_rxp, init_ryp])
