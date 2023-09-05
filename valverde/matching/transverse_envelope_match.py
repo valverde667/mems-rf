@@ -165,6 +165,7 @@ ax.set_ylabel("Transverse Envelope Edge Radii (mm)")
 for gc in gap_centers[:-1]:
     ax.axvline(x=gc / mm, c="k", lw=1, ls="--")
 ax.legend()
+plt.tight_layout()
 
 fig, ax = plt.subplots()
 ax.plot(lattice.z / mm, kv_solve.rxp / mrad, c="k", label=r"$r_x'$")
@@ -176,6 +177,7 @@ ax.set_ylabel("Transverse Envelope Edge Angle (mrad)")
 for gc in gap_centers[:-1]:
     ax.axvline(x=gc / mm, c="k", lw=1, ls="--")
 ax.legend()
+plt.tight_layout()
 
 fig, ax = plt.subplots()
 ax.plot(lattice.z / mm, lattice.kappa_quad + lattice.kappa_gap)
@@ -183,6 +185,7 @@ ax.set_xlabel("z (mm)")
 ax.set_ylabel(r"Focusing Strength $\kappa(z)$ $(m^{-2})$")
 for gc in gap_centers[:-1]:
     ax.axvline(x=gc / mm, c="k", lw=1, ls="--")
+plt.tight_layout()
 
 fig, ax = plt.subplots()
 ax.plot(lattice.z / mm, lattice.beam_energy / keV)
@@ -198,6 +201,23 @@ ax.axhline(
     label=rf"Final $E_b$ = {lattice.beam_energy[-1]/keV:.2f} (keV)",
 )
 ax.legend()
+plt.tight_layout()
+
+fig, ax = plt.subplots()
+ax.plot(lattice.z / mm, kv_solve.Q / init_Q)
+ax.set_xlabel("z (mm)")
+ax.set_ylabel(r"Normalized Perveance $Q(z)/Q_0$")
+for gc in gap_centers[:-1]:
+    ax.axvline(x=gc / mm, c="k", lw=1, ls="--")
+plt.tight_layout()
+
+fig, ax = plt.subplots()
+ax.plot(lattice.z / mm, kv_solve.emit / init_emit)
+ax.set_xlabel("z (mm)")
+ax.set_ylabel(r"Normalized RMS-edge Emittance  $\epsilon(z)/\epsilon_0$")
+for gc in gap_centers[:-1]:
+    ax.axvline(x=gc / mm, c="k", lw=1, ls="--")
+plt.tight_layout()
 
 # Print out the percent difference in matching conditions
 drx = abs(kv_solve.rx[-1] - kv_solve.rx[0]) / kv_solve.rx[0] * 100
