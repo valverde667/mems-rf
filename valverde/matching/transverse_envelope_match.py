@@ -162,6 +162,8 @@ ax.scatter(lattice.z[-1] / mm, kv_solve.rx[0] / mm, marker="*", c="k", s=90)
 ax.scatter(lattice.z[-1] / mm, kv_solve.ry[0] / mm, marker="*", c="b", s=90)
 ax.set_xlabel("z (mm)")
 ax.set_ylabel("Transverse Envelope Edge Radii (mm)")
+for gc in gap_centers[:-1]:
+    ax.axvline(x=gc / mm, c="k", lw=1, ls="--")
 ax.legend()
 
 fig, ax = plt.subplots()
@@ -171,12 +173,16 @@ ax.scatter(lattice.z[-1] / mm, kv_solve.rxp[0] / mrad, marker="*", c="k", s=90)
 ax.scatter(lattice.z[-1] / mm, kv_solve.ryp[0] / mrad, marker="*", c="b", s=90)
 ax.set_xlabel("z (mm)")
 ax.set_ylabel("Transverse Envelope Edge Angle (mrad)")
+for gc in gap_centers[:-1]:
+    ax.axvline(x=gc / mm, c="k", lw=1, ls="--")
 ax.legend()
 
 fig, ax = plt.subplots()
 ax.plot(lattice.z / mm, lattice.kappa_quad + lattice.kappa_gap)
 ax.set_xlabel("z (mm)")
 ax.set_ylabel(r"Focusing Strength $\kappa(z)$ $(m^{-2})$")
+for gc in gap_centers[:-1]:
+    ax.axvline(x=gc / mm, c="k", lw=1, ls="--")
 
 # Print out the percent difference in matching conditions
 drx = abs(kv_solve.rx[-1] - kv_solve.rx[0]) / kv_solve.rx[0] * 100
