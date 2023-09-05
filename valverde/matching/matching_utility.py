@@ -208,7 +208,7 @@ def calc_quad_centers(gap_centers, lq, d, g):
                 quad_centers.append(z2)
             else:
                 # Calculate how much space is left.
-                overlap = abs(zdrift - ztest)
+                overlap = abs(zdrift - zquad)
                 if overlap < d:
                     print(f"Overlap(mm): {overlap/mm:.4f}.")
                     print("Overlap is less than d. Try decreasing d.")
@@ -219,6 +219,7 @@ def calc_quad_centers(gap_centers, lq, d, g):
                         "Try using an overlapping field and use 'one' quad by centering",
                         "the doublet field at the midpoint of the quads.",
                     )
+                    print("")
                     return quad_centers
 
 
