@@ -184,6 +184,21 @@ ax.set_ylabel(r"Focusing Strength $\kappa(z)$ $(m^{-2})$")
 for gc in gap_centers[:-1]:
     ax.axvline(x=gc / mm, c="k", lw=1, ls="--")
 
+fig, ax = plt.subplots()
+ax.plot(lattice.z / mm, lattice.beam_energy / keV)
+ax.set_xlabel("z (mm)")
+ax.set_ylabel("Beam Energy (keV)")
+for gc in gap_centers[:-1]:
+    ax.axvline(x=gc / mm, c="k", lw=1, ls="--")
+ax.axhline(
+    lattice.beam_energy[-1] / keV,
+    c="r",
+    ls="--",
+    lw=1,
+    label=rf"Final $E_b$ = {lattice.beam_energy[-1]/keV:.2f} (keV)",
+)
+ax.legend()
+
 # Print out the percent difference in matching conditions
 drx = abs(kv_solve.rx[-1] - kv_solve.rx[0]) / kv_solve.rx[0] * 100
 dry = abs(kv_solve.ry[-1] - kv_solve.ry[0]) / kv_solve.ry[0] * 100
