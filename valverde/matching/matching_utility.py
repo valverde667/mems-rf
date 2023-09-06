@@ -201,7 +201,7 @@ def calc_quad_centers(gap_centers, lq, d, g):
             # If there is, go for it. if not, find a range and output to user.
             if zquad < zdrift:
                 # Calculate midpoint and then palce quads using d as a shift.
-                zmid = zdrift / 2.0
+                zmid = (gap_centers[2 * i] + gap_centers[2 * i - 1]) / 2.0
                 z1 = zmid - d / 2.0 - lq / 2.0
                 z2 = zmid + d / 2.0 + lq / 2.0
                 quad_centers.append(z1)
@@ -896,7 +896,7 @@ class Optimizer:
         cost = pow((data - target) * norm, 2)
         return np.sum(cost)
 
-    def match_coordinates(self, coordinates):
+    def match_fixed_voltage(self, coordinates):
         """Single input function to min/maximize
 
         Most optimizers take in a function with a single input that is the
@@ -927,7 +927,7 @@ class Optimizer:
 
         return cost
 
-    def minimize_cost(self, function, init_coords, max_iter=120):
+    def minimize_cost_fixed_voltage(self, function, init_coords, max_iter=120):
         """Function that will run optimizer and output results
 
         This function contains the actual optimizer that will be used. Currently
