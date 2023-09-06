@@ -144,7 +144,7 @@ if do_optimization:
     opt_norms = np.array(norms)
     init_coords = np.array([init_rx, init_ry, init_rxp, init_ryp])
     opt = util.Optimizer(opt_params, lattice, opt_norms)
-    opt.minimize_cost(opt.match_coordinates, init_coords, max_iter=200)
+    opt.minimize_cost_fixed_voltage(opt.match_fixed_voltage, init_coords, max_iter=200)
 
 
 # ------------------------------------------------------------------------------
