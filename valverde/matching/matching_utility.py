@@ -403,11 +403,13 @@ class Lattice:
 
         self.Ng = None
         self.gap_centers = None
+        self.lg = None
         self.gap_field_data = None
         self.dz_gap = None
 
         self.Nq = None
         self.quad_centers = None
+        self.lq = None
         self.quad_field_data = None
         self.dz_quad = None
 
@@ -480,7 +482,9 @@ class Lattice:
         conductors = scheme.split("-")
 
         quad_centers = []
+        quad_lengths = []
         gap_centers = []
+        gap_lengths = []
 
         for i, cond in enumerate(conductors):
             if cond == "q":
@@ -491,6 +495,7 @@ class Lattice:
 
                 # Append some data before incrementation
                 quad_centers.append(this_zc)
+                quad_lengths.append(this_zext)
                 self.dz_quad = z_patch[1] - z_patch[0]
                 q_counter += 1
 
@@ -538,6 +543,7 @@ class Lattice:
 
                 # Append some data before incrementation
                 gap_centers.append(this_zc)
+                quad_lengths.append(this_zext)
                 self.dz_gap = z_patch[1] - z_patch[0]
                 g_counter += 1
 
@@ -584,21 +590,25 @@ class Lattice:
         if q_counter > 0:
             self.Nq = q_counter
             self.quad_centers = quad_centers
+            self.quad_lengths = quad_lengths
             self.quad_field_data = quad_data
 
         else:
             self.Nq = 0
             self.quad_centers = 0
+            self.quad_lengths = 0
             self.quad_field_data = np.zeros(len(z))
 
         if g_counter > 0:
             self.Ng = g_counter
             self.gap_centers = gap_centers
+            self.gap_lengths = gap_lengths
             self.gap_field_data = gap_data
 
         else:
             self.Ng = 0
             self.gap_centers = 0
+            self.gap_lengths = 0
             self.gap_field_data = np.zeros(len(z))
 
         self.z = z
@@ -880,6 +890,7 @@ class Optimizer:
         self.cost_norms = cost_norms
 
         self.sol = None
+        self.sol_voltage = None
         self.optimum = None
         self.bounds = None
         self.cost_hist = []
@@ -927,6 +938,76 @@ class Optimizer:
 
         return cost
 
+    def match_fixed_coordinates(self, voltage, init_coordinates):
+        """Single input function to min/maximize
+
+        Most optimizers take in a function with a single input that is the
+        parameters to optimize for. Here, the coorditaes rx,ry,rxp,ryp are fixed
+        and we wish to find the voltages that will give the matched condition so
+        that the initial and final coordinates are the same.
+        The initial lattice is built with a voltage setting used. Instead of
+        reinstating and building the lattice each time, we can instead locate the
+        quadrupoles using the quad_centers attribute and the length of the
+        quadrupoles.
+        """
+
+        # Grab the quadrupole centers and array length of the field data from the
+        # lattice object.
+        lattice = self.lattice
+        quad_centers = lattice.quad_centers
+        lq = lattice.quad_lengths[0]
+        Vq = voltage
+
+        print("*****HERE:", init_coordinates)
+        print("*****HERE:", voltage)
+
+        # There should be a 1:1 correspondance between quad_centers and voltages
+        assert_message = "Number of voltages != number of quad centers in lattice."
+        assert len(quad_centers) == len(Vq), assert_message
+
+        # Loop through quad_centers and voltages. For each center, locate the center
+        # and the ESQ extent in the z-array.
+        for i in range(len(quad_centers)):
+            zq = quad_centers[i]
+            esq_start = np.argmin(abs(self.lattice.z - (zq - lq / 2)))
+            esq_end = np.argmin(abs(self.lattice.z - (zq + lq / 2)))
+
+            # Normalize the field first and then scale it.
+            # TODO: Incorporate the scaling factor as a variable to be grabbed.
+            #   With the current implementation, the user may catch the neccessity
+            # to change the scale factor in the preparation function but not here.
+            this_field = lattice.quad_field_data[esq_start : esq_end + 1]
+            this_field = this_field / np.max(abs(this_field))
+            this_field = this_field * Vq[i] / 1.562e-7
+            lattice.quad_field_data[esq_start : esq_end + 1] = this_field
+
+        # With the fields rescaled, the kappa function has to be revaluated. Since
+        # the ESQ fields do not affect acceleration, only one method needs to be
+        # called and the beam energy has a function of z does not need to be
+        # recalculated.
+        lattice.calc_lattice_kappa()
+
+        # Unpack parameters
+        emit = self.parameters["emit"]
+        Q = self.parameters["Q"]
+
+        # Solve KV equations
+        kv_integrator = Integrate_KV_equations(self.lattice)
+        kv_integrator.integrate_eqns(init_coordinates, Q, emit, verbose=False)
+
+        # Store solution
+        final_rx, final_ry = kv_integrator.rx[-1], kv_integrator.ry[-1]
+        final_rxp, final_ryp = kv_integrator.rxp[-1], kv_integrator.ryp[-1]
+        final_coordinates = np.array([final_rx, final_ry, final_rxp, final_ryp])
+        self.sol = np.array([final_rx, final_ry, final_rxp, final_ryp])
+        self.sol_voltage = voltage
+
+        # Compute cost and save to history
+        cost = self.calc_cost(self.sol, init_coordinates, self.cost_norms)
+        self.cost_hist.append(cost)
+
+        return cost
+
     def minimize_cost_fixed_voltage(self, function, init_coords, max_iter=120):
         """Function that will run optimizer and output results
 
@@ -939,6 +1020,32 @@ class Optimizer:
         res = sciopt.minimize(
             function,
             init_coords,
+            method="nelder-mead",
+            options={
+                "xatol": 1e-8,
+                "fatol": 1e-8,
+                "maxiter": max_iter,
+                "disp": True,
+            },
+            bounds=self.bounds,
+        )
+        self.optimum = res
+
+    def minimize_cost_fixed_coordinates(
+        self, function, voltage, init_coordinates, max_iter=120
+    ):
+        """Function that will run optimizer and output results
+
+        This function contains the actual optimizer that will be used. Currently
+        it is a prepackaged optimizer from the Scipy library. There are numerous
+        options for the optimizer and this function can be modified to include
+        options in the arguments."""
+
+        print("--Finding matched solution.")
+        res = sciopt.minimize(
+            function,
+            voltage,
+            args=(init_coordinates),
             method="nelder-mead",
             options={
                 "xatol": 1e-8,
