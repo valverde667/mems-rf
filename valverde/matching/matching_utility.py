@@ -150,7 +150,7 @@ def calc_gap_centers(E_s, mass, phi_s, gap_mode, dsgn_freq, dsgn_gap_volt):
     return gap_dist.cumsum()
 
 
-def calc_quad_centers(gap_centers, lq, d, g):
+def calc_quad_centers(gap_centers, lq, d, g, spacing):
     """Calculate quad centers within a region given a quad length and desired
     separation.
 
@@ -181,6 +181,14 @@ def calc_quad_centers(gap_centers, lq, d, g):
     g: float
         Width of the gap being used.
 
+    spacing: str or float
+        The spacing scheme to use for distancing the ESQs. If set to 'equal' the
+        drift region will be evenly divided and the doublet placed to evenly
+        separate the region into thirds. If 'maxsep', the ESQs are moved as close
+        as possibly to the end plates on either sides and the distance between
+        ESQ is max. If a float is given, then the ESQ separation end-to-end is
+        set to this distance.
+
     Returns
     -------
     quad_centers: array
@@ -195,32 +203,53 @@ def calc_quad_centers(gap_centers, lq, d, g):
             return np.array(quad_centers)
         else:
             zdrift = gap_centers[2 * i] - gap_centers[2 * i - 1] - g
-            zquad = 2 * lq + d
+            if type(spacing) == float:
+                zquad = 2 * lq + d
 
-            # Test if there is enough space for desired placement.
-            # If there is, go for it. if not, find a range and output to user.
-            if zquad < zdrift:
-                # Calculate midpoint and then palce quads using d as a shift.
-                zmid = (gap_centers[2 * i] + gap_centers[2 * i - 1]) / 2.0
-                z1 = zmid - d / 2.0 - lq / 2.0
-                z2 = zmid + d / 2.0 + lq / 2.0
-                quad_centers.append(z1)
-                quad_centers.append(z2)
-            else:
-                # Calculate how much space is left.
-                overlap = abs(zdrift - zquad)
-                if overlap < d:
-                    print(f"Overlap(mm): {overlap/mm:.4f}.")
-                    print("Overlap is less than d. Try decreasing d.")
+                # Test if there is enough space for desired placement.
+                # If there is, go for it. if not, find a range and output to user.
+                if zquad < zdrift:
+                    # Calculate midpoint and then palce quads using d as a shift.
+                    zmid = (gap_centers[2 * i] + gap_centers[2 * i - 1]) / 2.0
+                    z1 = zmid - d / 2.0 - lq / 2.0
+                    z2 = zmid + d / 2.0 + lq / 2.0
+                    quad_centers.append(z1)
+                    quad_centers.append(z2)
                 else:
-                    print(f"Overlap(mm): {overlap/mm:.4f}.")
-                    print("Not enough space even if d is decreased.")
-                    print(
-                        "Try using an overlapping field and use 'one' quad by centering",
-                        "the doublet field at the midpoint of the quads.",
-                    )
-                    print("")
-                    return quad_centers
+                    # Calculate how much space is left.
+                    overlap = abs(zdrift - zquad)
+                    if overlap < d:
+                        print(f"Overlap(mm): {overlap/mm:.4f}.")
+                        print("Overlap is less than d. Try decreasing d.")
+                    else:
+                        print(f"Overlap(mm): {overlap/mm:.4f}.")
+                        print("Not enough space even if d is decreased.")
+                        print(
+                            "Try using an overlapping field and use 'one' quad by centering",
+                            "the doublet field at the midpoint of the quads.",
+                        )
+                        print("")
+                        return quad_centers
+            elif type(spacing) == str:
+                if spacing == "equal":
+                    zquad = 2.0 * lq
+                    free_space = zdrift - zquad
+                    d = free_space / 3.0
+
+                    z1 = gap_centers[2 * i - 1] + g / 2 + d + lq / 2.0
+                    z2 = gap_centers[2 * i] - g / 2 - d - lq / 2.0
+                    quad_centers.append(z1)
+                    quad_centers.append(z2)
+
+                elif spacing == "maxsep":
+                    z1 = gap_centers[2 * i - 1] + g / 2
+                    z2 = gap_centers[2 * i] - g / 2
+                    quad_centers.append(z1)
+                    quad_centers.append(z2)
+
+            else:
+                "Select either 'maxsep', 'equal', or input a float for spacing."
+                return False
 
 
 def calc_energy_gain(Vg, phi_s):
@@ -280,7 +309,9 @@ def env_radii_free_expansion(init_rx, init_rxp, emit, z):
     return init_rx * np.sqrt(1.0 + linear_term + sq_term)
 
 
-def prepare_quad_inputs(quad_centers, quad_info, Vq, per_lattice=False):
+def prepare_quad_inputs(
+    quad_centers, quad_info, Vq, scale_factor=6.40e6, per_lattice=False
+):
     """Helper function to package the inputs so they can be fed into Lattice class.
 
     The inputs for building the lattice take in the quad and gap data as a
@@ -336,8 +367,8 @@ def prepare_quad_inputs(quad_centers, quad_info, Vq, per_lattice=False):
             this_grad = grad.copy()
 
             # Scale left and right sides of the field array.
-            this_grad[: zind + 1] *= Vq[i] / 1.562e-7
-            this_grad[zind + 1 :] *= Vq[i + 1] / 1.562e-7
+            this_grad[: zind + 1] *= Vq[i] * scale_factor
+            this_grad[zind + 1 :] *= Vq[i + 1] * scale_factor
 
             z_data.append(zgrad + quad_centers[i])
             grad_data.append(this_grad)
@@ -345,7 +376,7 @@ def prepare_quad_inputs(quad_centers, quad_info, Vq, per_lattice=False):
     else:
         for i in range(len(quad_centers)):
             z_data.append(zgrad + quad_centers[i])
-            grad_data.append(grad.copy() * Vq[i] / 1.562e-7)
+            grad_data.append(grad.copy() * Vq[i] * scale_factor)
 
     qinfo = (quad_centers, z_data, grad_data)
     return qinfo
