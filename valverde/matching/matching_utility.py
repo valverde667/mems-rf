@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.constants as SC
 import scipy.optimize as sciopt
+import scipy.integrate as integrate
 import itertools
 import csv
 import os
@@ -708,6 +709,10 @@ class Integrate_KV_equations:
         rxp = None
         ryp = None
 
+        # Phase advance period lattice period in rads
+        Fx = None
+        Fy = None
+
         # Initialize statistical quantities calculated after integrating equations.
         avg_rx = None
         avg_ry = None
@@ -735,6 +740,10 @@ class Integrate_KV_equations:
     def calc_envelope_statistics(self):
         """Calculate varous quantities from envelope solutions and store."""
 
+        # Integrate over the lattice period to fine phase advance.
+        Fx = integrate.simps(self.emit / pow(self.rx, 2), self.lattice.z)
+        Fy = integrate.simps(self.emit / pow(self.ry, 2), self.lattice.z)
+
         # Calculate averages over r and r'.
         avg_rx, avg_ry = np.mean(self.rx), np.mean(self.ry)
         avg_rxp, avg_ryp = np.mean(self.rxp), np.mean(self.ryp)
@@ -758,6 +767,9 @@ class Integrate_KV_equations:
         measure_sum = (avg_rx + avg_ry) / 2.0
 
         # Store values
+        self.Fx = Fx
+        self.Fy = Fy
+
         self.avg_rx = avg_rx
         self.avg_ry = avg_ry
         self.avg_rxp = avg_rxp
@@ -787,6 +799,11 @@ class Integrate_KV_equations:
         mrad = 1e-3
         print("")
         print("#--------- Envelope Statistics")
+        print("   Phase-adv per lattice period:")
+        print(
+            f"{'   Fx, Fy (deg/period)':<40} {self.Fx/np.pi*180:.4f}, {self.Fy/np.pi*180:.4f}"
+        )
+        print("")
         print("   Radii, rx = 2sqrt(<x**2>), rx = 2sqrt(<x**2>):")
         print(
             f"{'   Avg, <rx>, <ry> (mm)':<40} {self.avg_rx/mm:.4f}, {self.avg_ry/mm:.4f}"
