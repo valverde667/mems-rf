@@ -235,7 +235,7 @@ def calc_quad_centers(gap_centers, lq, d, g, spacing):
                 if spacing == "equal":
                     zquad = 2.0 * lq
                     free_space = zdrift - zquad
-                    d = free_space / 3.0
+                    d = free_space / 4.0
 
                     z1 = gap_centers[2 * i - 1] + g / 2 + d + lq / 2.0
                     z2 = gap_centers[2 * i] - g / 2 - d - lq / 2.0
@@ -243,8 +243,9 @@ def calc_quad_centers(gap_centers, lq, d, g, spacing):
                     quad_centers.append(z2)
 
                 elif spacing == "maxsep":
-                    z1 = gap_centers[2 * i - 1] + g / 2
-                    z2 = gap_centers[2 * i] - g / 2
+                    pad = 0.05 * lq
+                    z1 = gap_centers[2 * i - 1] + g + lq / 2
+                    z2 = gap_centers[2 * i] - g - lq / 2
                     quad_centers.append(z1)
                     quad_centers.append(z2)
 
@@ -710,8 +711,8 @@ class Integrate_KV_equations:
         ryp = None
 
         # Phase advance period lattice period in rads
-        Fx = None
-        Fy = None
+        sigmax = None
+        sigmay = None
 
         # Initialize statistical quantities calculated after integrating equations.
         avg_rx = None
@@ -729,10 +730,11 @@ class Integrate_KV_equations:
         min_rxp = None
         min_ryp = None
 
-        spread_rx = None
-        spread_ry = None
-        spread_rxp = None
-        spread_ryp = None
+        # Denote flutter of a as Fa = (Max[a]-Min[a]) / Avg[a]
+        Fx = None
+        Fy = None
+        Fxp = None
+        Fyp = None
 
         measure_prod = None
         measure_sum = None
@@ -741,8 +743,8 @@ class Integrate_KV_equations:
         """Calculate varous quantities from envelope solutions and store."""
 
         # Integrate over the lattice period to fine phase advance.
-        Fx = integrate.simps(self.emit / pow(self.rx, 2), self.lattice.z)
-        Fy = integrate.simps(self.emit / pow(self.ry, 2), self.lattice.z)
+        sigmax = integrate.simps(self.emit / pow(self.rx, 2), self.lattice.z)
+        sigmay = integrate.simps(self.emit / pow(self.ry, 2), self.lattice.z)
 
         # Calculate averages over r and r'.
         avg_rx, avg_ry = np.mean(self.rx), np.mean(self.ry)
@@ -767,8 +769,8 @@ class Integrate_KV_equations:
         measure_sum = (avg_rx + avg_ry) / 2.0
 
         # Store values
-        self.Fx = Fx
-        self.Fy = Fy
+        self.sigmax = sigmax
+        self.sigmay = sigmay
 
         self.avg_rx = avg_rx
         self.avg_ry = avg_ry
@@ -785,10 +787,10 @@ class Integrate_KV_equations:
         self.min_rxp = min_rxp
         self.min_ryp = min_ryp
 
-        self.spread_rx = spread_rx / avg_rx
-        self.spread_ry = spread_ry / avg_ry
-        self.spread_rxp = spread_rxp / avg_rxp
-        self.spread_ryp = spread_ryp / avg_ryp
+        self.Fx = spread_rx / avg_rx
+        self.Fy = spread_ry / avg_ry
+        self.Fxp = spread_rxp / avg_rxp
+        self.Fyp = spread_ryp / avg_ryp
 
         self.measure_prod = measure_prod
         self.measure_sum = measure_sum
@@ -801,7 +803,7 @@ class Integrate_KV_equations:
         print("#--------- Envelope Statistics")
         print("   Phase-adv per lattice period:")
         print(
-            f"{'   Fx, Fy (deg/period)':<40} {self.Fx/np.pi*180:.4f}, {self.Fy/np.pi*180:.4f}"
+            f"{'   sigmax, sigmay (deg/period)':<40} {self.sigmax/np.pi*180:.4f}, {self.sigmay/np.pi*180:.4f}"
         )
         print("")
         print("   Radii, rx = 2sqrt(<x**2>), rx = 2sqrt(<x**2>):")
@@ -829,8 +831,8 @@ class Integrate_KV_equations:
         print("   Average Radius Measures:")
         print(f"{'   sqrt(<rx*ry>) (mm)':<40} {self.measure_prod/mm:.4f}")
         print(f"{'   (<rx> + <ry>)/2 (mm)':<40} {self.measure_sum/mm:.4f}")
-        print(f"{'   (rx-spread)/<rx>':<40} {self.spread_rx:.4f}")
-        print(f"{'   (ry-spread)/<ry>':<40} {self.spread_ry:.4f}")
+        print(f"{'   Flutter-x (rx-spread)/<rx>':<40} {self.Fx:.4f}")
+        print(f"{'   Flutter-y (ry-spread)/<ry>':<40} {self.Fy:.4f}")
         print("")
 
     def integrate_eqns(self, init_coordinates, init_Q, init_emit, verbose=False):
