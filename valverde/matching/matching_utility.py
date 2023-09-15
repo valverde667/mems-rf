@@ -1008,9 +1008,6 @@ class Optimizer:
         lq = lattice.quad_lengths[0]
         Vq = voltage
 
-        print("*****HERE:", init_coordinates)
-        print("*****HERE:", voltage)
-
         # There should be a 1:1 correspondance between quad_centers and voltages
         assert_message = "Number of voltages != number of quad centers in lattice."
         assert len(quad_centers) == len(Vq), assert_message
