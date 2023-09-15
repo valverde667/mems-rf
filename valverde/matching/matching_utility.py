@@ -648,7 +648,7 @@ class Lattice:
         self.quad_field_data = quad_data
         self.gap_field_data = gap_data
 
-        return print("Lattice built and data stored.")
+        return None
 
     def adv_particle(self, init_E):
         """Advance particle through field with simple forward advance."""
@@ -665,7 +665,7 @@ class Lattice:
 
         self.beam_energy = energy
 
-        return print("Beam energy stored")
+        return None
 
     def calc_lattice_kappa(self):
         """Calculate the focusing function kappa on the lattice.
@@ -695,7 +695,7 @@ class Lattice:
         self.kappa_quad = kq
         self.kappa_gap = kg
 
-        return print("Kappa functions calculated and stored.")
+        return None
 
 
 class Integrate_KV_equations:
