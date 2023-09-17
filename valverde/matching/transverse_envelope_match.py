@@ -94,7 +94,11 @@ gap_centers = gap_centers - gap_centers.min() + g / 2.0
 zstart = 0.0
 zend = gap_centers[-1] - g / 2.0
 quad_centers = util.calc_quad_centers(gap_centers, lq, separation, g, "equal")
-do_optimization = False
+
+# Either find coordinates for matching to a fixed voltages (match_to_voltages) or
+# Find voltages for fixed coordinates (match_to_coordinates)
+do_match_to_voltages = False
+do_match_to_coordinates = False
 
 # Prepare the field data using the gap and quad centers.
 quad_inputs = util.prepare_quad_inputs(
@@ -131,20 +135,48 @@ kv_solve.integrate_eqns(
 # uses nelder mead, a robust searching algorithm that is easily usable through
 # scipy's library.
 # ------------------------------------------------------------------------------
-if do_optimization:
-    opt_params = {"emit": init_emit, "Q": init_Q}
-    rnorm = 1.0 / aperture
-    rp_max = 10 * mrad
-    rpnorm = 1.0 / rp_max
-    norms = np.array([rnorm, rnorm, rpnorm, rpnorm])
-    opt_norms = np.array(norms)
+# Set common parameters
+opt_params = {"emit": init_emit, "Q": init_Q}
+rnorm = 1.0 / aperture
+rpnorm = 1.0 / (10.0 * mrad)
+opt_norms = norms = np.array([rnorm, rnorm, rpnorm, rpnorm])
+max_iter = 500
+
+if do_match_to_voltages:
     init_coords = np.array([init_rx, init_ry, init_rxp, init_ryp])
     opt = util.Optimizer(opt_params, lattice, opt_norms)
     opt.minimize_cost_fixed_voltage(
-        opt.match_fixed_voltage,
         init_coords,
-        max_iter=600,
+        max_iter=max_iter,
     )
+    # Resolve KV equations for optimum voltage found. Define markers for plotting.
+    kv_solve.integrate_eqns(opt.sol, opt_params["Q"], opt_params["emit"], verbose=True)
+    markers = kv_solve.sol
+
+elif do_match_to_coordinates:
+    init_coords = init_coords
+    match_coords = init_coords
+    voltage = np.array([V1, V2])
+    opt = util.Optimizer(opt_params, lattice, opt_norms)
+
+    opt.minimize_cost_fixed_coordinates(
+        voltage,
+        init_coords,
+        match_coords,
+        grad_scale_factor,
+        max_iter=max_iter,
+    )
+    # Resolve KV equations for optimum voltage found. Define markers for plotting.
+    kv_solve.integrate_eqns(
+        init_coords, opt_params["Q"], opt_params["emit"], verbose=True
+    )
+    markers = match_coords
+
+
+else:
+    # No optimization so set markers to initial coordinates
+    markers = [init_rx, init_ry, init_rxp, init_ryp]
+    pass
 
 
 # ------------------------------------------------------------------------------
@@ -152,15 +184,11 @@ if do_optimization:
 # Plot final solutions. If the optimization was done, the KV equations will be
 # integrated over the same lattice with the optimized solutions.
 # ------------------------------------------------------------------------------
-
-if do_optimization:
-    kv_solve.integrate_eqns(opt.sol, init_Q, init_emit, verbose=True)
-
 fig, ax = plt.subplots()
 ax.plot(lattice.z / mm, kv_solve.rx / mm, c="k", label=r"$r_x$")
 ax.plot(lattice.z / mm, kv_solve.ry / mm, c="b", label=r"$r_y$")
-ax.scatter(lattice.z[-1] / mm, kv_solve.rx[0] / mm, marker="*", c="k", s=90)
-ax.scatter(lattice.z[-1] / mm, kv_solve.ry[0] / mm, marker="*", c="b", s=90)
+ax.scatter(lattice.z[-1] / mm, markers[0] / mm, marker="*", c="k", s=90)
+ax.scatter(lattice.z[-1] / mm, markers[1] / mm, marker="*", c="b", s=90)
 ax.set_xlabel("z (mm)")
 ax.set_ylabel("Transverse Envelope Edge Radii (mm)")
 for gc in gap_centers[:-1]:
@@ -171,8 +199,8 @@ plt.tight_layout()
 fig, ax = plt.subplots()
 ax.plot(lattice.z / mm, kv_solve.rxp / mrad, c="k", label=r"$r_x'$")
 ax.plot(lattice.z / mm, kv_solve.ryp / mrad, c="b", label=r"$r_y'$")
-ax.scatter(lattice.z[-1] / mm, kv_solve.rxp[0] / mrad, marker="*", c="k", s=90)
-ax.scatter(lattice.z[-1] / mm, kv_solve.ryp[0] / mrad, marker="*", c="b", s=90)
+ax.scatter(lattice.z[-1] / mm, markers[2] / mrad, marker="*", c="k", s=90)
+ax.scatter(lattice.z[-1] / mm, markers[3] / mrad, marker="*", c="b", s=90)
 ax.set_xlabel("z (mm)")
 ax.set_ylabel("Transverse Envelope Edge Angle (mrad)")
 for gc in gap_centers[:-1]:
@@ -219,15 +247,6 @@ ax.set_ylabel(r"Normalized RMS-edge Emittance  $\epsilon(z)/\epsilon_0$")
 for gc in gap_centers[:-1]:
     ax.axvline(x=gc / mm, c="k", lw=1, ls="--")
 plt.tight_layout()
-
-# Print out the percent difference in matching conditions
-drx = abs(kv_solve.rx[-1] - kv_solve.rx[0]) / kv_solve.rx[0] * 100
-dry = abs(kv_solve.ry[-1] - kv_solve.ry[0]) / kv_solve.ry[0] * 100
-drxp = abs((kv_solve.rxp[-1] - kv_solve.rxp[0]) / kv_solve.rxp[0]) * 100
-dryp = abs((kv_solve.ryp[-1] - kv_solve.ryp[0]) / kv_solve.ryp[0]) * 100
-
-print(f"{'Perecent difference Drx, Dry:':<30} {drx:.2f}, {dry:.2f}")
-print(f"{'Perecent difference Drxp, Dryp:':<30} {drxp:.2f}, {dryp:.2f}")
 
 # ------------------------------------------------------------------------------
 #    Data Saving and Export
