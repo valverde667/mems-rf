@@ -710,6 +710,8 @@ class Integrate_KV_equations:
         rxp = None
         ryp = None
 
+        sol = None
+
         # Phase advance period lattice period in rads
         sigmax = None
         sigmay = None
@@ -923,6 +925,7 @@ class Integrate_KV_equations:
         # Store values
         self.rx, self.ry = ux, uy
         self.rxp, self.ryp = vx, vy
+        self.sol = np.array([ux[-1], uy[-1], vx[-1], vy[-1]])
         self.Q = Q
         self.emit = emit
 
@@ -988,7 +991,9 @@ class Optimizer:
 
         return cost
 
-    def match_fixed_coordinates(self, voltage, init_coordinates):
+    def match_fixed_coordinates(
+        self, voltage, init_coordinates, match_coordinates, grad_scale_factor
+    ):
         """Single input function to min/maximize
 
         Most optimizers take in a function with a single input that is the
@@ -1024,8 +1029,8 @@ class Optimizer:
             #   With the current implementation, the user may catch the neccessity
             # to change the scale factor in the preparation function but not here.
             this_field = lattice.quad_field_data[esq_start : esq_end + 1]
-            this_field = this_field / np.max(abs(this_field))
-            this_field = this_field * Vq[i] / 1.562e-7
+            this_field = abs(this_field) / np.max(abs(this_field))
+            this_field = this_field * Vq[i] * grad_scale_factor
             lattice.quad_field_data[esq_start : esq_end + 1] = this_field
 
         # With the fields rescaled, the kappa function has to be revaluated. Since
@@ -1050,7 +1055,7 @@ class Optimizer:
         self.sol_voltage = voltage
 
         # Compute cost and save to history
-        cost = self.calc_cost(self.sol, init_coordinates, self.cost_norms)
+        cost = self.calc_cost(self.sol, match_coordinates, self.cost_norms)
         self.cost_hist.append(cost)
 
         return cost
@@ -1069,8 +1074,8 @@ class Optimizer:
             init_coords,
             method="nelder-mead",
             options={
-                "xatol": 1e-8,
-                "fatol": 1e-8,
+                "xatol": 1e-10,
+                "fatol": 1e-10,
                 "maxiter": max_iter,
                 "disp": True,
             },
@@ -1079,7 +1084,13 @@ class Optimizer:
         self.optimum = res
 
     def minimize_cost_fixed_coordinates(
-        self, function, voltage, init_coordinates, max_iter=120
+        self,
+        function,
+        voltage,
+        init_coordinates,
+        match_coordinates,
+        grad_scale_factor,
+        max_iter=120,
     ):
         """Function that will run optimizer and output results
 
@@ -1092,11 +1103,11 @@ class Optimizer:
         res = sciopt.minimize(
             function,
             voltage,
-            args=(init_coordinates),
+            args=(init_coordinates, match_coordinates, grad_scale_factor),
             method="nelder-mead",
             options={
-                "xatol": 1e-8,
-                "fatol": 1e-8,
+                "xatol": 1e-10,
+                "fatol": 1e-10,
                 "maxiter": max_iter,
                 "disp": True,
             },
