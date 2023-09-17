@@ -1057,10 +1057,13 @@ class Optimizer:
         # Compute cost and save to history
         cost = self.calc_cost(self.sol, match_coordinates, self.cost_norms)
         self.cost_hist.append(cost)
+        print("-------Voltage:", Vq)
+        print("-------Init:", init_coordinates)
+        print("-------Match:", match_coordinates)
 
         return cost
 
-    def minimize_cost_fixed_voltage(self, function, init_coords, max_iter=120):
+    def minimize_cost_fixed_voltage(self, init_coords, max_iter=120):
         """Function that will run optimizer and output results
 
         This function contains the actual optimizer that will be used. Currently
@@ -1070,7 +1073,7 @@ class Optimizer:
 
         print("--Finding matched solution.")
         res = sciopt.minimize(
-            function,
+            self.match_fixed_voltage,
             init_coords,
             method="nelder-mead",
             options={
@@ -1083,9 +1086,17 @@ class Optimizer:
         )
         self.optimum = res
 
+        # Print out the percent difference in matching conditions
+        drx = abs((res.x[0] - init_coords[0]) / init_coords[0]) * 100
+        dry = abs((res.x[1] - init_coords[1]) / init_coords[1]) * 100
+        drxp = abs((res.x[2] - init_coords[2]) / init_coords[2]) * 100
+        dryp = abs((res.x[3] - init_coords[3]) / init_coords[3]) * 100
+
+        print(f"{'Perecent difference Drx, Dry:':<30} {drx:.2f}, {dry:.2f}")
+        print(f"{'Perecent difference Drxp, Dryp:':<30} {drxp:.2f}, {dryp:.2f}")
+
     def minimize_cost_fixed_coordinates(
         self,
-        function,
         voltage,
         init_coordinates,
         match_coordinates,
@@ -1101,7 +1112,7 @@ class Optimizer:
 
         print("--Finding matched solution.")
         res = sciopt.minimize(
-            function,
+            self.match_fixed_coordinates,
             voltage,
             args=(init_coordinates, match_coordinates, grad_scale_factor),
             method="nelder-mead",
@@ -1114,3 +1125,12 @@ class Optimizer:
             bounds=self.bounds,
         )
         self.optimum = res
+
+        # Print out the percent difference in matching conditions
+        drx = abs((self.sol[0] - match_coordinates[0]) / match_coordinates[0]) * 100
+        dry = abs((self.sol[1] - match_coordinates[1]) / match_coordinates[1]) * 100
+        drxp = abs((self.sol[2] - match_coordinates[2]) / match_coordinates[2]) * 100
+        dryp = abs((self.sol[3] - match_coordinates[3]) / match_coordinates[3]) * 100
+
+        print(f"{'Perecent difference Drx, Dry:':<30} {drx:.2f}, {dry:.2f}")
+        print(f"{'Perecent difference Drxp, Dryp:':<30} {drxp:.2f}, {dryp:.2f}")
