@@ -68,42 +68,38 @@ init_ryp = 2.7 * mrad
 
 # Gap parameters
 g = gap_z.max() - gap_z.min()  # Includes fringe length and 2*mm physical spacing.
-phi_s = np.pi * np.array(
-    [
-        -1 / 2,
-        -1 / 3.0,
-        -1 / 6,
-        0,
-        0.0,
-        0.0,
-        0.0,
-    ]
-)
+phi_s = np.pi * np.array([0.0, 0.0, 0.0])
 gap_mode = np.zeros(len(phi_s))
 
 freq = 13.5 * MHz
-Vg = 6 * kV
+Vg = 6 * kV * 1.007
 Vaccel = abs(np.cos(phi_s))[:-1] * Vg
 
 # Quad Parameters
 V1 = 0.0
 V2 = 0.0
+grad_scale_factor = 6.40e6  # Found numerically
+# grad_scale_factor = 6.613e6  # Found numerically, twostack
+# grad_scale_factor = 6.62594e6  # Found numerically, threestack
+# grad_scale_factor = 6.6275e6  # Found numerically, fourstack
+# grad_scale_factor = 6.6275e6  # Found numerically, fivestack
 lq = grad_z.max() - grad_z.min()
 separation = 5 * um
 
 # Geometric settings for lattice
 aperture = 0.55 * mm
-scheme = (len(phi_s) - 2) * "g-" + "g"
+scheme = "g-g-q-q"
 gap_centers = util.calc_gap_centers(init_E, mass, phi_s, gap_mode, freq, Vg)
 gap_centers = gap_centers - gap_centers.min() + g / 2.0
 zstart = 0.0
 zend = gap_centers[-1] - g / 2.0
-zdrift = zend - (gap_centers[1] + g / 2.0)
-quad_centers = util.calc_quad_centers(gap_centers, lq, separation, g)
+quad_centers = util.calc_quad_centers(gap_centers, lq, separation, g, "equal")
 do_optimization = False
 
 # Prepare the field data using the gap and quad centers.
-quad_inputs = util.prepare_quad_inputs(quad_centers, (grad_z, grad_q), [V1, V2])
+quad_inputs = util.prepare_quad_inputs(
+    quad_centers, (grad_z, grad_q), [V1, V2], scale_factor=grad_scale_factor
+)
 gap_inputs = util.prepare_gap_inputs(gap_centers[:-1], (gap_z, gap_Ez), Vaccel)
 # ------------------------------------------------------------------------------
 #    Lattice Building and KV Integration
@@ -121,7 +117,7 @@ gap_inputs = util.prepare_gap_inputs(gap_centers[:-1], (gap_z, gap_Ez), Vaccel)
 # solver called with the initial coordinates and starting Q and emittance.
 # ------------------------------------------------------------------------------
 lattice = util.Lattice()
-lattice.build_lattice(zstart, zend, scheme, None, gap_inputs, res=20 * um)
+lattice.build_lattice(zstart, zend, scheme, quad_inputs, gap_inputs, res=20 * um)
 lattice.adv_particle(init_E)
 lattice.calc_lattice_kappa()
 
@@ -138,13 +134,17 @@ kv_solve.integrate_eqns(
 if do_optimization:
     opt_params = {"emit": init_emit, "Q": init_Q}
     rnorm = 1.0 / aperture
-    rp_max = 2 * mrad
-    rpnorm = 1.0 / 5 / mrad
+    rp_max = 10 * mrad
+    rpnorm = 1.0 / rp_max
     norms = np.array([rnorm, rnorm, rpnorm, rpnorm])
     opt_norms = np.array(norms)
     init_coords = np.array([init_rx, init_ry, init_rxp, init_ryp])
     opt = util.Optimizer(opt_params, lattice, opt_norms)
-    opt.minimize_cost_fixed_voltage(opt.match_fixed_voltage, init_coords, max_iter=200)
+    opt.minimize_cost_fixed_voltage(
+        opt.match_fixed_voltage,
+        init_coords,
+        max_iter=600,
+    )
 
 
 # ------------------------------------------------------------------------------
@@ -152,6 +152,7 @@ if do_optimization:
 # Plot final solutions. If the optimization was done, the KV equations will be
 # integrated over the same lattice with the optimized solutions.
 # ------------------------------------------------------------------------------
+
 if do_optimization:
     kv_solve.integrate_eqns(opt.sol, init_Q, init_emit, verbose=True)
 
@@ -239,13 +240,16 @@ file_name = "env_data.csv"
 # Create array of data. CSV file precreated with headers.
 data = np.array(
     [
+        init_E / keV,
+        lattice.beam_energy[-1] / keV,
+        lattice.z[-1] / mm,
         V1,
         V2,
         Vg / kV,
-        init_E / keV,
-        lattice.beam_energy[-1] / keV,
         init_Q,
         init_emit / mm / mrad,
+        kv_solve.sigmax / np.pi * 180,
+        kv_solve.sigmay / np.pi * 180,
         kv_solve.rx[0] / mm,
         kv_solve.ry[0] / mm,
         kv_solve.rxp[0] / mrad,
@@ -262,8 +266,8 @@ data = np.array(
         kv_solve.min_rxp / mrad,
         kv_solve.max_ryp / mrad,
         kv_solve.min_ryp / mrad,
-        kv_solve.spread_rx,
-        kv_solve.spread_ry,
-        zdrift / mm,
+        kv_solve.Fx,
+        kv_solve.Fy,
+        (gap_centers[-1] - gap_centers[-2] - g) / mm,
     ]
 )
