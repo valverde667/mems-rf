@@ -3,6 +3,80 @@
 # treated and we incorporated thin gap kicks. I thought it might be useful to store
 # these here though just in case. They did serve as the blue print for the new
 # methods and operations.
+import numpy as np
+import scipy.optimize as sciopt
+import itertools
+import scipy.constants as SC
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+import pdb
+
+mm = 1e-3
+mrad = 1e-3
+um = 1e-6
+kV = 1e3
+mrad = 1e-3
+keV = 1e3
+uA = 1e-6
+MHz = 1e6
+twopi = np.pi * 2
+
+
+def calc_energy_gain(Vg, phi_s):
+    return Vg * np.cos(phi_s)
+
+
+def calc_Q_change(Q_prev, delta_E, Ebeam):
+    """Calculate Q after acceleration kick
+
+    When the beam is accelerated by a thin-lens kick, the generalized perveance
+    changes as well. The perveance before the acceleration changes by a scaling
+    factor related to the change in energy and the energy of the beam before the
+    acceleration kick.
+    """
+
+    denom = pow(1 + delta_E / Ebeam, 1.5)
+    return Q_prev / denom
+
+
+def calc_emit_change(emit_prev, delta_E, Ebeam):
+    """Calculate emmitance after acceleration kick
+
+    When the beam is accelerated by a thin-lens kick, the rms-edge emittance
+    changes as well. The emittance before the acceleration changes by a scaling
+    factor related to the change in energy and the energy of the beam before the
+    acceleration kick.
+    """
+
+    denom = np.sqrt(1 + delta_E / Ebeam)
+    return emit_prev / denom
+
+
+def calc_angle_change(rp_prev, delta_E, Ebeam):
+    """Calculate angle after acceleration kick
+
+    Calcluate the new angle based on the previous angle before the acceleration
+    and the acceleration characteristics.
+    """
+
+    denom = 1.0 + np.sqrt(delta_E / Ebeam)
+    return rp_prev / denom
+
+
+def env_radii_free_expansion(init_rx, init_rxp, emit, z):
+    """Analytic formula for KV envelope rms-radii evolution in drift space"""
+
+    c_linear = 2.0 * init_rxp / init_rx
+    linear_term = c_linear * z
+
+    c_sq = (
+        (1.0 + pow(init_rx, 2) * pow(init_rxp, 2) / pow(init_emit, 2))
+        * pow(init_emit, 2)
+        / pow(init_rx, 4)
+    )
+    sq_term = c_sq * pow(z, 2)
+
+    return init_rx * np.sqrt(1.0 + linear_term + sq_term)
 
 
 class Lattice:
@@ -582,3 +656,17 @@ class Optimizer(Lattice):
         return print(
             "Neither matching section or acceleration weere chosen to optimize"
         )
+
+
+# Sample Run
+z = np.linspace(0, 9 * mm, 1000)
+solve_matrix = np.zeros(shape=(len(z), 4))
+solve_matrix[0, :] = 0.25 * mm, 0.25 * mm, 2.7 * mrad, 2.7 * mrad
+kappa = np.zeros(len(z))
+emit = 1.344e-6
+Q = 6.986e-5
+gap_centers = np.array([3 * mm, 12 * mm, 18 * mm])
+Vg = 7 * kV
+phi_s = np.pi * np.array([0, 0, 0])
+E = 7 * keV
+solver_with_accel(solve_matrix, z, kappa, emit, Q, gap_centers, Vg, phi_s, E)
