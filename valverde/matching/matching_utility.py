@@ -302,8 +302,8 @@ def env_radii_free_expansion(init_rx, init_rxp, emit, z):
     linear_term = c_linear * z
 
     c_sq = (
-        (1.0 + pow(init_rx, 2) * pow(init_rxp, 2) / pow(init_emit, 2))
-        * pow(init_emit, 2)
+        (1.0 + pow(init_rx, 2) * pow(init_rxp, 2) / pow(emit, 2))
+        * pow(emit, 2)
         / pow(init_rx, 4)
     )
     sq_term = c_sq * pow(z, 2)
