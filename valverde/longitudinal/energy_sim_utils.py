@@ -360,6 +360,8 @@ def make_dist_plot(
         g.ax_marg_x.set_ylabel(r"Counts/$N_p$")
         g.ax_marg_y.set_xlabel(r"Counts/$N_p$")
 
+    plt.tight_layout()
+
     return g
 
 
@@ -373,8 +375,8 @@ def make_lattice_plot(
 
     fig, ax = plt.subplots()
     ax.set_title("Accel. Lattice with Applied Field at t=0", fontsize="large")
-    ax.set_xlabel("z [mm]", fontsize="large")
-    ax.set_ylabel(r"$E(r=0, z)/E_{DC}$ [kV/mm]", fontsize="large")
+    ax.set_xlabel("z (mm)", fontsize="large")
+    ax.set_ylabel(r"$E_z(r=0, z)/E_{DC}$ (kV/mm)", fontsize="large")
     ax.plot(zmesh / mm, Efield / E_DC)
     ax.axvline(gap_centers[0] / mm, c="grey", lw=1, ls="--", label="Gap Center")
     if Ng > 1:
