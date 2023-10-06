@@ -142,7 +142,7 @@ emit = 1.336 * mm * mrad
 init_I = 10 * uA
 Np_injected = 0  # initialize injection counter
 Np_max = int(1e5)
-beam_length = None
+beam_length = period / 2  # in seconds
 
 dsgn_phase = -np.pi / 2.0
 
@@ -610,14 +610,8 @@ Data.grab_data()
 # Plots are collected and exported to pdf file. Later this will be incorporated
 # into the Data class.
 # ------------------------------------------------------------------------------
-now = datetime.datetime.now()
-fmt = "%Y-%m-%d_%H:%M:%S"
-save_prefix = datetime.datetime.strftime(now, fmt)
-
-# Make directory in diagnostics for the current run sim
-path_diagnostic = os.path.join(os.getcwd(), "diagnostics")
-path = os.path.join(path_diagnostic, save_prefix)
-os.mkdir(path)
+path = mems_utils.create_save_path(dir_name="sim_outputs", prefix="sim")
+mems_utils.move_cgms(path, match="*.cgm*")
 
 # Create energy history of trace particle
 with PdfPages(path + "/trace.pdf") as pdf:
