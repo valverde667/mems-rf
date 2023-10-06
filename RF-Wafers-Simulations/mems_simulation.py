@@ -161,22 +161,10 @@ mass_eV = beam.mass * pow(SC.c, 2) / wp.jperev
 # ------------------------------------------------------------------------------
 # Design phases are specified with the max field corresponding to phi_s=0.
 phi_s = np.ones(Ng) * dsgn_phase * 0
+gap_mode = np.zeros(len(phi_s))
 gap_dist = np.zeros(Ng)
 E_s = init_E
-for i in range(Ng):
-    this_beta = mems_utils.beta(E_s, mass_eV)
-    this_cent = this_beta * SC.c / 2 / freq
-    cent_offset = (phi_s[i] - phi_s[i - 1]) * this_beta * SC.c / freq / twopi
-    if i < 1:
-        gap_dist[i] = (phi_s[i] + np.pi) * this_beta * SC.c / twopi / freq
-    else:
-        gap_dist[i] = this_cent + cent_offset
-
-    dsgn_Egain = Vg * np.cos(phi_s[i])
-    E_s += dsgn_Egain
-
-gap_centers = np.array(gap_dist).cumsum()
-
+gap_centers = mems_utils.calc_gap_centers(E_s, mass_eV, phi_s, gap_mode, freq, Vg)
 
 if do_matching_section:
     match_centers = mems_utils.calc_zmatch_sect(lq, esq_space, Nq=Nq_match)
