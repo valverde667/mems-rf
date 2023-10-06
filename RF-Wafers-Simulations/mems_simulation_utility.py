@@ -1,6 +1,8 @@
 import numpy as np
 import scipy.constants as SC
 import os
+import glob
+import shutil
 from matplotlib.backends.backend_pdf import PdfPages
 import warp as wp
 
@@ -15,6 +17,54 @@ keV = 1e3
 uA = 1e-6
 twopi = 2 * np.pi
 Ar_mass_eV = 37.21132474
+
+
+def create_save_path(dir_name="sim_outputs", prefix="sim"):
+    """Sets up the directory to save outputs from main script.
+
+    Directory will be defaulted to sim_outputs/sim### where sim### holds the individual
+    outputs from runs starting at sim000 and incrementing.
+    This function will ensure the directories are setup first and then will return
+    the path.
+    """
+
+    # Check that the directory is setup.
+    base_dir = os.path.join(os.getcwd(), "sim_outputs")
+    if not os.path.exists(base_dir):
+        os.makedirs(base_dir)
+
+    # With the base directory set up, search for directories within using the
+    # sim### template.
+    counter = 0
+    while True:
+        dir_name = f"{prefix}{counter:03d}"
+        dir_path = os.path.join(base_dir, dir_name)
+
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
+            print(f"Created directory: {dir_name}")
+            return dir_path
+
+        counter += 1
+
+
+def move_cgms(target, match="*.cgm*"):
+    """Move all files in current directory to target that have match in name.
+
+    This is mainly to help move the cgm files to the save path created above.
+    This was easier than figuring out how to do that in Warp's ecosystem.
+    """
+    # Find all files that fit match condition
+    source_dir = os.getcwd()
+    matching_files = glob.glob(os.path.join(source_dir, match))
+
+    for file_path in matching_files:
+        file_name = os.path.basename(file_path)
+        target_path = os.path.join(target, file_name)
+
+        # Move files to target directory
+        shutil.move(file_path, target_path)
+    print(f"Moved cgm files to {target}")
 
 
 def beta(E, mass, q=1, nonrel=True):
