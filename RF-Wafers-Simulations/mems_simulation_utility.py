@@ -849,6 +849,69 @@ class Data_Ext:
         # Loop through lab windows and export plots to pdf.
 
 
+def calc_gap_centers(E_s, mass, phi_s, gap_mode, dsgn_freq, dsgn_gap_volt):
+    """Calculate Gap centers based on energy gain and phaseing.
+
+    When the gaps are operating at the same phase then the distance is
+    beta*lambda / 2. However, if the gap phases are different then there is
+    additional distance that the particle must cover to arrive at this new phase.
+
+    The initial phasing is assumed to start with the first gap having a minimum
+    E-field (maximally negative). If this is not desired, the offset should be
+    calculated outside this function.
+
+    Parameters:
+    -----------
+    E_s: float
+        Initial beam energy in units of (eV).
+
+    mass: float
+        Mass of the ion in question in unites of (eV).
+
+    phi_s: list or array
+        The synchronous phases of arrival for each gap. Assumed to be rising in
+        magnitude with the max phase being <= 0. In units of (radians).
+
+    gap_mode: list or array
+        Integer values that will give the n-value for 2npi if additional spacing is
+        needed.
+
+    dsgn_freq: float
+        Operating frequency of the gaps. Assumed constant througout.
+
+    dsgn_gap_volt: float
+        Operating voltage of gaps. Assumed constant throughout.
+
+    Returns:
+    --------
+    gap_centers: array
+        Cumulative sum of the gap distances (center-to-center) for the lattice.
+    """
+
+    # Initialize arrays and any useful constants.
+    gap_dist = np.zeros(len(phi_s))
+    h = SC.c / dsgn_freq
+
+    # Loop through number of gaps and assign the center-to-center distance.
+    # Update the energy at end.
+    for i in range(len(phi_s)):
+        this_beta = beta(E_s, mass)
+        this_cent = this_beta * h / 2.0
+        shift = this_beta * h * gap_mode[i]
+        cent_offset = (phi_s[i] - phi_s[i - 1]) * this_beta * h / twopi
+        if i < 1:
+            gap_dist[i] = (phi_s[i] + np.pi) * this_beta * h / twopi + shift
+        else:
+            gap_dist[i] = this_cent + cent_offset + shift
+
+        dsgn_Egain = dsgn_gap_volt * np.cos(phi_s[i])
+        E_s += dsgn_Egain
+
+    # gap locations from zero are given by cumulative sum of center-to-center
+    # distances.
+    return gap_dist.cumsum()
+
+
 def calc_zESQ(zgaps, zFcup, d=3.0 * mm, lq=0.695 * mm):
     """Function to calculate ESQ doublet positions with separation d and voltage Vq
 
