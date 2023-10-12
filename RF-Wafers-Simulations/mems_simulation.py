@@ -567,7 +567,7 @@ while tracker.getz()[-1] < Fcup.zcent - Fcup.zsize:
     wp.step(1)
 
 tracker_fin_time = tracker.gett()[-1]
-final_time = tracker_fin_time + 1 / 10 * period
+final_time = tracker_fin_time + 1 * period
 wp.top.vbeamfrm = 0.0
 while wp.top.time < final_time:
     reset_tracker(tracker, int(len(tracker.getx()) - 1), 0.0)
