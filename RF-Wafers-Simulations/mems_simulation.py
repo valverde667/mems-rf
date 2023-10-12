@@ -996,19 +996,3 @@ hf.close()
 # are z, vz, t. Note the tracker is always at x=y=0 amd vx=vy=0.
 tracker_data = np.array([tracker.getz(), tracker.getvz(), tracker.gett()])
 np.save(os.path.join(path, "trace_particle_data.npy"), tracker_data)
-
-# def save_data():
-#     ind = int(len(zdiagns) - 1)
-#
-#     this_I = wp.top.currlw[: wp.top.ilabwn[ind, 0], ind, 0]
-#     this_t = wp.top.timelw[: wp.top.ilabwn[ind, 0], ind, 0]
-#
-#     zselect = np.where(beam.getz(lost=1) > zdiagns[ind].getzz() - 5 * dz)[0]
-#     this_vz = beam.getvz(lost=1)[zselect]
-#
-#     np.save("runC_I", this_I)
-#     np.save("runC_time", this_t)
-#     np.save("runC_vz", this_vz)
-#     np.save("runC_tracker_t", tracker.gett())
-#     np.save("runC_tracker_z", tracker.getz())
-#     np.save("runC_tracker_vz", tracker.getvz())
