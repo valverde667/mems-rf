@@ -7,6 +7,7 @@
 # range in z.
 
 import numpy as np
+import h5py
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib.backends.backend_pdf import PdfPages
@@ -113,7 +114,7 @@ lq = 0.696 * mm
 Vq = 0.2 * kV
 gap_width = 2 * mm
 Vg = 7 * kV
-Ng = 4
+Ng = 2
 Fcup_dist = 10 * mm
 
 # Match section Parameters
@@ -129,7 +130,7 @@ emittingRadius = 0.25 * mm
 aperture = 0.55 * mm
 
 # Lattice Controls
-do_matching_section = True
+do_matching_section = False
 do_focusing_quads = True
 moving_frame = True
 moving_win_size = 13.5 * mm
@@ -142,7 +143,7 @@ emit = 1.336 * mm * mrad
 init_I = 10 * uA
 Np_injected = 0  # initialize injection counter
 Np_max = int(1e5)
-beam_length = period / 2  # in seconds
+beam_length = period  # in seconds
 
 dsgn_phase = -np.pi / 2.0
 
@@ -316,7 +317,7 @@ wp.top.zwindows[:, 1] = [lab_center - zwin_length, lab_center + zwin_length]
 ilws = []
 zdiagns = []
 ilws.append(wp.addlabwindow(2.0 * dz))  # Initial lab window
-zdiagns.append(ZCrossingParticles(zz=2.0 * dz, laccumulate=1))
+zdiagns.append(ZCrossingParticles(zz=wp.top.zinject[0] + 2.0 * dz, laccumulate=1))
 
 # Loop through quad centers in matching section and place diagnostics at center
 # point between quads.
@@ -566,7 +567,7 @@ while tracker.getz()[-1] < Fcup.zcent - Fcup.zsize:
     wp.step(1)
 
 tracker_fin_time = tracker.gett()[-1]
-final_time = tracker_fin_time + 1 * period
+final_time = tracker_fin_time + 1 / 10 * period
 wp.top.vbeamfrm = 0.0
 while wp.top.time < final_time:
     reset_tracker(tracker, int(len(tracker.getx()) - 1), 0.0)
@@ -952,6 +953,49 @@ with PdfPages(path + "/" + "win-histories" + ".pdf") as pdf:
     pdf.savefig()
     plt.close()
 
+# ------------------------------------------------------------------------------
+#    Saving Particle Data
+# Save particle data at zdiagnostics. The data will be a list of Npi by 8 arrays.
+# Npi is the number of particles at each diagnostic that made it through. This
+# will generally be different as particles will be lot. The 8 columns are
+# x, y, xp, yp, vx, vy, vz, t. Each z-location will be the same and will be recorded
+# as the last element in the list of matrices. Thus, the first m-1 elements of the
+# list will be the particle data matrices, and the final element an array of
+# z-coordinates for the particle diagnostics. Since this data set will be
+# inhomogenous, the data will be saved as an HD5 file.
+# The tracker particle data will also be saved and is much easier.
+# ------------------------------------------------------------------------------
+# Initialize list to hold particle data and data to get. Also create data keys
+# for the HD5 file. The first keys will be the zdiagnostic numbers and the last
+# key for the z locations.
+particle_data = []
+data_vars = ["x", "y", "xp", "yp", "vx", "vy", "vz", "t"]
+zdiagns_z = np.array([zd.zz for zd in zdiagns])
+data_keys = [f"zd{i:d}" for i in range(len(zdiagns) - 1)]
+data_keys.append("zz")
+
+# Loop through zdiagnostics and form the data matrix.
+for i, diag in enumerate(zdiagns):
+    this_Np = len(diag.gett())
+    this_data_matrix = np.zeros(shape=(this_Np, len(data_vars)))
+
+    # Loop through data variables and assign values to matrix
+    for i, var in enumerate(data_vars):
+        this_data_matrix[:, i] = getattr(diag, f"get{var}")()
+
+    particle_data.append(this_data_matrix)
+
+# Loop through the data arrays and create the HD5 file
+particle_data.append(zdiagns_z)
+hf = h5py.File(os.path.join(path, "particle_data.h5"), "w")
+for i, key in enumerate(data_keys):
+    hf.create_dataset(key, data=particle_data[i])
+hf.close()
+
+# Create tracker data that is 3byN where N is the number of points and the rows
+# are z, vz, t. Note the tracker is always at x=y=0 amd vx=vy=0.
+tracker_data = np.array([tracker.getz(), tracker.getvz(), tracker.gett()])
+np.save(os.path.join(path, "trace_particle_data.npy"), tracker_data)
 
 # def save_data():
 #     ind = int(len(zdiagns) - 1)
