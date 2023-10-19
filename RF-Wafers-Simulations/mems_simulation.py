@@ -113,8 +113,8 @@ def set_lhistories():
 lq = 0.696 * mm
 Vq = 0.2 * kV
 gap_width = 2 * mm
-Vg = 7 * kV
-Ng = 2
+Vg = 6 * kV
+Ng = 4
 Fcup_dist = 10 * mm
 
 # Match section Parameters
@@ -131,7 +131,7 @@ aperture = 0.55 * mm
 
 # Lattice Controls
 do_matching_section = False
-do_focusing_quads = True
+do_focusing_quads = False
 moving_frame = True
 moving_win_size = 13.5 * mm
 
@@ -151,6 +151,21 @@ dsgn_phase = -np.pi / 2.0
 beam = wp.Species(type=wp.Argon, charge_state=1, name="Ar+", color=wp.blue)
 tracked_ions = wp.Species(type=wp.Argon, charge_state=0, name="Track", color=wp.red)
 mass_eV = beam.mass * pow(SC.c, 2) / wp.jperev
+
+# ------------------------------------------------------------------------------
+#     Beam and ion specifications
+# ------------------------------------------------------------------------------
+beam.a0 = emittingRadius
+beam.b0 = emittingRadius
+beam.ap0 = 0.0
+beam.bp0 = 0.0
+beam.ibeam = init_I
+beam.vbeam = 0.0
+beam.ekin = init_E
+beam.emit = emit
+vth = np.sqrt(Tb * wp.jperev / beam.mass)
+wp.derivqty()
+
 # ------------------------------------------------------------------------------
 #     Gap Centers
 # Here, the gaps are initialized using the design values listed. The first gap
@@ -193,8 +208,8 @@ if moving_frame:
         wp.w3d.zmmin = match_centers[0] - lq / 2.0 - esq_space
         wp.w3d.zmmax = 2.0 * moving_win_size + wp.w3d.zmmin
     else:
-        wp.w3d.zmmin = -1 * mm
-        wp.w3d.zmmax = wp.w3d.zmmin + moving_win_size
+        wp.w3d.zmmin = -beam_length * beam.vbeam / 2.0
+        wp.w3d.zmmax = (gap_centers[-1] - gap_centers[-2]) + abs(wp.w3d.zmmin)
 else:
     if do_matching_section:
         wp.w3d.zmmin = match_centers[0] - lq / 2.0 - esq_space
@@ -217,19 +232,6 @@ wp.w3d.boundxy = wp.periodic
 wp.top.pbound0 = wp.absorb
 wp.top.pboundnz = wp.absorb
 wp.top.prwall = aperture
-
-# ------------------------------------------------------------------------------
-#     Beam and ion specifications
-# ------------------------------------------------------------------------------
-beam.a0 = emittingRadius
-beam.b0 = emittingRadius
-beam.ap0 = 0.0
-beam.bp0 = 0.0
-beam.ibeam = init_I
-beam.vbeam = 0.0
-beam.ekin = init_E
-beam.emit = emit
-vth = np.sqrt(Tb * wp.jperev / beam.mass)
 
 # keep track of when the particles are born
 wp.top.inject = 1
@@ -317,7 +319,7 @@ wp.top.zwindows[:, 1] = [lab_center - zwin_length, lab_center + zwin_length]
 ilws = []
 zdiagns = []
 ilws.append(wp.addlabwindow(2.0 * dz))  # Initial lab window
-zdiagns.append(ZCrossingParticles(zz=wp.top.zinject[0] + 2.0 * dz, laccumulate=1))
+zdiagns.append(ZCrossingParticles(zz=wp.top.zinject[0] + 10.0 * dz, laccumulate=1))
 
 # Loop through quad centers in matching section and place diagnostics at center
 # point between quads.
@@ -356,7 +358,7 @@ tracker = TraceParticle(
     js=tracked_ions.js,
     x=0.0 * mm,
     y=0.0,
-    z=wp.top.zinject[0],
+    z=0.0,
     vx=0.0,
     vy=0.0,
     vz=beam.vbeam,
@@ -500,6 +502,7 @@ if beam_length != None:
     tracker.enable()
 
     while wp.top.time <= beam_length:
+        wp.top.vbeamfrm = tracker.getvz()[-1]
         wp.window(2)
         plotbeam(lplt_tracker=True)
         wp.fma()
@@ -507,16 +510,6 @@ if beam_length != None:
 
     wp.top.inject = 0
     wp.uninstalluserinjection(injection)
-
-    # Wait for tracker to get to the center of the cell and then start moving frame
-    while tracker.getz()[-1] < lab_center:
-        reset_tracker(tracker, int(len(tracker.getx()) - 1), 0.0)
-        if wp.top.it % 5 == 0:
-            wp.window(2)
-            plotbeam(lplt_tracker=True)
-            wp.fma()
-
-        wp.step(1)
 
 else:
     while wp.top.time < 1.0 * period:
@@ -554,7 +547,6 @@ else:
 
 #         wp.step(1)
 
-wp.top.vbeamfrm = tracker.getvz()[-1]
 # wp.top.dt = 0.7 * dz / tracker.getvz()[-1]
 while tracker.getz()[-1] < Fcup.zcent - Fcup.zsize:
     wp.top.vbeamfrm = tracker.getvz()[-1]
@@ -996,3 +988,123 @@ hf.close()
 # are z, vz, t. Note the tracker is always at x=y=0 amd vx=vy=0.
 tracker_data = np.array([tracker.getz(), tracker.getvz(), tracker.gett()])
 np.save(os.path.join(path, "trace_particle_data.npy"), tracker_data)
+
+# Create plots and export to pdf for each diagnostic. At each diagnostic the
+# particles are binned based on time for a fixed dt. The edges of the particle
+# binning are used to create masks and grab the indices in the particle arrays for
+# each bin of particles. The statistics are then calculated over the bins and
+# plotted to give a time evolution of the statistic over the diagnostic.
+hist_dt = 0.5 * ns
+with PdfPages(path + "/" + "diagnostic_plots" + ".pdf") as pdf:
+    # Start the main loop. This will loop through each zdiagnostic and then
+    # do the selection and plotting. After each loop, a collection of pdfs is
+    # sent is saved and the process repeated.
+    for i, zd in enumerate(zdiagns):
+        # Bin particles
+        num_bins = int((zd.gett().max() - zd.gett().min()) / hist_dt)
+        counts, edges = np.histogram(zd.gett(), bins=num_bins)
+
+        # Get index for when design particle crossed.
+        dsgn_ind = np.argmin(abs(tracker.getz() - zd.zz))
+        this_ts = tracker.gett()[dsgn_ind]
+        this_Es = 0.5 * beam.mass * pow(tracker.getvz()[dsgn_ind], 2) / wp.jperev
+        this_I = counts * wp.echarge * pweight / hist_dt
+
+        # Loop through and get indices of particles belonging to each bin
+        bin_indices = []
+        for j in range(len(edges) - 1):
+            inds = np.where((zd.gett() >= edges[j]) & (zd.gett() < edges[j + 1]))[0]
+            bin_indices.append(inds)
+
+        # Each array of indices can no be looped through and the desired statistics
+        # computed over all particles within that time bin.
+        rx = np.zeros(len(bin_indices))
+        rxp = np.zeros(len(bin_indices))
+        emitx = np.zeros(len(bin_indices))
+        emitnx = np.zeros(len(bin_indices))
+        vzbar = np.zeros(len(bin_indices))
+        energy = np.zeros(len(bin_indices))
+        Q = np.zeros(len(bin_indices))
+
+        for k, indices in enumerate(bin_indices):
+            # Compute statistical envelope edge radii and envelope edge angle
+            rx[k] = 2 * np.sqrt(np.mean(pow(zd.getx()[indices], 2)))
+            rxp[k] = 2 * np.mean(zd.getx()[indices] * zd.getxp()[indices]) / (rx[k] / 2)
+
+            # Compute emittance and normalized emittance in x
+            xbarsq = np.mean(pow(zd.getx()[indices], 2))
+            xpbarsq = np.mean(pow(zd.getxp()[indices], 2))
+            xxpbarsq = pow(xbarsq * xpbarsq, 2)
+            emitx[k] = 4 * np.sqrt(xbarsq * xpbarsq - xxpbarsq)
+            vzbar[k] = np.mean(zd.getvz()[indices])
+            emitnx[k] = vzbar[k] / SC.c * emitx[k]
+
+            # Compute energy
+            energy[k] = 0.5 * beam.mass * pow(vzbar[k], 2) / wp.jperev
+
+            # Compute perveance
+            Qnum = wp.echarge * this_I[k]
+            Qdenom = 4.0 * np.pi * wp.eps0 * vzbar[k] * energy[k] * wp.jperev
+            Q[k] = Qnum / Qdenom
+
+        # Now make plots
+        plot_title = f"zd{i+1}"
+        time_data = (edges[:-1] - this_ts) / ns
+
+        fig, ax = plt.subplots()
+        ax.plot(time_data, this_I / init_I)
+        ax.set_xlabel(r"$\Delta t$ (ns)")
+        ax.set_ylabel(r"$I/I_0$")
+        ax.set_title(plot_title)
+        plt.tight_layout()
+        pdf.savefig()
+        plt.close()
+
+        fig, ax = plt.subplots()
+        ax.plot(time_data, (energy - this_Es) / keV)
+        ax.set_xlabel(r"$\Delta t$ (ns)")
+        ax.set_ylabel(r"$\Delta\mathcal{E}$ (keV)")
+        ax.set_title(plot_title)
+        plt.tight_layout()
+        pdf.savefig()
+        plt.close()
+
+        fig, ax = plt.subplots()
+        ax.plot(time_data, rx / mm)
+        ax.set_xlabel(r"$\Delta t$ (ns)")
+        ax.set_ylabel(r"Envelope Radius $r_x$ (mm)")
+        ax.set_title(plot_title)
+        plt.tight_layout()
+        pdf.savefig()
+        plt.close()
+
+        fig, ax = plt.subplots()
+        ax.plot(time_data, rxp / mrad)
+        ax.set_xlabel(r"$\Delta t$ (ns)")
+        ax.set_ylabel(r"Envelope Radius $r'_x$ (mm)")
+        ax.set_title(plot_title)
+        plt.tight_layout()
+        pdf.savefig()
+        plt.close()
+
+        fig, ax = plt.subplots()
+        ax.plot(time_data, emitx / mm / mrad)
+        ax.set_xlabel(r"$\Delta t$ (ns)")
+        ax.set_ylabel(
+            r"$4\sqrt{\langle x^2 \rangle \langle x'^2 \rangle - \langle xx' \rangle^2 }$ (mm-mrad)"
+        )
+        ax.set_title(plot_title)
+        plt.tight_layout()
+        pdf.savefig()
+        plt.close()
+
+        fig, ax = plt.subplots()
+        ax.plot(time_data, emitnx / mm / mrad)
+        ax.set_xlabel(r"$\Delta t$ (ns)")
+        ax.set_ylabel(
+            r"$4\beta_b \sqrt{\langle x^2 \rangle \langle x'^2 \rangle - \langle xx' \rangle^2 }$ (mm-mrad)"
+        )
+        ax.set_title(plot_title)
+        plt.tight_layout()
+        pdf.savefig()
+        plt.close()
