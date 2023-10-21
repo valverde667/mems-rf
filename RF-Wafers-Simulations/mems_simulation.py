@@ -286,7 +286,7 @@ def injection():
         np=Np_inject,
         rmax=emittingRadius,
         zmin=wp.top.zinject[0],
-        zmax=wp.top.zinject[0] + wp.top.dz,
+        zmax=wp.top.zinject[0] + beam.vbeam * wp.top.dt,
         vthx=vth,
         vthy=vth,
         vthz=vth,
