@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.patches as patches
+import seaborn as sns
 import scipy.constants as SC
 import time
 import datetime
@@ -114,7 +115,7 @@ lq = 0.696 * mm
 Vq = 0.2 * kV
 gap_width = 2 * mm
 Vg = 6 * kV
-Ng = 4
+Ng = 6
 Fcup_dist = 10 * mm
 
 # Match section Parameters
@@ -176,7 +177,7 @@ wp.derivqty()
 # ensure proper particle-particle interactions at the head of the beam.
 # ------------------------------------------------------------------------------
 # Design phases are specified with the max field corresponding to phi_s=0.
-phi_s = np.ones(Ng) * dsgn_phase * 0
+phi_s = np.array([-1 / 2, -1 / 6, -1 / 3, 0, 0, 0]) * np.pi
 gap_mode = np.zeros(len(phi_s))
 gap_dist = np.zeros(Ng)
 E_s = init_E
@@ -285,7 +286,7 @@ def injection():
         np=Np_inject,
         rmax=emittingRadius,
         zmin=wp.top.zinject[0],
-        zmax=wp.top.zinject[0] + inj_dz,
+        zmax=wp.top.zinject[0] + wp.top.dz,
         vthx=vth,
         vthy=vth,
         vthz=vth,
@@ -995,25 +996,53 @@ np.save(os.path.join(path, "trace_particle_data.npy"), tracker_data)
 # each bin of particles. The statistics are then calculated over the bins and
 # plotted to give a time evolution of the statistic over the diagnostic.
 hist_dt = 0.5 * ns
+time_select = 0.4 * period
 with PdfPages(path + "/" + "diagnostic_plots" + ".pdf") as pdf:
     # Start the main loop. This will loop through each zdiagnostic and then
     # do the selection and plotting. After each loop, a collection of pdfs is
     # sent is saved and the process repeated.
     for i, zd in enumerate(zdiagns):
-        # Bin particles
-        num_bins = int((zd.gett().max() - zd.gett().min()) / hist_dt)
-        counts, edges = np.histogram(zd.gett(), bins=num_bins)
-
         # Get index for when design particle crossed.
         dsgn_ind = np.argmin(abs(tracker.getz() - zd.zz))
         this_ts = tracker.gett()[dsgn_ind]
         this_Es = 0.5 * beam.mass * pow(tracker.getvz()[dsgn_ind], 2) / wp.jperev
+
+        # Mask the particles based on time_select. Then, bin the particles
+        if time_select != None:
+            mask_time = abs(zd.gett() - this_ts) <= time_select
+            zdtmask = zd.gett()[mask_time]
+            num_bins = int(
+                (zd.gett()[mask_time].max() - zd.gett()[mask_time].min()) / hist_dt
+            )
+            counts, edges = np.histogram(zd.gett()[mask_time], bins=num_bins)
+            this_Np = int(np.sum(counts))
+        else:
+            # Create a mask that selects all particles. A bit redundant but the
+            # subsequent code is easier if a mask is used.
+            mask_time = np.ones(len(zd.gett()), dtype=bool)
+            zdtmask = zd.gett()[mask_time]
+            num_bins = int((zd.gett().max() - zd.gett().min()) / hist_dt)
+            counts, edges = np.histogram(zd.gett(), bins=num_bins)
+            this_Np = int(np.sum(counts))
+
+        # Extract masked data from the zd outputs.
+        zdx = zd.getx()[mask_time]
+        zdy = zd.gety()[mask_time]
+        zdt = zd.gett()[mask_time]
+        zdxp = zd.getxp()[mask_time]
+        zdyp = zd.getyp()[mask_time]
+        zdvx = zd.getvx()[mask_time]
+        zdvy = zd.getvy()[mask_time]
+        zdvz = zd.getvz()[mask_time]
+
+        # Calculate the energy and current for this diagnostic
+        this_E = 0.5 * beam.mass * pow(zdvz, 2) / wp.jperev
         this_I = counts * wp.echarge * pweight / hist_dt
 
         # Loop through and get indices of particles belonging to each bin
         bin_indices = []
         for j in range(len(edges) - 1):
-            inds = np.where((zd.gett() >= edges[j]) & (zd.gett() < edges[j + 1]))[0]
+            inds = np.where((zdt >= edges[j]) & (zdt < edges[j + 1]))[0]
             bin_indices.append(inds)
 
         # Each array of indices can no be looped through and the desired statistics
@@ -1028,15 +1057,15 @@ with PdfPages(path + "/" + "diagnostic_plots" + ".pdf") as pdf:
 
         for k, indices in enumerate(bin_indices):
             # Compute statistical envelope edge radii and envelope edge angle
-            rx[k] = 2 * np.sqrt(np.mean(pow(zd.getx()[indices], 2)))
-            rxp[k] = 2 * np.mean(zd.getx()[indices] * zd.getxp()[indices]) / (rx[k] / 2)
+            rx[k] = 2 * np.sqrt(np.mean(pow(zdx[indices], 2)))
+            rxp[k] = 2 * np.mean(zdx[indices] * zdxp[indices]) / (rx[k] / 2)
 
             # Compute emittance and normalized emittance in x
-            xbarsq = np.mean(pow(zd.getx()[indices], 2))
-            xpbarsq = np.mean(pow(zd.getxp()[indices], 2))
+            xbarsq = np.mean(pow(zdx[indices], 2))
+            xpbarsq = np.mean(pow(zdxp[indices], 2))
             xxpbarsq = pow(xbarsq * xpbarsq, 2)
             emitx[k] = 4 * np.sqrt(xbarsq * xpbarsq - xxpbarsq)
-            vzbar[k] = np.mean(zd.getvz()[indices])
+            vzbar[k] = np.mean(zdvz[indices])
             emitnx[k] = vzbar[k] / SC.c * emitx[k]
 
             # Compute energy
@@ -1053,6 +1082,14 @@ with PdfPages(path + "/" + "diagnostic_plots" + ".pdf") as pdf:
 
         fig, ax = plt.subplots()
         ax.plot(time_data, this_I / init_I)
+        if time_select != None:
+            ax.axvline(
+                x=time_select / ns, c="g", ls="--", lw=1, label="$t$-filter boundary"
+            )
+            ax.axvline(x=-time_select / ns, c="g", ls="--", lw=1)
+        ax.axhline(y=1, c="k", lw=1)
+        ax.axvline(x=0, c="r", ls="--", lw=1, label="Design Particle")
+        ax.legend()
         ax.set_xlabel(r"$\Delta t$ (ns)")
         ax.set_ylabel(r"$I/I_0$")
         ax.set_title(plot_title)
@@ -1061,10 +1098,64 @@ with PdfPages(path + "/" + "diagnostic_plots" + ".pdf") as pdf:
         plt.close()
 
         fig, ax = plt.subplots()
+        ax.plot(time_data, Q / 1e-5)
+        ax.set_xlabel(r"$\Delta t$ (ns)")
+        ax.set_ylabel(r"$\bar{Q} \times 10^{-5}$")
+        if time_select != None:
+            ax.axvline(
+                x=time_select / ns, c="g", ls="--", lw=1, label="$t$-filter boundary"
+            )
+            ax.axvline(x=-time_select / ns, c="g", ls="--", lw=1)
+        ax.axhline(y=0, c="k", lw=1)
+        ax.axvline(x=0, c="r", ls="--", lw=1, label="Design Particle")
+        ax.legend()
+        ax.set_title(plot_title)
+        plt.tight_layout()
+        pdf.savefig()
+        plt.close()
+
+        fig, ax = plt.subplots()
         ax.plot(time_data, (energy - this_Es) / keV)
         ax.set_xlabel(r"$\Delta t$ (ns)")
-        ax.set_ylabel(r"$\Delta\mathcal{E}$ (keV)")
+        ax.set_ylabel(r"$\Delta\bar{\mathcal{E}}$ (keV)")
+        if time_select != None:
+            ax.axvline(
+                x=time_select / ns, c="g", ls="--", lw=1, label="$t$-filter boundary"
+            )
+            ax.axvline(x=-time_select / ns, c="g", ls="--", lw=1)
+        ax.axhline(y=0, c="r", ls="--", lw=1, label="Design Particle")
+        ax.axvline(x=0, c="r", ls="--", lw=1)
+        ax.legend()
         ax.set_title(plot_title)
+        plt.tight_layout()
+        pdf.savefig()
+        plt.close()
+
+        # Create phase space plots of energy and time. Due to the large number
+        # of particles, make a random selection of 10,000. If less than 10,000
+        # plot all of them.
+        if this_Np < int(1e4):
+            rand_ints = np.random.randint(0, high=this_Np - 1, size=int(this_Np))
+        else:
+            rand_ints = np.random.randint(0, high=this_Np - 1, size=int(1e4))
+
+        fig, ax = plt.subplots()
+        ax.scatter(
+            (zdt[rand_ints] - this_ts) / ns,
+            (this_E[rand_ints] - this_Es) / keV,
+            s=3,
+            c="k",
+        )
+        ax.set_xlabel(r"$\Delta t$ (ns)")
+        ax.set_ylabel(r"$\Delta \mathcal{E}$ (keV)")
+        if time_select != None:
+            ax.axvline(
+                x=time_select / ns, c="g", ls="--", lw=1, label="$t$-filter boundary"
+            )
+            ax.axvline(x=-time_select / ns, c="g", ls="--", lw=1)
+        ax.axhline(y=0, c="r", ls="--", lw=1, label="Design Particle")
+        ax.axvline(x=0, c="r", ls="--", lw=1)
+        ax.legend()
         plt.tight_layout()
         pdf.savefig()
         plt.close()
@@ -1072,7 +1163,16 @@ with PdfPages(path + "/" + "diagnostic_plots" + ".pdf") as pdf:
         fig, ax = plt.subplots()
         ax.plot(time_data, rx / mm)
         ax.set_xlabel(r"$\Delta t$ (ns)")
-        ax.set_ylabel(r"Envelope Radius $r_x$ (mm)")
+        ax.set_ylabel(r"$\bar{r_x}$ (mm)")
+        if time_select != None:
+            ax.axvline(
+                x=time_select / ns, c="g", ls="--", lw=1, label="$t$-filter boundary"
+            )
+            ax.axvline(x=-time_select / ns, c="g", ls="--", lw=1)
+        ax.axhline(y=0, c="k", ls="--", lw=1)
+        ax.axhline(y=aperture / mm, c="k", ls="--", lw=1, label="Aperture")
+        ax.axvline(x=0, c="r", ls="--", lw=1, label="Design Particle")
+        ax.legend()
         ax.set_title(plot_title)
         plt.tight_layout()
         pdf.savefig()
@@ -1081,7 +1181,15 @@ with PdfPages(path + "/" + "diagnostic_plots" + ".pdf") as pdf:
         fig, ax = plt.subplots()
         ax.plot(time_data, rxp / mrad)
         ax.set_xlabel(r"$\Delta t$ (ns)")
-        ax.set_ylabel(r"Envelope Radius $r'_x$ (mm)")
+        ax.set_ylabel(r"$\bar{r}'_x$ (mrad)")
+        if time_select != None:
+            ax.axvline(
+                x=time_select / ns, c="g", ls="--", lw=1, label="$t$-filter boundary"
+            )
+            ax.axvline(x=-time_select / ns, c="g", ls="--", lw=1)
+        ax.axhline(y=0, c="k", ls="--", lw=1)
+        ax.axvline(x=0, c="r", ls="--", lw=1, label="Design Particle")
+        ax.legend()
         ax.set_title(plot_title)
         plt.tight_layout()
         pdf.savefig()
@@ -1090,9 +1198,15 @@ with PdfPages(path + "/" + "diagnostic_plots" + ".pdf") as pdf:
         fig, ax = plt.subplots()
         ax.plot(time_data, emitx / mm / mrad)
         ax.set_xlabel(r"$\Delta t$ (ns)")
-        ax.set_ylabel(
-            r"$4\sqrt{\langle x^2 \rangle \langle x'^2 \rangle - \langle xx' \rangle^2 }$ (mm-mrad)"
-        )
+        ax.set_ylabel(r"$\bar{\epsilon}_x$ (mm-mrad)")
+        if time_select != None:
+            ax.axvline(
+                x=time_select / ns, c="g", ls="--", lw=1, label="$t$-filter boundary"
+            )
+            ax.axvline(x=-time_select / ns, c="g", ls="--", lw=1)
+        ax.axhline(y=0, c="k", ls="--", lw=1)
+        ax.axvline(x=0, c="r", ls="--", lw=1, label="Design Particle")
+        ax.legend()
         ax.set_title(plot_title)
         plt.tight_layout()
         pdf.savefig()
@@ -1101,9 +1215,15 @@ with PdfPages(path + "/" + "diagnostic_plots" + ".pdf") as pdf:
         fig, ax = plt.subplots()
         ax.plot(time_data, emitnx / mm / mrad)
         ax.set_xlabel(r"$\Delta t$ (ns)")
-        ax.set_ylabel(
-            r"$4\beta_b \sqrt{\langle x^2 \rangle \langle x'^2 \rangle - \langle xx' \rangle^2 }$ (mm-mrad)"
-        )
+        ax.set_ylabel(r"$\bar{\epsilon}_{x,n}$ (mm-mrad)")
+        if time_select != None:
+            ax.axvline(
+                x=time_select / ns, c="g", ls="--", lw=1, label="$t$-filter boundary"
+            )
+            ax.axvline(x=-time_select / ns, c="g", ls="--", lw=1)
+        ax.axhline(y=0, c="k", ls="--", lw=1)
+        ax.axvline(x=0, c="r", ls="--", lw=1, label="Design Particle")
+        ax.legend()
         ax.set_title(plot_title)
         plt.tight_layout()
         pdf.savefig()
