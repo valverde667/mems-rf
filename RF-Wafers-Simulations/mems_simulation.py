@@ -209,7 +209,7 @@ if moving_frame:
         wp.w3d.zmmin = match_centers[0] - lq / 2.0 - esq_space
         wp.w3d.zmmax = 2.0 * moving_win_size + wp.w3d.zmmin
     else:
-        wp.w3d.zmmin = -beam_length * beam.vbeam / 2.0
+        wp.w3d.zmmin = -beam_length * beam.vbeam
         wp.w3d.zmmax = (gap_centers[-1] - gap_centers[-2]) + abs(wp.w3d.zmmin)
 else:
     if do_matching_section:
