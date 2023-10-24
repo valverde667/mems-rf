@@ -114,7 +114,7 @@ def set_lhistories():
 lq = 0.696 * mm
 Vq = 0.2 * kV
 gap_width = 2 * mm
-Vg = 6 * kV
+Vg = 6 * (1 + 0.031) * kV
 phi_s = np.array([-1 / 2, -1 / 6, -1 / 3, 0, 0, 0]) * np.pi
 gap_mode = np.zeros(len(phi_s))
 Ng = len(phi_s)
