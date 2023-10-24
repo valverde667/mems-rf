@@ -203,19 +203,11 @@ wp.w3d.ymmin = -wp.w3d.ymmax
 # moving window. If the frame isn't moving, then the grid will need to encapsulate
 # the simulation lattice.
 if moving_frame:
-    if do_matching_section:
-        wp.w3d.zmmin = match_centers[0] - lq / 2.0 - esq_space
-        wp.w3d.zmmax = 2.0 * moving_win_size + wp.w3d.zmmin
-    else:
-        wp.w3d.zmmin = -period * beam.vbeam
-        wp.w3d.zmmax = (gap_centers[-1] - gap_centers[-2]) + abs(wp.w3d.zmmin)
+    wp.w3d.zmmin = -period * beam.vbeam
+    wp.w3d.zmmax = (gap_centers[-1] - gap_centers[-2]) + abs(wp.w3d.zmmin)
 else:
-    if do_matching_section:
-        wp.w3d.zmmin = match_centers[0] - lq / 2.0 - esq_space
-        wp.w3d.zmmax = gap_centers[0] + gap_width / 2.0 + Fcup_dist
-    else:
-        wp.w3d.zmmin = -1 * mm
-        wp.w3d.zmmax = gap_centers[0] + gap_width / 2.0 + Fcup_dist
+    wp.w3d.zmmin = -3 * mm
+    wp.w3d.zmmax = gap_centers[0] + gap_width / 2.0 + Fcup_dist
 
 wp.w3d.nx = 50
 wp.w3d.ny = 50
