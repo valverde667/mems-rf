@@ -115,7 +115,9 @@ lq = 0.696 * mm
 Vq = 0.2 * kV
 gap_width = 2 * mm
 Vg = 6 * kV
-Ng = 6
+phi_s = np.array([-1 / 2, -1 / 6, -1 / 3, 0, 0, 0]) * np.pi
+gap_mode = np.zeros(len(phi_s))
+Ng = len(phi_s)
 Fcup_dist = 10 * mm
 
 # Match section Parameters
@@ -146,8 +148,6 @@ Np_injected = 0  # initialize injection counter
 Np_max = int(1e5)
 beam_length = period  # in seconds
 
-dsgn_phase = -np.pi / 2.0
-
 # Specify Species and ion type
 beam = wp.Species(type=wp.Argon, charge_state=1, name="Ar+", color=wp.blue)
 tracked_ions = wp.Species(type=wp.Argon, charge_state=0, name="Track", color=wp.red)
@@ -177,8 +177,6 @@ wp.derivqty()
 # ensure proper particle-particle interactions at the head of the beam.
 # ------------------------------------------------------------------------------
 # Design phases are specified with the max field corresponding to phi_s=0.
-phi_s = np.array([-1 / 2, -1 / 6, -1 / 3, 0, 0, 0]) * np.pi
-gap_mode = np.zeros(len(phi_s))
 gap_dist = np.zeros(Ng)
 E_s = init_E
 gap_centers = mems_utils.calc_gap_centers(E_s, mass_eV, phi_s, gap_mode, freq, Vg)
