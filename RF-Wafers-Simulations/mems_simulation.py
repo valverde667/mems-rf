@@ -314,7 +314,7 @@ wp.top.zwindows[:, 1] = [lab_center - zwin_length, lab_center + zwin_length]
 ilws = []
 zdiagns = []
 ilws.append(wp.addlabwindow(2.0 * dz))  # Initial lab window
-zdiagns.append(ZCrossingParticles(zz=wp.top.zinject[0] + 10.0 * dz, laccumulate=1))
+zdiagns.append(ZCrossingParticles(zz=wp.top.zinject[0] + 2.0 * dz, laccumulate=1))
 
 # Loop through quad centers in matching section and place diagnostics at center
 # point between quads.
@@ -485,51 +485,27 @@ def plotbeam(lplt_tracker=True):
         wp.plp(tracker.getx()[-1], tracker.getz()[-1], color=wp.red, msize=3)
 
 
-# Inject particles for a full-period, then inject the tracker particle and
-# continue injection till the tracker particle is at grid center.
-if beam_length != None:
-    while wp.top.time <= beam_length / 2:
-        wp.window(2)
-        plotbeam(lplt_tracker=True)
-        wp.fma()
-        wp.step()
+# Inject particles based on beam length. The injection will be centered around
+# the design particle so that the injection cycle will go for t=beam_length/2,
+# then enable the design particle. Once the design particle is enabled
+# the window begins moving and the injection is continued for another beam_length/2.
+while wp.top.time <= beam_length / 2:
+    wp.window(2)
+    plotbeam(lplt_tracker=True)
+    wp.fma()
+    wp.step()
 
-    tracker.enable()
+tracker.enable()
 
-    while wp.top.time <= beam_length:
-        wp.top.vbeamfrm = tracker.getvz()[-1]
-        wp.window(2)
-        plotbeam(lplt_tracker=True)
-        wp.fma()
-        wp.step()
+while wp.top.time <= beam_length:
+    wp.top.vbeamfrm = tracker.getvz()[-1]
+    wp.window(2)
+    plotbeam(lplt_tracker=True)
+    wp.fma()
+    wp.step()
 
-    wp.top.inject = 0
-    wp.uninstalluserinjection(injection)
-
-else:
-    while wp.top.time < 1.0 * period:
-        if wp.top.it % 10 == 0:
-            wp.window(2)
-            plotbeam()
-            wp.fma()
-
-        wp.step(1)
-
-    tracker.enable()
-
-    # Wait for tracker to get to the center of the cell and then start moving frame
-    while tracker.getz()[-1] < lab_center:
-        reset_tracker(tracker, int(len(tracker.getx()) - 1), 0.0)
-        if wp.top.it % 5 == 0:
-            wp.window(2)
-            plotbeam(lplt_tracker=True)
-            wp.fma()
-
-        wp.step(1)
-
-    # Turn off injection once grid starts moving
-    wp.top.inject = 0
-    wp.uninstalluserinjection(injection)
+wp.top.inject = 0
+wp.uninstalluserinjection(injection)
 
 # for i in range(Ng - 2):
 #     # wp.top.dt = 0.7 * dz / tracker.getvz()[-1]
@@ -991,6 +967,8 @@ np.save(os.path.join(path, "trace_particle_data.npy"), tracker_data)
 # plotted to give a time evolution of the statistic over the diagnostic.
 hist_dt = 0.5 * ns
 time_select = 0.4 * period
+
+# Calculate number of particles with time window
 with PdfPages(path + "/" + "diagnostic_plots" + ".pdf") as pdf:
     # Start the main loop. This will loop through each zdiagnostic and then
     # do the selection and plotting. After each loop, a collection of pdfs is
