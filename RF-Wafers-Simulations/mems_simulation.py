@@ -140,7 +140,9 @@ moving_win_size = 13.5 * mm
 
 # Beam Paramters
 init_E = 7.0 * keV
-Tb = 0.1  # eV
+Tbx = 0.1  # eV
+Tby = Tbx
+Tbz = 0.1  # eV
 div_angle = 3.78 * mrad
 emit = 1.336 * mm * mrad
 init_I = 10 * uA
@@ -164,7 +166,9 @@ beam.ibeam = init_I
 beam.vbeam = 0.0
 beam.ekin = init_E
 beam.emit = emit
-vth = np.sqrt(Tb * wp.jperev / beam.mass)
+vthx = np.sqrt(Tbx * wp.jperev / beam.mass)
+vthy = np.sqrt(Tby * wp.jperev / beam.mass)
+vthz = np.sqrt(Tbz * wp.jperev / beam.mass)
 wp.derivqty()
 
 # ------------------------------------------------------------------------------
@@ -277,9 +281,9 @@ def injection():
         rmax=emittingRadius,
         zmin=wp.top.zinject[0],
         zmax=wp.top.zinject[0] + beam.vbeam * wp.top.dt,
-        vthx=vth,
-        vthy=vth,
-        vthz=vth,
+        vthx=vthx,
+        vthy=vthy,
+        vthz=vthz,
         vzmean=beam.vbeam,
         vxmean=0.0,
         vymean=0.0,
