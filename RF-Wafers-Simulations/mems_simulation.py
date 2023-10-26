@@ -115,7 +115,7 @@ lq = 0.696 * mm
 Vq = 0.2 * kV
 gap_width = 2 * mm
 Vg = 6 * (1 + 0.031) * kV
-phi_s = np.array([-1 / 2, -1 / 6, -1 / 3, 0, 0, 0]) * np.pi
+phi_s = np.array([-1 / 2, -1 / 6, -1 / 3, 0]) * np.pi
 gap_mode = np.zeros(len(phi_s))
 Ng = len(phi_s)
 Fcup_dist = 10 * mm
@@ -685,13 +685,6 @@ with open(output_file_path, "w") as file:
     file.write(f"{'x Grid spacing:':<30} {wp.w3d.dx:>.4e} [m]" + "\n")
     file.write(f"{'y Grid spacing:':<30} {wp.w3d.dx:>.4e} [m]" + "\n")
 
-    # file.write("#----- End Outputs")
-    # file.write(f"{'Time step:':<30} {wp.top.dt:>.4e} [s]" + "\n")
-    # file.write(f"{'z Grid spacing:':<30} {dz:>.4e} [m]" + "\n")
-    # file.write(f"{'x Grid spacing:':<30} {wp.w3d.dx:>.4e} [m]" + "\n")
-    # file.write(f"{'y Grid spacing:':<30} {wp.w3d.dx:>.4e} [m]" + "\n")
-
-
 # Loop through lab windows and plot onto pdf.
 for key in Data.data_lw_keys:
     with PdfPages(path + "/" + key + ".pdf") as pdf:
@@ -968,11 +961,13 @@ np.save(os.path.join(path, "trace_particle_data.npy"), tracker_data)
 hist_dt = 0.5 * ns
 time_select = 0.4 * period
 
-# Calculate number of particles with time window
+# Create array to hold the number of particles at each diagnostic
+Np_select = np.zeros(len(zdiagns))
 with PdfPages(path + "/" + "diagnostic_plots" + ".pdf") as pdf:
     # Start the main loop. This will loop through each zdiagnostic and then
     # do the selection and plotting. After each loop, a collection of pdfs is
     # sent is saved and the process repeated.
+    particle_counts = np.zeros(len(zdiagns))
     for i, zd in enumerate(zdiagns):
         # Get index for when design particle crossed.
         dsgn_ind = np.argmin(abs(tracker.getz() - zd.zz))
@@ -988,6 +983,7 @@ with PdfPages(path + "/" + "diagnostic_plots" + ".pdf") as pdf:
             )
             counts, edges = np.histogram(zd.gett()[mask_time], bins=num_bins)
             this_Np = int(np.sum(counts))
+            Np_select[i] = this_Np
         else:
             # Create a mask that selects all particles. A bit redundant but the
             # subsequent code is easier if a mask is used.
@@ -996,6 +992,7 @@ with PdfPages(path + "/" + "diagnostic_plots" + ".pdf") as pdf:
             num_bins = int((zd.gett().max() - zd.gett().min()) / hist_dt)
             counts, edges = np.histogram(zd.gett(), bins=num_bins)
             this_Np = int(np.sum(counts))
+            Np_select[i] = this_Np
 
         # Extract masked data from the zd outputs.
         zdx = zd.getx()[mask_time]
@@ -1049,7 +1046,7 @@ with PdfPages(path + "/" + "diagnostic_plots" + ".pdf") as pdf:
             Q[k] = Qnum / Qdenom
 
         # Now make plots
-        plot_title = f"zd{i+1}"
+        plot_title = f"zd{i+1} at {zd.zz/mm:.2f} (mm)"
         time_data = (edges[:-1] - this_ts) / ns
 
         fig, ax = plt.subplots()
@@ -1200,3 +1197,18 @@ with PdfPages(path + "/" + "diagnostic_plots" + ".pdf") as pdf:
         plt.tight_layout()
         pdf.savefig()
         plt.close()
+
+    # Create final plot of fraction of particles at each diagnostic
+    fig, ax = plt.subplots()
+    ax.plot([zd.zz / mm for zd in zdiagns], Np_select / Np_select[0])
+    ax.scatter([zd.zz / mm for zd in zdiagns], Np_select / Np_select[0])
+    for gc in gap_centers[:-1]:
+        ax.axvline(x=gc / mm, c="k", ls="--", lw=1)
+    ax.axvline(x=gap_centers[-1] / mm, c="k", ls="--", lw=1, label="Gap Center")
+    ax.axhline(y=1, c="k", lw=1)
+    ax.axhline(y=0, c="k", lw=1)
+    ax.set_xlabel(r"Diagnostic Location (mm)")
+    ax.set_ylabel(r"Fraction of Remaining Bucket Particles")
+    plt.tight_layout()
+    pdf.savefig()
+    plt.close()
