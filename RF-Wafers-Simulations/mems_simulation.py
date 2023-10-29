@@ -114,7 +114,8 @@ def set_lhistories():
 lq = 0.696 * mm
 Vq = 0.2 * kV
 gap_width = 2 * mm
-Vg = 6 * (1 + 0.031) * kV
+Vg_scale = 1 + 0.031  # Scale plate voltage so that Vg is reached on-axis
+Vg = 6 * Vg_scale * kV
 phi_s = np.array([-1 / 2, -1 / 6, -1 / 3, 0]) * np.pi
 gap_mode = np.zeros(len(phi_s))
 Ng = len(phi_s)
@@ -183,7 +184,9 @@ wp.derivqty()
 # Design phases are specified with the max field corresponding to phi_s=0.
 gap_dist = np.zeros(Ng)
 E_s = init_E
-gap_centers = mems_utils.calc_gap_centers(E_s, mass_eV, phi_s, gap_mode, freq, Vg)
+gap_centers = mems_utils.calc_gap_centers(
+    E_s, mass_eV, phi_s, gap_mode, freq, Vg / Vg_scale
+)
 
 if do_matching_section:
     match_centers = mems_utils.calc_zmatch_sect(lq, esq_space, Nq=Nq_match)
@@ -679,7 +682,7 @@ with open(output_file_path, "w") as file:
         f"{'Sync Phi:':<30} {np.array2string(phi_s*180/np.pi,precision=3)} [deg]" + "\n"
     )
 
-    file.write("#----- Numerical Parameters")
+    file.write("#----- Numerical Parameters" + "\n")
     file.write(f"{'Time step:':<30} {wp.top.dt:>.4e} [s]" + "\n")
     file.write(f"{'z Grid spacing:':<30} {dz:>.4e} [m]" + "\n")
     file.write(f"{'x Grid spacing:':<30} {wp.w3d.dx:>.4e} [m]" + "\n")
@@ -959,7 +962,7 @@ np.save(os.path.join(path, "trace_particle_data.npy"), tracker_data)
 # each bin of particles. The statistics are then calculated over the bins and
 # plotted to give a time evolution of the statistic over the diagnostic.
 hist_dt = 0.5 * ns
-time_select = 0.4 * period
+time_select = 0.2 * period
 
 # Create array to hold the number of particles at each diagnostic
 Np_select = np.zeros(len(zdiagns))
@@ -1108,25 +1111,21 @@ with PdfPages(path + "/" + "diagnostic_plots" + ".pdf") as pdf:
         else:
             rand_ints = np.random.randint(0, high=this_Np - 1, size=int(1e4))
 
-        fig, ax = plt.subplots()
-        ax.scatter(
-            (zdt[rand_ints] - this_ts) / ns,
-            (this_E[rand_ints] - this_Es) / keV,
-            s=3,
-            c="k",
+        g = mems_utils.make_dist_plot(
+            (zdt[rand_ints] - this_ts) / period,
+            this_E[rand_ints] / keV,
+            xlabel=r"Relative Time Difference $\Delta t / \tau_{rf}$",
+            ylabel=r"Energy Difference $\matchal{E}$ (keV)",
+            auto_clip=True,
+            xref=0.0,
+            yref=this_Es / keV,
+            levels=15,
+            bins=40,
+            weight=1 / Np,
+            dx_bin=0.015,
+            dy_bin=0.5,
         )
-        ax.set_xlabel(r"$\Delta t$ (ns)")
-        ax.set_ylabel(r"$\Delta \mathcal{E}$ (keV)")
-        if time_select != None:
-            ax.axvline(
-                x=time_select / ns, c="g", ls="--", lw=1, label="$t$-filter boundary"
-            )
-            ax.axvline(x=-time_select / ns, c="g", ls="--", lw=1)
-        ax.axhline(y=0, c="r", ls="--", lw=1, label="Design Particle")
-        ax.axvline(x=0, c="r", ls="--", lw=1)
-        ax.legend()
-        plt.tight_layout()
-        pdf.savefig()
+        pdf.savefig(g.fig)
         plt.close()
 
         fig, ax = plt.subplots()
