@@ -3,6 +3,8 @@ import scipy.constants as SC
 import os
 import glob
 import shutil
+import matplotlib.pyplot as plt
+import seaborn as sns
 from matplotlib.backends.backend_pdf import PdfPages
 import warp as wp
 
@@ -965,6 +967,77 @@ def calc_phase_shift(freq, distance, vbeam):
     phase = twopi * freq * distance / vbeam
 
     return phase
+
+
+def make_dist_plot(
+    xdata,
+    ydata,
+    xlabel="",
+    ylabel="",
+    auto_clip=True,
+    xclip=(None, None),
+    yclip=(None, None),
+    levels=30,
+    bins=50,
+    xref=None,
+    yref=None,
+    weight=None,
+    dx_bin=None,
+    dy_bin=None,
+):
+    """Quick Function to make a joint plot for the distribution of x and y data.
+
+    The function uses seaborns JointGrid to create a KDE plot on the main figure and
+    histograms of the xdata and ydata on the margins.
+
+    """
+    if auto_clip:
+        cut = 0
+    with sns.axes_style("darkgrid"):
+        g = sns.JointGrid(x=xdata, y=ydata, marginal_ticks=True, height=6, ratio=2)
+        if auto_clip:
+            g.plot_joint(sns.kdeplot, levels=levels, fill=True, cmap="flare", cut=0)
+        else:
+            g.plot_joint(
+                sns.kdeplot, fill=True, levels=levels, cmap="flare", clip=(xclip, yclip)
+            )
+        sns.histplot(
+            x=xdata,
+            bins=bins,
+            edgecolor="k",
+            lw=0.5,
+            alpha=0.7,
+            stat="count",
+            weights=weight,
+            binwidth=dx_bin,
+            ax=g.ax_marg_x,
+        )
+        sns.histplot(
+            y=ydata,
+            bins=bins,
+            edgecolor="k",
+            lw=0.5,
+            alpha=0.7,
+            stat="count",
+            weights=weight,
+            binwidth=dy_bin,
+            ax=g.ax_marg_y,
+        )
+        if xref != None:
+            g.refline(x=xref)
+        if yref != None:
+            g.refline(y=yref)
+
+        g.set_axis_labels(
+            xlabel=r"Relative Time Difference $\Delta t / \tau_{rf}$",
+            ylabel=rf"Kinetic Energy $\mathcal{{E}}$ (keV)",
+        )
+        g.ax_marg_x.set_ylabel(r"Counts/$N_p$")
+        g.ax_marg_y.set_xlabel(r"Counts/$N_p$")
+
+    plt.tight_layout()
+
+    return g
 
 
 def zdiagnostics(
