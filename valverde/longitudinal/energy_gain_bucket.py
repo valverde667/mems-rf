@@ -69,7 +69,7 @@ Np = int(1e4)
 # Simulation parameters for gaps and geometries
 Ng = 4
 gap_width = 2.0 * mm
-dsgn_gap_volt = 7.0 * kV
+dsgn_gap_volt = 6.0 * (1 + 0.031) * kV
 real_gap_volt = dsgn_gap_volt
 dsgn_freq = 13.6 * MHz
 real_freq = dsgn_freq
@@ -121,8 +121,7 @@ plots_filename = "all-diagnostics.pdf"
 # Calculate additional gap centers if applicable. Here the design values should
 # be used. The first gap is always placed such that the design particle will
 # arrive at the desired phase when starting at z=0 with energy W.
-phi_s = np.ones(Ng) * dsgn_phase * 0
-phi_s = np.array([-1 / 2, -1 / 6, -1 / 3, 0]) * np.pi
+phi_s = np.array([-1 / 2, -1 / 6, -1 / 3, 0.0]) * np.pi
 gap_mode = np.zeros(len(phi_s))
 E_s = dsgn_initE
 Emax = Ng * dsgn_gap_volt + dsgn_initE
@@ -496,13 +495,21 @@ d_bucket_tcounts, d_bucket_tedges = np.histogram(d_bucket_t, bins=100)
 
 # Calculate percent of particles that in plot
 percent_parts = np.sum(d_bucket_tcounts) / Np * 100
-
+Np_select = np.sum(mask)
 # Repeat previous plots for the selected particles
+Np_zdiagnostic = np.zeros(len(zdiagnostics))
 if l_plot_bucket_diagnostics:
     for i, zloc in enumerate(zdiagnostics):
+        this_Np = len(Ediagnostic[mask, i])
+        this_Np_select = np.sum(abs(tdiagnostic[:, i] - t_sdiagnostic[i]) <= alpha_t)
+        Np_zdiagnostic[i] = this_Np_select
+        if this_Np < int(1e4):
+            rand_ints = np.random.randint(0, high=this_Np - 1, size=int(this_Np))
+        else:
+            rand_ints = np.random.randint(0, high=this_Np - 1, size=int(1e4))
         # Grab energy and time
-        this_E = Ediagnostic[mask, i]
-        this_t = tdiagnostic[mask, i]
+        this_E = Ediagnostic[mask, i][rand_ints]
+        this_t = tdiagnostic[mask, i][rand_ints]
         this_Es = E_sdiagnostic[i]
         this_ts = t_sdiagnostic[i]
         dt = this_t - this_ts
@@ -517,7 +524,7 @@ if l_plot_bucket_diagnostics:
             yref=this_Es / keV,
             levels=15,
             bins=40,
-            weight=1 / Np,
+            weight=1 / Np_select,
             dx_bin=0.015,
             dy_bin=0.5,
         )
