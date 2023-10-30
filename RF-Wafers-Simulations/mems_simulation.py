@@ -245,13 +245,6 @@ pweight = wp.top.dt * init_I / beam.charge / Np_inject
 beam.pgroup.sw[beam.js] = pweight
 tracked_ions.pgroup.sw[tracked_ions.js] = 0
 
-# Set z-location of injection. This uses the phase shift to ensure rf resonance
-# with the trace particle
-if do_matching_section:
-    wp.top.zinject = wp.w3d.zmmin + 2 * dz
-else:
-    wp.top.zinject = 0.0
-
 # Calculate phase shift needed to be in resonance
 phase_shift = mems_utils.calc_phase_shift(
     freq,
@@ -1121,7 +1114,7 @@ with PdfPages(path + "/" + "diagnostic_plots" + ".pdf") as pdf:
             yref=this_Es / keV,
             levels=15,
             bins=40,
-            weight=1 / Np,
+            weight=1 / this_Np,
             dx_bin=0.015,
             dy_bin=0.5,
         )
