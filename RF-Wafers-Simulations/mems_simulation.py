@@ -308,9 +308,9 @@ wp.top.zwindows[:, 1] = [lab_center - zwin_length, lab_center + zwin_length]
 # RMS values. Also set the diagnostic for collecting individual particle data
 # as they cross.
 ilws = []
-zdiagns = []
+diagns_zgap = []
 ilws.append(wp.addlabwindow(2.0 * dz))  # Initial lab window
-zdiagns.append(ZCrossingParticles(zz=wp.top.zinject[0] + 2.0 * dz, laccumulate=1))
+diagns_zgap.append(ZCrossingParticles(zz=wp.top.zinject[0] + 2.0 * dz, laccumulate=1))
 
 # Loop through quad centers in matching section and place diagnostics at center
 # point between quads.
@@ -318,16 +318,16 @@ if do_matching_section:
     for i in range(Nq_match - 1):
         zloc = (match_centers[i + 1] + match_centers[i]) / 2.0
         ilws.append(wp.addlabwindow(zloc))
-        zdiagns.append(ZCrossingParticles(zz=zloc, laccumulate=1))
+        diagns_zgap.append(ZCrossingParticles(zz=zloc, laccumulate=1))
 
 # Loop through gap_centers and place diagnostics at center point between gaps.
 for i in range(Ng - 1):
     zloc = (gap_centers[i + 1] + gap_centers[i]) / 2.0
     ilws.append(wp.addlabwindow(zloc))
-    zdiagns.append(ZCrossingParticles(zz=zloc, laccumulate=1))
+    diagns_zgap.append(ZCrossingParticles(zz=zloc, laccumulate=1))
 
 ilws.append(wp.addlabwindow(gap_centers[-1] + Fcup_dist))
-zdiagns.append(ZCrossingParticles(zz=gap_centers[-1] + Fcup_dist, laccumulate=1))
+diagns_zgap.append(ZCrossingParticles(zz=gap_centers[-1] + Fcup_dist, laccumulate=1))
 
 # Set up fieldsolver
 solver = wp.MRBlock3D()
@@ -403,7 +403,7 @@ Fcup = wp.Box(
     xsize=wp.top.largepos,
     ysize=wp.top.largepos,
     zsize=5.0 * dz,
-    zcent=zdiagns[-1].getzz() + 2 * mm,
+    zcent=diagns_zgap[-1].getzz() + 2 * mm,
 )
 
 if do_focusing_quads:
@@ -526,6 +526,7 @@ while tracker.getz()[-1] < Fcup.zcent - Fcup.zsize:
     wp.step(1)
 
 tracker_fin_time = tracker.gett()[-1]
+tracker_fin_E = 0.5 * beam.mass * pow(tracker.getvz()[-1], 2) / wp.jperev
 final_time = tracker_fin_time + 1 * period
 wp.top.vbeamfrm = 0.0
 while wp.top.time < final_time:
@@ -544,13 +545,13 @@ print(f"----- Run Time: {(end_time - start_time)/60.:.4f} (min)")
 # Here the final diagnostics are computed/extracted. The diagnostic plots are
 # made.
 # ------------------------------------------------------------------------------
-Np_delivered = zdiagns[-1].getvz().shape[0]
-Efin = beam.mass * pow(zdiagns[-1].getvz(), 2) / 2.0 / wp.jperev
-tfin = zdiagns[-1].gett()
+Np_delivered = diagns_zgap[-1].getvz().shape[0]
+Efin = beam.mass * pow(diagns_zgap[-1].getvz(), 2) / 2.0 / wp.jperev
+tfin = diagns_zgap[-1].gett()
 frac_delivered = Np_delivered / Np_injected
 frac_lost = abs(Np_delivered - Np_injected) / Np_injected
 
-Data = mems_utils.Data_Ext(ilws, zdiagns, beam, tracker)
+Data = mems_utils.Data_Ext(ilws, diagns_zgap, beam, tracker)
 Data.grab_data()
 
 # ------------------------------------------------------------------------------
@@ -593,10 +594,12 @@ with PdfPages(path + "/trace.pdf") as pdf:
 # Make Energy histograms
 with PdfPages(path + "/Ehists.pdf") as pdf:
     # loop through zcrossings and plot histogram of energy and time
-    for i in range(len(zdiagns)):
-        this_E = 0.5 * beam.mass * pow(zdiagns[i].getvz(), 2) / wp.jperev
-        this_t = zdiagns[i].gett()
-        this_ts = tracker.gett()[np.argmin(abs(zdiagns[i].getzz() - tracker.getz()))]
+    for i in range(len(diagns_zgap)):
+        this_E = 0.5 * beam.mass * pow(diagns_zgap[i].getvz(), 2) / wp.jperev
+        this_t = diagns_zgap[i].gett()
+        this_ts = tracker.gett()[
+            np.argmin(abs(diagns_zgap[i].getzz() - tracker.getz()))
+        ]
 
         fig, ax = plt.subplots(ncols=2)
         Eax, tax = ax[0], ax[1]
@@ -614,7 +617,7 @@ with PdfPages(path + "/Ehists.pdf") as pdf:
         )
         Eax.set_xlabel("Kinetic Energy (keV)")
         Eax.set_ylabel("Fraction of Particles")
-        Eax.set_title(f"z={zdiagns[i].getzz()/mm:.2f} (mm)")
+        Eax.set_title(f"z={diagns_zgap[i].getzz()/mm:.2f} (mm)")
 
         tax.bar(
             tedges[:-1] / ns,
@@ -625,7 +628,7 @@ with PdfPages(path + "/Ehists.pdf") as pdf:
         )
         tax.set_xlabel(f"Time (ns), Tracker time = {this_ts/ns:.2f} (ns)")
         tax.set_ylabel("Fraction of Particles")
-        tax.set_title(f"z={zdiagns[i].getzz()/mm:.2f} (mm)")
+        tax.set_title(f"z={diagns_zgap[i].getzz()/mm:.2f} (mm)")
 
         plt.tight_layout()
         pdf.savefig()
@@ -706,7 +709,7 @@ for key in Data.data_lw_keys:
             ax.plot(this_t[mask] / scale_time, this_y[mask] / scale_y)
             ax.set_xlabel(xlabel)
             ax.set_ylabel(ylabel)
-            ax.set_title(f"z={zdiagns[i].getzz()/mm:.2f} (mm)")
+            ax.set_title(f"z={diagns_zgap[i].getzz()/mm:.2f} (mm)")
             plt.tight_layout()
             pdf.savefig()
             plt.close()
@@ -922,12 +925,12 @@ with PdfPages(path + "/" + "win-histories" + ".pdf") as pdf:
 # key for the z locations.
 particle_data = []
 data_vars = ["x", "y", "xp", "yp", "vx", "vy", "vz", "t"]
-zdiagns_z = np.array([zd.zz for zd in zdiagns])
-data_keys = [f"zd{i:d}" for i in range(len(zdiagns) - 1)]
+zdiagns_z = np.array([zd.zz for zd in diagns_zgap])
+data_keys = [f"zd{i:d}" for i in range(len(zdiagns_z) - 1)]
 data_keys.append("zz")
 
 # Loop through zdiagnostics and form the data matrix.
-for i, diag in enumerate(zdiagns):
+for i, diag in enumerate(diagns_zgap):
     this_Np = len(diag.gett())
     this_data_matrix = np.zeros(shape=(this_Np, len(data_vars)))
 
@@ -938,7 +941,7 @@ for i, diag in enumerate(zdiagns):
     particle_data.append(this_data_matrix)
 
 # Loop through the data arrays and create the HD5 file
-particle_data.append(zdiagns_z)
+particle_data.append(diagns_zgap)
 hf = h5py.File(os.path.join(path, "particle_data.h5"), "w")
 for i, key in enumerate(data_keys):
     hf.create_dataset(key, data=particle_data[i])
@@ -955,16 +958,16 @@ np.save(os.path.join(path, "trace_particle_data.npy"), tracker_data)
 # each bin of particles. The statistics are then calculated over the bins and
 # plotted to give a time evolution of the statistic over the diagnostic.
 hist_dt = 0.5 * ns
-time_select = 0.2 * period
+time_select = 0.05 * period
 
 # Create array to hold the number of particles at each diagnostic
-Np_select = np.zeros(len(zdiagns))
+Np_select = np.zeros(len(diagns_zgap))
 with PdfPages(path + "/" + "diagnostic_plots" + ".pdf") as pdf:
     # Start the main loop. This will loop through each zdiagnostic and then
     # do the selection and plotting. After each loop, a collection of pdfs is
     # sent is saved and the process repeated.
-    particle_counts = np.zeros(len(zdiagns))
-    for i, zd in enumerate(zdiagns):
+    particle_counts = np.zeros(len(diagns_zgap))
+    for i, zd in enumerate(diagns_zgap):
         # Get index for when design particle crossed.
         dsgn_ind = np.argmin(abs(tracker.getz() - zd.zz))
         this_ts = tracker.gett()[dsgn_ind]
@@ -1192,8 +1195,8 @@ with PdfPages(path + "/" + "diagnostic_plots" + ".pdf") as pdf:
 
     # Create final plot of fraction of particles at each diagnostic
     fig, ax = plt.subplots()
-    ax.plot([zd.zz / mm for zd in zdiagns], Np_select / Np_select[0])
-    ax.scatter([zd.zz / mm for zd in zdiagns], Np_select / Np_select[0])
+    ax.plot([zd.zz / mm for zd in diagns_zgap], Np_select / Np_select[0])
+    ax.scatter([zd.zz / mm for zd in diagns_zgap], Np_select / Np_select[0])
     for gc in gap_centers[:-1]:
         ax.axvline(x=gc / mm, c="k", ls="--", lw=1)
     ax.axvline(x=gap_centers[-1] / mm, c="k", ls="--", lw=1, label="Gap Center")
