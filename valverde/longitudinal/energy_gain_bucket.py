@@ -15,13 +15,13 @@ from matplotlib.animation import FuncAnimation
 import scipy.constants as SC
 import scipy.integrate as integrate
 import scipy.optimize as opt
+import periodictable
 import seaborn as sns
 import os
 import pdb
 import time
 
 import energy_sim_utils as utils
-import warp as wp
 
 mpl.rcParams["xtick.direction"] = "in"
 mpl.rcParams["xtick.minor.visible"] = True
@@ -36,9 +36,10 @@ mpl.rcParams["figure.max_open_warning"] = 60
 
 # different particle masses in eV
 # amu in eV
-amu_to_eV = wp.amu * pow(SC.c, 2) / wp.echarge
-kV = 1000
-keV = 1000
+amu_to_eV = SC.physical_constants["atomic mass constant energy equivalent in MeV"][0]
+kV = 1000.0
+keV = 1000.0
+meV = 1.0e6
 MHz = 1e6
 cm = 1e-2
 mm = 1e-3
@@ -57,38 +58,38 @@ twopi = 2 * np.pi
 # such as the average DC electric field and initial RF wavelength are computed.
 # ------------------------------------------------------------------------------
 st = time.time()
-# Designate particle type
-ion = wp.Species(type=wp.Argon, charge_state=+1)
-mass = ion.mass * pow(SC.c, 2) / wp.echarge
 
-# Simulation Parameters for design particle
-dsgn_phase = -np.pi / 2
+# Design particle and beam parameters
+ion = periodictable.argon
+mass = ion.mass * amu_to_eV * meV
 dsgn_initE = 7.0 * kV
+Tb = 0.1
 Np = int(1e4)
 
 # Simulation parameters for gaps and geometries
-Ng = 4
+phi_s = np.array([0.0, -1 / 6, -1 / 3, -1 / 2]) * np.pi
+Ng = len(phi_s)
 gap_width = 2.0 * mm
-dsgn_gap_volt = 6.0 * (1 + 0.031) * kV
-real_gap_volt = dsgn_gap_volt
+voltage_scale = 1 + 0.031
+dsgn_gap_volt = 6.0 * voltage_scale * kV
 dsgn_freq = 13.6 * MHz
+real_gap_volt = dsgn_gap_volt
 real_freq = dsgn_freq
+
+# Calculate some useful quanitites
 E_DC = real_gap_volt / gap_width
 h_rf = SC.c / dsgn_freq
 T_rf = 1.0 / dsgn_freq
-Tb = 0.1  # eV
+E_spredicted = dsgn_initE + np.sum(
+    np.array([dsgn_gap_volt * np.cos(phi) / voltage_scale for phi in phi_s])
+)
+E_max_attainable = dsgn_initE * dsgn_gap_volt / voltage_scale * Ng
 
 # Energy analyzer parameters
 Fcup_dist = 10 * mm
-dist_to_dipole = 25.0 * mm * 0
-dipole_length = 50.0 * mm
-dipole_gap_width = 11.0 * mm
-dist_to_slit = 185.0 * mm
-slit_width = 1.0 * mm
-slit_center = 37 * mm
 
 # Compute useful values
-E_DC = real_gap_volt / gap_width
+E_DC = real_gap_volt / gap_width / voltage_scale
 dsgn_omega = twopi * dsgn_freq
 
 # Fractions to mask particles in order to create a bucket for analysis.
@@ -120,13 +121,10 @@ plots_filename = "all-diagnostics.pdf"
 # ------------------------------------------------------------------------------
 # Calculate additional gap centers if applicable. Here the design values should
 # be used. The first gap is always placed such that the design particle will
-# arrive at the desired phase when starting at z=0 with energy W.
-phi_s = np.array([-1 / 2, -1 / 6, -1 / 3, 0.0]) * np.pi
+# arrive at the desired phase when starting at z=0 with initial energy.
 gap_mode = np.zeros(len(phi_s))
-E_s = dsgn_initE
-Emax = Ng * dsgn_gap_volt + dsgn_initE
 gap_centers = utils.calc_gap_centers(
-    E_s, mass, phi_s, gap_mode, dsgn_freq, dsgn_gap_volt
+    dsgn_initE, mass, phi_s, gap_mode, dsgn_freq, dsgn_gap_volt / voltage_scale
 )
 # ------------------------------------------------------------------------------
 #    Mesh setup
@@ -249,11 +247,8 @@ parts_E = np.zeros(Np)
 parts_E[:] = np.random.normal(loc=dsgn_initE, scale=Tb, size=Np)
 
 parts_time = np.zeros(Np)
+
 # Initialize particles be distributed around the synchronous particle's phase
-phi_dev_plus = np.pi - dsgn_phase
-phi_dev_minus = abs(-np.pi - dsgn_phase)
-E_dev = 0.0 * keV
-init_phase = np.linspace(dsgn_phase - phi_dev_minus, dsgn_phase + phi_dev_plus, Np)
 init_time = np.linspace(-T_rf / 2, T_rf / 2, Np)
 
 parts_pos[:] = z.min()
@@ -287,35 +282,19 @@ t_sdiagnostic[0] = dsgn_time[0]
 Ediagnostic[:, 0] = parts_E
 tdiagnostic[:, 0] = parts_time
 Iavg = SC.e * Np / (parts_time[-1] - parts_time[0])
-
-# Create Hamiltonianian diagnostics
-z_Hdiagnostic = np.zeros(Ng)
-for i in range(1, Ng):
-    z_Hdiagnostic[i - 1] = (gap_centers[i - 1] + gap_centers[i]) / 2
-z_Hdiagnostic[-1] = (gap_centers[-1] + z.max()) / 2
-
-i_Hdiagnostic = np.zeros(len(z_Hdiagnostic), dtype=int)
-for i, zloc in enumerate(z_Hdiagnostic):
-    ind = np.argmin(abs(z - z_Hdiagnostic[i]))
-    i_Hdiagnostic[i] = ind
-H_tdiagnostic = np.zeros(shape=(Np, Ng))
-H_Ediagnostic = np.zeros(shape=(Np, Ng))
-
-H_Esdiagnostic = np.zeros(Ng)
-H_tsdiagnostic = np.zeros(Ng)
-
+stop
 # ------------------------------------------------------------------------------
 #    System Outputs
 # Print some of the system parameters being used.
 # ------------------------------------------------------------------------------
 print("")
 print("#----- Injected Beam")
-print(f"{'Ion:':<30} {ion.type.name}")
+print(f"{'Ion:':<30} {ion.name}")
 print(f"{'Number of Particles:':<30} {Np:.0e}")
 print(f"{'Injection Energy:':<30} {dsgn_E[0]/keV:.2f} [keV]")
-print(f"{'Initial Energy Spread:':<30} {E_dev/keV:.3f} [keV]")
+print(f"{'Beam Temperature':<30} {Tb:.2f} [eV]")
 print(f"{'Injected Average Current Iavg:':<30} {Iavg/mA:.4e} [mA]")
-print(f"{'Predicted Final Design Energy:':<30} {E_s/keV:.2f} [keV]")
+print(f"{'Predicted Final Design Energy:':<30} {dsgn_initE/keV:.2f} [keV]")
 
 print("#----- Acceleration Lattice")
 print(f"{'Number of Gaps':<30} {int(Ng)}")
@@ -348,7 +327,6 @@ print(
 # ------------------------------------------------------------------------------
 # Main loop to advance particles. Real parameter settings should be used here.
 idiagn_count = 1
-i_Hdiagn_count = 0
 for i in range(1, len(z)):
     # Do design particle
     this_dz = z[i] - z[i - 1]
@@ -382,16 +360,6 @@ for i in range(1, len(z)):
 
         idiagn_count += 1
 
-    # Check Hamiltonian diagnostic point
-    if i <= i_Hdiagnostic[-1]:
-        if i == i_Hdiagnostic[i_Hdiagn_count]:
-            # Grab data for diagnostic point in Energy and Time
-            H_Ediagnostic[:, i_Hdiagn_count] = parts_E
-            H_tdiagnostic[:, i_Hdiagn_count] = parts_time
-            H_Esdiagnostic[i_Hdiagn_count] = dsgn_E[i]
-            H_tsdiagnostic[i_Hdiagn_count] = dsgn_time[i]
-
-            i_Hdiagn_count += 1
 
 # Convert nan values to 0
 final_E = np.nan_to_num(parts_E[:])
@@ -431,9 +399,15 @@ if l_plot_diagnostics:
             dt / T_rf,
             this_E / keV,
             xlabel=r"Relative Time Difference $\Delta t / \tau_{rf}$",
-            ylabel=r"Kinetic Energy $E$ (keV)",
+            ylabel=r"Relative Energy Difference $\Delta {E}$ (keV)",
+            auto_clip=True,
             xref=0.0,
             yref=this_Es / keV,
+            levels=15,
+            bins=40,
+            weight=1 / Np_select,
+            dx_bin=0.015,
+            dy_bin=0.5,
         )
 
 
@@ -455,33 +429,6 @@ if l_mask_with_Fraction:
     maskt = abs(final_dt) <= alpha_t
     mask = maskt & maskE
 
-if l_mask_with_Hamiltonian:
-    phi2 = np.zeros(Ng)
-    for i in range(len(phi_s)):
-        root = opt.root(calc_root_H, -0.75 * np.pi, args=phi_s[i])
-        phi2[i] = root.x
-
-    # Compute the time differentials for the two roots of the Hamiltonian. Select
-    # particles based on these times.
-    H_dt_list = []
-    for i in range(Ng):
-        phi_neg = phi2[i]
-        phi_pos = -phi_s[i]
-        tneg = phi_neg / twopi / dsgn_freq
-        tpos = phi_pos / twopi / dsgn_freq
-        H_dt_list.append((tneg, tpos))
-
-    # Mask particles based on the time differences found above.
-    Hmasks = []
-    for i, Hdt in enumerate(H_dt_list):
-        this_ts = H_tsdiagnostic[i]
-        this_t = H_tdiagnostic[:, i]
-        this_mask = (this_t >= Hdt[0] + this_ts) & (this_t <= Hdt[-1] + this_ts)
-        Hmasks.append(this_mask)
-
-    # Create final mask
-    mask = Hmasks[-2] & maskE
-
 bucket_E = Ediagnostic[mask, -1]
 bucket_time = tdiagnostic[mask, -1]
 
@@ -496,6 +443,7 @@ d_bucket_tcounts, d_bucket_tedges = np.histogram(d_bucket_t, bins=100)
 # Calculate percent of particles that in plot
 percent_parts = np.sum(d_bucket_tcounts) / Np * 100
 Np_select = np.sum(mask)
+
 # Repeat previous plots for the selected particles
 Np_zdiagnostic = np.zeros(len(zdiagnostics))
 if l_plot_bucket_diagnostics:
