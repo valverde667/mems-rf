@@ -7,12 +7,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import scipy.constants as SC
-
-import warp as wp
+import periodictable
 
 # different particle masses in eV
 # amu in eV
-amu_to_eV = wp.amu * pow(SC.c, 2) / wp.echarge
+amu_to_eV = SC.physical_constants["atomic mass constant energy equivalent in MeV"][0]
 kV = 1000
 keV = 1000
 MHz = 1e6
@@ -314,6 +313,66 @@ def make_dist_plot(
 
     The function uses seaborns JointGrid to create a KDE plot on the main figure and
     histograms of the xdata and ydata on the margins.
+
+    Parameters
+    ----------
+    xdata: array
+        Data to plot on x-axis and make a histogram on top of main plot.
+
+    ydata: array
+        Data to plot on y-axis and make histogram to the right of main plot.
+
+    xlabel: string
+        Label for xdata
+
+    ylabel: string
+        Label for ydata
+
+    auto_clip: bool
+        This option will clip the KDE plot so that areas without data will not
+        be represented. For example, if there is data to some xmax point because
+        the KDE plot is uses a distribution to estimate, the heat map will show
+        have contours greater than xmax. However, if auto_clip is set to True, the
+        data has a hard cut off and there will be no contour outside the data limits.
+
+    xclip: tuple
+        Tuple of bool values. The first entry is the lower limit to clip values.
+        The second entry is the upper limit. One or both can be set to a value.
+
+    yclip: tuple
+        Option for the y-values (see xclip).
+
+    levels: int
+        Number of contours to map.
+
+    bins: int
+        Number of bins to use for binning data.
+
+    xref: float
+        This value will add a reference line to the main plot for assistance in
+        visualizing the x-data. For example, setting xref=1.0 will plot a vertical
+        dashed line on the plot at x=1.0. This line will also show on the histogram.
+
+    yref:
+        Reference value for ydata (see xref).
+
+    weight: float
+        Value to weight the data by. Useful if one wants to bin the fractional
+        counts rather than total counts.
+
+    dx_bin: float
+        This value will set the width of the histogram bins. This option superced
+        the bins argument and thus should only be set if one desires a fixed resolution
+        and not a fixed number of bins.
+
+    dy_bin: float
+        Fixed bin width of y-data (see dx_bin).
+
+    Returns
+    -------
+    g: object
+        Plot object that can be manipulated through matplotlib options for plot
+        objects.
 
     """
     if auto_clip:
