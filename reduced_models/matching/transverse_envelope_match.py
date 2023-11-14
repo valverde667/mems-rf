@@ -1,5 +1,8 @@
-# Solve KV-envelope equations with given initial conditions and different
-# lattice creations.
+# Model the transverse dynamics by solving the KV-envelope equations. This model
+# uses the extracted fields from both the acceleration gaps and the optimized
+# ESQ models to integrate the KV equations. Additionally, there are options to
+# find the optimized voltage or 4D coordinates by using the Nelder-Mead search
+# algorithm.
 
 import numpy as np
 import os
@@ -250,9 +253,14 @@ plt.tight_layout()
 
 # ------------------------------------------------------------------------------
 #    Data Saving and Export
-# Here, the data is collected into a single array and exported to the csv file.
+# Here, the data is collected into a single array. The data can be exported to a
+# csv file by using the write_envelope_data function defined in matching_utility.
 # It is recommended the csv file be created ahead of time to avoid having to
-# hand create the headers here if not.
+# hand create the headers here if not. Also, depending on the software used to
+# read the csv file (Apple's Numbers for example), the first two rows of data
+# may be combined into a single row. It is recommended to check the formatting
+# for the first couple runs to make sure this didnt happen.
+# After that initial possible error, the data writing should work fine.
 # ------------------------------------------------------------------------------
 file_name = "env_data.csv"
 
