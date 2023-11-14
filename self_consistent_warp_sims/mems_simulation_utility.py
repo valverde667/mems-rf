@@ -82,6 +82,15 @@ def beta(E, mass, q=1, nonrel=True):
     return beta
 
 
+def calc_velocity(E, mass):
+    """Calculate non-relativistic velocity of particle with energy E and mass
+
+    Energy and mass are assumed to be given in mks units (joules and kg).
+    """
+    v = np.sqrt(2.0 * E / mass)
+    return v
+
+
 def create_wafer(
     cent,
     width=2.0 * mm,
