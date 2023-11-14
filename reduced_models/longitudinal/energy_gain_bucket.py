@@ -282,7 +282,7 @@ t_sdiagnostic[0] = dsgn_time[0]
 Ediagnostic[:, 0] = parts_E
 tdiagnostic[:, 0] = parts_time
 Iavg = SC.e * Np / (parts_time[-1] - parts_time[0])
-stop
+
 # ------------------------------------------------------------------------------
 #    System Outputs
 # Print some of the system parameters being used.
