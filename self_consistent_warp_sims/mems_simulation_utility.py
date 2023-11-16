@@ -860,7 +860,16 @@ class Data_Ext:
         # Loop through lab windows and export plots to pdf.
 
 
-def calc_gap_centers(E_s, mass, phi_s, gap_mode, dsgn_freq, dsgn_gap_volt):
+def calc_gap_centers(
+    E_s,
+    mass,
+    phi_s,
+    gap_mode,
+    dsgn_freq,
+    dsgn_gap_volt,
+    match_after_gap=None,
+    match_length=None,
+):
     """Calculate Gap centers based on energy gain and phaseing.
 
     When the gaps are operating at the same phase then the distance is
@@ -902,11 +911,13 @@ def calc_gap_centers(E_s, mass, phi_s, gap_mode, dsgn_freq, dsgn_gap_volt):
     # Initialize arrays and any useful constants.
     gap_dist = np.zeros(len(phi_s))
     h = SC.c / dsgn_freq
+    energy = [E_s]
 
     # Loop through number of gaps and assign the center-to-center distance.
     # Update the energy at end.
     for i in range(len(phi_s)):
-        this_beta = beta(E_s, mass)
+        this_E = energy[i]
+        this_beta = beta(this_E, mass)
         this_cent = this_beta * h / 2.0
         shift = this_beta * h * gap_mode[i]
         cent_offset = (phi_s[i] - phi_s[i - 1]) * this_beta * h / twopi
@@ -916,7 +927,16 @@ def calc_gap_centers(E_s, mass, phi_s, gap_mode, dsgn_freq, dsgn_gap_volt):
             gap_dist[i] = this_cent + cent_offset + shift
 
         dsgn_Egain = dsgn_gap_volt * np.cos(phi_s[i])
-        E_s += dsgn_Egain
+        energy.append(this_E + dsgn_Egain)
+
+    if match_after_gap != None:
+        # Need to adjust gap spacing so that resonance condition is greater than
+        # the length of the matching section.
+        this_gap_dist = gap_dist[match_after_gap]
+        shift = beta(energy[match_after_gap], mass) * h
+        while this_gap_dist < match_length:
+            this_gap_dist += shift
+        gap_dist[match_after_gap] = this_gap_dist
 
     # gap locations from zero are given by cumulative sum of center-to-center
     # distances.
