@@ -943,7 +943,14 @@ def calc_gap_centers(
     return gap_dist.cumsum()
 
 
-def calc_zESQ(zgaps, zFcup, d=3.0 * mm, lq=0.695 * mm):
+def calc_zESQ(
+    zgaps,
+    zFcup,
+    g=2.0 * mm,
+    space_inter_ESQ=3.0 * mm,
+    space_from_gap=2.0 * mm,
+    lq=0.695 * mm,
+):
     """Function to calculate ESQ doublet positions with separation d and voltage Vq
 
     The ESQs will be arranged as a doublet with edge-to-edge separation distance
@@ -958,23 +965,35 @@ def calc_zESQ(zgaps, zFcup, d=3.0 * mm, lq=0.695 * mm):
     specifying the voltage for each ESQ.
     """
     Ng = len(zgaps)
+    dq = space_inter_ESQ
+    dg = space_from_gap
+
     # Loop through the gap positions and place ESQs. The RF gaps will always come
     # pairs and the field free region comes after the second ESQ or every odd
     # element in hte zgaps list.
     esq_pos = []
     for i in range(Ng - 2):
         if i % 2 != 0:
-            # Calculate the center of the field free region.
-            zc = (zgaps[i] + zgaps[i + 1]) / 2.0
-            z1 = zc - d - lq / 2.0
-            z2 = zc + d + lq / 2.0
-            esq_pos.append(z1)
-            esq_pos.append(z2)
+            # Calculate amount of space available.
+            space_available = zgaps[i + 1] - zgaps[i] - g - 2 * lq
+            space_needed = 2 * dg + dq
 
-    # Do the final position between the last gap and the Fcup
-    zc = (zgaps[-1] + zFcup) / 2.0
-    z1 = zc - d - lq / 2.0
-    z2 = zc + d + lq / 2.0
+            # Check if there is enough space. If there is, place ESQs. If not,
+            # go to next placement and print warning.
+            if space_available >= space_needed:
+                z1 = zgaps[i] + g / 2.0 + dg + lq / 2.0
+                z2 = zgaps[i + 1] - g / 2.0 - dg - lq / 2.0
+                esq_pos.append(z1)
+                esq_pos.append(z2)
+            else:
+                print("---- WARNING")
+                print(f"Not enough spacing to place ESQ after gap {i}. Not placing.")
+                pass
+
+    # Do the final position between the last gap and the Fcup. There should be
+    # sufficient space.
+    z1 = zgaps[-1] + g / 2.0 + dg + lq / 2.0
+    z2 = zFcup - g / 2.0 - dg - lq / 2.0
     esq_pos.append(z1)
     esq_pos.append(z2)
 
