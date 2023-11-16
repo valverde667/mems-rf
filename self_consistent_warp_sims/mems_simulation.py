@@ -422,9 +422,7 @@ aperture_wall = wp.ZCylinderOut(
 
 if do_focusing_quads:
     # Calculate ESQ center positions and then install.
-    esq_pos = mems_utils.calc_zESQ(
-        gap_centers[focus_after_gap:], gap_centers[-1] + Fcup_dist, d=esq_space, lq=lq
-    )
+    esq_pos = mems_utils.calc_zESQ(gap_centers[focus_after_gap:], diagns_zgap[-1].zz)
 
     # Loop through ESQ positions and place ESQs with alternating bias
     Vq_list = np.ones(shape=len(esq_pos))
