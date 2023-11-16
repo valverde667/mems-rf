@@ -130,7 +130,7 @@ gap_centers = utils.calc_gap_centers(
     gap_mode,
     dsgn_freq,
     dsgn_gap_volt / voltage_scale,
-    match_after_gap=1,
+    match_after_gap=None,
     match_length=10 * mm,
 )
 
@@ -368,13 +368,6 @@ for i in range(1, len(z)):
 
         idiagn_count += 1
 
-
-# Convert nan values to 0
-final_E = np.nan_to_num(parts_E[:])
-final_t = np.nan_to_num(parts_time[:])
-
-Ediagnostic = np.nan_to_num(Ediagnostic)
-tdiagnostic = np.nan_to_num(tdiagnostic)
 
 phase_sdiagnostic = twopi * dsgn_freq * t_sdiagnostic
 phase_diagnostic = twopi * dsgn_freq * tdiagnostic
