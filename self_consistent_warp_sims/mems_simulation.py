@@ -253,7 +253,9 @@ wp.top.inject = 1
 wp.top.ibeam_s = init_I
 wp.top.ekin_s = init_E
 wp.derivqty()
-wp.top.dt = 0.7 * dz / beam.vbeam  # CF conditions
+wp.top.dt = (
+    0.7 * dz / mems_utils.calc_velocity((init_E + Vg) * wp.jperev, beam.mass)
+)  # CF conditions
 inj_dz = beam.vbeam * wp.top.dt
 
 # Calculate and set the weight of particle
