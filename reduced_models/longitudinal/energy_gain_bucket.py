@@ -124,8 +124,16 @@ plots_filename = "all-diagnostics.pdf"
 # arrive at the desired phase when starting at z=0 with initial energy.
 gap_mode = np.zeros(len(phi_s))
 gap_centers = utils.calc_gap_centers(
-    dsgn_initE, mass, phi_s, gap_mode, dsgn_freq, dsgn_gap_volt / voltage_scale
+    dsgn_initE,
+    mass,
+    phi_s,
+    gap_mode,
+    dsgn_freq,
+    dsgn_gap_volt / voltage_scale,
+    match_after_gap=1,
+    match_length=10 * mm,
 )
+
 # ------------------------------------------------------------------------------
 #    Mesh setup
 # Here the mesh is created with some mesh design values.
