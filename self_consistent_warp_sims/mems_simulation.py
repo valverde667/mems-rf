@@ -116,7 +116,8 @@ Vq = 0.2 * kV
 gap_width = 2 * mm
 Vg_scale = 1 + 0.031  # Scale plate voltage so that Vg is reached on-axis
 Vg = 6 * Vg_scale * kV
-phi_s = np.array([-1 / 2, -1 / 6, -1 / 3, 0]) * np.pi
+# phi_s = np.array([-1 / 2, -1 / 6, -1 / 3, 0]) * np.pi
+phi_s = np.array([0, 0]) * np.pi
 gap_mode = np.zeros(len(phi_s))
 Ng = len(phi_s)
 Fcup_dist = 10 * mm
@@ -541,40 +542,36 @@ while wp.top.time <= beam_length:
 wp.top.inject = 0
 wp.uninstalluserinjection(injection)
 
-# for i in range(Ng - 2):
-#     # wp.top.dt = 0.7 * dz / tracker.getvz()[-1]
-#     while tracker.getz()[-1] < gap_centers[i + 2]:
-#         wp.top.vbeamfrm = tracker.getvz()[-1]
-#         if wp.top.it % 5 == 0:
-#             wp.window(2)
-#             plotbeam(lplt_tracker=True)
-#             wp.fma()
+for i in range(Ng):
+    while tracker.getz()[-1] < gap_centers[i]:
+        if wp.top.it % 5 == 0:
+            wp.window(2)
+            plotbeam(lplt_tracker=True)
+            wp.fma()
 
-#         wp.step(1)
+        wp.step(1)
 
-# wp.top.dt = 0.7 * dz / tracker.getvz()[-1]
+    this_E = init_E + (i + 1) * Vg
+    wp.top.dt = 0.7 * dz / mems_utils.calc_velocity(this_E * wp.jperev, beam.mass)
+
 while tracker.getz()[-1] < Fcup.zcent - Fcup.zsize:
-    wp.top.vbeamfrm = tracker.getvz()[-1]
     reset_tracker(tracker, int(len(tracker.getx()) - 1), 0.0)
     if wp.top.it % 5 == 0:
         wp.window(2)
         plotbeam(lplt_tracker=True)
         wp.fma()
 
-    wp.step(1)
+    wp.step()
 
 tracker_fin_time = tracker.gett()[-1]
 tracker_fin_E = 0.5 * beam.mass * pow(tracker.getvz()[-1], 2) / wp.jperev
-final_time = tracker_fin_time + 1 * period
 wp.top.vbeamfrm = 0.0
-while wp.top.time < final_time:
+while wp.top.time < tracker_fin_time + period:
     reset_tracker(tracker, int(len(tracker.getx()) - 1), 0.0)
-    if wp.top.it % 5 == 0:
-        wp.window(2)
-        plotbeam(lplt_tracker=True)
-        wp.fma()
-
-    wp.step(1)
+    wp.window(2)
+    plotbeam(lplt_tracker=True)
+    wp.fma()
+    wp.step()
 
 end_time = time.time()
 print(f"----- Run Time: {(end_time - start_time)/60.:.4f} (min)")
