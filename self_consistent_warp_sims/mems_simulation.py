@@ -116,7 +116,6 @@ Vq = 0.2 * kV
 gap_width = 2 * mm
 Vg_scale = 1 + 0.031  # Scale plate voltage so that Vg is reached on-axis
 Vg = 6 * Vg_scale * kV
-# phi_s = np.array([-1 / 2, -1 / 6, -1 / 3, 0]) * np.pi
 phi_s = np.array([0, 0]) * np.pi
 gap_mode = np.zeros(len(phi_s))
 Ng = len(phi_s)
@@ -485,7 +484,7 @@ wp.winon(winnum=3, suffix="pxy", xon=False)
 # injected. The particles are advanced. After the trace (design) particle has
 # arrived at the Fcup, the particle advancement is done for 2 more RF periods
 # to capture remaining particles.
-# TODO: Devise better injection and advancment scheme rather than multiple for-loops.
+# TODO: Find way to plot select number of plots for better gist graphic.
 # ------------------------------------------------------------------------------
 # Def plotting routine to be called in stepping
 def plotbeam(lplt_tracker=True):
@@ -505,13 +504,6 @@ def plotbeam(lplt_tracker=True):
     )
     wp.ptitles("Ez, Ar+(Blue) and Tracker (Red)", "z (m)", "x (m)")
     wp.ppzx(titles=0, color=wp.blue, msize=1)
-
-    # plot magenta lines to mark the zwindow range
-    # yy = np.linspace(wp.w3d.xmmin, wp.w3d.xmmax, 10)
-    # xxl = np.ones(yy.shape[0]) * lab_center + wp.top.zbeam - zwin_length / 2.0
-    # xxr = np.ones(yy.shape[0]) * lab_center + wp.top.zbeam + zwin_length / 2.0
-    # wp.plg(yy, xxl, color="magenta")
-    # wp.plg(yy, xxr, color="magenta")
 
     print(f"# ------- Tracker x: {tracker.getx()[-1]/mm:.4f} (mm)")
     print(f"# ------- Tracker z: {tracker.getz()[-1]/mm:.3f} (mm)")
