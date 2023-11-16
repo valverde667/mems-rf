@@ -122,8 +122,8 @@ Ng = len(phi_s)
 Fcup_dist = 10 * mm
 
 # Match section Parameters
-esq_space = 2.0 * mm
-Vq_match = np.array([-122.4192, 203.9838, -191.2107, 107.0136])  # Volts
+esq_space = 3.0 * mm
+Vq_match = np.array([-125.24, -326.43, 352.12, -175.68])  # Volts
 Nq_match = len(Vq_match)
 
 # Operating parameters
@@ -184,13 +184,30 @@ wp.derivqty()
 # Design phases are specified with the max field corresponding to phi_s=0.
 gap_dist = np.zeros(Ng)
 E_s = init_E
-gap_centers = mems_utils.calc_gap_centers(
-    E_s, mass_eV, phi_s, gap_mode, freq, Vg / Vg_scale
-)
-
 if do_matching_section:
+    match_after_gap = 6
     match_centers = mems_utils.calc_zmatch_sect(lq, esq_space, Nq=Nq_match)
-    match_centers -= match_centers.max() + lq / 2 + esq_space
+    match_length = lq / 2.0 + gap_width + (match_centers.max() - match_centers.min())
+    gap_centers = mems_utils.calc_gap_centers(
+        E_s,
+        mass_eV,
+        phi_s,
+        gap_mode,
+        freq,
+        Vg / Vg_scale,
+        match_after_gap=match_after_gap,
+        match_length=match_length,
+    )
+    match_centers += gap_centers[match_after_gap - 1] + gap_width / 2.0
+else:
+    gap_centers = mems_utils.calc_gap_centers(
+        E_s,
+        mass_eV,
+        phi_s,
+        gap_mode,
+        freq,
+        Vg / Vg_scale,
+    )
 
 # ------------------------------------------------------------------------------
 #    Mesh setup
@@ -312,19 +329,21 @@ diagns_zgap = []
 ilws.append(wp.addlabwindow(2.0 * dz))  # Initial lab window
 diagns_zgap.append(ZCrossingParticles(zz=wp.top.zinject[0] + 2.0 * dz, laccumulate=1))
 
-# Loop through quad centers in matching section and place diagnostics at center
-# point between quads.
-if do_matching_section:
-    for i in range(Nq_match - 1):
-        zloc = (match_centers[i + 1] + match_centers[i]) / 2.0
-        ilws.append(wp.addlabwindow(zloc))
-        diagns_zgap.append(ZCrossingParticles(zz=zloc, laccumulate=1))
-
-# Loop through gap_centers and place diagnostics at center point between gaps.
+# Loop through gap centers and place diagnostics at the geometric center of gap-pairs.
+# If the matching section was done, then add a diagnostics for the quadrupoles and
+# insert the diagnostic at the correct index in the diagnostic list.
 for i in range(Ng - 1):
     zloc = (gap_centers[i + 1] + gap_centers[i]) / 2.0
     ilws.append(wp.addlabwindow(zloc))
     diagns_zgap.append(ZCrossingParticles(zz=zloc, laccumulate=1))
+
+if do_matching_section:
+    for i in range(Nq_match - 1):
+        zloc = (match_centers[i + 1] + match_centers[i]) / 2.0
+        ilws.insert(match_after_gap + i, wp.addlabwindow(zloc))
+        diagns_zgap.insert(
+            match_after_gap + i, ZCrossingParticles(zz=zloc, laccumulate=1)
+        )
 
 ilws.append(wp.addlabwindow(gap_centers[-1] + Fcup_dist))
 diagns_zgap.append(ZCrossingParticles(zz=gap_centers[-1] + Fcup_dist, laccumulate=1))
