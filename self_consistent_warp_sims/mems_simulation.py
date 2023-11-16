@@ -137,7 +137,7 @@ aperture = 0.55 * mm
 
 # Lattice Controls
 do_matching_section = False
-do_focusing_quads = True
+do_focusing_quads = False
 moving_frame = True
 moving_win_size = 13.5 * mm
 
@@ -235,9 +235,9 @@ else:
     wp.w3d.zmmin = -3 * mm
     wp.w3d.zmmax = gap_centers[0] + gap_width / 2.0 + Fcup_dist
 
-wp.w3d.nx = 50
-wp.w3d.ny = 50
-wp.w3d.nz = 200
+wp.w3d.nx = 60
+wp.w3d.ny = 60
+wp.w3d.nz = 130
 lab_center = (wp.w3d.zmmax + wp.w3d.zmmin) / 2.0
 dz = (wp.w3d.zmmax - wp.w3d.zmmin) / wp.w3d.nz
 
@@ -392,7 +392,7 @@ for i, pos in enumerate(gap_centers):
     child_mesh = solver.addchild(
         mins=[-aperture, -aperture, zl],
         maxs=[aperture, aperture, zr],
-        refinement=[2, 2, 2],
+        refinement=[2, 2, 3],
     )
     child_meshes.append(child_mesh)
 
