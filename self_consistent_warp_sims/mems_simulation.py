@@ -121,7 +121,9 @@ gap_mode = np.zeros(len(phi_s))
 Ng = len(phi_s)
 Fcup_dist = 10 * mm
 
-# Match section Parameters
+# Match section Parameters and ESQ parameters
+focus_after_gap = 8
+match_after_gap = 6
 esq_space = 3.0 * mm
 Vq_match = np.array([-125.24, -326.43, 352.12, -175.68])  # Volts
 Nq_match = len(Vq_match)
@@ -430,7 +432,7 @@ Fcup = wp.Box(
 if do_focusing_quads:
     # Calculate ESQ center positions and then install.
     esq_pos = mems_utils.calc_zESQ(
-        gap_centers, gap_centers[-1] + Fcup_dist, d=esq_space, lq=lq
+        gap_centers[focus_after_gap:], gap_centers[-1] + Fcup_dist, d=esq_space, lq=lq
     )
 
     # Loop through ESQ positions and place ESQs with alternating bias
