@@ -122,7 +122,7 @@ Ng = len(phi_s)
 Fcup_dist = 10 * mm
 
 # Match section Parameters and ESQ parameters
-focus_after_gap = 8
+focus_after_gap = 0
 match_after_gap = 6
 esq_space = 3.0 * mm
 Vq_match = np.array([-125.24, -326.43, 352.12, -175.68])  # Volts
@@ -137,7 +137,7 @@ aperture = 0.55 * mm
 
 # Lattice Controls
 do_matching_section = False
-do_focusing_quads = False
+do_focusing_quads = True
 moving_frame = True
 moving_win_size = 13.5 * mm
 
@@ -150,7 +150,7 @@ div_angle = 3.78 * mrad
 emit = 1.336 * mm * mrad
 init_I = 10 * uA
 Np_injected = 0  # initialize injection counter
-Np_max = int(1e5)
+Np_max = int(1e4)
 beam_length = period  # in seconds
 
 # Specify Species and ion type
@@ -314,8 +314,6 @@ wp.installuserinjection(injection)
 # Tell Warp what histories to save and when (in units of iterations) to do it.
 # There are also some controls for the solver.
 # ------------------------------------------------------------------------------
-
-# Setup Histories and moment calculations
 set_lhistories()
 
 # Set the z-windows to calculate moment date at select windows relative to the
@@ -360,38 +358,21 @@ solver.mgtol = 1.0  # Poisson solver tolerance, in volts
 solver.mgparam = 1.5
 solver.downpasses = 2
 solver.uppasses = 2
-
-# Generate the PIC code (allocate storage, load ptcls, t=0 plots, etc.)
-wp.package("w3d")
-wp.generate()
-x, y, z = wp.w3d.xmesh, wp.w3d.ymesh, wp.w3d.zmesh
-
-# Add tracker beam that will record full history. This must be set after
-# generate is called.
-tracker = TraceParticle(
-    js=tracked_ions.js,
-    x=0.0 * mm,
-    y=0.0,
-    z=0.0,
-    vx=0.0,
-    vy=0.0,
-    vz=beam.vbeam,
-)
-
-# For unknown reasons, the tracer cannot be placed arbitrarily in the injection
-# scheme. Thus, it is created early on, disabled, then renabled at the desired
-# point in injection.
-tracker.disable()
+solver.mgntverbose = 10
 
 # Recalculate fields and conductor information every time step. Needed for
 # oscillating fields in a moving frame.
 solver.gridmode = 0
+
+# Generate the PIC code (allocate storage, load ptcls, t=0 plots, etc.)
+wp.package("w3d")
 
 for i, pa in enumerate(gap_centers):
     print(f"RF Gap Center {i+1} placed at {pa/mm:3f} (mm)")
 
 # Create list of conductors to hold the created gaps and ESQs
 conductors = []
+child_meshes = []
 
 # Create acceleration gaps.
 for i, pos in enumerate(gap_centers):
@@ -407,6 +388,14 @@ for i, pos in enumerate(gap_centers):
     conductors.append(this_lcond)
     conductors.append(this_rcond)
 
+    # Add in refined mesh around gap.
+    child_mesh = solver.addchild(
+        mins=[-aperture, -aperture, zl],
+        maxs=[aperture, aperture, zr],
+        refinement=[2, 2, 2],
+    )
+    child_meshes.append(child_mesh)
+
 # Create matching section consisting of four quadrupoles.
 if do_matching_section:
     for i, pos in enumerate(match_centers):
@@ -418,15 +407,17 @@ if do_matching_section:
         this_cond = this_ESQ.generate()
         conductors.append(this_cond)
 
+        # Add in refined mesh around ESQs.
+        child_mesh = solver.addchild(
+            mins=[-aperture, -aperture, zl],
+            maxs=[aperture, aperture, zr],
+            refinement=[3, 3, 3],
+        )
+        child_meshes.append(child_mesh)
+
 # Create and intialize the scraper that will collect lost particle data.
 aperture_wall = wp.ZCylinderOut(
     radius=aperture, zlower=-wp.top.largepos, zupper=wp.top.largepos
-)
-Fcup = wp.Box(
-    xsize=wp.top.largepos,
-    ysize=wp.top.largepos,
-    zsize=5.0 * dz,
-    zcent=diagns_zgap[-1].getzz() + 2 * mm,
 )
 
 if do_focusing_quads:
@@ -444,20 +435,48 @@ if do_focusing_quads:
         this_cond = this_ESQ.generate()
         conductors.append(this_cond)
 
+        # Add in refined mesh around ESQs.
+        child_mesh = solver.addchild(
+            mins=[-aperture, -aperture, pos - lq / 2.0],
+            maxs=[aperture, aperture, pos + lq / 2],
+            refinement=[3, 3, 3],
+        )
+        child_meshes.append(child_mesh)
 
 for cond in conductors:
     wp.installconductors(cond)
 
-
+Fcup = wp.Box(
+    xsize=wp.top.largepos,
+    ysize=wp.top.largepos,
+    zsize=5.0 * dz,
+    zcent=diagns_zgap[-1].getzz() + 2 * mm,
+)
 scraper = wp.ParticleScraper(aperture_wall, lcollectlpdata=True)
 scraper.registerconductors(conductors)
 scraper.registerconductors(Fcup)
-# Recalculate the fields
-wp.fieldsol(-1)
+wp.generate()
+x, y, z = wp.w3d.xmesh, wp.w3d.ymesh, wp.w3d.zmesh
+
+# Add tracker beam that will record full history. This must be set after
+# generate is called. For unknown reasons, the tracer cannot be placed arbitrarily
+# in the injection scheme. Thus, it is created early on, disabled, then renabled
+# at the desired point in injection.
+tracker = TraceParticle(
+    js=tracked_ions.js,
+    x=0.0 * mm,
+    y=0.0,
+    z=0.0,
+    vx=0.0,
+    vy=0.0,
+    vz=beam.vbeam,
+)
+tracker.disable()
 
 # Create cgm windows for plotting
 wp.winon(winnum=2, suffix="pzx", xon=False)
 wp.winon(winnum=3, suffix="pxy", xon=False)
+
 
 # ------------------------------------------------------------------------------
 #    Injection and advancement
@@ -469,8 +488,6 @@ wp.winon(winnum=3, suffix="pxy", xon=False)
 # to capture remaining particles.
 # TODO: Devise better injection and advancment scheme rather than multiple for-loops.
 # ------------------------------------------------------------------------------
-
-
 # Def plotting routine to be called in stepping
 def plotbeam(lplt_tracker=True):
     """Plot particles, conductors, and Ez contours as particles advance."""
