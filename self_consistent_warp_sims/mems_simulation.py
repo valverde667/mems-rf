@@ -429,7 +429,7 @@ if do_focusing_quads:
     Vq_list[::1] *= -Vq  # Alternate signs in list
     for i, pos in enumerate(esq_pos):
         this_ESQ = mems_utils.Mems_ESQ_SolidCyl(pos, Vq_list[i], -Vq_list[i], chop=True)
-        this_ESQ.set_geometry(rp=aperture, R=0.68 * aperture, lq=lq)
+        this_ESQ.set_geometry(rp=aperture, R=1.304 * aperture, lq=lq)
         this_cond = this_ESQ.generate()
         conductors.append(this_cond)
 
