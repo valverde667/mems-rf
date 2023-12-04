@@ -8,6 +8,7 @@
 
 import numpy as np
 import h5py
+import pickle
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib.backends.backend_pdf import PdfPages
@@ -112,17 +113,17 @@ def set_lhistories():
 # ------------------------------------------------------------------------------
 # Specify conductor characteristics
 lq = 0.696 * mm
-Vq = 0.2 * kV
+Vq = [193, -193, 310, -310]
 gap_width = 2 * mm
 Vg_scale = 1 + 0.031  # Scale plate voltage so that Vg is reached on-axis
 Vg = 6 * Vg_scale * kV
-phi_s = np.array([0, 0]) * np.pi
+phi_s = np.zeros(4)
 gap_mode = np.zeros(len(phi_s))
 Ng = len(phi_s)
 Fcup_dist = 10 * mm
 
 # Match section Parameters and ESQ parameters
-focus_after_gap = 0
+focus_after_gap = 6
 match_after_gap = 6
 esq_space = 3.0 * mm
 Vq_match = np.array([-125.24, -326.43, 352.12, -175.68])  # Volts
@@ -150,7 +151,7 @@ div_angle = 3.78 * mrad
 emit = 1.336 * mm * mrad
 init_I = 10 * uA
 Np_injected = 0  # initialize injection counter
-Np_max = int(1e4)
+Np_max = int(1e6)
 beam_length = period  # in seconds
 
 # Specify Species and ion type
@@ -261,7 +262,7 @@ wp.top.dt = (
 inj_dz = beam.vbeam * wp.top.dt
 
 # Calculate and set the weight of particle
-Np_inject = int(Np_max / (period / wp.top.dt))
+Np_inject = int(Np_max / (beam_length / wp.top.dt))
 pweight = wp.top.dt * init_I / beam.charge / Np_inject
 beam.pgroup.sw[beam.js] = pweight
 tracked_ions.pgroup.sw[tracked_ions.js] = 0
@@ -411,7 +412,7 @@ if do_matching_section:
         child_mesh = solver.addchild(
             mins=[-aperture, -aperture, zl],
             maxs=[aperture, aperture, zr],
-            refinement=[3, 3, 3],
+            refinement=[3, 3, 4],
         )
         child_meshes.append(child_mesh)
 
@@ -424,11 +425,9 @@ if do_focusing_quads:
     # Calculate ESQ center positions and then install.
     esq_pos = mems_utils.calc_zESQ(gap_centers[focus_after_gap:], diagns_zgap[-1].zz)
 
-    # Loop through ESQ positions and place ESQs with alternating bias
-    Vq_list = np.ones(shape=len(esq_pos))
-    Vq_list[::1] *= -Vq  # Alternate signs in list
+    # Loop through focusing quads, create them with assigned voltages and store.
     for i, pos in enumerate(esq_pos):
-        this_ESQ = mems_utils.Mems_ESQ_SolidCyl(pos, Vq_list[i], -Vq_list[i], chop=True)
+        this_ESQ = mems_utils.Mems_ESQ_SolidCyl(pos, Vq[i], -Vq[i], chop=True)
         this_ESQ.set_geometry(rp=aperture, R=1.304 * aperture, lq=lq)
         this_cond = this_ESQ.generate()
         conductors.append(this_cond)
@@ -437,7 +436,7 @@ if do_focusing_quads:
         child_mesh = solver.addchild(
             mins=[-aperture, -aperture, pos - lq / 2.0],
             maxs=[aperture, aperture, pos + lq / 2],
-            refinement=[3, 3, 3],
+            refinement=[3, 3, 4],
         )
         child_meshes.append(child_mesh)
 
@@ -536,6 +535,8 @@ wp.uninstalluserinjection(injection)
 
 for i in range(Ng):
     while tracker.getz()[-1] < gap_centers[i]:
+        wp.top.vbeamfrm = tracker.getvz()[-1]
+        reset_tracker(tracker, int(len(tracker.getx()) - 1), 0.0)
         if wp.top.it % 5 == 0:
             wp.window(2)
             plotbeam(lplt_tracker=True)
@@ -547,6 +548,7 @@ for i in range(Ng):
     wp.top.dt = 0.7 * dz / mems_utils.calc_velocity(this_E * wp.jperev, beam.mass)
 
 while tracker.getz()[-1] < Fcup.zcent - Fcup.zsize:
+    wp.top.vbeamfrm = tracker.getvz()[-1]
     reset_tracker(tracker, int(len(tracker.getx()) - 1), 0.0)
     if wp.top.it % 5 == 0:
         wp.window(2)
@@ -682,7 +684,9 @@ with open(output_file_path, "w") as file:
         )
     file.write(f"Focusing Quads: {do_focusing_quads}" + "\n")
     if do_focusing_quads:
-        file.write(f"Matching Section Voltages: {Vq/kV:.3f}" + "\n")
+        file.write(
+            f"Focusing Quads Vq {np.array2string(Vq_match/kV, precision=4)}" + "\n"
+        )
 
     file.write(f"{'Number of Gaps':<30} {int(Ng)}" + "\n")
     file.write(
