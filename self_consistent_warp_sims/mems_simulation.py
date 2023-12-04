@@ -951,32 +951,24 @@ with PdfPages(path + "/" + "win-histories" + ".pdf") as pdf:
 # inhomogenous, the data will be saved as an HD5 file.
 # The tracker particle data will also be saved and is much easier.
 # ------------------------------------------------------------------------------
-# Initialize list to hold particle data and data to get. Also create data keys
-# for the HD5 file. The first keys will be the zdiagnostic numbers and the last
-# key for the z locations.
-particle_data = []
+# Create a dictionary to hold the diagnostic data for each diagnostics. The
+# structure will be {Diagn#:{'attr':data}} where each 'attr' is given in the
+# data vars list that comprises the data each diagnostic collects.
 data_vars = ["x", "y", "xp", "yp", "vx", "vy", "vz", "t"]
-zdiagns_z = np.array([zd.zz for zd in diagns_zgap])
-data_keys = [f"zd{i:d}" for i in range(len(zdiagns_z) - 1)]
-data_keys.append("zz")
-
-# Loop through zdiagnostics and form the data matrix.
+diagnostic_data = {}
+# Loop through the diagnostics and collect the data into a temporary dictionary.
+# The main dictionary will be updated after each pass
 for i, diag in enumerate(diagns_zgap):
-    this_Np = len(diag.gett())
-    this_data_matrix = np.zeros(shape=(this_Np, len(data_vars)))
+    this_data = {}
+    for var in data_vars:
+        this_data.update({var: getattr(diag, f"get{var}")()})
 
-    # Loop through data variables and assign values to matrix
-    for i, var in enumerate(data_vars):
-        this_data_matrix[:, i] = getattr(diag, f"get{var}")()
+    this_data.update({"zloc": diag.getzz()})
+    diagnostic_data.update({f"diag{i}": this_data})
 
-    particle_data.append(this_data_matrix)
-
-# Loop through the data arrays and create the HD5 file
-particle_data.append(diagns_zgap)
-hf = h5py.File(os.path.join(path, "particle_data.h5"), "w")
-for i, key in enumerate(data_keys):
-    hf.create_dataset(key, data=particle_data[i])
-hf.close()
+# Save as pickle file
+with open(os.path.join(path, "diagnostic_data.pkl"), "wb") as file:
+    pickle.dump(diagnostic_data, file)
 
 # Create tracker data that is 3byN where N is the number of points and the rows
 # are z, vz, t. Note the tracker is always at x=y=0 amd vx=vy=0.
