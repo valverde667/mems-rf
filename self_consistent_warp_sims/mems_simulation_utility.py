@@ -1077,8 +1077,8 @@ def make_dist_plot(
             g.refline(y=yref)
 
         g.set_axis_labels(
-            xlabel=r"Relative Time Difference $\Delta t / \tau_{rf}$",
-            ylabel=rf"Kinetic Energy $\mathcal{{E}}$ (keV)",
+            xlabel=xlabel,
+            ylabel=ylabel,
         )
         g.ax_marg_x.set_ylabel(r"Counts/$N_p$")
         g.ax_marg_y.set_xlabel(r"Counts/$N_p$")
