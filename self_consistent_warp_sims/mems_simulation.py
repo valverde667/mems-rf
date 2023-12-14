@@ -113,7 +113,7 @@ def set_lhistories():
 # ------------------------------------------------------------------------------
 # Specify conductor characteristics
 lq = 0.696 * mm
-Vq = [193, -193, 310, -310]
+Vq = [-193, 193, -310, 310, -375, 375, -415, 415]
 gap_width = 2 * mm
 Vg_scale = 1 + 0.031  # Scale plate voltage so that Vg is reached on-axis
 Vg = 6 * Vg_scale * kV
@@ -126,7 +126,7 @@ Fcup_dist = 10 * mm
 focus_after_gap = 6
 match_after_gap = 6
 esq_space = 3.0 * mm
-Vq_match = np.array([-125.24, -326.43, 352.12, -175.68])  # Volts
+Vq_match = np.array([-125.24, 326.43, -352.12, 175.68])  # Volts
 Nq_match = len(Vq_match)
 
 # Operating parameters
@@ -189,8 +189,8 @@ gap_dist = np.zeros(Ng)
 E_s = init_E
 if do_matching_section:
     match_after_gap = 6
-    match_centers = mems_utils.calc_zmatch_sect(lq, esq_space, Nq=Nq_match)
-    match_length = lq / 2.0 + gap_width + (match_centers.max() - match_centers.min())
+    match_centers = np.array([10.1, 23.9, 36, 49.5]) * mm
+    match_length = 60 * mm
     gap_centers = mems_utils.calc_gap_centers(
         E_s,
         mass_eV,
@@ -266,7 +266,6 @@ Np_inject = int(Np_max / (beam_length / wp.top.dt))
 pweight = wp.top.dt * init_I / beam.charge / Np_inject
 beam.pgroup.sw[beam.js] = pweight
 tracked_ions.pgroup.sw[tracked_ions.js] = 0
-
 # Calculate phase shift needed to be in resonance
 phase_shift = mems_utils.calc_phase_shift(
     freq,
@@ -315,7 +314,7 @@ wp.installuserinjection(injection)
 # Tell Warp what histories to save and when (in units of iterations) to do it.
 # There are also some controls for the solver.
 # ------------------------------------------------------------------------------
-set_lhistories()
+# set_lhistories()
 
 # Set the z-windows to calculate moment date at select windows relative to the
 # beam frame. top.zwindows[:,0] always includes the who longitudinal extent
@@ -426,7 +425,7 @@ if do_focusing_quads:
     esq_pos = mems_utils.calc_zESQ(gap_centers[focus_after_gap:], diagns_zgap[-1].zz)
 
     # Loop through focusing quads, create them with assigned voltages and store.
-    for i, pos in enumerate(esq_pos):
+    for i, pos in enumerate(esq_pos[0:8]):
         this_ESQ = mems_utils.Mems_ESQ_SolidCyl(pos, Vq[i], -Vq[i], chop=True)
         this_ESQ.set_geometry(rp=aperture, R=1.304 * aperture, lq=lq)
         this_cond = this_ESQ.generate()
@@ -537,7 +536,7 @@ for i in range(Ng):
     while tracker.getz()[-1] < gap_centers[i]:
         wp.top.vbeamfrm = tracker.getvz()[-1]
         reset_tracker(tracker, int(len(tracker.getx()) - 1), 0.0)
-        if wp.top.it % 5 == 0:
+        if wp.top.it % 1 == 0:
             wp.window(2)
             plotbeam(lplt_tracker=True)
             wp.fma()
@@ -550,7 +549,7 @@ for i in range(Ng):
 while tracker.getz()[-1] < Fcup.zcent - Fcup.zsize:
     wp.top.vbeamfrm = tracker.getvz()[-1]
     reset_tracker(tracker, int(len(tracker.getx()) - 1), 0.0)
-    if wp.top.it % 5 == 0:
+    if wp.top.it % 1 == 0:
         wp.window(2)
         plotbeam(lplt_tracker=True)
         wp.fma()
@@ -669,6 +668,7 @@ with open(output_file_path, "w") as file:
     file.write("#----- Injected Beam" + "\n")
     file.write(f"{'Ion:':<30} {beam.type.name}" + "\n")
     file.write(f"{'Number of Injected:':<30} {Np_injected:.0e}" + "\n")
+    file.write(f"{'Particle weight:':<30} {pweight:.4f}" + "\n")
     file.write(f"{'Injection Energy:':<30} {init_E/keV:.2f} [keV]" + "\n")
     file.write(
         f"{'Injected Average Current Iavg:':<30} {init_I/uA:.4e} [micro-Amps]" + "\n"
@@ -1134,7 +1134,7 @@ with PdfPages(path + "/" + "diagnostic_plots" + ".pdf") as pdf:
             (zdt[rand_ints] - this_ts) / period,
             this_E[rand_ints] / keV,
             xlabel=r"Relative Time Difference $\Delta t / \tau_{rf}$",
-            ylabel=r"Energy Difference $\matchal{E}$ (keV)",
+            ylabel=r"Energy Difference $\mathcal{E}$ (keV)",
             auto_clip=True,
             xref=0.0,
             yref=this_Es / keV,
