@@ -8,6 +8,7 @@ import pdb
 savepath = "/Users/nickvalverde/Desktop/"
 # Useful constants
 mm = 1e-3
+keV = 1e3
 kV = 1e3
 MHz = 1e6
 u_ev = sc.physical_constants["atomic mass unit-electron volt relationship"][0]
@@ -66,6 +67,35 @@ def calc_beta(E, mass=Ar_mass, q=1):
     gamma = (E + mass) / mass
     beta = np.sqrt(1 - 1 / gamma / gamma)
     return beta
+
+
+def calc_transit_time_factor(gap_width, beta, h_rf):
+    """Calculate transit time factor assuming small velocity change in gap
+
+    Parameters:
+    -----------
+    gap_width: float
+        Physical axial length of gap.
+
+    beta: float
+        Ratio of velocity to speed of light (v/c)
+
+    h_rf: float
+        RF wavelength = c/freq
+
+    Returns
+    -------
+    T: float
+        Transit time factor in small velocity change over gap assumption.
+
+    """
+    arg_num = np.pi * gap_width
+    arg_denom = beta * h_rf
+    arg = arg_num / arg_denom
+
+    T = np.sin(arg) / arg
+
+    return T
 
 
 # Create functions for creating matrices and calculating values
