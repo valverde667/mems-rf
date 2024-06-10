@@ -67,12 +67,13 @@ Tb = 0.1
 Np = int(1e4)
 
 # Simulation parameters for gaps and geometries
-phi_s = np.array([0.0, -1 / 6, -1 / 3, -1 / 2]) * np.pi
+# phi_s = np.array([0.0, -1 / 6, -1 / 3, -1 / 2]) * np.pi
+phi_s = np.zeros(100)
 Ng = len(phi_s)
 gap_width = 2.0 * mm
 voltage_scale = 1 + 0.031
 dsgn_gap_volt = 6.0 * voltage_scale * kV
-dsgn_freq = 13.6 * MHz
+dsgn_freq = 13.6 * MHz * 2
 real_gap_volt = dsgn_gap_volt
 real_freq = dsgn_freq
 
@@ -266,11 +267,11 @@ parts_time[:] = init_time
 # in the z-array
 zdiagnostics = [z.min()]
 idiagnostics = [0]
-for loc in gap_centers:
+for i in range(len(gap_centers) - 1):
+    loc = 0.5 * (gap_centers[i + 1] + gap_centers[i])
     zdiagnostics.append(loc)
     this_ind = np.argmin(abs(z - loc))
     idiagnostics.append(this_ind)
-
 zdiagnostics.append(z.max())
 idiagnostics.append(len(z) - 1)
 zdiagnostics = np.array(zdiagnostics)
@@ -373,7 +374,7 @@ phase_sdiagnostic = twopi * dsgn_freq * t_sdiagnostic
 phase_diagnostic = twopi * dsgn_freq * tdiagnostic
 et = time.time()
 print(f"End time: {et-st:.4f}")
-
+stop
 # ------------------------------------------------------------------------------
 #    Diagnostic Plots
 # Plot phase space for each diagnostic location. The phase-space will be in terms
@@ -389,27 +390,31 @@ if l_plot_lattice:
 # Plot the phase-space, energy and time distributions
 if l_plot_diagnostics:
     for i, zloc in enumerate(zdiagnostics):
-        # Grab energy and time
-        this_E = Ediagnostic[:, i]
-        this_t = tdiagnostic[:, i]
-        this_Es = E_sdiagnostic[i]
-        this_ts = t_sdiagnostic[i]
-        dt = this_t - this_ts
+        if i == 0:
+            pass
+        else:
+            # Grab energy and time
+            mask = Ediagnostic[:, i] > 0
+            this_E = Ediagnostic[mask, i]
+            this_t = tdiagnostic[mask, i]
+            this_Es = E_sdiagnostic[i]
+            this_ts = t_sdiagnostic[i]
+            dt = this_t - this_ts
 
-        g = utils.make_dist_plot(
-            dt / T_rf,
-            this_E / keV,
-            xlabel=r"Relative Time Difference $\Delta t / \tau_{rf}$",
-            ylabel=r"Relative Energy Difference $\Delta {E}$ (keV)",
-            auto_clip=True,
-            xref=0.0,
-            yref=this_Es / keV,
-            levels=15,
-            bins=40,
-            weight=1 / Np_select,
-            dx_bin=0.015,
-            dy_bin=0.5,
-        )
+            g = utils.make_dist_plot(
+                dt / T_rf,
+                this_E / keV,
+                xlabel=r"Relative Time Difference $\Delta t / \tau_{rf}$",
+                ylabel=r"Relative Energy Difference $\Delta {E}$ (keV)",
+                auto_clip=True,
+                xref=0.0,
+                yref=this_Es / keV,
+                levels=15,
+                bins=40,
+                weight=1 / Np,
+                dx_bin=0.015,
+                dy_bin=0.5,
+            )
 
 
 # ------------------------------------------------------------------------------
@@ -449,34 +454,39 @@ Np_select = np.sum(mask)
 Np_zdiagnostic = np.zeros(len(zdiagnostics))
 if l_plot_bucket_diagnostics:
     for i, zloc in enumerate(zdiagnostics):
-        this_Np = len(Ediagnostic[mask, i])
-        this_Np_select = np.sum(abs(tdiagnostic[:, i] - t_sdiagnostic[i]) <= alpha_t)
-        Np_zdiagnostic[i] = this_Np_select
-        if this_Np < int(1e4):
-            rand_ints = np.random.randint(0, high=this_Np - 1, size=int(this_Np))
+        if i <= 13:
+            pass
         else:
-            rand_ints = np.random.randint(0, high=this_Np - 1, size=int(1e4))
-        # Grab energy and time
-        this_E = Ediagnostic[mask, i][rand_ints]
-        this_t = tdiagnostic[mask, i][rand_ints]
-        this_Es = E_sdiagnostic[i]
-        this_ts = t_sdiagnostic[i]
-        dt = this_t - this_ts
+            this_Np = len(Ediagnostic[mask, i])
+            this_Np_select = np.sum(
+                abs(tdiagnostic[:, i] - t_sdiagnostic[i]) <= alpha_t
+            )
+            Np_zdiagnostic[i] = this_Np_select
+            if this_Np < int(1e4):
+                rand_ints = np.random.randint(0, high=this_Np - 1, size=int(this_Np))
+            else:
+                rand_ints = np.random.randint(0, high=this_Np - 1, size=int(1e4))
+            # Grab energy and time
+            this_E = Ediagnostic[mask, i][rand_ints]
+            this_t = tdiagnostic[mask, i][rand_ints]
+            this_Es = E_sdiagnostic[i]
+            this_ts = t_sdiagnostic[i]
+            dt = this_t - this_ts
 
-        g = utils.make_dist_plot(
-            dt / T_rf,
-            this_E / keV,
-            xlabel=r"Relative Time Difference $\Delta t / \tau_{rf}$",
-            ylabel=r"Relative Energy Difference $\Delta {E}$ (keV)",
-            auto_clip=True,
-            xref=0.0,
-            yref=this_Es / keV,
-            levels=15,
-            bins=40,
-            weight=1 / Np_select,
-            dx_bin=0.015,
-            dy_bin=0.5,
-        )
+            g = utils.make_dist_plot(
+                dt / T_rf,
+                this_E / keV,
+                xlabel=r"Relative Time Difference $\Delta t / \tau_{rf}$",
+                ylabel=r"Relative Energy Difference $\Delta {E}$ (keV)",
+                auto_clip=True,
+                xref=0.0,
+                yref=this_Es / keV,
+                levels=15,
+                bins=40,
+                weight=1 / Np_select,
+                dx_bin=0.015,
+                dy_bin=0.5,
+            )
 
 
 # Plot design particle energy gain
