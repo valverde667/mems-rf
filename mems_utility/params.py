@@ -22,11 +22,12 @@ ns = 1.0e-9
 kV = 1.0e3
 
 keV = 1.0e3
-meV = 1.0e6
+MeV = 1.0e6
 GeV = 1.0e9
 
 MHz = 1.0e6
 
+mA = 1e-3
 uA = 1e-6
 
 
