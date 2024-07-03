@@ -512,7 +512,8 @@ class Lattice:
 
         # Separate the strings in the conductors. Loop through the elements and then
         # build arrays based on the scheme.
-        conductors = scheme.split("-")
+        scheme = list(scheme)
+        conductors = np.array([cond.lower() for cond in scheme if cond.isalpha()])
 
         quad_centers = []
         quad_lengths = []
