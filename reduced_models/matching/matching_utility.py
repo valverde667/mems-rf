@@ -520,101 +520,60 @@ class Lattice:
         gap_centers = []
         gap_lengths = []
 
+        z = [np.array([0])]
+        gap_data = [np.array([0])]
+        quad_data = [np.array([0])]
+
         for i, cond in enumerate(conductors):
-            if cond == "q":
-                z_patch = quad_info[1][q_counter]
-                this_zc = quad_info[0][q_counter]
-                this_zext = z_patch[-1] - z_patch[0]
-                this_field = quad_info[2][q_counter]
-
-                # Append some data before incrementation
-                quad_centers.append(this_zc)
-                quad_lengths.append(this_zext)
-                self.dz_quad = z_patch[1] - z_patch[0]
-                q_counter += 1
-
-                field_loc = np.where((z > z_patch[0]) & (z < z_patch[-1]))[0]
-
-                patch_start = field_loc[0]
-                patch_end = field_loc[-1]
-
-                z_left = z[:patch_start]
-                z_right = z[patch_end:]
-                l_qfield = quad_data[:patch_start]
-                r_qfield = quad_data[patch_end:]
-                l_gfield = gap_data[:patch_start]
-                r_gfield = gap_data[patch_end:]
-
-                # Check for overlap between patched area and zmesh. If there is, remove
-                # overlap and stitch together the patch.
-                left_overlap = np.where((z_patch[0] - z_left) < 0)[0]
-                if len(left_overlap) != 0:
-                    z_left = np.delete(z_left, left_overlap)
-                    l_qfield = np.delete(l_qfield, left_overlap)
-                    l_gfield = np.delete(l_gfield, left_overlap)
-
-                right_overlap = np.where((z_right - z_patch[-1]) < 0)[0]
-                if len(right_overlap) != 0:
-                    z_right = np.delete(z_right, right_overlap)
-                    r_qfield = np.delete(r_qfield, right_overlap)
-                    r_gfield = np.delete(r_gfield, right_overlap)
-
-                # Stitch fields together
-                z_patched = np.concatenate((z_left, z_patch, z_right))
-                qpatched = np.concatenate((l_qfield, this_field, r_qfield))
-                gpatched = np.concatenate((l_gfield, 0 * this_field, r_gfield))
-
-                # Rename previously defined meshs for continuity
-                z = z_patched
-                quad_data = qpatched
-                gap_data = gpatched
-
-            elif cond == "g":
+            if cond == "g":
                 z_patch = gap_info[1][g_counter]
                 this_zc = gap_info[0][g_counter]
                 this_zext = z_patch[-1] - z_patch[0]
                 this_field = gap_info[2][g_counter]
 
-                # Append some data before incrementation
-                gap_centers.append(this_zc)
-                quad_lengths.append(this_zext)
-                self.dz_gap = z_patch[1] - z_patch[0]
+                z1 = this_zc - z_patch[-1] - res
+                z2 = this_zc + z_patch[-1] + res
+
+                znew = np.arange(z[i][-1] + res, z1 + res, res)
+                pre_gap_data = np.zeros(len(znew))
+                pre_quad_data = np.zeros(len(znew))
+
+                # Stack arrays for the data leading up to the element and then
+                # element data.
+                znew = np.hstack((znew, z_patch))
+                this_gap_data = np.hstack((pre_gap_data, this_field))
+                this_quad_data = np.hstack((pre_quad_data, 0.0 * this_field))
+
+                # Attach new data to list
+                z.append(znew)
+                gap_data.append(this_gap_data)
+                quad_data.append(this_quad_data)
                 g_counter += 1
 
-                field_loc = np.where((z > z_patch[0]) & (z < z_patch[-1]))[0]
-                patch_start = field_loc[0]
-                patch_end = field_loc[-1]
+            elif cond == "q":
+                z_patch = quad_info[1][q_counter]
+                this_zc = quad_info[0][q_counter]
+                this_zext = z_patch[-1] - z_patch[0]
+                this_field = quad_info[2][q_counter]
 
-                z_left = z[:patch_start]
-                z_right = z[patch_end:]
-                l_qfield = quad_data[:patch_start]
-                r_qfield = quad_data[patch_end:]
-                l_gfield = gap_data[:patch_start]
-                r_gfield = gap_data[patch_end:]
+                z1 = this_zc - z_patch[-1] - res
+                z2 = this_zc + z_patch[-1] + res
 
-                # Check for overlap between patched area and zmesh. If there is, remove
-                # overlap and stitch together the patch.
-                left_overlap = np.where((z_patch[0] - z_left) < 0)[0]
-                if len(left_overlap) != 0:
-                    z_left = np.delete(z_left, left_overlap)
-                    l_qfield = np.delete(l_qfield, left_overlap)
-                    l_gfield = np.delete(l_gfield, left_overlap)
+                znew = np.arange(z[i][-1] + res, z1 + res, res)
+                pre_gap_data = np.zeros(len(znew))
+                pre_quad_data = np.zeros(len(znew))
 
-                right_overlap = np.where((z_right - z_patch[-1]) < 0)[0]
-                if len(right_overlap) != 0:
-                    z_right = np.delete(z_right, right_overlap)
-                    r_qfield = np.delete(r_qfield, right_overlap)
-                    r_gfield = np.delete(r_gfield, right_overlap)
+                # Stack arrays for the data leading up to the element and then
+                # element data.
+                znew = np.hstack((znew, z_patch))
+                this_quad_data = np.hstack((pre_quad_data, this_field))
+                this_gap_data = np.hstack((pre_gap_data, 0.0 * this_field))
 
-                # Stitch fields together
-                z_patched = np.concatenate((z_left, z_patch, z_right))
-                qpatched = np.concatenate((l_qfield, 0 * this_field, r_qfield))
-                gpatched = np.concatenate((l_gfield, this_field, r_gfield))
-
-                # Rename previously defined meshs for continuity
-                z = z_patched
-                quad_data = qpatched
-                gap_data = gpatched
+                # Attach new data to list
+                z.append(znew)
+                gap_data.append(this_gap_data)
+                quad_data.append(this_quad_data)
+                q_counter += 1
 
             else:
                 print("No conductor or scheme input incorrect. Check inputs.")
@@ -625,7 +584,7 @@ class Lattice:
             self.Nq = q_counter
             self.quad_centers = quad_centers
             self.quad_lengths = quad_lengths
-            self.quad_field_data = quad_data
+            self.quad_field_data = np.hstack(quad_data)
 
         else:
             self.Nq = 0
@@ -637,7 +596,7 @@ class Lattice:
             self.Ng = g_counter
             self.gap_centers = gap_centers
             self.gap_lengths = gap_lengths
-            self.gap_field_data = gap_data
+            self.gap_field_data = np.hstack(gap_data)
 
         else:
             self.Ng = 0
@@ -645,10 +604,7 @@ class Lattice:
             self.gap_lengths = 0
             self.gap_field_data = np.zeros(len(z))
 
-        self.z = z
-        self.quad_field_data = quad_data
-        self.gap_field_data = gap_data
-
+        self.z = np.hstack(z)
         return None
 
     def adv_particle(self, init_E):
