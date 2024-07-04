@@ -578,6 +578,7 @@ class Lattice:
             else:
                 print("No conductor or scheme input incorrect. Check inputs.")
 
+        self.z = np.hstack(z)
         # Check if quadrupoles and gaps were used. If so, store some information.
         # If not, store 0's and also create an array of zeros.
         if q_counter > 0:
@@ -590,7 +591,7 @@ class Lattice:
             self.Nq = 0
             self.quad_centers = 0
             self.quad_lengths = 0
-            self.quad_field_data = np.zeros(len(z))
+            self.quad_field_data = np.zeros(len(self.z))
 
         if g_counter > 0:
             self.Ng = g_counter
@@ -602,9 +603,8 @@ class Lattice:
             self.Ng = 0
             self.gap_centers = 0
             self.gap_lengths = 0
-            self.gap_field_data = np.zeros(len(z))
+            self.gap_field_data = np.zeros(len(self.z))
 
-        self.z = np.hstack(z)
         return None
 
     def adv_particle(self, init_E):
