@@ -61,9 +61,9 @@ gap_z = np.load("normalized_iso_z.npy")
 
 # Beam parameters
 mass = 39.948 * amu * pow(sc.c, 2) / sc.elementary_charge  # eV
-init_E = 7 * keV
-init_Q = 6.986e-5
-init_emit = 1.344 * mm * mrad
+init_E = 33.22 * keV
+init_Q = 1.4729e-5
+init_emit = 0.6169 * mm * mrad
 init_rx = 0.25 * mm
 init_ry = 0.25 * mm
 init_rxp = 2.7 * mrad
@@ -79,8 +79,8 @@ Vg = 6 * kV * 1.007
 Vaccel = abs(np.cos(phi_s))[:-1] * Vg
 
 # Quad Parameters
-V1 = 0.0
-V2 = 0.0
+V1 = 193
+V2 = -193
 grad_scale_factor = 6.40e6  # Found numerically
 # grad_scale_factor = 6.613e6  # Found numerically, twostack
 # grad_scale_factor = 6.62594e6  # Found numerically, threestack
@@ -91,7 +91,7 @@ separation = 5 * um
 
 # Geometric settings for lattice
 aperture = 0.55 * mm
-scheme = "g-g-q-q"
+scheme = "ggqq"
 gap_centers = util.calc_gap_centers(init_E, mass, phi_s, gap_mode, freq, Vg)
 gap_centers = gap_centers - gap_centers.min() + g / 2.0
 zstart = 0.0
