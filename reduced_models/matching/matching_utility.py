@@ -204,6 +204,7 @@ def calc_quad_centers(gap_centers, lq, d, g, spacing):
             return np.array(quad_centers)
         else:
             zdrift = gap_centers[2 * i] - gap_centers[2 * i - 1] - g
+
             if type(spacing) == float:
                 zquad = 2 * lq + d
 
@@ -235,6 +236,10 @@ def calc_quad_centers(gap_centers, lq, d, g, spacing):
                 if spacing == "equal":
                     zquad = 2.0 * lq
                     free_space = zdrift - zquad
+                    if free_space < 0:
+                        print("Not enough room to fit quads.")
+                        break
+
                     d = free_space / 4.0
 
                     z1 = gap_centers[2 * i - 1] + g / 2 + d + lq / 2.0
@@ -243,9 +248,13 @@ def calc_quad_centers(gap_centers, lq, d, g, spacing):
                     quad_centers.append(z2)
 
                 elif spacing == "maxsep":
-                    pad = 0.05 * lq
-                    z1 = gap_centers[2 * i - 1] + g + lq / 2
-                    z2 = gap_centers[2 * i] - g - lq / 2
+                    free_space = zdrift - zquad * (1 + 0.02)
+                    if free_space < 0:
+                        print("Not enough room to fit quads.")
+                        break
+                    pad = 0.01 * lq
+                    z1 = gap_centers[2 * i - 1] + g + lq / 2 + pad
+                    z2 = gap_centers[2 * i] - g - lq / 2 - pad
                     quad_centers.append(z1)
                     quad_centers.append(z2)
 
@@ -531,10 +540,10 @@ class Lattice:
                 this_zext = z_patch[-1] - z_patch[0]
                 this_field = gap_info[2][g_counter]
 
-                z1 = this_zc - z_patch[-1] - res
-                z2 = this_zc + z_patch[-1] + res
+                z1 = this_zc - 0.5 * this_zext
+                z2 = this_zc + 0.5 * this_zext
 
-                znew = np.arange(z[i][-1] + res, z1 + res, res)
+                znew = np.arange(z[i][-1] + res, z1, res)
                 pre_gap_data = np.zeros(len(znew))
                 pre_quad_data = np.zeros(len(znew))
 
@@ -556,10 +565,10 @@ class Lattice:
                 this_zext = z_patch[-1] - z_patch[0]
                 this_field = quad_info[2][q_counter]
 
-                z1 = this_zc - z_patch[-1] - res
-                z2 = this_zc + z_patch[-1] + res
+                z1 = this_zc - 0.5 * this_zext
+                z2 = this_zc + 0.5 * this_zext
 
-                znew = np.arange(z[i][-1] + res, z1 + res, res)
+                znew = np.arange(z[i][-1] + res, z1, res)
                 pre_gap_data = np.zeros(len(znew))
                 pre_quad_data = np.zeros(len(znew))
 
